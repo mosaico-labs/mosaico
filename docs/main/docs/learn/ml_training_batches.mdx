@@ -1,0 +1,206 @@
+---
+title: Preparing PyTorch Training Batches
+sidebar_position: 13
+description: "How to turn a multi-sensor Mosaico Sequence into fixed-length, synchronized tensors ready for a PyTorch DataLoader. Covers windowed extraction with DataFrameExtractor, multi-rate resampling with SyncTransformer and SyncHold, handling the NaNs that precede a sensor's first measurement, and streaming sliding windows through a PyTorch IterableDataset."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Everything read back so far in these guides comes out one `Message` at a time, at whatever rate each sensor was originally recorded. That is the right shape for replay and analysis, but not for training: a model expects dense, fixed-shape batches, with every input feature aligned to the same timeline. This guide builds that bridge for a concrete case — fusing a high-rate IMU and a low-rate GPS into fixed-length windows a PyTorch `DataLoader` can consume — using the [ML module](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/) covered in the Python SDK reference.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Machine Learning & Analytics](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/)
+
+[API Reference: ML Module](https://docs.mosaico.dev/python-sdk/SDK/API_reference/bridges/ml/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Install PyTorch"
+pip install mosaicolabs torch
+```
+
+## The Three-Stage Pipeline
+
+Getting from a Sequence to a training batch means solving three separate problems, each handled by its own component:
+
+1. **Extract**: pull a Sequence's Topics into memory as tabular chunks without loading the whole recording at once — [`DataFrameExtractor`](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/#from-sequences-to-dataframes).
+2. **Synchronize**: an IMU firing at 100 Hz and a GPS updating at 5 Hz do not share a timeline; align both onto one fixed-frequency grid — [`SyncTransformer`](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/#sparse-to-dense-representation).
+3. **Window**: slice the now-dense, uniformly-sampled stream into fixed-length tensors a model can batch — plain PyTorch, shown below.
+
+The example ingests `/vehicle/imu` (`IMU`, `acceleration.x/y/z`) and `/vehicle/gps` (`GPS`, `position.x/y/z`) from a Sequence named `road_test_003`, and produces windows of shape `(window_size, 6)` — three IMU axes plus three GPS position components per timestep.
+
+## Extracting Windowed DataFrames
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+`DataFrameExtractor.to_pandas_chunks()` yields one flattened, sparse `pandas.DataFrame` per time window, instead of loading the entire Sequence into RAM. Columns are named `{topic_name}.{ontology_tag}.{field_path}`; rows without a measurement for a given column at that exact timestamp are `NaN` — this is expected, since the IMU and the GPS were not sampled at the same instants.
+
+```python title="Windowed extraction"
+from mosaicolabs import MosaicoClient
+from mosaicolabs.ml import DataFrameExtractor
+
+FEATURE_COLUMNS = [
+    "/vehicle/imu.IMU.acceleration.x",
+    "/vehicle/imu.IMU.acceleration.y",
+    "/vehicle/imu.IMU.acceleration.z",
+    "/vehicle/gps.GPS.position.x",
+    "/vehicle/gps.GPS.position.y",
+    "/vehicle/gps.GPS.position.z",
+]
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    seq_handler = client.sequence_handler("road_test_003")
+    extractor = DataFrameExtractor(seq_handler)
+
+    for sparse_chunk in extractor.to_pandas_chunks(
+        topics=["/vehicle/imu", "/vehicle/gps"],
+        window_sec=10.0,
+    ):
+        print(sparse_chunk[["timestamp_ns", *FEATURE_COLUMNS]].head())
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+`window_sec` trades off memory against overhead: smaller windows keep RAM usage low on long recordings, at the cost of more round trips. See [Memory & Performance Best Practices](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/#memory-performance-best-practices) for tuning guidance.
+
+## Resampling onto a Fixed Grid
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+`SyncTransformer` turns each sparse chunk into a dense one, sampled at a constant `target_fps`, carrying the last known value of each column forward via a `SyncPolicy` — here `SyncHold`, the simplest and most common choice for continuous physical signals like acceleration or position.
+
+```python title="Multi-rate resampling"
+from mosaicolabs.ml import SyncTransformer, SyncHold
+
+# Created ONCE, outside the loop: see the warning below.
+sync = SyncTransformer(target_fps=50.0, policy=SyncHold())
+
+for sparse_chunk in extractor.to_pandas_chunks(
+    topics=["/vehicle/imu", "/vehicle/gps"],
+    window_sec=10.0,
+):
+    dense_chunk = sync.fit(sparse_chunk).transform(sparse_chunk)
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+:::danger["Re-instantiation" breaks continuity]
+`SyncTransformer` is **stateful**: it remembers the last value of every column and the next expected grid tick across chunks. Creating a new instance inside the `for` loop resets that state on every chunk, causing discontinuities right where consecutive chunks meet. See [The 'Re-instantiation' Trap](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/#internal-state-management) for the full explanation.
+:::
+
+`dense_chunk` now has one row per grid tick (every 20ms, at 50 Hz) and the same `FEATURE_COLUMNS` as before, but fully populated — with one exception: grid ticks that occur **before** the very first GPS fix (or the very first IMU sample) have no prior value to hold, so `SyncHold` leaves them as `NaN` rather than inventing one. In practice this only affects the opening milliseconds of the very first chunk.
+
+## From Dense Rows to Training Windows
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+With a dense, fixed-rate stream in hand, the remaining step is plain PyTorch: slice it into fixed-length, overlapping-free windows and hand them to a `DataLoader`. Because chunks arrive one at a time from the extractor, an `IterableDataset` is a better fit here than a map-style `Dataset` — it can start yielding windows as soon as the first chunk is synchronized, without knowing the total length of the Sequence up front. A small `carry` buffer holds the leftover rows that don't fill a complete window yet, so no data is dropped at chunk boundaries.
+
+```python title="Streaming windows into a PyTorch IterableDataset"
+import numpy as np
+import torch
+from torch.utils.data import DataLoader, IterableDataset
+
+from mosaicolabs import MosaicoClient
+from mosaicolabs.ml import DataFrameExtractor, SyncTransformer, SyncHold
+
+WINDOW_SIZE = 50  # 1 second of context at 50 Hz
+
+
+class ImuGpsWindowDataset(IterableDataset):
+    def __init__(self, sequence_handler, window_size=WINDOW_SIZE, target_fps=50.0):
+        self._sequence_handler = sequence_handler
+        self._window_size = window_size
+        self._target_fps = target_fps
+
+    def __iter__(self):
+        extractor = DataFrameExtractor(self._sequence_handler)
+        sync = SyncTransformer(target_fps=self._target_fps, policy=SyncHold())
+        carry = np.empty((0, len(FEATURE_COLUMNS)), dtype=np.float32)
+
+        for sparse_chunk in extractor.to_pandas_chunks(
+            topics=["/vehicle/imu", "/vehicle/gps"],
+            window_sec=10.0,
+        ):
+            dense_chunk = sync.fit(sparse_chunk).transform(sparse_chunk)
+
+            # Drop rows preceding the first measurement of any feature (see note above)
+            values = dense_chunk[FEATURE_COLUMNS].dropna().to_numpy(dtype=np.float32)
+            values = np.concatenate([carry, values], axis=0)
+
+            n_windows = len(values) // self._window_size
+            for i in range(n_windows):
+                window = values[i * self._window_size : (i + 1) * self._window_size]
+                yield torch.from_numpy(window)
+
+            carry = values[n_windows * self._window_size :]
+
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    seq_handler = client.sequence_handler("road_test_003")
+    dataset = ImuGpsWindowDataset(seq_handler)
+    loader = DataLoader(dataset, batch_size=32)
+
+    for batch in loader:
+        # batch.shape == (32, WINDOW_SIZE, 6): (batch, time, IMU+GPS features)
+        pass  # feed `batch` into your model's training step
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Key Concepts
+
+- **Three independent stages**: extraction (I/O and memory), synchronization (temporal alignment), windowing (batch shape). Each can be tuned or swapped without touching the others — e.g. changing `target_fps` or the `SyncPolicy` never requires touching the extraction or windowing code.
+- **Statefulness matters twice**: `SyncTransformer` must be created once and reused across chunks, and the sliding-window `carry` buffer above serves the same purpose one level up — preserving continuity across chunk boundaries so no window is lost or duplicated.
+- **`IterableDataset` fits streaming extraction**: unlike a map-style `Dataset`, it does not require knowing the Sequence's total length upfront, and lets training start consuming windows before the whole Sequence has been read.
+- **Images need one more stage**: if a Topic carries `CompressedImage` data, decode it with [`VideoDecodingTransformer`](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/#video-decoding-for-ml-pipelines) *before* the `SyncTransformer` step — decoding must happen while frames are still in their original chronological order.

@@ -9,7 +9,7 @@ description: Architecture and design of the MosaicoClient.
 The `MosaicoClient` is a resource manager designed to orchestrate distinct **Layers** of communication and processing. 
 This layered architecture ensures that high-throughput sensor data does not block critical control operations or application logic.
 
-Creating a new client is done via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] factory method. It is recomended to always use the client inside a `with` context to ensure resources in all layers are cleanly released.
+Creating a new client is done via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] factory method. It is recommended to always use the client inside a `with` context to ensure resources in all layers are cleanly released.
 
 ```python
 from mosaicolabs import MosaicoClient
@@ -34,20 +34,18 @@ The SDK operates on a **Synchronous Processing Model**, where serialization and 
 The Security Layer manages the confidentiality and integrity of the communication channel. It is composed of two primary mechanisms that work in tandem to harden the connection.
 
 ### 1. Encryption (TLS)
-For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](https://docs.mosaico.dev/daemon/tls). Two connection modes are available via SDK, depending on the configuratiom of the Mosaico server:
+For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](https://docs.mosaico.dev/daemon/tls). Two connection modes are available via SDK, depending on the configuration of the Mosaico server:
 
-* **One-way TLS**, server authenticated only
+* **One-way TLS**, server authenticated only, using the system CA bundle
   ```python
   MosaicoClient.connect("localhost", 6726, enable_tls=True)
   ```
-* **Two-way TLS**, via providing a certificate file
+* **One-way TLS with a custom CA certificate**, via providing a certificate file
   ```python
   MosaicoClient.connect("localhost", 6726, tls_cert_path="my/cert/file/path.pem")
   ```
 
-In both modes, the client automatically switches from an insecure channel to an encrypted one via `grpc+tls` protocol. The **One-way TLS** mode is available by setting `enable_tls=True` when calling [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect], and providing no certificate. 
-On the other hand, the **Two-way TLS** mode is available by passing the TLS certificate path via `tls_cert_path` parameter when calling [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect]. 
-In such a case, there is no need to set the `enable_tls=True` flag.
+In both modes, the client automatically switches from an insecure channel to an encrypted one via the `grpc+tls` protocol. Note that both remain server-authenticated only: the client never presents a certificate of its own, so there is no mutual TLS (mTLS) mode. When `tls_cert_path` is set, there is no need to also set `enable_tls=True`.
 
 ### 2. Authentication (API Key)
 Mosaico uses an [**API Key** system](https://docs.mosaico.dev/daemon/api_key) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.
@@ -65,17 +63,14 @@ with MosaicoClient.connect(
 ```
 
 !!! warning "API-Key and TLS"
-    TLS is not mandatory for connecting via API-keys. It is recommended to enable the support for TLS in the server, to avoid sensitive credential to be sent on unencrypted channels.
+    TLS is not mandatory for connecting via API-keys. It is recommended to enable the support for TLS in the server, to avoid sensitive credentials being sent over unencrypted channels.
 
 ### Recommended Patterns
 
 #### Explicit Connection
-Ideal for local development or scripts where credentials are managed by a secrets manager.
+Ideal for local development or scripts where credentials are managed by a secrets manager. Same as the API Key example above, with a `tls_cert_path` added to also enable TLS:
 
 ```python
-from mosaicolabs import MosaicoClient
-
-# The client handles the handshake and credential injection automatically
 with MosaicoClient.connect(
     host="mosaico.production.cluster",
     port=6726,

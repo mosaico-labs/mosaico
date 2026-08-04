@@ -39,8 +39,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"\t| Topics: {seq_handler.topics}")
         print(f"\t| User metadata: {seq_handler.user_metadata}")
         print(f"\t| Timestamp span: {seq_handler.timestamp_ns_min} - {seq_handler.timestamp_ns_max}")
-        print(f"\t| Created {seq_handler.sequence_info.created_datetime}")
-        print(f"\t| Size (MB) {seq_handler.sequence_info.total_size_bytes/(1024*1024)}")
+        print(f"\t| Created {seq_handler.created_timestamp}")
+        print(f"\t| Size (MB) {seq_handler.total_size_bytes/(1024*1024)}")
 
         # Once done, close the reading channel (recommended)
         seq_handler.close()
@@ -71,8 +71,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"Sequence:Topic: {top_handler.sequence_name}:{top_handler.name}")
         print(f"\t| User metadata: {top_handler.user_metadata}")
         print(f"\t| Timestamp span: {top_handler.timestamp_ns_min} - {top_handler.timestamp_ns_max}")
-        print(f"\t| Created {top_handler.topic_info.created_datetime}")
-        print(f"\t| Size (MB) {top_handler.topic_info.total_size_bytes/(1024*1024)}")
+        print(f"\t| Created {top_handler.created_timestamp}")
+        print(f"\t| Size (MB) {top_handler.total_size_bytes/(1024*1024)}")
 
         # Once done, close the reading channel (recommended)
         top_handler.close()

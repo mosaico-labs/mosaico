@@ -49,7 +49,8 @@ The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][
 ```python
 from pathlib import Path
 from mosaicolabs import SessionLevelErrorPolicy, TopicLevelErrorPolicy
-from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
+from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+from rosbags.typesys import Stores
 
 def run_injection():
     # Define the Injection Configuration
@@ -89,7 +90,7 @@ def run_injection():
         # Use specific adapters for designated topics instead of the default.
         # In this case, instead to use PointCloudAdapter for depth camera,
         # MyCustomRGBDAdapter will be used for the specified topic.
-        adapter_override={
+        adapter_overrides={
             "/camera/depth/points": MyCustomRGBDAdapter,
         },
 
@@ -97,7 +98,7 @@ def run_injection():
         log_level="WARNING",  # Reduce verbosity for automated scripts
 
         # Session Level Error Handling
-        on_error=SessionLevelErrorPolicy.Report # Report the error and terminate the session
+        on_error=SessionLevelErrorPolicy.Report, # Report the error and terminate the session
 
         # Topic Level Error Handling
         topics_on_error=TopicLevelErrorPolicy.Raise # Re-raise any exception
@@ -133,7 +134,7 @@ This layer represents the default semantic core of the module, translating raw R
 Users can extend the bridge to support new ROS message types by implementing a custom adapter and registering it.
 
 1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
-2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an intance of the target ontology object.
+2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an instance of the target ontology object.
 3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
 
 ```python
@@ -164,11 +165,12 @@ This is possible because ROS bag files carry the schema of every message type al
 See [Advanced: Ingesting Unmodeled Ontologies](../ontology.md#advanced-ingesting-unmodeled-ontologies) for the full mechanics of the `Unmodeled` ontology type — including how schema-variant fingerprinting keeps multiple versions of the same tag apart, and, most importantly, how to **query** this data on the server without ever needing to resolve a Python class for it.
 
 #### Override Adapters
-This section explains how to extend the bridge's capabilities by implementing and registering Override Adapters.
+
+Unlike the Custom Adapters above, which register a *new* mapping for a ROS type that has no default adapter, Override Adapters replace the *default* adapter for one specific topic only, leaving every other topic of that same ROS type on the standard path. This section explains how to implement and register them.
 
 ##### Overriding and Extending Adapters
 While the ROS Bridge provides a robust set of default adapters for standard message types, real-world robotics often involve proprietary message definitions or non-standard uses of common types.
-Through the **`adapter_override`** parameter in the `ROSInjectionConfig`, you can explicitly map a specific topic to a chosen adapter. This is particularly useful for types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where, for example, different LiDAR vendors may encode data in unique ways that require specialized parsing logic.
+Through the **`adapter_overrides`** parameter in the `ROSInjectionConfig`, you can explicitly map a specific topic to a chosen adapter. This is particularly useful for types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where, for example, different LiDAR vendors may encode data in unique ways that require specialized parsing logic.
 
 !!! important "Override adapter usage"
     Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be defined and used when a given ROS message type has its own **default adapter** registered in the `ROSBridge` registry, but such an adapter cannot satisfy topic-specific requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
@@ -207,7 +209,8 @@ Note that the adapter is **not** registered as default, since `sensor_msgs/msg/P
 ```python
 from typing import Any, Optional, Type
 from mosaicolabs import Message
-from mosaicolabs.ros_bridge import PointCloudAdapterBase, ROSMessage
+from mosaicolabs.ros_bridge import ROSMessage
+from mosaicolabs.ros_bridge.adapters import PointCloudAdapterBase
 from my_ontology import MyLidar # Your target Ontology class
 
 class MyLidarAdapter(PointCloudAdapterBase[MyVelodyneLidar]):
@@ -260,7 +263,7 @@ class MyLidarAdapter(PointCloudAdapterBase[MyVelodyneLidar]):
     Only `_build` is mandatory. Override `translate`, `from_dict`, or `schema_metadata` only when the default behaviour of the base class does not meet your needs.
 
 ##### Registering the Override
-Once implemented, the adapter is registered against a specific topic via `adapter_override` in [ROSInjectionConfig][mosaicolabs.ros_bridge.ROSInjectionConfig]:
+Once implemented, the adapter is registered against a specific topic via `adapter_overrides` in [ROSInjectionConfig][mosaicolabs.ros_bridge.ROSInjectionConfig]:
 
 ```python
 from .my_adapter import MyLidarAdapter
@@ -271,7 +274,7 @@ config = ROSInjectionConfig(
     file_path=Path("sensor_data.mcap"),
     sequence_name="custom_lidar_run",
     # Explicitly tell the bridge to use your custom adapter for this topic
-    adapter_override={
+    adapter_overrides={
         "/lidar/front/pointcloud": MyLidarAdapter,
     }
 )
@@ -288,7 +291,7 @@ By using this pattern, you can maintain a clean separation between your raw ROS 
 
 ##### Implementing a Custom Adapter Override
 To create a custom adapter that overrides a existing ROS message, you must inherit from `ROSAdapterBase` and define the transformation logic.
-Follow the steps described [here](#extending-the-bridge-custom-adapters) with the only caveat not to register the adapter with `@register_default_adapter` but insted [register the override](#registering-the-override)
+Follow the steps described [here](#extending-the-bridge-custom-adapters) with the only caveat not to register the adapter with `@register_default_adapter` but instead [register the override](#registering-the-override)
 
 #### CLI Usage
 
@@ -331,7 +334,8 @@ A clean way to manage large projects is to centralize your message registration 
 
 ```python
 from pathlib import Path
-from mosaicolabs.ros_bridge import ROSTypeRegistry, Stores
+from mosaicolabs.ros_bridge import ROSTypeRegistry
+from rosbags.typesys import Stores
 
 def initialize_project_schemas():
     # 1. Register a proprietary message valid for all ROS versions
@@ -354,7 +358,8 @@ Once registered, the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] (
 ```python
 # main_injection.py
 import setup_registry  # Runs the registration logic above
-from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
+from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+from rosbags.typesys import Stores
 from pathlib import Path
 
 # Initialize registry
@@ -376,15 +381,11 @@ ingestor.run()
 
 ### Testing & Validation
 
-The ROS Bag Injection module has been validated against a variety of standard datasets to ensure compatibility with different ROS distributions, message serialization formats (CDR/ROS 1), and bag container formats (`.bag`, `.mcap`, `.db3`).
-
-#### Recommended Dataset for Verification
-
-For evaluating Mosaico capabilities, we recommend the **[NVIDIA NGC Catalog - R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1)**. This dataset has been verified to be fully compatible with the injection pipeline.
-
-The following table details the injection performance for the **NVIDIA R2B Dataset 2024**. These benchmarks were captured on a system running **macOS 26.2** with an **Apple M2 Pro (10 cores, 16GB RAM)**.
+The ROS Bag Injection module has been validated against a variety of standard datasets to ensure compatibility with different ROS distributions, message serialization formats (CDR/ROS 1), and bag container formats (`.bag`, `.mcap`, `.db3`). For evaluating Mosaico capabilities, we recommend the **[NVIDIA NGC Catalog - R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1)**, which has been verified to be fully compatible with the injection pipeline.
 
 #### NVIDIA R2B Dataset 2024 Injection Performance
+
+Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB RAM)**. Injection time includes local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and transmission to the Mosaico server. Compression factor depends on the data itself: scalar telemetry compresses well (~70%), while pre-compressed video feeds show minimal gains (~1%) since the data is already dense.
 
 | Sequence Name | Compression Factor | Injection Time | Hardware Architecture | Notes |
 | --- | --- | --- | --- | --- |
@@ -393,26 +394,12 @@ The following table details the injection performance for the **NVIDIA R2B Datas
 | **`r2b_robotarm`** | ~66% | ~50 sec | Apple M2 Pro (16GB) | High efficiency for high-frequency state updates. |
 | **`r2b_whitetunnel`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression; contains topics with no available adapter. |
 
-#### Understanding Performance Factors
-
-* **Compression Factors**: Sequences like `r2b_galileo2` achieve high ratios (~70%) because Mosaico optimizes the underlying columnar storage for scalar telemetry. Conversely, sequences with pre-compressed video feeds show minimal gains (~1%) because the data is already in a dense format.
-* **Injection Time**: This metric includes the overhead of local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and the transmission to the Mosaico server.
-
 #### Known Issues & Limitations
 
 While the underlying `rosbags` library supports the majority of standard ROS 2 bag files, specific datasets with non-standard serialization alignment or proprietary encodings may encounter compatibility issues.
 
-**NVIDIA Isaac ROS Benchmark Dataset (2023)**
-
-  * **Source:** [NVIDIA NGC Catalog - R2B Dataset 2023](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2023)
-  * **Issue:** Deserialization failure during ingestion.
-  * **Technical Details:** The ingestion process fails within the [`AnyReader.deserialize`](https://ternaris.gitlab.io/rosbags/api/rosbags.highlevel.html#rosbags.highlevel.AnyReader.deserialize) method of the [`rosbags`](https://ternaris.gitlab.io/rosbags/index.html) library. The internal CDR deserializer triggers an assertion error indicating a mismatch in the expected data length vs. the raw payload size.
-  * **Error Signature:**
-    ```python
-    # In rosbags.serde.cdr:
-    assert pos + 4 + 3 >= len(rawdata)
-    ```
-  * **Recommendation:** This issue originates in the upstream parser handling of this specific dataset's serialization alignment. It is currently recommended to exclude this dataset or transcode it using standard ROS 2 tools before ingestion.
+!!! warning "NVIDIA Isaac ROS Benchmark Dataset (2023)"
+    The **[R2B Dataset 2023](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2023)** (unlike the 2024 release above) fails to deserialize: the [`AnyReader.deserialize`](https://ternaris.gitlab.io/rosbags/api/rosbags.highlevel.html#rosbags.highlevel.AnyReader.deserialize) method of the [`rosbags`](https://ternaris.gitlab.io/rosbags/index.html) library raises an assertion error (`assert pos + 4 + 3 >= len(rawdata)` in `rosbags.serde.cdr`), indicating a mismatch between the expected data length and the raw payload size. This originates in the upstream parser's handling of this dataset's serialization alignment; exclude it or transcode it with standard ROS 2 tools before ingestion.
 
 
 ## Supported Message Types
@@ -458,8 +445,10 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`sensor_msgs/msg/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |
   | [`sensor_msgs/msg/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html) | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | `RobotJointAdapter` |
   | [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.ros_bridge.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
-  | [`sensor_msgs/msg/Temperature`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Temperature.html) | [`Temperature`][mosaicolabs.models.sensors.Temperature] (ROS-specific)| `TemperatureAdapter` |
-  | [`sensor_msgs/msg/FluidPressure`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/FluidPressure.html) | [`FluidPressure`][mosaicolabs.models.sensors.Pressure] (ROS-specific)| `PressureAdapter` |
+  | [`sensor_msgs/msg/Temperature`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Temperature.html) | [`Temperature`][mosaicolabs.models.sensors.Temperature] | `TemperatureAdapter` |
+  | [`sensor_msgs/msg/FluidPressure`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/FluidPressure.html) | [`FluidPressure`][mosaicolabs.models.sensors.Pressure] | `PressureAdapter` |
+  | [`sensor_msgs/msg/LaserScan`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/LaserScan.html) | [`LaserScan`][mosaicolabs.models.futures.LaserScan] (ROS-specific)| `LaserScanAdapter` |
+  | [`sensor_msgs/msg/MultiEchoLaserScan`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/MultiEchoLaserScan.html) | [`MultiEchoLaserScan`][mosaicolabs.models.futures.MultiEchoLaserScan] (ROS-specific)| `MultiEchoLaserScanAdapter` |
   | [`std_msgs/msg/String`](https://docs.ros2.org/foxy/api/std_msgs/msg/String.html)| [`String`][mosaicolabs.models.data.String]| `_GenericStdAdapter` |
   | [`std_msgs/msg/Int8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Int8.html) | [`Integer8(16,32,64)`][mosaicolabs.models.data.Integer8]| `_GenericStdAdapter` |
   | [`std_msgs/msg/UInt8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/UInt8.html) | [`Unsigned8(16,32,64)`][mosaicolabs.models.data.Unsigned8]| `_GenericStdAdapter` |

@@ -42,30 +42,23 @@ The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main
 
 ## Custom Ontology Definition
 
-The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same custom, hand-modeled type introduced in the [Custom Ontology](./custom_ontology) example to make wheel-encoder ticks ingestible:
-
-```python title="Custom EncoderTicks model"
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
-
-class EncoderTicks(Serializable):
-    left_ticks: MosaicoType.uint32 = MosaicoField(
-        description="Cumulative counts from the left wheel encoder."
-    )
-    right_ticks: MosaicoType.uint32 = MosaicoField(
-        description="Cumulative counts from the right wheel encoder."
-    )
-    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
-        description="Timestamp of the encoder ticks."
-    )
-```
+The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same custom, hand-modeled type introduced in the [Custom Ontology](./custom_ontology) example to make wheel-encoder ticks ingestible (reused here without modification).
 
 ## No Adapter Needed to Reconstruct
 
-The [ROS Ingestion](./ros_ingestion) example writes `EncoderTicksAdapter` by hand (imported here via `ros_injection.custom_ontology`, see [ROS Ingestion](./ros_ingestion#ros-adapter)) to get a fully-typed, queryable `EncoderTicks` model, but that step is a choice, not a requirement. Writing a reverse adapter is optional too: for any topic that reaches the extractor with no adapter registered for its ROS message type, the bridge falls back to the same automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) used at ingestion time. Since the original `.msg` definition was already captured as topic metadata when the sequence was ingested, the extractor can recover it, re-register it with the local ROS typestore, and reconstruct the native ROS message from it. See [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) for the full mechanics of this round-trip.
+**Reuse, not required.** The [ROS Ingestion](./ros_ingestion) example writes `EncoderTicksAdapter` by hand (imported here via `ros_injection.custom_ontology`, see [ROS Ingestion](./ros_ingestion#ros-adapter)) to get a fully-typed, queryable `EncoderTicks` model, but that step is a choice, not a requirement.
+
+**Automatic fallback.** Writing a reverse adapter is optional too: for any topic that reaches the extractor with no adapter registered for its ROS message type, the bridge falls back to the same automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) used at ingestion time. Since the original `.msg` definition was already captured as topic metadata when the sequence was ingested, the extractor can recover it, re-register it with the local ROS typestore, and reconstruct the native ROS message from it. See [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) for the full mechanics of this round-trip.
 
 ## Reconstruction Pipeline
 
-`ROSSequenceExtractor.run()` mirrors the injector's pipeline in reverse: it connects to Mosaico, streams every message of the requested sequence back out, resolves the adapter for each topic (falling back to the automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) as described above), and writes the translated ROS messages into a fresh bag under `rosbag_path/sequence_name`.
+`ROSSequenceExtractor.run()` mirrors the injector's pipeline in reverse:
+
+**Connect.** Opens a connection to Mosaico using the credentials and TLS settings in `ROSExtractorConfig`.
+
+**Stream.** Reads back every message of the requested sequence, resolving the adapter for each topic (falling back to the automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) as described above).
+
+**Write.** Translates each message back into its native ROS type and writes it into a fresh bag under `rosbag_path/sequence_name`.
 
 ```python title="Reconstruct every ingested sequence"
 BAG_FILE_PATH = Path(ASSET_DIR) / "reconstructed"

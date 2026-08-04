@@ -1,0 +1,360 @@
+---
+title: Live Streaming to Foxglove
+sidebar_position: 14
+description: "How to stream Mosaico Sequence data directly into a live Foxglove session over the Foxglove WebSocket protocol, without exporting to MCAP first. Covers starting a Foxglove WebSocket server as the only sink, mapping Mosaico Ontology fields onto well-known Foxglove schemas instead of raw JSON, correctly mapping Message.timestamp_ns and Header.timestamp onto Foxglove's log_time and schema-level timestamp, pacing a replay to wall-clock time, and the WebSocketServer lifecycle."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Getting a Mosaico Sequence into Foxglove doesn't require an intermediate file. The [Foxglove SDK](https://pypi.org/project/foxglove-sdk/) can open a live WebSocket server directly inside your Python process; anything you `log()` to it is broadcast immediately to whatever Foxglove app is connected, with nothing ever written to disk. This guide covers replaying an already-ingested Sequence into a live Foxglove session at its original cadence — useful for a review session or a quick sanity check — using `RobotJoint` data as the running example.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Reading Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/reading/)
+
+[Doc: Message (The Envelope)](https://docs.mosaico.dev/python-sdk/SDK/ontology/#message-the-envelope)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Install the Foxglove SDK"
+pip install mosaicolabs foxglove-sdk
+```
+
+## Why a Live WebSocket Sink, Not a File
+
+Writing an MCAP file and opening it in Foxglove is a perfectly valid workflow, but it is a *different* one: it produces a file you load afterwards. `foxglove.start_server()` instead opens a WebSocket server that acts as a live sink — every message you log through it is pushed straight to any connected Foxglove client, the moment you log it. Nothing is buffered to disk, and there is no file to clean up afterwards; the data only ever exists as a live stream, exactly like a robot's UI would display it while running. In Foxglove itself, this is "Open connection" → "Foxglove WebSocket" instead of "Open local file".
+
+## Locating the Data
+
+Finding and validating the Topic to replay uses the same `QuerySequence`/`QueryTopic` + `TopicHandler` pattern covered in the [MuJoCo Visualisation](https://docs.mosaico.dev/examples/mujoco_visualisation) example: filter by `RobotJoint.ontology_tag()` to find joint-state Topics regardless of how the channel happens to be named, then confirm the match with a `TopicHandler` before streaming anything.
+
+## Mapping Ontology Types onto Well-Known Foxglove Schemas
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+The simplest way to get something on screen is `foxglove.log(topic, {"some": "dict"})`: it creates a schemaless JSON channel, and Foxglove can only render it generically — one line per dictionary key in a Plot panel, at best. The [`foxglove.channels`](https://pypi.org/project/foxglove-sdk/) module ships typed channels for well-known robotics concepts instead, and one of them — `JointStatesChannel` — maps directly onto `RobotJoint`: same index-aligned arrays of names, positions, velocities, and efforts, just organized as a list of per-joint structs rather than parallel lists. Using it gets you Foxglove's dedicated joint-state visualizations for free, instead of a generic plot.
+
+```python title="Well-known schema instead of raw JSON"
+from foxglove.channels import JointStatesChannel
+from foxglove.messages import JointState, JointStates
+
+# Created ONCE, outside the streaming loop — see "Server Lifecycle" below.
+joint_channel = JointStatesChannel("/robot/joint_states")
+
+def to_joint_states(joints: RobotJoint) -> JointStates:
+    return JointStates(
+        joints=[
+            JointState(name=name, position=pos, velocity=vel, effort=eff)
+            for name, pos, vel, eff in zip(
+                joints.names, joints.positions, joints.velocities, joints.efforts
+            )
+        ],
+    )
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+The channel is created once, before the streaming loop, and reused for every message — exactly like a `TopicWriter` on the write side: creating a new `JointStatesChannel` for the same topic on every message would just be wasted work.
+
+## Streaming Class-less (`Unmodeled`) Data
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+Not every Topic has a class to build a well-known schema from. For a Topic whose message type has no adapter — retrieved via `msg.get_data(Unmodeled)`, as in [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) — there is no `JointState`-style structure to build. This isn't a workaround: `Unmodeled.raw_data` is already a plain dict of the same JSON-friendly types (numbers, strings, booleans, nested dicts and lists) that `foxglove.log()` accepts directly, so you can stream it without ever resolving a Python class for the ontology tag — mirroring how [Class-Free Queries](https://docs.mosaico.dev/python-sdk/SDK/query/#class-free-queries) let you query the same data without one.
+
+```python title="Stream an Unmodeled topic as schemaless JSON"
+import base64
+
+from mosaicolabs.models.core.unmodeled import Unmodeled
+
+def to_json_safe(value):
+    # raw_data can contain `bytes` (from a pa.binary() field), which json.dumps
+    # can't serialize on its own — everything else is already JSON-friendly.
+    if isinstance(value, bytes):
+        return base64.b64encode(value).decode("ascii")
+    if isinstance(value, dict):
+        return {k: to_json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [to_json_safe(v) for v in value]
+    return value
+
+def stream_unmodeled_topic_live(top_handler) -> None:
+    wall_start = time.monotonic()
+
+    for msg in top_handler.get_data_streamer():
+        relative_ts = (msg.timestamp_ns - top_handler.timestamp_ns_min) / 1.0e9
+        sleep_for = relative_ts - (time.monotonic() - wall_start)
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+
+        unmodeled = msg.get_data(Unmodeled)
+        if unmodeled is None:
+            continue
+
+        foxglove.log(top_handler.name, to_json_safe(unmodeled.raw_data), log_time=msg.timestamp_ns)
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+:::info[What to expect in Foxglove]
+Since there is no schema, Foxglove treats the topic as generic JSON rather than a known message type:
+
+* The **Topics** panel lists it with no schema name, unlike the typed `/robot/joint_states` topic above.
+* Add a **Raw Messages** panel and subscribe to the topic to see `raw_data` rendered as a plain, expandable JSON tree — field names match the ontology's Arrow schema exactly (e.g. `gyro.x`).
+* A **Plot** panel can still chart individual numeric fields, using the same dot-notation message path as any other topic (e.g. `/lidar/imu_raw.gyro.x`) — you just have to know the path yourself, since there's no schema for Foxglove to autocomplete it from.
+* There is no dedicated 3D or domain-specific panel: that visualization richness is exactly what a well-known schema like `JointStatesChannel` buys you, and what streaming raw JSON gives up in exchange for needing no adapter or class at all.
+:::
+
+The same `log_time = msg.timestamp_ns` mapping from [Two Clocks, Two Timestamps](#two-clocks-two-timestamps) below still applies — it comes from the `Message` envelope regardless of whether the payload has a class. What doesn't carry over is the schema-level `timestamp` field: since `raw_data`'s shape is only known at runtime, there's no canonical place to look for a measurement timestamp the way `RobotJoint.header.timestamp` provides one, even if a particular tag's `raw_data` happens to contain a similarly-shaped field.
+
+## Two Clocks, Two Timestamps
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+`Channel.log(msg, log_time=...)` and the `JointStates` schema itself both carry a notion of time, and they are not the same clock — the distinction is the same one covered in depth for [`Message` vs `Header`](https://docs.mosaico.dev/python-sdk/SDK/ontology/#message-the-envelope):
+
+* **`log_time`** is the channel-level time Foxglove uses to place a message on its timeline — the playback clock. This is exactly `Message.timestamp_ns`, the envelope timestamp every `RobotJoint` message already carries.
+* **`JointStates.timestamp`** is the schema's own field for *when the joints were actually measured* — the sensor clock. This is `RobotJoint.header.timestamp`, when present.
+
+```python title="Map both clocks explicitly"
+def to_joint_states(joints: RobotJoint) -> JointStates:
+    header_ts = joints.header.timestamp if joints.header else None
+    return JointStates(
+        timestamp=(
+            Timestamp(sec=header_ts.seconds, nsec=header_ts.nanoseconds)
+            if header_ts is not None
+            else None
+        ),
+        joints=[
+            JointState(name=name, position=pos, velocity=vel, effort=eff)
+            for name, pos, vel, eff in zip(
+                joints.names, joints.positions, joints.velocities, joints.efforts
+            )
+        ],
+    )
+
+# ...
+
+joint_channel.log(to_joint_states(joints), log_time=joint_msg.timestamp_ns)
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+Getting these backwards is an easy mistake to make: passing `Header.timestamp` as `log_time` would place messages on Foxglove's timeline using each sensor's own clock origin — which, as covered in the `Message` guide, has no common origin across topics and cannot be relied on for ordering.
+
+## Pacing the Replay to Wall-Clock Time
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+Streaming a `TopicDataStreamer` as fast as possible would blast years of data at Foxglove in milliseconds. To replay it at the speed it was recorded, track how far into the recording each message is and sleep until real time catches up — the same pacing technique used in the [MuJoCo Visualisation](https://docs.mosaico.dev/examples/mujoco_visualisation) example:
+
+```python title="Pace messages to their original cadence"
+import time
+
+def stream_topic_live(top_handler) -> None:
+    wall_start = time.monotonic()
+
+    for joint_msg in top_handler.get_data_streamer():
+        relative_ts = (joint_msg.timestamp_ns - top_handler.timestamp_ns_min) / 1.0e9
+
+        sleep_for = relative_ts - (time.monotonic() - wall_start)
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+
+        joints = joint_msg.get_data(RobotJoint)
+        joint_channel.log(to_joint_states(joints), log_time=joint_msg.timestamp_ns)
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Server Lifecycle
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+`foxglove.start_server()` returns a `WebSocketServer` handle. It has no context-manager support, so nothing stops it automatically — call `.stop()` yourself once streaming is done, inside a `finally` block so a Mosaico error or a `Ctrl-C` during replay doesn't leave the server dangling:
+
+```python title="Explicit server shutdown"
+server = foxglove.start_server()
+try:
+    # ... locate topics and stream, as above ...
+    pass
+finally:
+    server.stop()
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Full Example
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+```python title="Full example"
+import time
+
+import foxglove
+from foxglove.channels import JointStatesChannel
+from foxglove.messages import JointState, JointStates, Timestamp
+
+from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic
+from mosaicolabs.models.sensors.robot import RobotJoint
+
+ROBOT_SEQUENCE_NAME = "r2b_robotarm_0"
+
+# Created once, reused for every message.
+joint_channel = JointStatesChannel("/robot/joint_states")
+
+def to_joint_states(joints: RobotJoint) -> JointStates:
+    header_ts = joints.header.timestamp if joints.header else None
+    return JointStates(
+        timestamp=(
+            Timestamp(sec=header_ts.seconds, nsec=header_ts.nanoseconds)
+            if header_ts is not None
+            else None
+        ),
+        joints=[
+            JointState(name=name, position=pos, velocity=vel, effort=eff)
+            for name, pos, vel, eff in zip(
+                joints.names, joints.positions, joints.velocities, joints.efforts
+            )
+        ],
+    )
+
+def stream_topic_live(top_handler) -> None:
+    wall_start = time.monotonic()
+
+    for joint_msg in top_handler.get_data_streamer():
+        relative_ts = (joint_msg.timestamp_ns - top_handler.timestamp_ns_min) / 1.0e9
+
+        sleep_for = relative_ts - (time.monotonic() - wall_start)
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+
+        joints = joint_msg.get_data(RobotJoint)
+        joint_channel.log(to_joint_states(joints), log_time=joint_msg.timestamp_ns)
+
+def main() -> None:
+    server = foxglove.start_server()
+    print(f"Foxglove server listening on ws://localhost:{server.port}")
+
+    try:
+        with MosaicoClient.connect("localhost", 6726) as client:
+            result = client.query(
+                QuerySequence().with_name(ROBOT_SEQUENCE_NAME),
+                QueryTopic().with_ontology_tag(RobotJoint.ontology_tag()),
+            )
+            if result is None:
+                print(f"Sequence '{ROBOT_SEQUENCE_NAME}' not found.")
+                return
+
+            for item in result:
+                for topic in item.topics:
+                    top_handler = client.topic_handler(item.sequence.name, topic.name)
+                    if top_handler is None:
+                        continue
+                    if top_handler.ontology_tag != RobotJoint.ontology_tag():
+                        continue
+
+                    stream_topic_live(top_handler)
+    finally:
+        server.stop()
+
+if __name__ == "__main__":
+    main()
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Key Concepts
+
+- **A live sink, not a file**: `foxglove.start_server()` is a WebSocket server your process hosts directly; connected Foxglove clients receive each `log()` call immediately, with nothing written to disk.
+- **Prefer well-known schemas over raw JSON when a class is available**: `foxglove.channels` ships typed channels (`JointStatesChannel`, `PoseInFrameChannel`, `LocationFixChannel`, and others) that map naturally onto several Mosaico Ontology types and unlock Foxglove's dedicated panels, instead of a generic Plot fed by ad-hoc dictionaries.
+- **When there's no class, `raw_data` is already JSON-shaped**: `Unmodeled.raw_data` needs no schema mapping at all — only a `bytes`-to-base64 conversion — before it can be logged as generic JSON, at the cost of losing Foxglove's dedicated panels for that topic.
+- **`log_time` is `Message.timestamp_ns`; the schema's own timestamp is `Header.timestamp`**: the same envelope/measurement distinction covered for the SDK's own `Message` class applies identically on the Foxglove side.
+- **The channel is stateful, create it once**: like a `TopicWriter`, a `JointStatesChannel` should be created once per topic and reused for every message, not recreated in the streaming loop.
+- **This same pattern extends to truly live data**: nothing here is specific to replaying an archived Sequence — a process ingesting live robot data into Mosaico (as in the [Writing](./writing_single_topic.mdx) guides) can log to a Foxglove channel side by side with pushing to a `TopicWriter`, mirroring the live stream to Foxglove as it is being recorded.
+- **Scrubbing and playback control are possible but out of scope here**: the WebSocket server supports advertising `Capability.PlaybackControl` and handling seek/pause requests via a `ServerListener`, which would let a Foxglove client scrub through the Sequence instead of only watching it play forward. That is a natural next step once the streaming pattern above is in place.

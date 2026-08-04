@@ -1,0 +1,238 @@
+---
+title: Updating a Sequence
+sidebar_position: 12
+description: "How to add new Topics to a Sequence that has already been ingested and finalized, without re-uploading or touching existing data. Covers MosaicoClient.sequence_update() and SequenceHandler.update() as the two ways to obtain a SequenceUpdater, the read/write permission trade-off between them, SequenceUpdater.topic_create(), session-level error handling scoped to the update session only, verifying the update with reload(), and rolling back a single update session with session_delete()."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+The [Writing](./writing_single_topic.mdx) guides cover the common case: you know everything you want to store in a Sequence at ingestion time. In practice, that is not always true. A post-processing pipeline might compute a derived signal hours after the original recording; a QA pass might want to attach a diagnostic stream to a mission that has already been finalized. `SequenceUpdater` covers exactly this: adding new Topics to a Sequence that already exists, without touching the data already stored in it.
+
+:::info[What updating does *not* do]
+`SequenceUpdater` can only add **new** Topics. It cannot modify the metadata of the Sequence or of an existing Topic, and it cannot append more messages to a Topic that was already finalized in a previous session. If you need to change something that already exists, that data must be re-ingested under a different Topic or Sequence.
+:::
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Writing Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/#sequenceupdater)
+
+[API Reference: Writing Data](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/writing/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+## Why Update Instead of Re-Ingest
+
+Consider the `multi_sensor_ingestion` Sequence from the [Writing Multiple Topics](./writing_multiple_topics.mdx) guide: it already holds `sensors/imu`, `sensors/gps`, and `sensors/pressure`. Weeks later, an offline analysis estimates cabin temperature from the recorded pressure curve and you want that estimate queryable alongside the original data. Re-ingesting the whole Sequence just to add one derived stream would mean re-uploading gigabytes of IMU and GPS data that has not changed. `SequenceUpdater` opens a new, independent writing Session on the *existing* Sequence and lets you register only the new Topic.
+
+## Opening an Update Session
+
+There are two ways to obtain a `SequenceUpdater`, depending on which server-side permission your credentials need.
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+**`client.sequence_update()`** opens the writing Session directly by name, with no intermediate read of the Sequence's metadata. This is the preferred way when connecting with an API-Key that only has the `write` permission — for example, an edge device or an offline processing job that should never be granted `read` access for security reasons.
+
+```python title="Open an update session (write-only credentials)"
+from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy, Message, Temperature
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    with client.sequence_update(
+        "multi_sensor_ingestion",
+        on_error=SessionLevelErrorPolicy.Report,
+    ) as seq_updater:
+        session_locator = seq_updater.session_locator
+        # Register the new topic and push data here...
+```
+
+If the Sequence does not exist, this raises when entering the `with` block, rather than letting you check for it upfront.
+
+**`SequenceHandler.update()`** is the better choice when you already hold a `SequenceHandler` for another reason in the same code path — for instance, you were about to inspect the Sequence's existing Topics or timestamps anyway. Obtaining that handler in the first place requires the `read` permission, on top of the `write` permission needed to actually update it:
+
+```python title="Open an update session (from an existing handler)"
+seq_handler = client.sequence_handler("multi_sensor_ingestion")  # requires 'read'
+if seq_handler is None:
+    raise RuntimeError("Sequence not found — has it been ingested yet?")
+
+with seq_handler.update(on_error=SessionLevelErrorPolicy.Report) as seq_updater:  # requires 'write'
+    session_locator = seq_updater.session_locator
+    # Register the new topic and push data here...
+```
+
+Both return the same `SequenceUpdater` and behave identically from this point on — like `SequenceWriter`, it must be used inside a `with` block.
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+:::info[Session-scoped error handling]
+`on_error` here works exactly like [`SessionLevelErrorPolicy`](./writing_single_topic.mdx#sequence-upload) on `SequenceWriter`, but the blast radius is smaller: it only governs the writing Session opened by this `.update()` call. `SessionLevelErrorPolicy.Delete` removes just the Topics created in *this* session if something goes wrong; the Topics from every previous session (`sensors/imu`, `sensors/gps`, `sensors/pressure`) are immutable and are never affected. The default is `SessionLevelErrorPolicy.Report`.
+:::
+
+`seq_updater.session_locator` identifies this specific writing Session (format `sequence_name:session_identifier`) — save it if you might need to roll back just this update later, as shown at the end of this guide.
+
+## Registering the New Topic
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+Inside the `with` block, `seq_updater.topic_create()` works exactly like [`SequenceWriter.topic_create()`](./writing_single_topic.mdx#topic-creation): it returns a `TopicWriter` bound to one Ontology type, ready to `push()` messages.
+
+```python title="Register and push to the new topic"
+        cabin_temp_writer = seq_updater.topic_create(
+            topic_name="diagnostics/cabin_temperature",
+            metadata={"source": "offline_estimation_v2", "derived_from": "sensors/pressure"},
+            ontology_type=Temperature,
+        )
+
+        for timestamp_ns, celsius in offline_estimated_temperatures:
+            cabin_temp_writer.push(
+                message=Message(
+                    timestamp_ns=timestamp_ns,
+                    data=Temperature.from_celsius(value=celsius),
+                )
+            )
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+The `metadata` dictionary above records `derived_from` alongside the source topic name — a useful convention for provenance, since nothing in the platform tracks it automatically. Multiple topics can be created in the same update Session, exactly as with `SequenceWriter`: just call `topic_create()` again with a different `topic_name`.
+
+When the `with` block exits normally, the new Topic is finalized and the update Session is marked complete — the same way it works for `SequenceWriter`.
+
+## Verifying the Update
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+Checking the result needs a `SequenceHandler`, which in turn needs the `read` permission — if you opened the update Session with `client.sequence_update()` precisely to avoid that permission, this verification step belongs in a separate, read-capable client or process. Either way: a `SequenceHandler` caches the Sequence's topic list at the time it was obtained, so a handler obtained *before* the update Session won't reflect the new Topic on its own. Freshly obtaining one after the Session has closed already returns current data; reusing an older one requires calling `.reload()` first:
+
+```python title="Confirm the new topic is visible"
+    seq_handler.reload()
+    # Topic names are always normalized with a leading slash, regardless of
+    # whether it was included when calling topic_create().
+    assert "/diagnostics/cabin_temperature" in seq_handler.topics
+    print(f"Sequence now has {len(seq_handler.topics)} topics")
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+The new Topic is queryable and readable through every mechanism covered elsewhere in these guides — [`QueryTopic`](./query_topics.mdx), [`QueryOntologyCatalog`](./multi_domain_query.mdx), [`TopicDataStreamer`](./streaming_data.mdx#targeted-access) — with no special handling required just because the data arrived in a later session. `seq_handler.sessions` also lists every writing Session (the original ingestion and every subsequent update) that contributed to the Sequence, each with its own `locator`.
+
+## Undoing an Update
+
+If an update turns out to be wrong — a bad estimation run, the wrong Topic name — you don't have to delete the entire Sequence to fix it. `MosaicoClient.session_delete()` permanently removes a single writing Session (and only the Topics it created), using the locator saved earlier:
+
+```python title="Roll back just this update"
+    client.session_delete(session_locator)
+```
+
+:::warning
+This is destructive and immediate: every Topic created during that Session is deleted, with no undo. It never touches Topics created by other sessions. If connecting through an API-Key, this requires the `delete` permission.
+:::
+
+## Full Example
+
+<Tabs groupId="lang" defaultValue="python">
+<TabItem value="python" label="Python">
+
+```python title="Full example"
+from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy, Message, Temperature
+
+def offline_estimated_temperatures():
+    # Stand-in for a real offline analysis reading from `sensors/pressure`.
+    # A write-only pipeline knows these timestamps from its own source data
+    # (e.g. the original recording's log files), not from a Mosaico read.
+    start_timestamp_ns = 1738508778000000000
+    return [(start_timestamp_ns + i * 1_000_000_000, 21.5 + 0.1 * i) for i in range(10)]
+
+def main():
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # No 'read' permission required for this step.
+        with client.sequence_update(
+            "multi_sensor_ingestion",
+            on_error=SessionLevelErrorPolicy.Report,
+        ) as seq_updater:
+
+            cabin_temp_writer = seq_updater.topic_create(
+                topic_name="diagnostics/cabin_temperature",
+                metadata={"source": "offline_estimation_v2", "derived_from": "sensors/pressure"},
+                ontology_type=Temperature,
+            )
+            for timestamp_ns, celsius in offline_estimated_temperatures():
+                cabin_temp_writer.push(
+                    message=Message(
+                        timestamp_ns=timestamp_ns,
+                        data=Temperature.from_celsius(value=celsius),
+                    )
+                )
+
+        # Verification below requires 'read', kept in this same script only for
+        # demo purposes. With genuinely write-only credentials, this call would
+        # fail server-side; run it from a separate, read-capable client instead.
+        seq_handler = client.sequence_handler("multi_sensor_ingestion")
+        if seq_handler is not None:
+            # Topic names are always normalized with a leading slash
+            assert "/diagnostics/cabin_temperature" in seq_handler.topics
+            print(f"Sequence now has {len(seq_handler.topics)} topics")
+
+if __name__ == "__main__":
+    main()
+```
+
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>

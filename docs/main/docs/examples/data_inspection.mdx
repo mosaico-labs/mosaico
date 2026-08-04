@@ -65,7 +65,7 @@ for sequence_name in seq_list:
         size_mb = shandler.total_size_bytes / (1024 * 1024)
         print(f"Sequence: {shandler.name}")
         print(f"  Remote Size:  {size_mb:.2f} MB")
-        print(f"  Created At:   {shandler.created_datetime}")
+        print(f"  Created At:   {shandler.created_timestamp}")
         print(f"  Time Span:    {shandler.timestamp_ns_min} to {shandler.timestamp_ns_max} ns")
 ```
 
