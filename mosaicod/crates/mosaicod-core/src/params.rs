@@ -196,6 +196,13 @@ pub struct Params {
     /// Defaults to 0 (no limit).
     pub query_engine_memory_pool_size: Param<usize>,
 
+    /// Defines the amount of memory (in bytes) used by the store optimizer (DataFusion).
+    /// Set this value to a number greater than 0 to enforce a hard limit
+    /// on the memory allocated. Use this setting if mosaicod encounters OOM (Out Of Memory) errors.
+    ///
+    /// Defaults to 0 (no limit).
+    pub store_optimizer_memory_pool_size: Param<usize>,
+
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
     /// Defaults to 75 MB
@@ -280,6 +287,12 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
         store_secret_key: Param::optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned()),
         store_access_key: Param::optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
+
+        // store optimizer
+        store_optimizer_memory_pool_size: Param::optional(
+            "MOSAICOD_STORE_OPTIMIZER_MEMORY_POOL_SIZE",
+            0,
+        ),
     };
 
     if ev.max_batch_size.value == 0 {

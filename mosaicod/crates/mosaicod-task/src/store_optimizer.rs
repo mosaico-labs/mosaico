@@ -2,6 +2,9 @@
 //! merging small files into bigger ones.
 
 use datafusion as df;
+use datafusion::execution::disk_manager::DiskManagerBuilder;
+use datafusion::execution::memory_pool::GreedyMemoryPool;
+use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use futures::StreamExt;
 use mosaicod_core::{
     self as core, error::PublicResult as Result, params, traits::AsyncWriteToPath, types,
@@ -166,12 +169,17 @@ impl StoreOptimizer {
         // Configure the session settings for file compaction
         let config = df::execution::config::SessionConfig::new().with_batch_size(batch_size);
 
-        let runtime = Arc::new(
-            df::execution::runtime_env::RuntimeEnvBuilder::new()
-                .with_object_store_registry(self.store.registry())
-                .build()
-                .map_err(df_to_internal_error)?,
-        );
+        let mut builder =
+            RuntimeEnvBuilder::new().with_object_store_registry(self.store.registry());
+
+        let memory_pool_size = params::params().store_optimizer_memory_pool_size.value;
+        if memory_pool_size != 0 {
+            builder = builder
+                .with_memory_pool(Arc::new(GreedyMemoryPool::new(memory_pool_size)))
+                .with_disk_manager_builder(DiskManagerBuilder::default());
+        };
+
+        let runtime = Arc::new(builder.build().map_err(df_to_internal_error)?);
 
         let session_ctx =
             df::execution::context::SessionContext::new_with_config_rt(config, runtime);
