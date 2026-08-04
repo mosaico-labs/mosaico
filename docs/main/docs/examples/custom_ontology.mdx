@@ -40,9 +40,9 @@ The custom ontology is loaded as part of the ROS Ingestion example. The full sou
 
 ## Defining the Model
 
-Data models in Mosaico are defined by inheriting from `Serializable`. This triggers automatic Apache Arrow schema generation and registers the type in the internal ontology registry the moment the class is loaded by the Python interpreter. The type is then valid as an `ontology_type` in `topic_create()` and its fields become available through the `.Q` query proxy for content-based filtering.
+Data models in Mosaico are defined by inheriting from `Serializable`. The moment the class is loaded by the Python interpreter, this triggers automatic Apache Arrow schema generation and registers the type in the internal ontology registry. From then on, the type is valid as an `ontology_type` in `topic_create()`, and its fields become available through the `.Q` query proxy for content-based filtering.
 
-`MosaicoType` provides the available primitive types (`uint32`, `uint64`, `float32`, `string`, and more). `MosaicoField` attaches a human-readable description to each field, which is stored alongside the data in the catalog.
+`MosaicoType` provides the available primitive types (`uint32`, `uint64`, `float32`, `string`, and more), one per field. `MosaicoField` attaches a human-readable description to each field, which is stored alongside the data in the catalog.
 
 ```python title="EncoderTicks custom model"
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
@@ -67,6 +67,8 @@ Registration happens at class definition time, not at application startup. If th
 The safe pattern is to import your ontology module explicitly at the application entry point before any SDK calls are made.
 
 ```python title="Import to trigger registration"
+# `my_project.ontology.encoders` is a placeholder for wherever your own
+# Serializable subclasses live; substitute your actual module path here.
 import my_project.ontology.encoders as encoders  # registration happens here
 
 from mosaicolabs import MosaicoClient

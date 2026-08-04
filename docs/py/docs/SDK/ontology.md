@@ -166,7 +166,7 @@ In this scenario, the types are resolved using the following **fallback mapping*
 | `float` | `pa.float64()` |
 | `str` | `pa.string()` |
 | `bool` | `pa.bool_()` |
-| `bytes` | `pa.bytes()` |
+| `bytes` | `pa.binary()` |
 
 !!! note "Note"
     Just like with explicit types, using `Optional` with fallback types will correctly define the PyArrow field as **nullable**. If `Optional` is not used, the field is defined as **not nullable**.
@@ -202,10 +202,10 @@ This means:
 
 - The list can hold **any number of elements** at runtime.
 - No size constraint is enforced at the schema level.
-- This is equivalent to calling `MosaicoType.list_(str)` with no `size` argument.
+- This is equivalent to calling `MosaicoType.list_(str)` with no `list_size` argument.
 
 
-[`MosaicoType.list_()`][mosaicolabs.models.core.MosaicoType.list_] accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
+[`MosaicoType.list_()`][mosaicolabs.models.core.MosaicoType.list_] accepts an optional `list_size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
 
 | | `list[str]` | `MosaicoType.list_(str)` | `MosaicoType.list_(str, 3)` |
 |---|---|---|---|
@@ -214,7 +214,7 @@ This means:
 | Interoperable with Pydantic | Yes | Yes | Yes |
 | Supports nested models | Yes | Yes | Yes |
 
-Use [`MosaicoType.list_()`][mosaicolabs.models.core.MosaicoType.list_] with a `size` argument when:
+Use [`MosaicoType.list_()`][mosaicolabs.models.core.MosaicoType.list_] with a `list_size` argument when:
 
 - The list represents a **fixed-dimensional structure**, such as a vector, a coordinate
   tuple, or an RGB triplet.
@@ -223,7 +223,7 @@ Use [`MosaicoType.list_()`][mosaicolabs.models.core.MosaicoType.list_] with a `s
 - You are working with **embedding vectors** or other ML features where dimensionality
   is always known and constant.
 
-If you do **not** pass a `size` argument, `MosaicoType.list_(T)` and `list[T]` produce
+If you do **not** pass a `list_size` argument, `MosaicoType.list_(T)` and `list[T]` produce
 an identical Arrow schema. The choice then becomes a matter of style or explicitness:
  
 ```python
@@ -232,7 +232,7 @@ tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
 ```
 
 !!! note "Note"
-    Explicit type definition and fallback types properties are hold in this case.
+    Explicit type definition and fallback types properties still hold in this case.
 
 #### Matrix types
 
@@ -268,16 +268,7 @@ class MyOntology(Serializable):
 | Interoperable with Pydantic | Yes | Yes | Yes |
 | Support nested models | Yes | Yes | Yes |
 
-Use [`MosaicoType.matrix()`][mosaicolabs.models.core.MosaicoType.matrix] with explicit `rows` and/or `cols` when:
-
-- The field represents a **fixed-shape 2-D structure**.
-- You want the Arrow schema to **statically encode both dimensions**, enabling optimised columnar storage and stricter validation.
-- You are working with **fixed-width embedding matrices** where the column dimension (feature size) is always constant but the number of rows may vary.
-
-If neither dimension is provided, `MosaicoType.matrix(T)` produces a fully variable nested list, equivalent to `list[list[T]]`.
-
-!!! note "Note"
-    Explicit type definition and fallback type properties apply here as well.
+The same `list_size` trade-off from [List types](#list-types) applies here, one dimension at a time: fix `rows`/`cols` when that dimension's size is a known, constant property of the data (e.g. a fixed-width embedding matrix), and leave it variable otherwise. If neither dimension is provided, `MosaicoType.matrix(T)` produces a fully variable nested list, equivalent to `list[list[T]]`.
 
 #### Tensor3d types
 
@@ -311,18 +302,9 @@ class MyOntology(Serializable):
 | Row count enforced | No | No | Yes, exactly M |
 | Column count enforced | No | No | Yes, exactly N |
 | Interoperable with Pydantic | Yes | Yes | Yes |
-| Supoprt nested model | Yes | Yes | Yes |
+| Support nested models | Yes | Yes | Yes |
 
-Use [`MosaicoType.tensor3d()`][mosaicolabs.models.core.MosaicoType.tensor3d] with explicit dimensions when:
-
-- The field represents a **fixed-shape volumetric structure**.
-- You want the Arrow schema to **statically encode all three dimensions**, enabling stricter schema validation and more efficient columnar storage.
-- You are working with **multi-channel ML features** (e.g. convolutional layer outputs) where depth, height, and width are always known and constant.
-
-If none of the dimensions are provided, `MosaicoType.tensor3d(T)` produces a fully variable nested list, equivalent to three nested `list[list[list[T]]]`.
-
-!!! note "Note"
-    Explicit type definition and fallback type properties apply here as well. When all dimensions are fixed, the Arrow schema enforces shape constraints at the column level, making `tensor3d` the recommended choice for any ML pipeline where tensor dimensionality is statically known.
+The same per-dimension trade-off applies: fix `depth`/`rows`/`cols` when that dimension is a known, constant property of the data — e.g. all three for a fixed-shape volumetric structure such as convolutional layer outputs. If none of the dimensions are provided, `MosaicoType.tensor3d(T)` produces a fully variable nested list, equivalent to three nested `list[list[list[T]]]`.
 
 #### Custom Arrow types
 
@@ -527,8 +509,6 @@ log_writer.push(message=log_msg)
 # Embedding Vector3d inside a complex IMU model
 imu_payload = IMU(
     # Embedded Field 1: Acceleration with its own specific uncertainty
-    # Here the Vector3d instance inherits the timestamp and frame_id
-    # from the parent IMU Message.
     acceleration=Vector3d(
         x=0.5, y=-0.2, z=9.8,
         covariance=[0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1]
@@ -538,7 +518,7 @@ imu_payload = IMU(
 )
 
 # Wrap the complex payload in the Message envelope
-imu_writer.push(Message(timestamp_ns=ts, frame_id="imu_link", data=imu_payload))
+imu_writer.push(Message(timestamp_ns=ts, data=imu_payload))
 
 ```
 
@@ -686,14 +666,20 @@ Because the `.Q` query proxy is built directly from the class's PyArrow schema r
 `make_unmodeled_ontology_class()` is the low-level factory, not intended for direct use. In practice, most callers, including the SDK's own reading path (`TopicDataStreamer`, `SequenceDataStreamer`), go through [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] instead, which adds two behaviors on top:
 
 1. **Reuse before creation**: if a class is already registered for the given tag, it's returned directly instead of creating a duplicate.
-2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. When the schema passed in doesn't match what's already registered for that tag, `resolve_ontology_class()` doesn't silently decode the second version against the first version's schema. Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class for it, i.e. a separate Python class with its own [`__registry_key__`][mosaicolabs.models.core.Serializable] (`f"{tag}__{fingerprint}"`), so the SDK can always tell the two schemas apart locally. Both variants still report the *same* `ontology_tag` to the platform, so all of their data remains ingestible and queryable under one consistent, predictable tag — regardless of which schema version a given process happens to encounter first.
+2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. `resolve_ontology_class()` handles this in three steps:
+    * When the schema passed in doesn't match what's already registered for that tag, it does **not** silently decode the second version against the first version's schema.
+    * Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class for it — a separate Python class with its own [`__registry_key__`][mosaicolabs.models.core.Serializable] (`f"{tag}__{fingerprint}"`), so the SDK can always tell the two schemas apart locally.
+    * Both variants still report the *same* `ontology_tag` to the platform, so all of their data remains ingestible and queryable under one consistent, predictable tag — regardless of which schema version a given process happens to encounter first.
 
 This is what makes it safe for a component like the ROS Bridge to translate an unadapted message type into a PyArrow schema and call `resolve_ontology_class(ontology_tag=..., schema=...)` for every message, without having to track class identity or schema versions itself.
 
 #### Schema canonization
-For performance reasons, the platform's query engine (DataFusion) rewrites certain **top-level** fields of a schema when storing the data: any field declared as `pa.string()` or `pa.large_string()` comes back as `pa.string_view()`, and likewise `pa.binary()`/`pa.large_binary()` come back as `pa.binary_view()`. DataFusion effectively treats `string` and `large_string` as the same underlying concept and standardizes on `string_view` (same for the binary family) - but only for fields sitting directly at the top level of the schema, not for string/binary fields nested inside a struct. A field like `MotionState.target_frame_id` (a top-level `string` field) comes back as `string_view`; `Header.frame_id`, when `Header` is embedded via `HeaderMixin` into a class like `IMU`, stays a plain `string` inside its nested struct; however, if a `Message` of type `Header` is sent, then `frame_id` becomes a top-level field itself and it is transformed to `string_view`.
 
-This asymmetry matters directly for schema-variant resolution: a naive fingerprint comparison between a class's own locally-built schema (`string`/`binary`) and the schema echoed back by the server for the same data (`string_view`/`binary_view` at the top level) would treat them as *different* schemas - misidentifying a perfectly ordinary, correctly modeled ontology as a schema variant (or as `Unmodeled`) purely because of this server-side rewrite, not any real structural difference. To avoid that, the schema fingerprint canonizes top-level `string`/`large_string` fields to `string_view` and top-level `binary`/`large_binary` fields to `binary_view` before hashing - mirroring exactly what DataFusion does, and only at the same depth. Nested struct fields and list element types are left untouched, since the server doesn't rewrite those either.
+This is an internal detail the SDK handles for you automatically; it's documented here for readers debugging an unexpected schema-variant resolution, not something you need to act on day-to-day.
+
+* **The DataFusion context**: for performance reasons, the platform's query engine (DataFusion) rewrites certain **top-level** fields of a schema when storing data: `pa.string()`/`pa.large_string()` come back as `pa.string_view()`, and `pa.binary()`/`pa.large_binary()` come back as `pa.binary_view()`. This only applies to fields sitting directly at the top level of the schema, not to string/binary fields nested inside a struct. For example, a top-level field like `MotionState.target_frame_id` comes back as `string_view`, while `Header.frame_id` — nested inside `IMU` via `HeaderMixin` — stays a plain `string`; if a `Message` of type `Header` is sent directly, `frame_id` becomes top-level and is rewritten too.
+* **Why it matters**: a naive fingerprint comparison between a class's own locally-built schema (`string`/`binary`) and the schema echoed back by the server (`string_view`/`binary_view` at the top level) would treat them as *different* schemas — misidentifying a perfectly ordinary, correctly modeled ontology as a schema variant (or as `Unmodeled`), purely because of this server-side rewrite.
+* **How it's resolved**: the schema fingerprint canonizes top-level `string`/`large_string` fields to `string_view` and top-level `binary`/`large_binary` fields to `binary_view` before hashing, mirroring exactly what DataFusion does and only at the same depth. Nested struct fields and list element types are left untouched, since the server doesn't rewrite those either.
 
 ### Retrieving Unmodeled Data from a `Message`
 
@@ -738,7 +724,7 @@ The following table illustrates how the proxy flattens complex hierarchies into 
 
 ### Practical Usage
 
-To execute these filters, pass the expressions generated by the proxy to the [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] builder.
+To execute these filters, pass the expressions generated by the proxy to the [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] builder:
 
 ```python
 from mosaicolabs import MosaicoClient, IMU, GPS, QueryOntologyCatalog
@@ -750,21 +736,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
         .with_expression(IMU.Q.acceleration.z.gt(15.0))
         .with_expression(GPS.Q.status.service.eq(2))
     )
-
-    # The server returns a QueryResponse grouped by Sequence for structured data management
-    if qresponse is not None:
-        for item in qresponse:
-            print(f"Sequence: {item.sequence.name}")
-            print(f"Topics: {[topic.name for topic in item.topics]}")
-    
-            # Clusterize all topics within the sequence to extract the time intervals
-            clusters_dict = item.clusterize_all()
-
-            # Since clusterize_all() used default clustering_dt_ns, each topic will have
-            # just one cluster representing the first and last moment the query was satisfied
-            for t_name, clusters in clusters_dict.items():
-                print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
 ```
+
+See the **[Full Query Documentation](./query.md)** for how to iterate the returned `QueryResponse` and extract time intervals from it.
 
 For a comprehensive list of all supported operators and advanced filtering strategies (such as query chaining), see the **[Full Query Documentation](./query.md)** and the Ontology types SDK Reference in the **API Reference**:
 
@@ -779,7 +753,7 @@ For a comprehensive list of all supported operators and advanced filtering strat
 The Mosaico SDK is built for extensibility, allowing you to define domain-specific data structures that can be registered to the platform and live alongside standard types.
 Custom types are automatically validatable, serializable, and queryable once registered in the platform.
 
-Follow these three steps to implement a compatible custom data type:
+Follow these two steps to implement a compatible custom data type:
 
 ### 1. Inheritance and Mixins
 
@@ -816,9 +790,9 @@ This example demonstrates a custom sensor for environmental monitoring that trac
 
 from typing import Optional
 import pyarrow as pa
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs import HeaderMixin, MosaicoField, MosaicoType, Serializable
 
-class EnvironmentSensor(Serializable):
+class EnvironmentSensor(Serializable, HeaderMixin):
     """
     Custom sensor reading for Temperature, Humidity, and Pressure.
     """
@@ -838,7 +812,7 @@ from mosaicolabs import Message, Header, Time
 
 # Initialize with standard metadata
 meas = EnvironmentSensor(
-    header=Header(stamp=Time.now(), frame_id="lab_sensor_1"),
+    header=Header(timestamp=Time.now(), frame_id="lab_sensor_1"),
     temperature=23.5,
     humidity=0.45
 )

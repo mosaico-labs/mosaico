@@ -55,10 +55,3 @@ The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `
 - `item.topics`: the list of topics within that sequence that satisfied the Topic and OntologyCatalog conditions
 
 Each topic also carries the time interval where the query condition held true. See [Temporal Windows](./temporal_windows.mdx) to extract and compare these intervals across topics and sequences.
-
-## Key Concepts
-
-- **Single round trip**: all builders passed to `client.query()` are AND-joined and evaluated server-side in one request, avoiding multiple network calls and client-side joins
-- **`.Q` Proxy**: every Ontology model exposes a `.Q` attribute for type-safe, IDE-autocomplete-friendly field path expressions
-- **Three filter layers**: Sequence (session metadata) → Topic (channel + type) → OntologyCatalog (actual data values)
-- **Temporal windows**: extract and compare time intervals from a response with `clusterize()` and `intersect()` — see [Temporal Windows](./temporal_windows.mdx)

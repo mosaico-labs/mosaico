@@ -90,7 +90,7 @@ from mosaicolabs.query.queryable_fields import QueryableNumeric
 with MosaicoClient.connect("localhost", 6726) as client:
     # Find sequences where the gyro's X-axis reading exceeded 0.5 rad/s
     results = client.query(
-        QueryOntologyCatalog(include_timestamp_range=True).with_expression(
+        QueryOntologyCatalog().with_expression(
             QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
         )
     )
@@ -99,7 +99,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
         for item in results:
             print(f"Sequence: {item.sequence.name}")
             for topic in item.topics:
-                start, end = topic.timestamp_range.start, topic.timestamp_range.end
+                cluster = topic.clusterize()[0]
+                start, end = cluster.timerange.start, cluster.timerange.end
                 print(f"  Topic: {topic.name} | Match Window: {start} to {end}")
 ```
 </TabItem>
@@ -156,8 +157,8 @@ The Rust SDK is currently in development.
 **Field paths are the contract, not the class.** `IMU.Q.acceleration.x` and `QueryableNumeric("IMU.acceleration.x")` compile down to the identical `f"{ontology_tag}.field.subfield"` string the server matches against. The class is a convenience for building that string safely; it isn't required to build it.
 
 **Operator sets mirror the `.Q` proxy, with one gap.** 
-* `QueryableNumeric` supports `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, and `.between()`.
-* `QueryableString` supports `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, and `.in_()` - it does not have `.neq()` or `.between()`.
+* `QueryableNumeric` supports `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, and `.outside()`.
+* `QueryableString` supports `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, and `.outside()`.
 
 **There's no client-side schema check.** Because no class is involved, the SDK cannot verify that `"GyroRaw.gyro.x"` actually exists or is really numeric before sending the query. A typo'd path or a type mismatch doesn't raise an error - it simply matches nothing.
 

@@ -42,7 +42,7 @@ The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main
 
 ## Custom Ontology Definition
 
-The NVIDIA Isaac Nova encoder produces `isaac_ros_nova_interfaces/msg/EncoderTicks`, a message type with no equivalent in the built-in ontology. Before the injector can run, we define a custom model by inheriting from `Serializable`. This registers the type automatically in the Mosaico ecosystem at import time, making it available as an `ontology_type` for topic creation and enabling the `.Q` query proxy on its fields.
+The NVIDIA Isaac Nova encoder produces `isaac_ros_nova_interfaces/msg/EncoderTicks`, a message type with no equivalent in the built-in ontology. Before the injector can run, we define a custom model by inheriting from `Serializable`. This registers the type automatically at import time. From then on, it is available as an `ontology_type` for topic creation, with the `.Q` query proxy enabled on its fields.
 
 ```python title="Custom EncoderTicks model"
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
@@ -67,6 +67,7 @@ Because `EncoderTicks` is a custom type, no default adapter exists. We subclass 
 This adapter only implements `from_dict`, so it only supports the ROS → Mosaico direction. To also support Mosaico → ROS — reconstructing a native ROS message from `EncoderTicks` — implement `to_ros()` as well.
 
 ```python title="EncoderTicks ROS adapter"
+from mosaicolabs import Message
 from mosaicolabs.ros_bridge import ROSMessage, ROSAdapterBase, register_default_adapter
 from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
 from .isaac import EncoderTicks
@@ -102,7 +103,7 @@ Even if `EncoderTicksAdapter` didn't exist, `RosbagInjector` would still ingest 
 
 The example loops over each bag file in the dataset and runs three phases: download, ingest, verify.
 
-**Download.** `download_asset` fetches the raw `.mcap` from NVIDIA with a progress bar and caches it locally so re-runs skip the download.
+**Download.** `download_asset` (defined in the example's `helpers.py`) fetches the raw `.mcap` from NVIDIA with a progress bar and caches it locally so re-runs skip the download.
 
 **Ingest.** `RosbagInjector` handles the full write pipeline: it opens the MCAP, routes each message through its registered adapter, batches the resulting `Message` objects, and transmits them to the daemon over gRPC. The sequence name is derived from the filename so each bag becomes a separate, independently queryable recording session.
 

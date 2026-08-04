@@ -45,17 +45,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
     if qresponse is not None:
         for item in qresponse:
             # 'item.sequence' contains the name for the matched sequence
-            print(f"Sequence: {item.sequence.name}") 
+            print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
-    
-            # Clusterize all topics within the sequence to extract the time intervals
-            clusters_dict = item.clusterize_all()
-
-            # Since clusterize_all() used default clustering_dt_ns, each topic will have
-            # just one cluster representing the first and last moment the query was satisfied
-            for t_name, clusters in clusters_dict.items():
-                print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
-
 ```
 
 The provided example illustrates the core architecture of the Mosaico Query DSL. To effectively use this module, it is important to understand the two primary mechanisms that drive data discovery:
@@ -139,6 +130,23 @@ with MosaicoClient.connect("localhost", 6726) as client:
 The `QueryResponse` class enables a powerful mechanism for **iterative search refinement** by allowing you to convert your current results back into a new query builder.
 This approach is essential for resolving complex, multi-modal dependencies where a single monolithic query would be logically ambiguous, inefficient or technically impossible.
 
+#### When Chaining is Necessary
+
+In the Mosaico Data Platform, a single `client.query()` call applies a logical **AND** across all provided builders to locate individual **data streams (topics)** that satisfy every condition simultaneously.
+Because a single topic cannot physically represent two different sensor types at once, such as being both a `GPS` sensor and a `String` log, a monolithic query attempting to filter for both on the same stream will inherently return zero results:
+
+```python
+# AMBIGUOUS: This looks for ONE topic that is BOTH GPS and String
+response = client.query(
+    QueryOntologyCatalog(GPS.Q.status.status.eq(DGPS_FIX)),
+    QueryOntologyCatalog(String.Q.data.match("*[ERR]*")),
+    QueryTopic().with_name("/localization/log_string")
+)
+
+```
+
+Chaining resolves this by allowing you to find the correct **Sequence** context in step one, then "locking" that domain to find a different **Topic** within that same context in step two, using `to_query_sequence()` or `to_query_topic()` below.
+
 | Method | Return Type | Description |
 | --- | --- | --- |
 | [`to_query_sequence()`][mosaicolabs.query.response.QueryResponse.to_query_sequence] | [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] | Returns a query builder pre-filtered to include only the **sequences** present in the response. |
@@ -193,21 +201,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
             initial_response.to_query_topic(),              # The "locked" topic domain
             QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
         )
-```
-
-#### When Chaining is Necessary
-
-The previous example of the `GPS.status` query and the subsequent `/localization/log_string` topic search highlight exactly when *query chaining* becomes a technical necessity rather than just a recommendation. In the Mosaico Data Platform, a single `client.query()` call applies a logical **AND** across all provided builders to locate individual **data streams (topics)** that satisfy every condition simultaneously.
-Because a single topic cannot physically represent two different sensor types at once, such as being both a `GPS` sensor and a `String` log, a monolithic query attempting to filter for both on the same stream will inherently return zero results. Chaining resolves this by allowing you to find the correct **Sequence** context in step one, then "locking" that domain to find a different **Topic** within that same context in step two.
-
-```python
-# AMBIGUOUS: This looks for ONE topic that is BOTH GPS and String
-response = client.query(
-    QueryOntologyCatalog(GPS.Q.status.status.eq(DGPS_FIX)),
-    QueryOntologyCatalog(String.Q.data.match("*[ERR]*")),
-    QueryTopic().with_name("/localization/log_string")
-)
-
 ```
 
 ### Wildcards patterns Queries
@@ -311,7 +304,7 @@ Filters recordings based on high-level session metadata, such as the sequence na
 **Example** Querying for sequences by name and creation date
 
 ```python
-from mosaicolabs import MosaicoClient, Topic, QuerySequence
+from mosaicolabs import MosaicoClient, QuerySequence
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Search for sequences by project name and creation date
@@ -319,7 +312,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QuerySequence()
         .with_name_match("test_drive")
         .with_user_metadata("project", eq="Apollo")
-        .with_created_timestamp(time_start=Time.from_float(1690000000.0))
+        .with_created_timestamp(time_start=1690000000_000000000)
     )
 
     # Inspect the response
@@ -338,14 +331,14 @@ Targets specific data channels within a sequence. You can search for topics by n
 **Example** Querying for image topics by ontology tag, metadata key and topic creation timestamp
 
 ```python
-from mosaicolabs import MosaicoClient, Image, Topic, QueryTopic
+from mosaicolabs import MosaicoClient, Image, QueryTopic
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Query for all 'image' topics created in a specific timeframe, matching some metadata (key, value) pair
     qresponse = client.query(
         QueryTopic()
         .with_ontology_tag(Image.ontology_tag())
-        .with_created_timestamp(time_start=Time.from_float(170000000))
+        .with_created_timestamp(time_start=1700000000_000000000)
         .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
     )
 
@@ -367,38 +360,31 @@ Filters based on the **actual time-series content** of the sensors (e.g., "Find 
 **Example** Querying for mixed sensor data
 
 ```python
-from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU, Pose, Pressure, Temperature
 
-    with MosaicoClient.connect("localhost", 6726) as client:
-        # Chain multiple sensor filters together
-        qresponse = client.query(
-            QueryOntologyCatalog()
-            .with_expression(GPS.Q.status.satellites.geq(8))
-            .with_expression(Temperature.Q.value.between([273.15, 373.15]))
-            .with_expression(Pressure.Q.value.geq(100000))
-        )
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Chain multiple sensor filters together
+    qresponse = client.query(
+        QueryOntologyCatalog()
+        .with_expression(GPS.Q.status.satellites.geq(8))
+        .with_expression(Temperature.Q.value.between([273.15, 373.15]))
+        .with_expression(Pressure.Q.value.geq(100000))
+    )
 
-        # Inspect the response
-        if qresponse is not None:
-            # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
-                print(f"Sequence: {item.sequence.name}")
-                print(f"Topics: {[topic.name for topic in item.topics]}")
+    # Inspect the response
+    if qresponse is not None:
+        # Results are automatically grouped by Sequence for easier data management
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
 
-        # Filter for a specific component value and extract the first and last occurrence times
-        qresponse = client.query(
-            QueryOntologyCatalog()
-            .with_expression(IMU.Q.acceleration.x.lt(-4.0))
-            .with_expression(IMU.Q.acceleration.y.gt(5.0))
-            .with_expression(Pose.Q.rotation.z.geq(0.707))
-        )
-
-        # Inspect the response
-        if qresponse is not None:
-            # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
-                print(f"Sequence: {item.sequence.name}")
-                print(f"Topics: {[topic.name for topic in item.topics]}")
+    # A different filter on the same layer — same response shape as above
+    qresponse = client.query(
+        QueryOntologyCatalog()
+        .with_expression(IMU.Q.acceleration.x.lt(-4.0))
+        .with_expression(IMU.Q.acceleration.y.gt(5.0))
+        .with_expression(Pose.Q.orientation.z.geq(0.707))
+    )
 ```
 
 The Mosaico Query Module offers two distinct paths for defining filters,  **Convenience Methods** and **Generic Expression Method**, both of which support **method chaining** to compose multiple criteria into a single query using a logical **AND**.
@@ -413,8 +399,10 @@ The builder automatically selects the appropriate field and operator (such as ex
 from mosaicolabs import QuerySequence, QueryTopic, RobotJoint
 
 # Build a filter with name pattern
-qbuilder = QuerySequence()
+qbuilder = (
+    QuerySequence()
     .with_name_match("test_drive")
+)
 # Execute the query
 qresponse = client.query(qbuilder)
 
@@ -425,19 +413,13 @@ if qresponse is not None:
         print(f"Sequence: {item.sequence.name}")
         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-# Build a filter with ontology tag AND a specific creation time window
-qbuilder = QueryTopic()
+# Build a filter with ontology tag AND a specific creation time window — same response shape as above
+qbuilder = (
+    QueryTopic()
     .with_ontology_tag(RobotJoint.ontology_tag())
-    .with_created_timestamp(start=t1, end=t2)
-# Execute the query
+    .with_created_timestamp(time_start=t1, time_end=t2)
+)
 qresponse = client.query(qbuilder)
-
-# Inspect the response
-if qresponse is not None:
-    # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
 * **Best For**: Standard system-level fields like Names and Timestamps.
@@ -469,9 +451,7 @@ if qresponse is not None:
 
 ## The `.Q` Proxy Mechanism
 
-The Query Proxy is the cornerstone of Mosaico's type-safe data discovery. Every data model in the Mosaico Ontology (e.g., `IMU`, `GPS`, `Image`) is automatically injected with a static `.Q` attribute during class initialization. This mechanism transforms static data structures into dynamic, fluent interfaces for constructing complex filters.
-
-The proxy follows a three-step lifecycle to ensure that your queries are both semantically correct and high-performance:
+Building on the introduction above, the proxy follows a three-step lifecycle to ensure that your queries are both semantically correct and high-performance:
 
 1. **Intelligent Mapping**: During system initialization, the proxy inspects the sensor's schema recursively. It maps every nested field path (e.g., `"acceleration.x"`) to a dedicated *queryable* object, i.e. an object providing comparison operators and expression generation methods.
 2. **Type-Aware Operators**: The proxy identifies the data type of each field (numeric, string, dictionary, or boolean) and exposes only the operators valid for that type. This prevents logical errors, such as attempting a substring `.match()` on a numeric acceleration value.
@@ -512,7 +492,7 @@ The following table lists the supported operators for each data type:
 | Data Type | Operators |
 | --- | --- |
 | **Numeric** | [`.eq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.eq], [`.lt()`][mosaicolabs.query.queryable_fields.QueryableNumeric.lt], [`.leq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.leq], [`.gt()`][mosaicolabs.query.queryable_fields.QueryableNumeric.gt], [`.geq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.geq], [`.between()`][mosaicolabs.query.queryable_fields.QueryableNumeric.between], [`.in_()`][mosaicolabs.query.queryable_fields.QueryableNumeric.in_], [`.outside()`][mosaicolabs.query.queryable_fields.QueryableNumeric.outside] |
-| **String** | [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq], [`.match()`][mosaicolabs.query.queryable_fields.QueryableString.match] (regex matching), [`.in_()`][mosaicolabs.query.queryable_fields.QueryableString.in_], [`.lt()`][mosaicolabs.query.queryable_fields.QueryableString.lt], [`.gt()`][mosaicolabs.query.queryable_fields.QueryableString.gt], [`.leq()`][mosaicolabs.query.queryable_fields.QueryableString.leq], [`.geq()`][mosaicolabs.query.queryable_fields.QueryableString.geq], [`.between()`][mosaicolabs.query.queryable_fields.QueryableString.between], [`.outside()`][mosaicolabs.query.queryable_fields.QueryableString.outside] |
+| **String** | [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq], [`.match()`][mosaicolabs.query.queryable_fields.QueryableString.match] (glob-style matching), [`.in_()`][mosaicolabs.query.queryable_fields.QueryableString.in_], [`.lt()`][mosaicolabs.query.queryable_fields.QueryableString.lt], [`.gt()`][mosaicolabs.query.queryable_fields.QueryableString.gt], [`.leq()`][mosaicolabs.query.queryable_fields.QueryableString.leq], [`.geq()`][mosaicolabs.query.queryable_fields.QueryableString.geq], [`.between()`][mosaicolabs.query.queryable_fields.QueryableString.between], [`.outside()`][mosaicolabs.query.queryable_fields.QueryableString.outside] |
 | **Boolean** | [`.eq(True/False)`][mosaicolabs.query.queryable_fields.QueryableBool.eq] |
 <!-- | **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`, `.match()` (regex matching), `.outside()`| -->
 
@@ -620,11 +600,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 | Class | Supported Operators | Value Type |
 | --- | --- | --- |
-| [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()` | `int`, `float` |
-| [`QueryableString`][mosaicolabs.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()` | `str` |
+| [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()` | `int`, `float` |
+| [`QueryableString`][mosaicolabs.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()` | `str` |
 | [`QueryableBool`][mosaicolabs.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
 
-### Querying List Fields
+### Querying List Fields (Class-Free)
 
 Querying list fields is possible for unmodeled ontology schemas also, exactly the same way it is done with hand-authored ontology classes. As in this case, a list field isn't a leaf value the server can compare against, so when setting the path of the list field to query against, it is necessary to select *which* element(s) the condition targets before a `Queryable*` type can wrap anything. An index selector, appended directly after the list field's name, "exposes" one conceptual element of the list, turning `list_field` (a list) into a single addressable slot the same way `.field` does for a struct.
 
@@ -856,7 +836,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 | --- | --- | --- |
 | `clustering_map` | Both | Maps each `ontology_tag` to its own `clustering_dt_ns`. Use it when your topics have very different sampling rates or noise characteristics — e.g. a high-frequency `IMU` needs a tight gap to avoid merging distinct events, while a lower-frequency `GPS` topic may need a wider one just to bridge its own sampling interval. |
 | `override_clustering_dt_ns` | Both | A single fallback `clustering_dt_ns` applied to any topic not covered by `clustering_map` (or to every topic if `clustering_map` is omitted). Use it for a quick, uniform adjustment when you don't need per-sensor tuning. |
-| `intersect_dt_ns` | `intersect()` only | Same tolerance concept as the topic-level `intersect()` above, but applied across every topic in the item at once. `0` (default) requires a strict time overlap; increasing it lets you catch causally-related events that don't land at the exact same instant — e.g. a camera flags an obstacle a few hundred milliseconds before the IMU registers the resulting swerve. |
+| `intersect_dt_ns` | `intersect()` only | Same tolerance parameter as the topic-level `intersect()` [above](#topics-intersect), applied across every topic in the item at once. |
 
 Use `clusterize_all()` when you need to inspect or debug each sensor's activity independently; use `intersect()` when the question you're actually asking spans multiple sensors at once.
 
@@ -868,7 +848,7 @@ While fully functional, the current implementation (v0.x) has a **Single Occurre
     ```python
     # INVALID: The same field (acceleration.x) is used twice in the constructor
     QueryOntologyCatalog() \
-        .with_expression(IMU.Q.acceleration.x.gt(0.5))
+        .with_expression(IMU.Q.acceleration.x.gt(0.5)) \
         .with_expression(IMU.Q.acceleration.x.lt(1.0)) # <- Error! Duplicate field path
 
     ```

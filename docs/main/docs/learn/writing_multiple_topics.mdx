@@ -134,7 +134,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 It is **mandatory** to use `SequenceWriter` inside its own `with` context. Using it outside will raise an exception.
 :::
 
-**Sequence-Level Error Handling**: `SessionLevelErrorPolicy.Delete` removes the incomplete sequence entirely on an unhandled error; use this when you want an all-or-nothing guarantee. `SessionLevelErrorPolicy.Report` flags the sequence as failed while retaining whatever records were already transmitted, which can be useful when partial data has diagnostic value. In multi-topic ingestion, the stakes of a session-level abort are higher: a crash late in the GPS ingestion phase could discard IMU data that was uploaded cleanly. This makes per-topic error containment (covered in the next section) especially important.
+**Sequence-Level Error Handling**: `SessionLevelErrorPolicy.Delete` vs `Report` works exactly as described in [Writing a Single Topic](./writing_single_topic.mdx#sequence-upload). In multi-topic ingestion, the stakes of a session-level abort are higher: a crash late in the GPS ingestion phase could discard IMU data that was uploaded cleanly. This makes per-topic error containment (covered in the next section) especially important.
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -180,10 +180,7 @@ pressure_twriter = swriter.topic_create(
 ```
 
 :::info[Topic-Level Error Policy]
-The `TopicLevelErrorPolicy.Ignore` error policy will log on the server any error happening within the `TopicWriter` context
-(e.g. while pushing a message), and then will ignore it, keeping the injestion stream up and active. For a more detailed explanation,
-refer to the [Topic-Level Error Handling](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/#topic-level-error-handling) Section.
-
+Same `TopicLevelErrorPolicy.Ignore` policy as in [Writing a Single Topic](./writing_single_topic.mdx#topic-creation), applied here to three writers instead of one.
 :::
 
 </TabItem>
@@ -236,11 +233,7 @@ for msg in stream_pressure_from_csv("pressure.csv"):
         print(f"Pressure message skipped with error: {pressure_twriter.last_error}")
 ```
 
-**Topic-Level Error Management**: The **`with`** context around each `push()` call is important.
-If an error occurs at the push level, for example a network hiccup or a type validation failure for a particular message, it will propagate up through the generator loop,
-exit the `SequenceWriter` context block abnormally, and trigger the sequence-level `on_error` policy, potentially deleting everything.
-By wrapping each operation related to a topic in the related `TopicWriter` context, you contain errors to the individual message that caused them.
-In this case, since the `TopicLevelErrorPolicy.Ignore` policy has been selected, The affected timestamp is logged remotely, and ingestion continues with the next message.
+**Topic-Level Error Management**: Same containment mechanism as [Writing a Single Topic](./writing_single_topic.mdx#pushing-data) — the `with` context around each `push()` call keeps a push-level error from escaping to the `SequenceWriter` and triggering the sequence-level `on_error` policy. Here it is applied independently to each of the three loops, so an error in the GPS stream cannot abort the IMU or Pressure ingestion.
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -263,8 +256,8 @@ The Rust SDK is currently in development.
 ```python title="Full example"
 import pandas as pd
 from mosaicolabs import (
-    MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy,
-    Message, IMU, Vector3d, GPS, GPSStatus, Pressure, Point3d
+    MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy, TopicLevelErrorPolicy,
+    TopicWriterStatus, Message, IMU, Vector3d, GPS, GPSStatus, Pressure, Point3d
 )
 
 def stream_imu_from_csv(file_path, chunk_size=1000, skipinitialspace=True):
@@ -312,9 +305,9 @@ def main():
             metadata={"mission": "alpha_test", "environment": "laboratory"},
             on_error=SessionLevelErrorPolicy.Delete
         ) as swriter:
-            imu_twriter = swriter.topic_create(topic_name="sensors/imu", metadata={"sensor_id": "accel_01"}, ontology_type=IMU)
-            gps_twriter = swriter.topic_create(topic_name="sensors/gps", metadata={"sensor_id": "gps_01"}, ontology_type=GPS)
-            pressure_twriter = swriter.topic_create(topic_name="sensors/pressure", metadata={"sensor_id": "pressure_01"}, ontology_type=Pressure)
+            imu_twriter = swriter.topic_create(topic_name="sensors/imu", metadata={"sensor_id": "accel_01"}, ontology_type=IMU, on_error=TopicLevelErrorPolicy.Ignore)
+            gps_twriter = swriter.topic_create(topic_name="sensors/gps", metadata={"sensor_id": "gps_01"}, ontology_type=GPS, on_error=TopicLevelErrorPolicy.Ignore)
+            pressure_twriter = swriter.topic_create(topic_name="sensors/pressure", metadata={"sensor_id": "pressure_01"}, ontology_type=Pressure, on_error=TopicLevelErrorPolicy.Ignore)
 
             # Push IMU
             for msg in stream_imu_from_csv("imu.csv"):
