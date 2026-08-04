@@ -66,7 +66,7 @@ pub async fn topic_start_optimization(
     topic_id: i32,
     start_timestamp: types::Timestamp,
     opt_path_in_store: types::TopicPathInStore,
-) -> Result<Option<schema::TopicOptimizationRecord>, Error> {
+) -> Result<schema::TopicOptimizationRecord, Error> {
     trace!(
         "updating topic optimization start timestamp and path in store for topic with id {}",
         topic_id
@@ -83,7 +83,7 @@ pub async fn topic_start_optimization(
         Some(String::from(opt_path_in_store)),
         topic_id
     )
-    .fetch_optional(exe.as_exec())
+    .fetch_one(exe.as_exec())
     .await?)
 }
 

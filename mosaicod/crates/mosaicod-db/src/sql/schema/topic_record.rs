@@ -96,4 +96,12 @@ impl TopicRecord {
 
         info
     }
+
+    /// Returns first and last timestamps stored inside topic's data.
+    pub fn timestamp_range(&self) -> Option<types::TimestampRange> {
+        Some(types::TimestampRange::between(
+            self.start_index_timestamp?.into(),
+            self.end_index_timestamp?.into(),
+        ))
+    }
 }

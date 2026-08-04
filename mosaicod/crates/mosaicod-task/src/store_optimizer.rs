@@ -32,7 +32,13 @@ fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
 #[derive(Default, Debug)]
 struct OptimizationResult {
     completed: Vec<types::TopicLocator>,
-    failed: Vec<types::TopicLocator>,
+    // String in the tuple represents the error.
+    failed: Vec<(types::TopicLocator, String)>,
+}
+
+struct AcquiredTopic {
+    topic_record: db::TopicRecord,
+    opt_path_in_store: types::TopicPathInStore,
 }
 
 pub struct StoreOptimizer {
@@ -134,23 +140,19 @@ impl StoreOptimizer {
     }
 
     /// Optimizes data for the given topic.
-    pub async fn optimize_topic(
-        &self,
-        topic_record: &db::TopicRecord,
-        output_path_in_store: &types::TopicPathInStore,
-    ) -> Result<Vec<SerializedChunk>> {
+    async fn optimize_topic(&self, acquired_topic: &AcquiredTopic) -> Result<()> {
         debug!(
             "Store optimization for topic {} started",
-            topic_record.locator()
+            acquired_topic.topic_record.locator()
         );
 
         // Estimates the batch size considering to fill iteratively the target output file size by a percentage.
-        // If max average row size is zero or the size of a single row is greater than max_file_size, set batcb_size to 1.
-        let max_avg_row_size = self.max_avg_row_size(topic_record).await?;
+        // If max average row size is zero or the size of a single row is greater than max_file_size, set batch_size to 1.
+        let max_avg_row_size = self.max_avg_row_size(&acquired_topic.topic_record).await?;
         let batch_size = if max_avg_row_size == 0 {
             warn!(
                 "max avg row size for topic {} is 0, clamping batch size to 1 to avoid division by zero",
-                topic_record.locator()
+                acquired_topic.topic_record.locator()
             );
             1
         } else {
@@ -174,15 +176,18 @@ impl StoreOptimizer {
         let session_ctx =
             df::execution::context::SessionContext::new_with_config_rt(config, runtime);
 
-        let Some(pis) = topic_record.path_in_store() else {
-            let err_msg = format!("path in store not set for topic {}", topic_record.locator());
+        let Some(pis) = acquired_topic.topic_record.path_in_store() else {
+            let err_msg = format!(
+                "path in store not set for topic {}",
+                acquired_topic.topic_record.locator()
+            );
             Err(core::Error::internal(Some(err_msg)))?
         };
 
         // Copy metadata.json into new path in store before switch.
         let metadata = self.store.read_bytes(pis.path_metadata()).await?;
         self.store
-            .write_bytes(output_path_in_store.path_metadata(), metadata)
+            .write_bytes(acquired_topic.opt_path_in_store.path_metadata(), metadata)
             .await?;
 
         let input_folder = self
@@ -192,7 +197,7 @@ impl StoreOptimizer {
             .map_err(|e| {
                 let err_msg = format!(
                     "error composing input directory path for topic {}: {}",
-                    topic_record.locator(),
+                    acquired_topic.topic_record.locator(),
                     e
                 );
                 core::Error::internal(Some(err_msg))
@@ -225,10 +230,10 @@ impl StoreOptimizer {
 
         let mut chunk_idx: usize = 0;
 
-        let Some(format) = topic_record.serialization_format() else {
+        let Some(format) = acquired_topic.topic_record.serialization_format() else {
             let err_msg = format!(
                 "missing serialization format in DB for topic {}",
-                topic_record.locator()
+                acquired_topic.topic_record.locator()
             );
             Err(core::Error::internal(Some(err_msg)))?
         };
@@ -256,7 +261,7 @@ impl StoreOptimizer {
                 let chunk_path = self
                     .flush_chunk(
                         buffer,
-                        output_path_in_store,
+                        &acquired_topic.opt_path_in_store,
                         types::TopicPathInStore::data_file(
                             chunk_idx,
                             format.to_properties().as_ref(),
@@ -284,7 +289,7 @@ impl StoreOptimizer {
             let chunk_path = self
                 .flush_chunk(
                     buffer,
-                    output_path_in_store,
+                    &acquired_topic.opt_path_in_store,
                     types::TopicPathInStore::data_file(chunk_idx, format.to_properties().as_ref())
                         .as_ref(),
                 )
@@ -297,7 +302,86 @@ impl StoreOptimizer {
             });
         }
 
-        Ok(chunk_stats)
+        let mut tx = self.db.transaction().await?;
+
+        // Remove topic from optimization list once processed and update path_in_store inside topic record.
+        // These operations are done within the same transaction to prevent a cleanup routine scam in between.
+        db::topic_optimization_delete(
+            &mut tx,
+            acquired_topic.topic_record.topic_id,
+            types::allow_data_loss(),
+        )
+        .await?;
+
+        db::topic_optimization_complete(
+            &mut tx,
+            acquired_topic.topic_record.topic_id,
+            types::Timestamp::now().as_i64(),
+            acquired_topic.opt_path_in_store.clone(),
+        )
+        .await?;
+
+        // Update statistics.
+        let topic_info = types::TopicDataInfo {
+            chunks_number: chunk_stats.len() as u64,
+            total_bytes: chunk_stats
+                .iter()
+                .map(|x| x.metadata.size_bytes as u64)
+                .sum(),
+            timestamp_range: acquired_topic
+                .topic_record
+                .timestamp_range()
+                .ok_or_else(|| {
+                    let err_msg = format!(
+                        "missing min/max timestamp range in DB for topic {}",
+                        acquired_topic.topic_record.locator()
+                    );
+                    core::Error::internal(Some(err_msg))
+                })?,
+        };
+        db::topic_update_system_info(&mut tx, &acquired_topic.topic_record.locator(), &topic_info)
+            .await?;
+
+        self.update_chunk_stats(&mut tx, &acquired_topic.topic_record, chunk_stats)
+            .await?;
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
+    async fn acquire_next_topic(&self) -> Result<Option<AcquiredTopic>> {
+        let mut tx = self.db.transaction().await?;
+
+        Ok(
+            if let Some(topic_to_optimize_record) = db::topic_next_to_be_optimized(&mut tx).await? {
+                // Update start_unix_tstamp and opt_path_in_store for the retrieved topic_to_optimize_record.
+                let opt_path_in_store = types::TopicPathInStore::new();
+
+                db::topic_start_optimization(
+                    &mut tx,
+                    topic_to_optimize_record.topic_id,
+                    types::Timestamp::now(),
+                    opt_path_in_store.clone(),
+                )
+                .await?;
+
+                tx.commit().await?;
+
+                let topic_record = db::topic_find_by_id(
+                    &mut self.db.connection(),
+                    topic_to_optimize_record.topic_id,
+                )
+                .await?;
+
+                Some(AcquiredTopic {
+                    topic_record,
+                    opt_path_in_store,
+                })
+            } else {
+                None
+            },
+        )
     }
 
     async fn optimize(&self) -> Result<OptimizationResult> {
@@ -319,72 +403,29 @@ impl StoreOptimizer {
 
         let mut res = OptimizationResult::default();
 
-        loop {
-            let mut tx = self.db.transaction().await?;
+        while let Some(acquired_topic) = self.acquire_next_topic().await? {
+            let topic_res = self.optimize_topic(&acquired_topic).await;
 
-            if let Some(topic_to_optimize_record) = db::topic_next_to_be_optimized(&mut tx).await? {
-                // Update start_unix_tstamp and opt_path_in_store for the retrieved topic_to_optimize_record.
-                let opt_path_in_store = types::TopicPathInStore::new();
-
-                db::topic_start_optimization(
-                    &mut tx,
-                    topic_to_optimize_record.topic_id,
-                    types::Timestamp::now(),
-                    opt_path_in_store.clone(),
-                )
-                .await?;
-
-                tx.commit().await?;
-
-                let topic_record = db::topic_find_by_id(
-                    &mut self.db.connection(),
-                    topic_to_optimize_record.topic_id,
-                )
-                .await?;
-
-                let topic_res = self.optimize_topic(&topic_record, &opt_path_in_store).await;
-
-                if let Ok(chunk_stats) = topic_res {
-                    let mut tx = self.db.transaction().await?;
-
-                    // Remove topic from optimization list once processed and update path_in_store inside topic record.
-                    // These operations are done within the same transaction to prevent a cleanup routine scam in between.
-                    db::topic_optimization_delete(
-                        &mut tx,
-                        topic_to_optimize_record.topic_id,
-                        types::allow_data_loss(),
-                    )
-                    .await?;
-
-                    db::topic_optimization_complete(
-                        &mut tx,
-                        topic_to_optimize_record.topic_id,
-                        types::Timestamp::now().as_i64(),
-                        opt_path_in_store,
-                    )
-                    .await?;
-
-                    self.update_chunk_stats(&mut tx, &topic_record, chunk_stats)
-                        .await?;
-
-                    tx.commit().await?;
-
-                    res.completed.push(topic_record.locator());
-                } else {
+            match topic_res {
+                Ok(_) => {
+                    res.completed.push(acquired_topic.topic_record.locator());
+                }
+                Err(error) => {
                     // If the topic optimization fails, remove it from the optimization list anyway.
                     // It will be re-added at the next execution.
                     db::topic_optimization_delete(
-                        &mut self.db.connection(),
-                        topic_to_optimize_record.topic_id,
-                        types::allow_data_loss(),
-                    )
-                    .await?;
+                            &mut self.db.connection(),
+                            acquired_topic.topic_record.topic_id,
+                            types::allow_data_loss(),
+                        )
+                            .await.unwrap_or_else(|_| {
+                            warn!("failed to delete topic {} from optimization list. Let's see if the next run will be able to handle it.", acquired_topic.topic_record.locator());
+                        });
 
-                    res.failed.push(topic_record.locator());
+                    res.failed
+                        .push((acquired_topic.topic_record.locator(), error.to_string()));
                 }
-            } else {
-                break;
-            }
+            };
         }
 
         Ok(res)
@@ -396,11 +437,22 @@ impl StoreOptimizer {
             info!("Store optimization routine started");
 
             match self.optimize().await {
-                Ok(opt_res) => info!(
-                    "Store optimization routine completed: {} topics successful, {} topics failed",
-                    opt_res.completed.len(),
-                    opt_res.failed.len()
-                ),
+                Ok(opt_res) => {
+                    info!(
+                        "Store optimization routine completed: {} topics successful, {} topics failed:",
+                        opt_res.completed.len(),
+                        opt_res.failed.len()
+                    );
+
+                    let errors_list = opt_res
+                        .failed
+                        .iter()
+                        .map(|(locator, err)| format!("\t{}: {}", locator, err))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    info!(errors_list);
+                }
                 Err(e) => error!("Store optimization routine failed: {}", e),
             }
 
