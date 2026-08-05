@@ -56,26 +56,53 @@ class RosSchemaMetadata:
         self.fields: dict = dict(fields)
 
     def update(self, **fields: Any) -> "RosSchemaMetadata":
-        """Merges additional fields into this block, in place. Returns `self` for chaining."""
+        """
+        Merges additional fields into this block, in place. Returns `self` for chaining.
+
+        Args:
+            **fields (Any): Additional fields to merge.
+
+        Returns:
+            RosSchemaMetadata: The updated metadata instance.
+        """
         self.fields.update(fields)
         return self
 
     def to_dict(self) -> dict:
-        """Wraps the current fields under the reserved key, e.g. `{"_ros_": {...}}`."""
+        """
+        Wraps the current fields under the reserved key, e.g. `{"_ros_": {...}}`.
+
+        Returns:
+            dict: A dictionary containing the `_ros_` block with the current fields.
+        """
         return {self.KEY: dict(self.fields)}
 
     def merge_into(self, metadata: dict) -> dict:
         """
         Merges this block into an existing metadata dict's `_ros_` namespace, creating it
         if absent. Mutates and returns `metadata`.
+
+        Args:
+            metadata (dict): The existing metadata dict to merge into.
+
+        Returns:
+            dict: The updated metadata dict with the `_ros_` block merged in.
         """
         metadata.setdefault(self.KEY, {}).update(self.fields)
         return metadata
 
     @classmethod
     def extract(cls, metadata: Optional[dict]) -> dict:
-        """Reads the `_ros_` block out of a metadata dict (e.g. a topic's `user_metadata`),
-        or `{}` if absent."""
+        """
+        Reads the `_ros_` block out of a metadata dict (e.g. a topic's `user_metadata`),
+        or `{}` if absent.
+
+        Args:
+            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
+
+        Returns:
+            dict: The extracted `_ros_` block, or an empty dict if not present.
+        """
         return dict((metadata or {}).get(cls.KEY) or {})
 
     @classmethod
@@ -345,7 +372,6 @@ class ROSAdapterBase(ABC, Generic[T]):
             ros_meta.update(
                 enums={name: val for name, _, val in enum_list},
                 msgdef=msgdef,
-                msgtype=ros_msg_type,
             )
 
         return ros_meta.to_dict()
