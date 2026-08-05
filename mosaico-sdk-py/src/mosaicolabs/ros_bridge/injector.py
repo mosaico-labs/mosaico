@@ -23,8 +23,9 @@ Typical usage as a library:
 
 import argparse
 import json
+import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
@@ -33,16 +34,17 @@ from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
-    SequenceStatus,
     SerializationFormat,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
     TopicWriterStatus,
 )
+from mosaicolabs.enum.session_status import SessionStatus
 from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .loader import LoaderErrorPolicy, ProgressManager, ROSLoader
+from .adapter_base import RosSchemaMetadata
+from .loader import ProgressManager, ROSLoader
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSAdapterBase, ROSBridge
 from .ros_message import ROSMessage
@@ -127,9 +129,53 @@ class ROSInjectionConfig:
     The name of the sequence to create.
     """
 
-    metadata: dict
+    metadata: dict = field(default_factory=dict)
     """
     Metadata to associate with the sequence.
+    """
+
+    topic_metadata: Optional[Dict[str, dict]] = None
+    """
+    A mapping of exact topic name to metadata to associate with that topic, merged into the
+    metadata computed from the message schema and the source bag file (see `_process_message`).
+    User-supplied values take precedence over the auto-computed ones on key conflicts.
+
+    Only applied to topics that end up being ingested; entries for topics excluded by `topics`
+    filtering are simply unused. Default: None.
+    """
+
+    update_if_exists: bool = False
+    """
+    Controls what happens when a sequence named `sequence_name` already exists on the server.
+
+    If `True`, the injector appends this bag's topics to the existing sequence instead of
+    creating a new one. Use this both when a ROS recording is split across multiple bag files
+    that should all land in the same sequence, and when re-ingesting a derived/reprocessed bag
+    (e.g. offline estimation results) whose topics should be merged into a sequence that was
+    already ingested from the original recording.
+
+    If `False` (default), the injector creates a new sequence and raises an error if a sequence
+    with the same name already exists.
+
+    Each topic's metadata records the source bag file it was ingested from (see
+    `schema_metadata` handling in `_process_message`), so which bag file contributed which
+    topics remains traceable even after multiple updates to the same sequence.
+
+    Caveat: existence is checked and then acted upon in two separate steps (not atomically),
+    so running concurrent injections against the same `sequence_name` can race. Avoid
+    concurrent ingestion into the same sequence name.
+
+    Caveat: resuming after a crash is NOT idempotent. `session_writer.get_topic_writer()`
+    (see `_process_message`) only consults an in-memory cache scoped to the current process's
+    session (`_BaseSessionWriter._topic_writers`); it has no knowledge of topics created by a
+    previous, crashed run. So re-running the same bag with `update_if_exists=True` after a
+    crash will call `topic_create` again for topics that were already fully ingested before
+    the crash, which the server is expected to reject as duplicates (behavior not covered by
+    SDK-level tests as of this writing). There is currently no dedup against the topics already
+    present in the target sequence (available server-side via `MosaicoClient.sequence_handler(
+    sequence_name).topics`, the same mechanism `MosaicoLoader` already uses) before calling
+    `topic_create`. A safe resume would need to check that list first and skip topics already
+    present, rather than only checking the local per-process cache.
     """
 
     host: str = "localhost"
@@ -217,6 +263,13 @@ class ROSInjectionConfig:
     enable_tls: bool = False
     """Enable the TLS commmunication protocol. Defaults to False"""
 
+    dry_run: bool = False
+    """
+    If `True`, resolves and reports which topics would be ingested (and with which adapter),
+    which topics would be rejected (and why), and which `topic_metadata` entries would be
+    unused, without connecting to the Mosaico server or writing any data. Default: False.
+    """
+
 
 # --- Main Injector Class ---
 
@@ -270,7 +323,9 @@ class RosbagInjector:
 
         # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
         self._ignored_topics: Set[str] = set()
-
+        self._malformed_message_counts: Dict[str, int] = (
+            dict()
+        )  # Tracks malformed message counts per topic
         self._loader: Optional[ROSLoader] = None
 
     def _register_custom_types(self):
@@ -312,11 +367,67 @@ class RosbagInjector:
                 file_path=self.cfg.file_path,
                 topics=self.cfg.topics,
                 typestore_name=self.cfg.ros_distro or Stores.EMPTY,
-                error_policy=LoaderErrorPolicy.IGNORE,
                 serialization_formats=self.cfg.serialization_formats,
             )
 
         return self._loader
+
+    def _dry_run_report(self):
+        """
+        Resolves the bag's topics against the current configuration and prints a report
+        of what would be ingested, without connecting to the Mosaico server or writing data.
+
+        Reports, per topic: acceptance status, resolved adapter (or rejection reason), and
+        message count. Also flags any `topic_metadata` entry that doesn't match an accepted
+        topic (e.g. because it was excluded by `topics` filtering or misspelled).
+        """
+        from rich.table import Table
+
+        logger.info(f"[DRY RUN] Opening bag: '{self.cfg.file_path}'")
+
+        with self._open_or_get_loader() as ros_loader:
+            table = Table(
+                title=f"Dry Run: '{self.cfg.file_path.name}' -> sequence '{self.cfg.sequence_name}'"
+            )
+            table.add_column("Topic")
+            table.add_column("Status")
+            table.add_column("Adapter / Reason")
+            table.add_column("Messages", justify="right")
+
+            for topic in ros_loader.topics:
+                adapter = (self.cfg.adapter_overrides or {}).get(
+                    topic
+                ) or ros_loader.resolve_adapter(topic)
+                table.add_row(
+                    topic,
+                    "[bright_green]Accepted",
+                    adapter.__name__ if adapter else "?",
+                    str(ros_loader.msg_count(topic)),
+                )
+
+            for topic, status in ros_loader.rejected_topics:
+                table.add_row(
+                    topic,
+                    f"[{status.display_color()}]{status.value}",
+                    "-",
+                    "-",
+                )
+
+            self.console.print(table)
+
+            accepted = set(ros_loader.topics)
+            unused_topic_metadata = set(self.cfg.topic_metadata or {}) - accepted
+            if unused_topic_metadata:
+                logger.warning(
+                    f"'topic_metadata' entries for topics that would NOT be ingested "
+                    f"(filtered out or unresolved): {sorted(unused_topic_metadata)}"
+                )
+
+            self.console.print(
+                f"[bold]{len(accepted)}[/bold] topic(s) would be ingested, "
+                f"[bold]{len(ros_loader.rejected_topics)}[/bold] rejected. "
+                "No connection to the Mosaico server was made."
+            )
 
     def run(self):
         """
@@ -325,9 +436,23 @@ class RosbagInjector:
         This method establishes the necessary contexts (Network Client, File Loader, Server Writer)
         and executes the processing loop. It handles graceful shutdowns in case of
         user interrupts and provides a summary report upon completion.
+
+        If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
+        without connecting to the server.
+
+        Raises:
+            Exception: Any fatal error encountered during connection, loading, or upload is
+                logged and then re-raised, so callers can detect failure (e.g. `try`/`except`
+                around `run()`, or a non-zero process exit code from the CLI entry point).
+                `KeyboardInterrupt` is the only exception handled silently, to allow a clean
+                shutdown on user interrupt.
         """
         # 1. Prepare Registry
         self._register_custom_types()
+
+        if self.cfg.dry_run:
+            self._dry_run_report()
+            return
 
         logger.info(f"Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'...")
 
@@ -347,13 +472,39 @@ class RosbagInjector:
                     # Setup Progress UI
                     ui = ProgressManager(ros_loader)
                     ui.setup()
+                    # Handle sequence creation or update based on existence and user preference
+                    # NOTE: `update_if_exists` covers two scenarios: a ROS recording split across
+                    # multiple bags that should all land in the same sequence, and a derived/
+                    # reprocessed bag whose topics should be merged into an already-ingested
+                    # sequence. Should the sequence not exist yet, a new one is created regardless.
+                    # CAVEAT: `sequence_exists()` followed by `sequence_create()`/`sequence_update()`
+                    # is a check-then-act race: if two ingestions target the same `sequence_name`
+                    # concurrently, both could observe "does not exist" and both attempt to create
+                    # it, or one could update a sequence the other is still creating. Fine for the
+                    # typical single-operator workflow; avoid running concurrent injections against
+                    # the same sequence name until the server offers an atomic create-or-update.
+                    if (
+                        mclient.sequence_exists(self.cfg.sequence_name)
+                        and self.cfg.update_if_exists
+                    ):
+                        logger.info(
+                            f"Sequence '{self.cfg.sequence_name}' already exists. Updating instead of creating a new one."
+                        )
+                        # Context: Sequence Updadeter (Server Transaction)
+                        seq_writer = mclient.sequence_update(
+                            sequence_name=self.cfg.sequence_name,
+                            on_error=self.cfg.on_error,
+                        )
+                    else:
+                        # NOTE: this will raise an error if the sequence already
+                        # exists and `update_sequence` is False
+                        # Context: Sequence Writer (Server Transaction)
+                        seq_writer = mclient.sequence_create(
+                            sequence_name=self.cfg.sequence_name,
+                            metadata=self.cfg.metadata,
+                            on_error=self.cfg.on_error,
+                        )
 
-                    # Context: Sequence Writer (Server Transaction)
-                    seq_writer = mclient.sequence_create(
-                        sequence_name=self.cfg.sequence_name,
-                        metadata=self.cfg.metadata,
-                        on_error=self.cfg.on_error,
-                    )
                     with seq_writer:
                         logger.info("Starting upload...")
 
@@ -364,33 +515,34 @@ class RosbagInjector:
                             for ros_msg, exc in ros_loader:
                                 self._process_message(ros_msg, exc, seq_writer, ui)
 
-                if seq_writer.status == SequenceStatus.Error:
-                    logger.error(
-                        "`SequenceWriter` returned a `SequenceStatus.Error` status. Upload might have failed!"
+                if seq_writer.session_status == SessionStatus.Error:
+                    raise RuntimeError(
+                        f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
+                        f"sequence '{self.cfg.sequence_name}'. Upload might have failed!"
                     )
-                    return
 
                 logger.info("Sequence upload completed successfully.")
 
                 # Retrieve the sequence info
                 seq_handler = mclient.sequence_handler(self.cfg.sequence_name)
-                if seq_handler is not None:
-                    # --- Final Statistics Report ---
-                    self._print_summary(
-                        original_size=self.cfg.file_path.stat().st_size,
-                        remote_size=seq_handler.total_size_bytes,
+                if seq_handler is None:
+                    raise RuntimeError(
+                        f"Oops, Something bad happened: Sequence '{self.cfg.sequence_name}' "
+                        "not found on remote server. This should not happen..."
                     )
-                else:
-                    logger.error(
-                        f"Oops, Something bad happened: Sequence '{self.cfg.sequence_name}' not found on remote server. This should not happen..."
-                    )
+
+                # --- Final Statistics Report ---
+                self._print_summary(
+                    original_size=self.cfg.file_path.stat().st_size,
+                    remote_size=seq_handler.total_size_bytes,
+                )
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
             return
         except Exception as e:
-            logger.exception(f"Fatal error during injection: '{e}'")
-            return
+            logger.exception(f"Fatal error during ingestion: '{e}'")
+            raise
 
     def _print_summary(self, original_size: int, remote_size: int):
         """
@@ -399,6 +551,21 @@ class RosbagInjector:
         Outputs the original file size, the remote sequence size, the compression ratio,
         and the percentage of disk space saved.
         """
+        if self._malformed_message_counts:
+            from rich.table import Table
+
+            table = Table(
+                title="[bold yellow]Malformed Messages (Skipped)[/bold yellow]"
+            )
+            table.add_column("Topic")
+            table.add_column("Skipped Messages", justify="right")
+            for topic, count in sorted(
+                self._malformed_message_counts.items(), key=lambda kv: -kv[1]
+            ):
+                table.add_row(topic, str(count))
+
+            self.console.print(table)
+
         if remote_size == 0:
             logger.warning("No data was written; cannot calculate compression ratio.")
             return
@@ -440,7 +607,7 @@ class RosbagInjector:
         self,
         ros_msg: ROSMessage,
         exc: Optional[Exception],
-        seq_writer: AnySessionWriter,
+        session_writer: AnySessionWriter,
         ui: ProgressManager,
     ):
         """
@@ -452,11 +619,17 @@ class RosbagInjector:
         3. **Resolve**: Locates the appropriate Mosaico Adapter for the message type.
         4. **Stream**: Obtains or creates a `TopicWriter` for the specific topic.
         5. **Adapt & Push**: Translates the ROS dictionary into a Mosaico object and pushes it to the server buffer.
+
+        Args:
+            ros_msg (ROSMessage): The ROS message to process.
+            exc (Optional[Exception]): Any exception raised during deserialization.
+            session_writer (AnySessionWriter): The active session writer for the sequence.
+            ui (ProgressManager): The progress manager for updating the UI.
         """
 
         if self._loader is None:
             raise RuntimeError(
-                "Impossible to process messages if ROSLoader is not instanciated first"
+                "Impossible to process messages if ROSLoader is not instantiated first"
             )
 
         # --- Filter Check ---
@@ -467,8 +640,17 @@ class RosbagInjector:
         # --- Integrity Check ---
         # If the loader yielded an exception or empty data, mark as error
         if exc or not ros_msg.data_field:
-            ui.update_status(ros_msg.topic, "Deserialization Error.", "red")
+            logger.warning(
+                f"Skipping message on topic '{ros_msg.topic}' due to error: '{exc}'"
+            )
+            ui.update_status(
+                ros_msg.topic, "Message-related Error. Check the logs.", "red"
+            )
             ui.advance_global()
+            # Update the malformed message count for this topic
+            self._malformed_message_counts[ros_msg.topic] = (
+                self._malformed_message_counts.get(ros_msg.topic, 0) + 1
+            )
             return
 
         # --- Adapter Resolution ---
@@ -477,27 +659,42 @@ class RosbagInjector:
         ) or self._loader.resolve_adapter(ros_msg.topic)
 
         if adapter is None:
-            # If no adapter exists, blacklist this topic to prevent future lookups
+            # This should never happen, but we handle it gracefully
+            # Blacklist this topic to prevent future lookups
             self._ignored_topics.add(ros_msg.topic)
-            ui.update_status(ros_msg.topic, "No Adapter", "yellow")
+            ui.update_status(ros_msg.topic, "Unable to adapt.", "red")
             ui.advance_global()
             return
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
-        twriter = seq_writer.get_topic_writer(ros_msg.topic)
+        twriter = session_writer.get_topic_writer(ros_msg.topic)
 
         # Should theoretically not be None if exists returned True
         if twriter is None:
             # --- Schema metadata Resolution ---
             ros_version = 1 if self.cfg.ros_distro is Stores.ROS1_NOETIC else 2
-            schema_metadata = adapter.schema_metadata(
-                self._loader._typestore, ros_msg.msg_type, ros_version
+            ros_meta = RosSchemaMetadata.from_dict(
+                adapter.schema_metadata(
+                    self._loader._typestore, ros_msg.msg_type, ros_version
+                )
             )
+            # Record which bag file introduced this topic, inside the reserved `_ros_`
+            # namespace. This lets the source of each topic remain traceable even after
+            # later updates to the same sequence (e.g. multi-part recordings or merged
+            # reprocessing results), since sequence metadata cannot be changed once the
+            # sequence has been ingested.
+            ros_meta.update(source_file=self.cfg.file_path.name)
+
+            # Start from the user-supplied per-topic metadata, then layer the bridge-computed
+            # `_ros_` block on top: `_ros_` is reserved and always wins on conflict, every
+            # other key is fully user-owned.
+            metadata = dict((self.cfg.topic_metadata or {}).get(ros_msg.topic, {}))
+            metadata.update(ros_meta.to_dict())
 
             # Register new topic on server
-            twriter = seq_writer.topic_create(
+            twriter = session_writer.topic_create(
                 topic_name=ros_msg.topic,
-                metadata=schema_metadata or {},
+                metadata=metadata,
                 ontology_type=adapter.ontology_data_type(),
                 on_error=self._get_topic_on_error(ros_msg.topic),
             )
@@ -528,35 +725,39 @@ class RosbagInjector:
 # --- CLI Entry Point ---
 
 
-def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
+def _parse_json_arg(arg_input: Optional[str], arg_name: str = "Metadata") -> dict:
     """
-    Parses the CLI metadata argument.
+    Parses a CLI argument that may be a raw JSON string or a path to a JSON file.
 
     Supports two formats:
     1. A raw JSON string: '{"driver": "John"}'
     2. A path to a JSON file: './configs/meta.json'
 
+    Args:
+        arg_input (Optional[str]): The raw CLI argument value.
+        arg_name (str): Human-readable name of the argument, used in log/error messages.
+
     Returns:
-        dict: The parsed metadata, or empty dict on failure.
+        dict: The parsed JSON object, or empty dict if `arg_input` is falsy.
     """
-    if not metadata_input:
+    if not arg_input:
         return {}
 
     # Attempt JSON Parse
     try:
-        data = json.loads(metadata_input)
-        logger.info("Metadata parsed successfully from JSON string.")
+        data = json.loads(arg_input)
+        logger.info(f"{arg_name} parsed successfully from JSON string.")
         return data
     except json.JSONDecodeError:
         pass  # Not a valid JSON string, proceed to check file
 
     # Attempt File Read
-    file_path = Path(metadata_input)
+    file_path = Path(arg_input)
     if file_path.is_file():
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            logger.info(f"Metadata loaded successfully from file: '{file_path}'")
+            logger.info(f"{arg_name} loaded successfully from file: '{file_path}'")
             return data
         except json.JSONDecodeError as e:
             logger.error(
@@ -564,12 +765,12 @@ def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
             )
             sys.exit(1)
         except Exception as e:
-            logger.error(f"Error reading metadata file '{file_path}': '{e}'")
+            logger.error(f"Error reading {arg_name.lower()} file '{file_path}': '{e}'")
             sys.exit(1)
 
     # Failure
     logger.error(
-        f"Metadata argument is neither a valid JSON string nor a valid file path: '{metadata_input}'"
+        f"{arg_name} argument is neither a valid JSON string nor a valid file path: '{arg_input}'"
     )
     sys.exit(1)
 
@@ -584,6 +785,23 @@ def ros_injector():
     # Required Arguments
     parser.add_argument("bag_path", type=Path, help="Path to .mcap or .db3 file")
     parser.add_argument("--name", "-n", required=True, help="Target Sequence Name")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Resolve topics/adapters/rejections and print a report, without connecting "
+            "to the Mosaico server or writing any data."
+        ),
+    )
+    parser.add_argument(
+        "--update-if-exists",
+        action="store_true",
+        help=(
+            "If a sequence named --name already exists, append this bag's topics to it "
+            "instead of raising an error (e.g. for multi-part bags or merging reprocessed "
+            "results into an already-ingested sequence)."
+        ),
+    )
 
     # Connection Arguments
     parser.add_argument("--host", default="localhost", help="Mosaico Server Host")
@@ -610,6 +828,14 @@ def ros_injector():
         "--metadata",
         help="JSON string or path to JSON file containing sequence metadata",
     )
+    parser.add_argument(
+        "--topic-metadata",
+        help=(
+            "JSON string or path to JSON file containing a mapping of exact topic name to "
+            'metadata, e.g. \'{"/imu": {"unit": "rad/s"}}\'. Only applied to topics that are '
+            "actually ingested (see --topics)."
+        ),
+    )
 
     # Advanced Arguments
     parser.add_argument(
@@ -624,7 +850,11 @@ def ros_injector():
     parser.add_argument(
         "--api-key",
         default=None,
-        help="Mosaico API-Key",
+        help=(
+            "Mosaico API-Key. Prefer setting the MOSAICO_API_KEY environment variable "
+            "instead, to avoid leaking the key via shell history or the process list "
+            "(e.g. `ps aux`); --api-key takes precedence if both are set."
+        ),
     )
 
     # Advanced Arguments
@@ -658,26 +888,39 @@ def ros_injector():
     )
 
     # Parse metadata
-    user_metadata = _parse_metadata_arg(args.metadata)
+    user_metadata = _parse_json_arg(args.metadata, arg_name="Metadata")
     # Inject traceability metadata
     user_metadata.update({"rosbag_injection": args.bag_path.name})
+    user_topic_metadata = _parse_json_arg(
+        args.topic_metadata, arg_name="Topic metadata"
+    )
 
     config = ROSInjectionConfig(
         file_path=args.bag_path,
         sequence_name=args.name,
         metadata=user_metadata,
+        topic_metadata=user_topic_metadata or None,
+        update_if_exists=args.update_if_exists,
+        dry_run=args.dry_run,
         host=args.host,
         port=args.port,
         topics=args.topics,
         ros_distro=selected_distro,
         log_level=args.log,
         tls_cert_path=args.tls_cert,
-        mosaico_api_key=args.api_key,
+        mosaico_api_key=args.api_key or os.environ.get("MOSAICO_API_KEY"),
     )
 
     # --- Execution ---
     injector = RosbagInjector(config)
-    injector.run()
+    try:
+        injector.run()
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except Exception:
+        # Already logged with a full traceback inside run(); exit non-zero so
+        # calling scripts/CI can detect the failure.
+        sys.exit(1)
 
 
 if __name__ == "__main__":
