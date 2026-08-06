@@ -939,7 +939,7 @@ class MosaicoLoader:
 
     def _create_unmodeled_adapter(
         self, t_handler: TopicHandler
-    ) -> Tuple[type[UnmodeledAdapter], str]:
+    ) -> Optional[Tuple[type[UnmodeledAdapter], str]]:
         """
         Strategy 3 (fallback): synthesize an ``UnmodeledAdapter`` for the topic's
         ontology when no hand-written adapter could be resolved. Always succeeds,
@@ -951,20 +951,15 @@ class MosaicoLoader:
                 Arrow schema, and serialization format).
 
         Returns:
-            Tuple[type[UnmodeledAdapter], str]: The ``(adapter, msgtype)`` pair.
-
-        Raises:
-            RuntimeError: when ``msgtype`` is ``None``, since the unmodeled ontology cannot be
-                created/registered without it.
+            Optional[Tuple[type[UnmodeledAdapter], str]]: The ``(adapter, msgtype)`` pair,
+                otherwise ``None``.
         """
 
         ros_metadata = _extract_ros_metadata(t_handler)
         msgtype: Optional[str] = ros_metadata.get("msgtype")
 
         if msgtype is None:
-            raise RuntimeError(
-                "Cannot get or create unmodeled ontology since msgdef is not defined"
-            )
+            return None
 
         unmodeled_ontology = resolve_ontology_class(
             ontology_tag=t_handler.ontology_tag,
@@ -1027,11 +1022,16 @@ class MosaicoLoader:
                 even the unmodeled fallback cannot be created.
         """
 
-        adapter, resolved_rosmsg_type = (
+        factory_result = (
             self._adapter_from_metadata_msgtype(t_handler)
             or self._adapter_from_ontology_tag(t_handler)
             or self._create_unmodeled_adapter(t_handler)
         )
+
+        if factory_result is None:
+            raise RuntimeError(f"Unable to infer an adapter for {t_handler.name} topic")
+        else:
+            adapter, resolved_rosmsg_type = factory_result
 
         # Register type within typestore (no-op if already registered)
         msgdef = _extract_ros_metadata(t_handler).get("msgdef")

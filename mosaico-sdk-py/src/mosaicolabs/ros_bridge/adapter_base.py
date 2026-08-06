@@ -200,7 +200,7 @@ class ROSAdapterBase(ABC, Generic[T]):
                 - the ros_msg_type or resolved_rosmsg_type are supported but translation is not implemented (NotImplementedError)
         """
         raise NotImplementedError(
-            f"{cls.__name__} does not implement to_ros(). Impossible to encode the Mosaico Message to ROS"
+            f"{cls.__name__} does not implement to_ros(). Unable to encode the Mosaico Message to ROS"
         )
 
     @classmethod
