@@ -51,6 +51,7 @@ pub struct StoreOptimizer {
     // Soft threshold to split the output files.
     // The value should stay between 128MB and 512MB for best performance with object store.
     max_file_size: usize,
+    result: OptimizationResult,
 }
 
 impl StoreOptimizer {
@@ -61,6 +62,7 @@ impl StoreOptimizer {
             store,
             time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
             max_file_size: DEFAULT_MAX_OUTPUT_FILE_SIZE,
+            result: OptimizationResult::default(),
         }
     }
 
@@ -75,7 +77,7 @@ impl StoreOptimizer {
     }
 
     /// Gets the max average row size between every chunk for the given topic.
-    pub async fn max_avg_row_size(&self, topic_record: &db::TopicRecord) -> Result<u32> {
+    async fn max_avg_row_size(&self, topic_record: &db::TopicRecord) -> Result<u32> {
         let mut cx = self.db.connection();
 
         let max_avg_row_size = db::topic_chunk_max_avg_row_size(&mut cx, topic_record.topic_id)
@@ -374,13 +376,10 @@ impl StoreOptimizer {
                 )
                 .await?;
 
-                tx.commit().await?;
+                let topic_record =
+                    db::topic_find_by_id(&mut tx, topic_to_optimize_record.topic_id).await?;
 
-                let topic_record = db::topic_find_by_id(
-                    &mut self.db.connection(),
-                    topic_to_optimize_record.topic_id,
-                )
-                .await?;
+                tx.commit().await?;
 
                 Some(AcquiredTopic {
                     topic_record,
@@ -392,7 +391,7 @@ impl StoreOptimizer {
         )
     }
 
-    async fn optimize(&self) -> Result<OptimizationResult> {
+    async fn optimize(&mut self) -> Result<()> {
         // Check for stale topics (if the optimization has started too long ago, then we can assume that something went wrong).
         // In this case remove the topic from the list (it will be re-added later (see below).
         let stale_deleted = db::topic_optimization_delete_stale(
@@ -409,50 +408,62 @@ impl StoreOptimizer {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
-        let mut res = OptimizationResult::default();
-
-        while let Some(acquired_topic) = self.acquire_next_topic().await? {
+        while let Some(acquired_topic) = self
+            .acquire_next_topic()
+            .await
+            .inspect_err(|_| error!("failed to acquire next topic to optimize"))?
+        {
             let topic_res = self.optimize_topic(&acquired_topic).await;
 
             match topic_res {
                 Ok(_) => {
-                    res.completed.push(acquired_topic.topic_record.locator());
+                    self.result
+                        .completed
+                        .push(acquired_topic.topic_record.locator());
                 }
                 Err(error) => {
+                    warn!(
+                        "failed to optimize topic {}. It will be removed from optimization list waiting for the next run.",
+                        acquired_topic.topic_record.locator()
+                    );
+
                     // If the topic optimization fails, remove it from the optimization list anyway.
                     // It will be re-added at the next execution.
+                    // If even the deletion from the list fails, we can only wait until lease time expires.
                     db::topic_optimization_delete(
                             &mut self.db.connection(),
                             acquired_topic.topic_record.topic_id,
                             types::allow_data_loss(),
                         )
                             .await.unwrap_or_else(|_| {
-                            warn!("failed to delete topic {} from optimization list. Let's see if the next run will be able to handle it.", acquired_topic.topic_record.locator());
+                            warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
                         });
 
-                    res.failed
+                    self.result
+                        .failed
                         .push((acquired_topic.topic_record.locator(), error.to_string()));
                 }
             };
         }
 
-        Ok(res)
+        Ok(())
     }
 
     /// Starts the optimization routine every [`time_interval`].
-    pub async fn run(self, shutdown_notifier: CancellationToken) {
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
         loop {
             info!("Store optimization routine started");
 
             match self.optimize().await {
-                Ok(opt_res) => {
+                Ok(_) => {
                     info!(
                         "Store optimization routine completed: {} topics successful, {} topics failed:",
-                        opt_res.completed.len(),
-                        opt_res.failed.len()
+                        self.result.completed.len(),
+                        self.result.failed.len()
                     );
 
-                    let errors_list = opt_res
+                    let errors_list = self
+                        .result
                         .failed
                         .iter()
                         .map(|(locator, err)| format!("\t{}: {}", locator, err))
