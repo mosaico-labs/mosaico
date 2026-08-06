@@ -15,7 +15,7 @@ from typing import (
 
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
-from rosbags.typesys import get_types_from_msg
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import (
@@ -264,12 +264,12 @@ class ROSLoader(_BaseROSTopicResolver):
     def __init__(
         self,
         file_path: Union[str, Path],
-        typestore: Typestore,
+        typestore_or_distro: Typestore | Stores,
         topics: Optional[Union[str, List[str]]] = None,
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
-        Initializes the loader against a caller-supplied, already-resolved `Typestore`.
+        Initializes the ROSbag loader against a caller-supplied `Typestore` or ROS distro.
 
         `ROSLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
         that already has any custom `.msg` definitions registered (e.g. via
@@ -279,7 +279,7 @@ class ROSLoader(_BaseROSTopicResolver):
 
         Example:
             ```python
-            from rosbags.typesys import Stores, get_typestore
+            from rosbags.typesys import Stores
             from mosaicolabs.enum.serialization_format import SerializationFormat
             from mosaicolabs.ros_bridge import ROSLoader
 
@@ -287,7 +287,7 @@ class ROSLoader(_BaseROSTopicResolver):
             with ROSLoader(
                 file_path="mission_01.mcap",
                 topics=["/imu*", "/gps/fix"],
-                typestore=get_typestore(Stores.ROS2_HUMBLE),
+                typestore_or_distro=Stores.ROS2_HUMBLE,
                 # Non-adapted (Unmodeled) messages of this type will be
                 # serialized as Ragged instead of the Default format
                 serialization_formats={
@@ -301,7 +301,7 @@ class ROSLoader(_BaseROSTopicResolver):
 
         Args:
             file_path (Union[str, Path]): Path to the bag file or directory.
-            typestore (Typestore): The typestore to use for message type resolution.
+            typestore_or_distro (Typestore | Stores): The typestore or ROS distro to use for message type resolution.
             topics (Optional[Union[str, List[str]]]): A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
                 If None, all available topics are loaded.
             serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
@@ -320,7 +320,11 @@ class ROSLoader(_BaseROSTopicResolver):
         # Configuration
         self._requested_topics = [topics] if isinstance(topics, str) else topics
         """The user-specified topic filter(s) to apply when resolving topics."""
-        self._typestore: Typestore = typestore
+        self._typestore: Typestore = (
+            typestore_or_distro
+            if isinstance(typestore_or_distro, Typestore)
+            else get_typestore(typestore_or_distro)
+        )
         """The typestore used for message type resolution."""
         self._serialization_formats: Dict[str, SerializationFormat] = (
             serialization_formats or {}
@@ -647,27 +651,63 @@ class MosaicoLoader(_BaseROSTopicResolver):
     Conforms to the :class:`Loader` protocol, making it usable with
     :class:`ProgressManager` for live progress reporting.
 
-    Args:
-        m_client (MosaicoClient): An open :class:`MosaicoClient` connection.
-        typestore (Typestore): The ROS typestore containing the registered ROS messages.
-        sequence_name (str): Name of the Mosaico sequence to load.
-        topics (Optional[Union[str, List[str]]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
-            exclusions). ``None`` loads all topics.
-        start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
-            to the sequence minimum if out of range.
-        end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
-            the sequence maximum if out of range.
+    Note: `MosaicoLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
+        Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
+        `.msg` registration) is the caller's responsibility — [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]
+        does this internally before constructing a `MosaicoLoader`.
     """
 
     def __init__(
         self,
         m_client: MosaicoClient,
-        typestore: Typestore,
+        typestore_or_distro: Typestore | Stores,
         sequence_name: str,
         topics: Optional[List[str]] = None,
         start_timestamp_ns: Optional[int] = None,
         end_timestamp_ns: Optional[int] = None,
     ):
+        """
+        Initializes the loader against a Mosaico sequence, using a caller-supplied
+        `Typestore` or ROS distro to resolve adapters and ROS message types.
+
+        `MosaicoLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
+        that already has any custom `.msg` definitions registered (e.g. via
+        `get_typestore(ros_distro)` plus `Typestore.register(...)`, or the `Typestore`
+        that `ROSSequenceExtractor` builds internally from `ROSExtractorConfig.ros_distro`/
+        `custom_msgs`), needed when a topic's `_ros_.msgdef` isn't available to auto-register
+        the type (e.g. the sequence wasn't ingested from a ROS bag in the first place).
+
+        Example:
+            ```python
+            from rosbags.typesys import Stores
+            from mosaicolabs import MosaicoClient
+            from mosaicolabs.ros_bridge import MosaicoLoader
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Stream only IMU and GPS topics back out of a sequence
+                with MosaicoLoader(
+                    m_client=client,
+                    typestore_or_distro=Stores.ROS2_HUMBLE,
+                    sequence_name="on_track_experiment",
+                    topics=["/imu*", "/gps/fix"],
+                ) as loader:
+                    for topic, ms_msg in loader:
+                        print(f"Read {topic} @ {ms_msg.timestamp_ns}")
+            ```
+
+        Args:
+            m_client (MosaicoClient): An open :class:`MosaicoClient` connection.
+            typestore_or_distro (Typestore | Stores): A pre-built `Typestore` (e.g. one
+                already carrying custom `.msg` registrations), or a `Stores` distro to
+                resolve a fresh, empty typestore for via `get_typestore()`.
+            sequence_name (str): Name of the Mosaico sequence to load.
+            topics (Optional[Union[str, List[str]]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
+                exclusions). ``None`` loads all topics.
+            start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
+                to the sequence minimum if out of range.
+            end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
+                the sequence maximum if out of range.
+        """
 
         super().__init__(
             container_type=list[str]
@@ -675,7 +715,11 @@ class MosaicoLoader(_BaseROSTopicResolver):
 
         self._client = m_client
         """The MosaicoClient used to fetch sequence data and metadata."""
-        self._typestore: Typestore = typestore
+        self._typestore: Typestore = (
+            typestore_or_distro
+            if isinstance(typestore_or_distro, Typestore)
+            else get_typestore(typestore_or_distro)
+        )
         """The ROS typestore containing the registered ROS messages. Used for adapter resolution."""
         self._sequence_name = sequence_name
         """The name of the Mosaico sequence to load."""

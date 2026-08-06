@@ -411,7 +411,7 @@ class RosbagInjector:
             self._loader = ROSLoader(
                 file_path=self._cfg.file_path,
                 topics=self._cfg.topics,
-                typestore=self._typestore,
+                typestore_or_distro=self._typestore,
                 serialization_formats=self._cfg.serialization_formats,
             )
 

@@ -11,6 +11,7 @@ from mosaicolabs.ros_bridge.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
 )
+from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 ROS_DISTRO = [
     Stores.LATEST,
@@ -84,6 +85,7 @@ def test_run_data_correctness(
     default_extractor_config,
     ros_distro,
     storage_plugin,
+    mosaico_client,
 ):
 
     overwritten_configs = override_ext_configs(
@@ -94,9 +96,16 @@ def test_run_data_correctness(
 
     rosbag_file_path = get_rosbagfile_path(default_extractor_config)
 
-    ros_loader = ROSLoader(
-        file_path=rosbag_file_path, typestore=get_typestore(ros_distro)
-    )
+    ros_loader = ROSLoader(file_path=rosbag_file_path, typestore_or_distro=ros_distro)
+
+    shandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    assert shandler is not None
+    # Assert all the topics are adapted and accepted
+    assert len(ros_loader.topics) == len(shandler.topics)
+    assert all(top in ros_loader.topics for top in shandler.topics)
+    sstreamer = shandler.get_data_streamer()
+    # All the messages are reconstructed
+    assert ros_loader.msg_count() == sstreamer.msg_count
 
     for (ros_msg, _), data_steam_item in zip_longest(
         ros_loader, synthetic_sequence_data_stream.items
@@ -107,6 +116,8 @@ def test_run_data_correctness(
 
         assert reconstructed_ms_msg.timestamp_ns == data_steam_item.msg.timestamp_ns
         assert reconstructed_ms_msg.data == data_steam_item.msg.data
+
+    mosaico_client.close()
 
 
 def test_overwrite_false_raise_on_existing_path(
