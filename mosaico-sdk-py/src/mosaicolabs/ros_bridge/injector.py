@@ -44,10 +44,11 @@ from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .adapter_base import RosSchemaMetadata
-from .loader import ProgressManager, ROSLoader
+from .loader import ROSLoader
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSAdapterBase, ROSBridge
 from .ros_message import ROSMessage
+from .ui import ProgressManager
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
