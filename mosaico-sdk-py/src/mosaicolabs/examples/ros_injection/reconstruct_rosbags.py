@@ -45,6 +45,15 @@ def main():
             # start_timestamp_ns=,
             # end_timestamp_ns=,
             overwrite=True,
+            custom_msgs=[
+                (
+                    "isaac_ros_nova_interfaces/msg/EncoderTicks",
+                    Path(
+                        "/Users/fdicorato/workspace/Projects/mosaicolabs/assets/nvidia/messages/isaac_ros_nova_interfaces/"
+                    ),
+                    ROS_DISTRO,
+                )
+            ],
         )
 
         # --- Execution ---

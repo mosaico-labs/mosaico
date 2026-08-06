@@ -214,7 +214,7 @@ class _BaseROSTopicResolver(ABC):
         rejected += self._extra_rejected_topics()
         return rejected
 
-    def resolve_adapter(self, topic_name: str) -> Optional[type]:
+    def resolve_adapter(self, topic_name: str) -> Optional[type[ROSAdapterBase]]:
         """
         Returns the resolved adapter for an accepted topic.
 

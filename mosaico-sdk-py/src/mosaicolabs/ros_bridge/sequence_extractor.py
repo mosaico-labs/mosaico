@@ -18,7 +18,7 @@ import argparse
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 from rich.live import Live
 from rosbags.interfaces import Connection
@@ -29,6 +29,7 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
+from mosaicolabs.ros_bridge.adapter_base import ROSAdapterBase
 from mosaicolabs.ros_bridge.loader import MosaicoLoader
 from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
@@ -174,6 +175,17 @@ class ROSSequenceExtractor:
         self.accepted_connections: dict[str, Connection] = {}
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
         self.mosaico_loader: Optional[MosaicoLoader] = None
+
+        # Register custom ROS messages to ROSTypeRegistry
+        self._register_custom_types()
+
+        # Register all ROS messages to typestore
+        custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+        if custom_types:
+            logger.info(
+                f"Registering {list(custom_types.keys())} definitions to typestore..."
+            )
+            self._register_definitions(custom_types)
 
     def _register_custom_types(self):
         """
@@ -404,7 +416,14 @@ class ROSSequenceExtractor:
 
         ui.advance_all(t_name)
 
-    def _encode_ros_message(self, adapter, ms_msg, ros_msg_type, t_name, ui):
+    def _encode_ros_message(
+        self,
+        adapter: Type[ROSAdapterBase],
+        ms_msg: Message,
+        ros_msg_type: Optional[str],
+        t_name: str,
+        ui: ProgressManager,
+    ):
         try:
             return adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
         except TypeError as e:
@@ -471,14 +490,6 @@ class ROSSequenceExtractor:
                 tls_cert_path=self.cfg.tls_cert_path,
             ) as mclient:
                 logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
-
-                # Register custom ROS messages to ROSTypeRegistry
-                self._register_custom_types()
-
-                # Register all ROS messages to typestore
-                custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
-                if custom_types:
-                    self._register_definitions(custom_types)
 
                 # Creating the bagwriter
                 with self._open_or_get_mosaicoloader(mclient) as ms_loader:
