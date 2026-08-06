@@ -339,7 +339,7 @@ class ROSSequenceExtractor:
 
         try:
             ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
-        except TypeError as e:
+        except (TypeError, NotImplementedError) as e:
             self.ignored_topics.add(t_name)
             logger.warning(
                 f"Could not encode to ros '{ms_msg.ontology_tag()}' type because: {e}. Skipping the topic associated to this message"
