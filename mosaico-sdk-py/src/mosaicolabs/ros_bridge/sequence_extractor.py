@@ -91,6 +91,20 @@ class ROSExtractorConfig:
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
 
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+
+    Registered into `registry` (or a fresh, private `ROSTypeRegistry` if `registry` is
+    `None`) before the loader's `Typestore` is built. Needed when encoding an ontology
+    value back to a ROS message whose `msgdef` isn't recoverable from the topic's own
+    `_ros_` metadata (e.g. the sequence wasn't ingested from a ROS bag in the first place).
+    """
+
+    registry: Optional[ROSTypeRegistry] = None
+    """
+    The `ROSTypeRegistry` instance to register `custom_msgs` into and to pull existing
+    definitions from. If `None` (default), a fresh, private instance is created for this
+    extractor alone — so its custom types can never leak into another injector/extractor
+    run in the same process. Pass the *same* `ROSTypeRegistry` instance across multiple
+    configs to deliberately share a centrally pre-registered set of definitions between them.
     """
 
     topics: Optional[list[str]] = None
@@ -184,27 +198,33 @@ class ROSSequenceExtractor:
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
         self.mosaico_loader: Optional[MosaicoLoader] = None
 
+        # Own a private registry by default, so this extractor's custom types can never
+        # leak into another injector/extractor run in the same process. Pass the same
+        # `ROSTypeRegistry` instance via `cfg.registry` to deliberately share definitions
+        # across multiple runs (e.g. a centralized setup routine).
+        self._registry: ROSTypeRegistry = self.cfg.registry or ROSTypeRegistry()
+
         # Register custom ROS messages to the local typestore
         self._typestore_custom_msgtypes()
 
     def _typestore_custom_msgtypes(self):
         """
-        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``,
-        and then registers the custom message definitions to the typestore.
+        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``
+        into ``self._registry``, then pulls every definition currently registered there
+        (including ones registered elsewhere on a *shared* `cfg.registry` instance) into
+        the local typestore. Safe to always run: `self._registry` is either private to
+        this extractor, or an instance the caller explicitly chose to share.
         """
-        if not self.cfg.custom_msgs:
-            return
-
-        # Register Global Types (Registry Pattern)
-        logger.info("Registering custom message definitions...")
-        for package, path, store in self.cfg.custom_msgs:
-            try:
-                ROSTypeRegistry.register_directory(
-                    package_name=package, dir_path=path, store=store
-                )
-                logger.debug(f"Registered package '{package}' from '{path}'")
-            except Exception as e:
-                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+        if self.cfg.custom_msgs:
+            logger.info("Registering custom message definitions...")
+            for package, path, store in self.cfg.custom_msgs:
+                try:
+                    self._registry.register_directory(
+                        package_name=package, dir_path=path, store=store
+                    )
+                    logger.debug(f"Registered package '{package}' from '{path}'")
+                except Exception as e:
+                    logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
         self._register_definitions()
 
@@ -212,7 +232,7 @@ class ROSSequenceExtractor:
         """Safe registration wrapper."""
         from rosbags.typesys import get_types_from_msg
 
-        custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+        custom_types = self._registry.get_types(self.cfg.ros_distro)
         if not custom_types:
             return
 

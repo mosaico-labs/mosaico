@@ -238,15 +238,18 @@ class ROSLoader(_BaseROSTopicResolver):
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
 
     The `ROSLoader` acts as a resource manager that abstracts the underlying `rosbags` library.
-    It provides a standardized Pythonic interface for filtering topics, managing custom message
-    registries, and streaming data into the Mosaico adaptation pipeline.
+    It provides a standardized Pythonic interface for filtering topics and streaming data
+    into the Mosaico adaptation pipeline, against a caller-supplied `Typestore`.
 
+    Note: `ROSLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
+        Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
+        `.msg` registration) is the caller's responsibility — [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]
+        does this internally before constructing a `ROSLoader`.
 
     ### Key Features
     * **Multi-Format Support**: Automatically detects and handles ROS 1 and ROS 2 bag containers.
     * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
         with `!`-prefixed patterns for exclusion (e.g., `!/sensors/debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
-    * **Dynamic Schema Resolution**: Integrates with the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] to resolve proprietary message types on-the-fly.
     * **Configurable Serialization**: Non-adapted message types can be assigned a specific
         [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat] via `serialization_formats`,
         overriding the `SerializationFormat.Default` used otherwise.
@@ -266,15 +269,17 @@ class ROSLoader(_BaseROSTopicResolver):
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
-        Initializes the loader and prepares the type registry.
+        Initializes the loader against a caller-supplied, already-resolved `Typestore`.
 
-        Upon initialization, the loader merges the global definitions from the
-        [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry]
-        with any `custom_types` provided specifically for this session.
+        `ROSLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
+        that already has any custom `.msg` definitions registered (e.g. via
+        `get_typestore(ros_distro)` plus `Typestore.register(...)`, or the `Typestore`
+        that `RosbagInjector` builds internally from `ROSInjectionConfig.ros_distro`/
+        `custom_msgs`).
 
         Example:
             ```python
-            from rosbags.typesys import Stores
+            from rosbags.typesys import Stores, get_typestore
             from mosaicolabs.enum.serialization_format import SerializationFormat
             from mosaicolabs.ros_bridge import ROSLoader
 
@@ -282,7 +287,7 @@ class ROSLoader(_BaseROSTopicResolver):
             with ROSLoader(
                 file_path="mission_01.mcap",
                 topics=["/imu*", "/gps/fix"],
-                typestore_name=Stores.ROS2_HUMBLE,
+                typestore=get_typestore(Stores.ROS2_HUMBLE),
                 # Non-adapted (Unmodeled) messages of this type will be
                 # serialized as Ragged instead of the Default format
                 serialization_formats={
@@ -548,7 +553,7 @@ class ROSLoader(_BaseROSTopicResolver):
 
         Example:
             ```python
-            with ROSLoader(file_path="data.mcap") as loader:
+            with ROSLoader(file_path="data.mcap", typestore=get_typestore(Stores.EMPTY)) as loader:
                 for topic, msg_type in zip(loader.topics, loader.msg_types):
                     print(f"Topic {topic} requires schema: {msg_type}")
             ```

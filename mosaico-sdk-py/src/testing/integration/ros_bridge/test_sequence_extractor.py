@@ -5,7 +5,8 @@ import pytest
 from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs.ros_bridge import ROSBridge, ROSLoader
+from mosaicolabs import Pose, SessionLevelErrorPolicy
+from mosaicolabs.ros_bridge import MosaicoLoader, ROSBridge, ROSLoader
 from mosaicolabs.ros_bridge.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
@@ -148,3 +149,32 @@ def test_not_existing_sequence_name(default_extractor_config):
 
     with pytest.raises(ValueError):
         sequence_ext.run()
+
+
+def test_valid_msgtype(mosaico_client):
+    ros_distro = Stores.ROS2_JAZZY
+    ros_sequence_name = "ros-sequence-valid-msgtype"
+    ros_topic_name = "/car/pose"
+    topic_with_ros_metadata = {"_ros_": {"msgtype": "geometry_msgs/msg/PoseStamped"}}
+
+    with mosaico_client:
+        # Writing topic
+        with mosaico_client.sequence_create(
+            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+        ) as s_writer:
+            s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
+
+        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+
+        # Reading topic
+        mosaico_loader = MosaicoLoader(
+            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+        )
+        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+
+        assert adapter and adapter.ontology_data_type() is Pose
+        assert (
+            rosmsg_type is not None and rosmsg_type == "geometry_msgs/msg/PoseStamped"
+        )
+
+        mosaico_client.sequence_delete(ros_sequence_name)

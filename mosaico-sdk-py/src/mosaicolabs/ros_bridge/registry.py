@@ -1,19 +1,23 @@
 """
 ROS Message Type Registry.
 
-This module provides the central configuration point for the ROS Bridge.
-It implements a **Context-Aware Singleton Registry** that manages custom message definitions.
+This module provides a small, self-contained registry of custom ROS message
+definitions, used by [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and
+[`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] to build the
+`Typestore` they hand to their respective loader.
 
 ROS message definitions (`.msg`) are not self-contained; they depend on the specific
 ROS distribution (e.g., `std_msgs/Header` differs between ROS 1 and ROS 2).
-A naive global registry causes conflicts when analyzing data from mixed sources.
 
-This registry stores definitions in "Profiles" ([`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores)).
+Each `ROSTypeRegistry` instance stores definitions in "Profiles" ([`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores)).
 1.  **GLOBAL Profile**: Definitions shared across all versions (e.g., simple custom types).
 2.  **Scoped Profiles**: Definitions valid only for a specific typestore (e.g., `Stores.ROS1_NOETIC`).
 
-When a `ROSDataLoader` is initialized, it requests a merged view of the Global + Scoped
-definitions relevant to its specific data file.
+`RosbagInjector`/`ROSSequenceExtractor` each own a private, freshly-created instance by
+default — so registering custom types for one run never leaks into another. To share
+definitions across multiple injector/extractor runs (e.g. a centralized setup routine
+covering hundreds of proprietary types), construct one `ROSTypeRegistry()` yourself and
+pass that same instance to every config's `registry` field.
 """
 
 from collections import defaultdict
@@ -30,15 +34,23 @@ logger = get_logger(__name__)
 
 class ROSTypeRegistry:
     """
-    A context-aware singleton registry for custom ROS message definitions.
+    A context-aware registry for custom ROS message definitions.
 
     ROS message definitions (`.msg`) are not self-contained; they often vary between
     distributions (e.g., `std_msgs/Header` has different fields in ROS 1 Noetic vs. ROS 2 Humble).
-    The `ROSTypeRegistry` resolves this by implementing a **Context-Aware Singleton** that
-    organizes schemas into "Profiles" ([`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores)).
+    `ROSTypeRegistry` resolves this by organizing schemas into "Profiles"
+    ([`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores)).
+
+    Each instance is independent. By default, [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]
+    and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] each construct
+    their own private instance, so one run's custom types can never leak into another's
+    in the same process. To deliberately share a set of definitions across many runs,
+    construct a single instance and pass it explicitly wherever it should apply (e.g. via
+    each config's `registry` field) — that explicit passing is the only way definitions
+    become visible outside the instance they were registered on.
 
     ### Why Use a Registry?
-    * **Conflict Resolution**: Prevents name collisions when processing data from mixed ROS 1 and ROS 2 sources in the same environment.
+    * **Conflict Resolution**: Keeps custom types registered for one injector/extractor run from silently affecting another's, even within the same process.
     * **Proprietary Support**: Allows the system to ingest non-standard messages (e.g., custom robot state or specialized sensor payloads).
     * **Cascading Logic**: Implements an "Overlay" mechanism where global definitions provide a baseline, and distribution-specific definitions provide high-precision overrides.
 
@@ -48,35 +60,37 @@ class ROSTypeRegistry:
             and the second level maps the **Message Type** to its raw **Definition String**.
     """
 
-    # Internal storage.
-    # Key: Store Name (e.g. "GLOBAL", "ros2_foxy")
-    # Value: Dict[MsgType, Definition]
-    _registry: Dict[str, Dict[str, str]] = defaultdict(dict)
+    def __init__(self):
+        # Internal storage.
+        # Key: Store Name (e.g. "GLOBAL", "ros2_foxy")
+        # Value: Dict[MsgType, Definition]
+        self._registry: Dict[str, Dict[str, str]] = defaultdict(dict)
 
-    @classmethod
     def register(
-        cls,
+        self,
         msg_type: str,
         source: Union[str, Path],
         store: Optional[Union[Stores, str]] = None,
     ):
         """
-        Registers a single custom message type into the registry.
+        Registers a single custom message type into this registry instance.
 
         This is the primary method for adding individual schema definitions. The `source`
         can be a physical file path or a raw string containing the ROS `.msg` syntax.
 
         Example:
             ```python
+            registry = ROSTypeRegistry()
+
             # Register a proprietary battery message for a specific distro
-            ROSTypeRegistry.register(
+            registry.register(
                 msg_type="limo_msgs/msg/BatteryState",
                 source=Path("./msgs/BatteryState.msg"),
                 store=Stores.ROS2_HUMBLE
             )
 
             # Register a simple custom type globally using a raw string
-            ROSTypeRegistry.register(
+            registry.register(
                 msg_type="custom_msgs/msg/SimpleFlag",
                 source="bool flag_active\\nstring label"
             )
@@ -86,7 +100,7 @@ class ROSTypeRegistry:
             msg_type (str): The canonical ROS type name (e.g., "package/msg/TypeName").
             source (Union[str, Path]): A `Path` object to a `.msg` file or a raw text string of the definition.
             store (Optional[Union[Stores, str]]): The target scope. If `None`, the definition is stored in the **GLOBAL** profile
-                and becomes available to all loaders regardless of their distribution.
+                and becomes available regardless of the distribution requested via `get_types()`.
 
         Raises:
             FileNotFoundError: If `source` is a `Path` that does not exist on the filesystem.
@@ -94,7 +108,7 @@ class ROSTypeRegistry:
         """
         try:
             # Resolve input to raw text string
-            definition = cls._resolve_source(source)
+            definition = self._resolve_source(source)
 
             # Determine the registry key (Profile)
             # Convert enum to string if necessary to ensure consistent keys
@@ -102,7 +116,7 @@ class ROSTypeRegistry:
 
             # Store definition
             # Overwrites existing definition if the same type is registered twice in the same scope
-            cls._registry[key][msg_type] = definition
+            self._registry[key][msg_type] = definition
 
             logger.debug(f"Registered custom type '{msg_type}' for scope: '{key}'")
 
@@ -110,9 +124,8 @@ class ROSTypeRegistry:
             logger.error(f"Failed to register type '{msg_type}': '{e}'")
             raise
 
-    @classmethod
     def register_directory(
-        cls,
+        self,
         package_name: str,
         dir_path: Union[str, Path],
         store: Optional[Union[Stores, str]] = None,
@@ -127,7 +140,8 @@ class ROSTypeRegistry:
         Example:
             ```python
             # Register all messages in a local workspace for ROS1
-            ROSTypeRegistry.register_directory(
+            registry = ROSTypeRegistry()
+            registry.register_directory(
                 package_name="robot_logic",
                 dir_path="./src/robot_logic/msg",
                 store=Stores.ROS1_NOETIC
@@ -154,14 +168,13 @@ class ROSTypeRegistry:
             # filename "MyData.msg" -> type "MyData"
             type_name = f"{package_name}/msg/{msg_file.stem}"
 
-            cls.register(type_name, msg_file, store=store)
+            self.register(type_name, msg_file, store=store)
             count += 1
 
         if count == 0:
             logger.warning(f"No .msg files found in '{path}'.")
 
-    @classmethod
-    def get_types(cls, store: Optional[Union[Stores, str]]) -> Dict[str, str]:
+    def get_types(self, store: Optional[Union[Stores, str]]) -> Dict[str, str]:
         """
         Retrieves a merged view of message definitions for a specific distribution.
 
@@ -182,27 +195,26 @@ class ROSTypeRegistry:
         """
         # Start with Global defaults
         # We use .copy() to ensure we don't accidentally mutate the registry itself
-        merged = cls._registry["GLOBAL"].copy()
+        merged = self._registry["GLOBAL"].copy()
 
         if store:
             store_key = str(store)
             # Override
-            if store_key in cls._registry:
-                specific_types = cls._registry[store_key]
+            if store_key in self._registry:
+                specific_types = self._registry[store_key]
                 # Update merges keys, overwriting globals if duplicates exist
                 merged.update(specific_types)
 
         return merged
 
-    @classmethod
-    def reset(cls):
+    def reset(self):
         """
-        Completely clears the singleton registry.
+        Completely clears this registry instance.
 
         This is primarily used for **Unit Testing** and CI/CD pipelines to ensure
         total isolation between different test cases.
         """
-        cls._registry.clear()
+        self._registry.clear()
 
     @staticmethod
     def _resolve_source(source: Union[str, Path]) -> str:

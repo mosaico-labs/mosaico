@@ -84,6 +84,8 @@ class ROSInjectionConfig:
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
+        registry (Optional[ROSTypeRegistry]): Registry to register `custom_msgs` into; a private
+            one is created if `None`. Pass a shared instance to reuse definitions across runs.
         topics (Optional[List[str]]): List of topic patterns used to filter available topics.
             Supports shell-style glob patterns (e.g., ["/cam/\\*", "\\*camera_info"]).
             Patterns starting with "!" are treated as exclusions (e.g., ["\\!/cam/debug\\*"]).
@@ -219,6 +221,18 @@ class ROSInjectionConfig:
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
 
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+
+    Registered into `registry` (or a fresh, private `ROSTypeRegistry` if `registry` is
+    `None`) before the loader's `Typestore` is built.
+    """
+
+    registry: Optional[ROSTypeRegistry] = None
+    """
+    The `ROSTypeRegistry` instance to register `custom_msgs` into and to pull existing
+    definitions from. If `None` (default), a fresh, private instance is created for this
+    injector alone — so its custom types can never leak into another injector/extractor
+    run in the same process. Pass the *same* `ROSTypeRegistry` instance across multiple
+    configs to deliberately share a centrally pre-registered set of definitions between them.
     """
 
     topics: Optional[List[str]] = None
@@ -331,27 +345,33 @@ class RosbagInjector:
         self._typestore: Typestore = get_typestore(self._cfg.ros_distro or Stores.EMPTY)
         self._loader: Optional[ROSLoader] = None
 
+        # Own a private registry by default, so this injector's custom types can never
+        # leak into another injector/extractor run in the same process. Pass the same
+        # `ROSTypeRegistry` instance via `cfg.registry` to deliberately share definitions
+        # across multiple runs (e.g. a centralized setup routine).
+        self._registry: ROSTypeRegistry = self._cfg.registry or ROSTypeRegistry()
+
         # Register custom ROS messages to the local typestore
         self._typestore_custom_msgtypes()
 
     def _typestore_custom_msgtypes(self):
         """
-        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``,
-        and then registers the custom message definitions to the typestore.
+        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``
+        into ``self._registry``, then pulls every definition currently registered there
+        (including ones registered elsewhere on a *shared* `cfg.registry` instance) into
+        the local typestore. Safe to always run: `self._registry` is either private to
+        this injector, or an instance the caller explicitly chose to share.
         """
-        if not self._cfg.custom_msgs:
-            return
-
-        # Register Global Types (Registry Pattern)
-        logger.info("Registering custom message definitions...")
-        for package, path, store in self._cfg.custom_msgs:
-            try:
-                ROSTypeRegistry.register_directory(
-                    package_name=package, dir_path=path, store=store
-                )
-                logger.debug(f"Registered package '{package}' from '{path}'")
-            except Exception as e:
-                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+        if self._cfg.custom_msgs:
+            logger.info("Registering custom message definitions...")
+            for package, path, store in self._cfg.custom_msgs:
+                try:
+                    self._registry.register_directory(
+                        package_name=package, dir_path=path, store=store
+                    )
+                    logger.debug(f"Registered package '{package}' from '{path}'")
+                except Exception as e:
+                    logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
         self._register_definitions()
 
@@ -359,7 +379,7 @@ class RosbagInjector:
         """Safe registration wrapper."""
         from rosbags.typesys import get_types_from_msg
 
-        custom_types = ROSTypeRegistry.get_types(self._cfg.ros_distro)
+        custom_types = self._registry.get_types(self._cfg.ros_distro)
         if not custom_types:
             return
 
