@@ -1,7 +1,7 @@
 ---
 title: Getting Started
 sidebar_position: 2
-description: "Quickstart for Mosaico. Covers downloading and running mosaicod, installing a client SDK, and pushing your first typed sensor data in under five minutes."
+description: "Quickstart for Mosaico. Covers installing mosaicod, installing a client SDK, and pushing your first typed sensor data in under five minutes."
 ---
 
 Interacting with Mosaico requires two components: `mosaicod`, which runs server-side and manages all data operations, and a client SDK to communicate with it from your code.
@@ -10,7 +10,38 @@ Interacting with Mosaico requires two components: `mosaicod`, which runs server-
 
 `mosaicod` is the engine behind the platform. It handles storage, catalog management, ingestion, and retrieval. No client call will succeed without a running instance.
 
-Use the folling compose file for a quick local setup:
+### Quick install
+
+The fastest way to get a local instance running is the install script served at `get.mosaico.dev`. It only supports Linux and macOS; on Windows, install WSL2 with an Ubuntu distribution and run it inside that instead.
+
+```bash
+curl -fsSL https://get.mosaico.dev | sh
+```
+
+Once it finishes, you'll have a fully configured environment ready to go:
+
+- the `mosaicod` and `mosaicoctl` commands available
+- a manual page with additional information, viewable with `man mosaico`
+- optionally, the [Python SDK](#python-sdk) itself
+
+:::info
+Run it in dry-run mode first to preview every step without changing anything on disk:
+
+```bash
+curl -fsSL https://get.mosaico.dev | sh -s -- --dry-run
+```
+
+See every available option with:
+
+```bash
+curl -fsSL https://get.mosaico.dev | sh -s -- --help
+```
+
+:::
+
+### Manual install
+
+If you'd rather manage the containers yourself, use the following compose file for a quick local setup:
 
 ```yaml title="compose.yaml"
 services:
