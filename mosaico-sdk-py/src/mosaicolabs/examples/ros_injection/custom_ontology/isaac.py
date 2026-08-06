@@ -1,7 +1,8 @@
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs.models.data.mixins import HeaderMixin
 
 
-class EncoderTicks(Serializable):
+class EncoderTicks(Serializable, HeaderMixin):
     """
     Custom Mosaico model for NVIDIA Isaac Nova Encoder Ticks.
 
