@@ -338,15 +338,8 @@ class ROSSequenceExtractor:
         # --- Translate Check ---
         ros_msg_type = self.mosaico_loader.resolve_rosmsg_type(t_name)
 
-        try:
-            ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
-        except TypeError as e:
-            self.ignored_topics.add(t_name)
-            logger.warning(
-                f"Could not encode to ros '{ms_msg.ontology_tag()}' type because: {e}. Skipping the topic associated to this message"
-            )
-            ui.update_status(t_name, "Failed encoding", style="yellow")
-            ui.advance_global()
+        ros_msg = self._encode_ros_message(adapter, ms_msg, ros_msg_type, t_name, ui)
+        if ros_msg is None:
             return
 
         # --- Resolve Check ---
@@ -410,6 +403,45 @@ class ROSSequenceExtractor:
             return
 
         ui.advance_all(t_name)
+
+    def _encode_ros_message(self, adapter, ms_msg, ros_msg_type, t_name, ui):
+        try:
+            return adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
+        except TypeError as e:
+            return self._handle_encoding_error(
+                t_name,
+                ms_msg,
+                ui,
+                f"Could not encode to ros '{ms_msg.ontology_tag()}' type. "
+                f"Skipping the topic associated to this message. Reason: {e}",
+                "Failed encoding",
+            )
+        except KeyError as e:
+            return self._handle_encoding_error(
+                t_name,
+                ms_msg,
+                ui,
+                f"Schema mismatch or partially adapted message type for "
+                f"'{ms_msg.ontology_tag()}'. Skipping the topic associated to this "
+                f"message. Reason: {e}",
+                "Schema mismatch",
+            )
+        except Exception as e:
+            return self._handle_encoding_error(
+                t_name,
+                ms_msg,
+                ui,
+                f"Unexpected error while encoding '{ms_msg.ontology_tag()}' type. "
+                f"Skipping the topic associated to this message. Reason: {e}",
+                "Error occurred",
+            )
+
+    def _handle_encoding_error(self, t_name, ms_msg, ui, log_message, status):
+        self.ignored_topics.add(t_name)
+        logger.error(log_message)
+        ui.update_status(t_name, status, style="red")
+        ui.advance_global()
+        return None
 
     def run(self):
         """
