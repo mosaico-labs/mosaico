@@ -28,7 +28,7 @@ from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.ros_bridge.adapters.unmodeled import UnmodeledAdapter
 
 from ..models.core.serializable import _compute_schema_fingerprint
-from ..protocols.ros2msg import convert_ros2msg
+from ..protocols.converters.ros_converter import RosMsgConverter
 from .adapter_base import ROSAdapterBase
 from .helpers import (
     _class_name_from_ros_msgtype,
@@ -475,7 +475,7 @@ class ROSLoader:
 
             a. The topic's raw ``.msg``/``.idl`` definition (``topic_info.msgdef.data``)
                is converted into an equivalent PyArrow schema via
-               [`convert_ros2msg`][mosaicolabs.protocols.ros2msg.convert_ros2msg].
+               [`convert_rosmsg`][mosaicolabs.protocols.ros_converter.RosMsgConverter.convert_rosmsg].
             b. An [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology
                class is obtained/created for this schema via
                [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class],
@@ -511,7 +511,7 @@ class ROSLoader:
         # If adapter does not exist, create a new one through pyarrow schema deduced from msgdef
         msgtype: str = topic_info.msgtype
         msgdef: str = topic_info.msgdef.data
-        pyarrow_schema = convert_ros2msg(msgdef, msgtype)
+        pyarrow_schema = RosMsgConverter.convert_rosmsg(msgdef, msgtype)
 
         if not pyarrow_schema:
             logger.warning(
