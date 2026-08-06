@@ -15,7 +15,7 @@ from typing import (
 
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
-from rosbags.typesys import Stores, get_types_from_msg, get_typestore
+from rosbags.typesys import get_types_from_msg
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import (
@@ -41,7 +41,6 @@ from .helpers import (
     _to_dict,
     _validate_sequence,
 )
-from .registry import ROSTypeRegistry
 from .ros_bridge import ROSBridge, ROSMessage
 
 # Set the hierarchical logger
@@ -262,9 +261,8 @@ class ROSLoader(_BaseROSTopicResolver):
     def __init__(
         self,
         file_path: Union[str, Path],
+        typestore: Typestore,
         topics: Optional[Union[str, List[str]]] = None,
-        typestore_name: Stores = Stores.EMPTY,
-        custom_types: Optional[Dict[str, Union[str, Path]]] = None,
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
@@ -298,11 +296,9 @@ class ROSLoader(_BaseROSTopicResolver):
 
         Args:
             file_path (Union[str, Path]): Path to the bag file or directory.
+            typestore (Typestore): The typestore to use for message type resolution.
             topics (Optional[Union[str, List[str]]]): A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
                 If None, all available topics are loaded.
-            typestore_name (Stores): The target ROS distribution for default message schemas.
-                See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-            custom_types (Optional[Dict[str, Union[str, Path]]]): Local overrides for message definitions (type_name: path/to/msg).
             serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
                 to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
                 used when synthesizing an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
@@ -314,31 +310,23 @@ class ROSLoader(_BaseROSTopicResolver):
             container_type=dict[str, TopicInfo]
         )  # Initialize the base class to set up topic resolution state
         self._file_path = Path(file_path)
-        self._validate_file()
+        """The path to the bag file or directory."""
 
         # Configuration
         self._requested_topics = [topics] if isinstance(topics, str) else topics
-        self._typestore = get_typestore(typestore_name)
+        """The user-specified topic filter(s) to apply when resolving topics."""
+        self._typestore: Typestore = typestore
+        """The typestore used for message type resolution."""
         self._serialization_formats: Dict[str, SerializationFormat] = (
             serialization_formats or {}
         )
+        """Mapping of ROS message types to their desired serialization format for Unmodeled ontologies."""
 
         # State
         self._reader: Optional[AnyReader] = None
+        """The underlying `rosbags` reader instance, lazily initialized."""
         self._connections: List[Connection] = []
-
-        # Register Global Types (Registry Pattern)
-        global_types = ROSTypeRegistry.get_types(typestore_name)
-        if global_types:
-            self._register_definitions(global_types)
-
-        # Register Local Overrides
-        if custom_types:
-            # Resolve paths to strings immediately
-            resolved = {
-                k: ROSTypeRegistry._resolve_source(v) for k, v in custom_types.items()
-            }
-            self._register_definitions(resolved)
+        """The list of resolved connections (topics) that will be iterated over."""
 
     def _validate_file(self):
         if not self._file_path.exists():
@@ -347,17 +335,6 @@ class ROSLoader(_BaseROSTopicResolver):
             raise ValueError(
                 f"Unsupported format '{self._file_path.suffix}'. Supported: {self.ACCEPTED_EXTENSIONS}"
             )
-
-    def _register_definitions(self, types_map: Dict[str, str]):
-        """Safe registration wrapper."""
-        from rosbags.typesys import get_types_from_msg
-
-        for msg_type, msg_def in types_map.items():
-            try:
-                add_types = get_types_from_msg(msg_def, msg_type)
-                self._typestore.register(add_types)
-            except Exception as e:
-                logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
     def _resolve_connections(self):
         """
@@ -371,6 +348,7 @@ class ROSLoader(_BaseROSTopicResolver):
             return
 
         try:
+            self._validate_file()
             self._reader = AnyReader(
                 [self._file_path], default_typestore=self._typestore
             )
@@ -690,21 +668,21 @@ class MosaicoLoader(_BaseROSTopicResolver):
             container_type=list[str]
         )  # Initialize the base class to set up topic resolution state
 
-        self.client = m_client
+        self._client = m_client
         """The MosaicoClient used to fetch sequence data and metadata."""
-        self.typestore: Typestore = typestore
+        self._typestore: Typestore = typestore
         """The ROS typestore containing the registered ROS messages. Used for adapter resolution."""
-        self.sequence_name = sequence_name
+        self._sequence_name = sequence_name
         """The name of the Mosaico sequence to load."""
-        self.topic_glob_pattern = topics
+        self._topic_glob_pattern = topics
         """Optional list of topic-name filter patterns (glob-style, ``!``-prefixed for exclusions)."""
-        self.start_timestamp_ns = start_timestamp_ns
+        self._start_timestamp_ns = start_timestamp_ns
         """Lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
-        self.end_timestamp_ns = end_timestamp_ns
+        self._end_timestamp_ns = end_timestamp_ns
         """Upper bound for the time window (nanoseconds). Clipped to the sequence maximum if out of range."""
-        self.seq_handler: Optional[SequenceHandler] = None
+        self._seq_handler: Optional[SequenceHandler] = None
         """The mosaico sequence handler, lazily initialized on first access."""
-        self.streamer: Optional[SequenceDataStreamer] = None
+        self._streamer: Optional[SequenceDataStreamer] = None
         """The mosaico sequence streamer, lazily initialized on first access. Provides an iterator over the sequence messages."""
 
         # Additional rejection buckets for Mosaico-specific reasons
@@ -820,7 +798,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
 
     def _register_msgtype(self, msgtype: str, msgdef: Optional[str]):
         """Registers ``msgtype`` in the typestore using ``msgdef``, unless already present."""
-        if msgtype in self.typestore.types:
+        if msgtype in self._typestore.types:
             return
 
         if msgdef is None:
@@ -828,7 +806,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
             return
 
         add_types = get_types_from_msg(msgdef, msgtype)
-        self.typestore.register(add_types)
+        self._typestore.register(add_types)
 
     def _get_or_create_adapter(
         self, t_handler: TopicHandler
@@ -910,45 +888,45 @@ class MosaicoLoader(_BaseROSTopicResolver):
            returned by :meth:`__iter__`.
 
         """
-        if self.seq_handler is not None:
-            return self.seq_handler
+        if self._seq_handler is not None:
+            return self._seq_handler
 
         # Get requested sequence + validation
-        self.seq_handler = self.client.sequence_handler(
-            sequence_name=self.sequence_name
+        self._seq_handler = self._client.sequence_handler(
+            sequence_name=self._sequence_name
         )
 
         # Check sequence exists
-        if not _validate_sequence(self.seq_handler):
+        if not _validate_sequence(self._seq_handler):
             raise (
                 ValueError(
-                    f"Your requested sequence '{self.sequence_name}' could not be found!"
+                    f"Your requested sequence '{self._sequence_name}' could not be found!"
                 )
             )
 
         # Get all topics from sequence handler
-        self._resolved_topics = self.seq_handler.topics
+        self._resolved_topics = self._seq_handler.topics
 
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
-        self.start_timestamp_ns, self.end_timestamp_ns = _clip_timestamp(
-            self.start_timestamp_ns,
-            self.end_timestamp_ns,
-            self.seq_handler.timestamp_ns_min,
-            self.seq_handler.timestamp_ns_max,
+        self._start_timestamp_ns, self._end_timestamp_ns = _clip_timestamp(
+            self._start_timestamp_ns,
+            self._end_timestamp_ns,
+            self._seq_handler.timestamp_ns_min,
+            self._seq_handler.timestamp_ns_max,
         )
 
         matched_topics = _filter_topics_from_list(
-            self.seq_handler.topics, self.topic_glob_pattern
+            self._seq_handler.topics, self._topic_glob_pattern
         )
 
         # Filter topics
-        for t_name in self.seq_handler.topics:
+        for t_name in self._seq_handler.topics:
             # 1) Filter if topic has not been requested
             if t_name not in matched_topics:
                 self._filtered_topics.append(t_name)
                 continue
 
-            t_handler = self.seq_handler.get_topic_handler(t_name)
+            t_handler = self._seq_handler.get_topic_handler(t_name)
 
             # 2) Filter if Mosaico adapter cannot be deduced topic's adapter
             try:
@@ -967,7 +945,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
                 continue
 
             # 3) check that rosmsg_type (either from metadata or default adapter) is present within typestore
-            if self.typestore.types.get(rosmsg_type) is None:
+            if self._typestore.types.get(rosmsg_type) is None:
                 logger.warning(
                     f"Skipping topic '{t_name}': '{rosmsg_type}' not present in ROS typestore."
                 )
@@ -988,13 +966,13 @@ class MosaicoLoader(_BaseROSTopicResolver):
             )
 
         # Resolving streamer only with accepted topics
-        self.streamer = self.seq_handler.get_data_streamer(
+        self._streamer = self._seq_handler.get_data_streamer(
             topics=self._accepted_topics,
-            start_timestamp_ns=self.start_timestamp_ns,
-            end_timestamp_ns=self.end_timestamp_ns,
+            start_timestamp_ns=self._start_timestamp_ns,
+            end_timestamp_ns=self._end_timestamp_ns,
         )
 
-        return self.seq_handler
+        return self._seq_handler
 
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -1011,7 +989,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
         """
         self._resolve_sequence()
 
-        if not self.streamer:
+        if not self._streamer:
             raise Exception(
                 "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
             )
@@ -1027,7 +1005,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
             filter(
                 None,
                 (
-                    self.streamer._topic_readers[topic].msg_count
+                    self._streamer._topic_readers[topic].msg_count
                     for topic in topics_to_count
                 ),
             )
@@ -1118,12 +1096,12 @@ class MosaicoLoader(_BaseROSTopicResolver):
     def __iter__(self):
         self._resolve_sequence()
 
-        if not self.streamer:
+        if not self._streamer:
             raise Exception(
                 "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
             )
 
-        return self.streamer
+        return self._streamer
 
     def close(self):
         """
@@ -1131,10 +1109,10 @@ class MosaicoLoader(_BaseROSTopicResolver):
         """
 
         # This handles also streamer closing
-        if self.seq_handler:
-            self.seq_handler.close()
-            self.seq_handler = None
-            self.streamer = None
+        if self._seq_handler:
+            self._seq_handler.close()
+            self._seq_handler = None
+            self._streamer = None
 
     def __enter__(self):
         """Context manager support."""

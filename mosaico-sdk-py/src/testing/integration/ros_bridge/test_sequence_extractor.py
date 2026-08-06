@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 from rosbags.rosbag2 import StoragePlugin
-from rosbags.typesys import Stores
+from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs.ros_bridge import ROSBridge, ROSLoader
 from mosaicolabs.ros_bridge.sequence_extractor import (
@@ -93,7 +93,9 @@ def test_run_data_correctness(
 
     rosbag_file_path = get_rosbagfile_path(default_extractor_config)
 
-    ros_loader = ROSLoader(file_path=rosbag_file_path, typestore_name=ros_distro)
+    ros_loader = ROSLoader(
+        file_path=rosbag_file_path, typestore=get_typestore(ros_distro)
+    )
 
     for (ros_msg, _), data_steam_item in zip_longest(
         ros_loader, synthetic_sequence_data_stream.items

@@ -176,23 +176,13 @@ class ROSSequenceExtractor:
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
         self.mosaico_loader: Optional[MosaicoLoader] = None
 
-        # Register custom ROS messages to ROSTypeRegistry
-        self._register_custom_types()
+        # Register custom ROS messages to the local typestore
+        self._typestore_custom_msgtypes()
 
-        # Register all ROS messages to typestore
-        custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
-        if custom_types:
-            logger.info(
-                f"Registering {list(custom_types.keys())} definitions to typestore..."
-            )
-            self._register_definitions(custom_types)
-
-    def _register_custom_types(self):
+    def _typestore_custom_msgtypes(self):
         """
-        Loads custom ROS message definitions into the global `ROSTypeRegistry`.
-
-        This enables the extractor to correctly deserialize proprietary message types
-        found within the bag file.
+        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``,
+        and then registers the custom message definitions to the typestore.
         """
         if not self.cfg.custom_msgs:
             return
@@ -208,11 +198,20 @@ class ROSSequenceExtractor:
             except Exception as e:
                 logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
-    def _register_definitions(self, types_map: dict[str, str]):
+        self._register_definitions()
+
+    def _register_definitions(self):
         """Safe registration wrapper."""
         from rosbags.typesys import get_types_from_msg
 
-        for msg_type, msg_def in types_map.items():
+        custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+        if not custom_types:
+            return
+
+        logger.info(
+            f"Registering {list(custom_types.keys())} definitions to typestore..."
+        )
+        for msg_type, msg_def in custom_types.items():
             try:
                 add_types = get_types_from_msg(msg_def, msg_type)
                 self.typestore.register(add_types)
