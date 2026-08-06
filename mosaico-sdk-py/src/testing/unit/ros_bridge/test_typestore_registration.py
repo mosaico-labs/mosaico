@@ -50,7 +50,6 @@ def test_custom_typestore_registration_injector(ros_distro: Stores):
         # use directory here
         custom_msg_file = custom_msgs_dir / "MyCustomMsg.msg"
         custom_msg_file.write_text("int32 data\n")
-        print(f"Created custom message definition at: {custom_msg_file}")
 
         inj = RosbagInjector(
             config=ROSInjectionConfig(
@@ -119,7 +118,6 @@ def test_custom_typestore_registration_extractor(ros_distro: Stores):
         # use directory here
         custom_msg_file = custom_msgs_dir / "MyCustomMsg.msg"
         custom_msg_file.write_text("int32 data\n")
-        print(f"Created custom message definition at: {custom_msg_file}")
 
         inj = ROSSequenceExtractor(
             config=ROSExtractorConfig(
