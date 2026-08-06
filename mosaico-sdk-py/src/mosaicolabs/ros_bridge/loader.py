@@ -880,94 +880,162 @@ class MosaicoLoader:
             str, type[ROSAdapterBase]
         ] = {}  # Dictionary containing a map from moisaco accepted topics to mosaico adapter
 
+    def _adapter_from_metadata_msgtype(
+        self, t_handler: TopicHandler
+    ) -> Optional[Tuple[type[ROSAdapterBase], str]]:
+        """
+        Strategy 1: look up a hand-written adapter using the ``msgtype`` recorded
+        in the topic's ``_ros_`` metadata.
+
+        Args:
+            t_handler (TopicHandler): The topic handler whose ``_ros_`` metadata is read for a ``msgtype``.
+
+        Returns:
+            Optional[Tuple[type[ROSAdapterBase], str]]: The ``(adapter, msgtype)`` pair if a hand-written
+                adapter is registered for ``msgtype``, otherwise ``None``.
+        """
+
+        ros_metadata = _extract_ros_metadata(t_handler)
+        msgtype: Optional[str] = ros_metadata.get("msgtype")
+
+        if msgtype is None:
+            return None
+
+        adapter = ROSBridge.get_default_adapter(msgtype)
+
+        if adapter is None:
+            return None
+
+        return adapter, msgtype
+
+    def _adapter_from_ontology_tag(
+        self, t_handler: TopicHandler
+    ) -> Optional[Tuple[type[ROSAdapterBase], str]]:
+        """
+        Strategy 2: look up the default hand-written adapter registered for the
+        topic's ontology tag, honored only if its ontology's schema fingerprint
+        still matches the schema coming from the server (otherwise the topic's
+        data no longer matches what that adapter expects).
+
+        Args:
+            t_handler (TopicHandler): The topic handler whose ontology tag and Arrow schema are checked.
+
+        Returns:
+            Optional[Tuple[type[ROSAdapterBase], str]]: The ``(adapter, default_rosmsg_type)`` pair if a
+                matching, fingerprint-compatible adapter is found, otherwise ``None``.
+        """
+        adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
+
+        if adapter is None:
+            return None
+
+        if (
+            adapter.ontology_data_type().__schema_fingerprint__
+            != _compute_schema_fingerprint(t_handler._arrow_schema)
+        ):
+            return None
+
+        return adapter, adapter.get_default_ros_msg()
+
+    def _create_unmodeled_adapter(
+        self, t_handler: TopicHandler
+    ) -> Optional[Tuple[type[UnmodeledAdapter], str]]:
+        """
+        Strategy 3 (fallback): synthesize an ``UnmodeledAdapter`` for the topic's
+        ontology when no hand-written adapter could be resolved. Always succeeds,
+        provided ``msgtype`` is known.
+
+        Args:
+            t_handler (TopicHandler): The topic handler used to derive the ``msgtype`` (from its
+                ``_ros_`` metadata) and to build the unmodeled ontology (from its ontology tag,
+                Arrow schema, and serialization format).
+
+        Returns:
+            Optional[Tuple[type[UnmodeledAdapter], str]]: The ``(adapter, msgtype)`` pair,
+                otherwise ``None``.
+        """
+
+        ros_metadata = _extract_ros_metadata(t_handler)
+        msgtype: Optional[str] = ros_metadata.get("msgtype")
+
+        if msgtype is None:
+            return None
+
+        unmodeled_ontology = resolve_ontology_class(
+            ontology_tag=t_handler.ontology_tag,
+            schema=t_handler._arrow_schema,
+            serialization_format=SerializationFormat(t_handler.serialization_format),
+        )
+
+        # This will make a new class or reuse an already registered one
+        adapter = UnmodeledAdapter.get_or_create(
+            ontology_type=unmodeled_ontology,
+            msgtype=msgtype,
+        )
+
+        return adapter, msgtype
+
+    def _register_msgtype(self, msgtype: str, msgdef: Optional[str]):
+        """Registers ``msgtype`` in the typestore using ``msgdef``, unless already present."""
+        if msgtype in self.typestore.types:
+            return
+
+        if msgdef is None:
+            logger.warning(f"Failed registering {msgtype}: missing msgdef.")
+            return
+
+        add_types = get_types_from_msg(msgdef, msgtype)
+        self.typestore.register(add_types)
+
     def _get_or_create_adapter(
         self, t_handler: TopicHandler
-    ) -> Tuple[Optional[type[ROSAdapterBase]], Optional[str]]:
+    ) -> Tuple[type[ROSAdapterBase] | type[UnmodeledAdapter], str]:
         """
         Resolves a topic's Mosaico adapter and the ROS msgtype used to validate it
         against the typestore.
 
-        The adapter is looked up first using the rosmsg_type stored in the topic's
-        ``_ros_`` metadata (if present), falling back to the default adapter
-        registered for the topic's ontology tag.
+        Three resolution strategies are tried in order, the first to succeed wins:
+
+        1. :meth:`_adapter_from_metadata_msgtype` - hand-written adapter keyed by the
+           ``msgtype`` recorded in the topic's ``_ros_`` metadata.
+        2. :meth:`_adapter_from_ontology_tag` - hand-written adapter registered as the
+           default for the topic's ontology tag (schema-fingerprint checked).
+        3. :meth:`_create_unmodeled_adapter` - fallback that synthesizes an
+           ``UnmodeledAdapter``. This always succeeds unless ``msgtype`` is unknown,
+           in which case it raises.
+
+        Once resolved, the ``rosmsg_type`` is registered in the typestore if it
+        isn't already present.
 
         Args:
             t_handler (TopicHandler): The topic handler whose adapter should be resolved.
 
         Returns:
-            Tuple[Optional[type[ROSAdapterBase]], Optional[str]]: A ``(adapter, rosmsg_type)`` pair.
+            Tuple[type[ROSAdapterBase] | type[UnmodeledAdapter], str]: A ``(adapter, rosmsg_type)`` pair.
+                Both are always populated: either an earlier strategy resolves both together,
+                or the final fallback does.
 
-        Raise: TypeError when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
-            metadata)
-
+        Raises:
+            TypeError: when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
+                metadata).
+            RuntimeError: when every hand-written-adapter strategy fails and ``msgtype`` is unknown, so
+                even the unmodeled fallback cannot be created.
         """
-        ros_metadata = _extract_ros_metadata(t_handler)
 
-        declared_rosmsg_type = ros_metadata.get("msgtype")
+        factory_result = (
+            self._adapter_from_metadata_msgtype(t_handler)
+            or self._adapter_from_ontology_tag(t_handler)
+            or self._create_unmodeled_adapter(t_handler)
+        )
 
-        adapter = None
-        resolved_rosmsg_type = None
+        if factory_result is None:
+            raise RuntimeError(f"Unable to infer an adapter for {t_handler.name} topic")
+        else:
+            adapter, resolved_rosmsg_type = factory_result
 
-        # Try looking for adapter using msgtype
-        if declared_rosmsg_type is not None:
-            adapter = ROSBridge.get_default_adapter(declared_rosmsg_type)
-            resolved_rosmsg_type = declared_rosmsg_type
-
-        if not adapter:
-            # If here adapter has not been found -> Check adapter associated to
-            # the ontology tag and get its default msgtype (if ontology is
-            # adapted, otherwise mantain what has already been found).
-            adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
-
-            # Reset adapter in case in case __schema_fingerprint__ of adapter's
-            # ontology type is not coherent with the one coming from the server
-            if (
-                adapter is not None
-                and adapter.ontology_data_type().__schema_fingerprint__
-                != _compute_schema_fingerprint(t_handler._arrow_schema)
-            ):
-                adapter = None
-
-            resolved_rosmsg_type = (
-                adapter.get_default_ros_msg() if adapter else resolved_rosmsg_type
-            )
-
-        if not adapter:
-            # In this case you need to get or create a new adapter from the
-            # unmodeled class. In case of new adapter, register msgdef to
-            # typestore. Note that msgdef needs to be available here otherwise
-            # it is not possible to register the new type in the typestore
-
-            try:
-                msgtype: str = ros_metadata["msgtype"]
-                msgdef: str = ros_metadata["msgdef"]
-            except KeyError:
-                logger.warning(
-                    f"Cannot create Unmodeled Adapter for topic {t_handler.name} since its metadata do not contain msgtype or msgdef"
-                )
-                return None, resolved_rosmsg_type
-
-            # Create the ontology
-            unmodeled_ontology = resolve_ontology_class(
-                ontology_tag=t_handler.ontology_tag,
-                schema=t_handler._arrow_schema,
-                serialization_format=SerializationFormat(
-                    t_handler.serialization_format
-                ),
-            )
-
-            # Get the unmodeled adapter or create a new one
-            adapter = UnmodeledAdapter.get_or_create(
-                # This will make a new class or reuse an already registered one
-                ontology_type=unmodeled_ontology,
-                msgtype=msgtype,
-            )
-
-            resolved_rosmsg_type = adapter.get_default_ros_msg()
-
-            # Register new msgdef within typestore
-            add_types = get_types_from_msg(msgdef, msgtype)
-            self.typestore.register(add_types)
+        # Register type within typestore (no-op if already registered)
+        msgdef = _extract_ros_metadata(t_handler).get("msgdef")
+        self._register_msgtype(resolved_rosmsg_type, msgdef)
 
         return adapter, resolved_rosmsg_type
 
@@ -1032,18 +1100,14 @@ class MosaicoLoader:
 
         # Filter topics
         for t_name in self.seq_handler.topics:
-            # 1) requested topic
+            # 1) Filter if topic has not been requested
             if t_name not in matched_topics:
                 self._filtered_topics.append(t_name)
                 continue
 
             t_handler = self.seq_handler.get_topic_handler(t_name)
 
-            # 2) Find Mosaico topic's adapter using:
-            #     - rosmsg_type got from topic metadata
-            #     - topic ontology (falling back to default adapter)
-
-            # Extract rosmsg_type from topic_handler metadata (if available) and ensure that it is a string
+            # 2) Filter if Mosaico adapter cannot be deduced topic's adapter
             try:
                 adapter, rosmsg_type = self._get_or_create_adapter(t_handler)
             except TypeError:
@@ -1052,8 +1116,7 @@ class MosaicoLoader:
                     f"Skipping topic {t_name}: malformed metadata {t_handler.user_metadata}."
                 )
                 continue
-
-            if not adapter:
+            except RuntimeError:
                 logger.warning(
                     f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
                 )
@@ -1061,9 +1124,6 @@ class MosaicoLoader:
                 continue
 
             # 3) check that rosmsg_type (either from metadata or default adapter) is present within typestore
-            if not rosmsg_type:
-                rosmsg_type = adapter.get_default_ros_msg()
-
             if self.typestore.types.get(rosmsg_type) is None:
                 logger.warning(
                     f"Skipping topic {t_name}: {rosmsg_type} not present in ROS typestore."

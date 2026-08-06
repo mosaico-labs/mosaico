@@ -199,7 +199,9 @@ class ROSAdapterBase(ABC, Generic[T]):
                 - the ros_msg_type or resolved_rosmsg_type are unsupported by typestore (TypeError)
                 - the ros_msg_type or resolved_rosmsg_type are supported but translation is not implemented (NotImplementedError)
         """
-        pass
+        raise NotImplementedError(
+            f"{cls.__name__} does not implement to_ros(). Unable to encode the Mosaico Message to ROS"
+        )
 
     @classmethod
     def schema_metadata(
