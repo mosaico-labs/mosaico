@@ -31,7 +31,7 @@ def override_ext_configs(
     seq_ext_config: ROSExtractorConfig,
     ros_distro: Stores,
     storage_plugin: StoragePlugin,
-) -> ROSSequenceExtractor:
+) -> ROSExtractorConfig:
     """Overrides default SequenceExtractor configs with passed ros_distro and storage_plugin"""
     seq_ext_config.ros_distro = ros_distro
     seq_ext_config.storage_plugin = storage_plugin
@@ -101,6 +101,7 @@ def test_run_data_correctness(
         ros_loader, synthetic_sequence_data_stream.items
     ):
         adapter = ROSBridge.get_default_adapter(ros_msg.msg_type)
+        assert adapter is not None
         reconstructed_ms_msg = adapter.translate(ros_msg)
 
         assert reconstructed_ms_msg.timestamp_ns == data_steam_item.msg.timestamp_ns

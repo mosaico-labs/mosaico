@@ -140,6 +140,14 @@ class ROSExtractorConfig:
     overwrite: bool = False
     """If True, delete and recreate the rosbag path if it already exists. Defaults to False."""
 
+    dry_run: bool = False
+    """
+    If `True`, connects to the Mosaico server and reports which topics would be extracted
+    (and with which adapter/ROS message type), which topics would be rejected (and why), and
+    whether the output path already exists — without writing any bag file, and without
+    deleting an existing output path even if `overwrite=True`. Default: False.
+    """
+
 
 # --- Main Deinjector Class ---
 
@@ -461,6 +469,85 @@ class ROSSequenceExtractor:
         ui.advance_global()
         return None
 
+    def _dry_run_report(self):
+        """
+        Resolves the sequence's topics against the current configuration and prints a
+        report of what would be extracted, without writing a bag file or touching the
+        output path.
+
+        Reports, per topic: acceptance status, resolved adapter and ROS message type (or
+        rejection reason), and message count. Also reports whether the target output path
+        already exists and what `run()` would do about it (fail, or delete+recreate under
+        `overwrite=True`) — without actually deleting anything.
+        """
+        from rich.table import Table
+
+        logger.info(
+            f"[DRY RUN] Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'..."
+        )
+
+        with MosaicoClient.connect(
+            host=self.cfg.host,
+            port=self.cfg.port,
+            api_key=self.cfg.mosaico_api_key,
+            enable_tls=self.cfg.enable_tls,
+            tls_cert_path=self.cfg.tls_cert_path,
+        ) as mclient:
+            with self._open_or_get_mosaicoloader(mclient) as ms_loader:
+                table = Table(
+                    title=f"Dry Run: sequence '{self.cfg.sequence_name}' -> '{self.cfg.rosbag_path}'"
+                )
+                table.add_column("Topic")
+                table.add_column("Status")
+                table.add_column("Adapter / ROS Type / Reason")
+                table.add_column("Messages", justify="right")
+
+                for topic in ms_loader.topics:
+                    adapter = ms_loader.resolve_adapter(topic)
+                    ros_msg_type = (
+                        ms_loader.resolve_rosmsg_type(topic)
+                        or adapter.get_default_ros_msg()
+                        if adapter
+                        else None
+                    )
+                    table.add_row(
+                        topic,
+                        "[bright_green]Accepted",
+                        f"{adapter.__name__ if adapter else '?'} -> {ros_msg_type or '?'}",
+                        str(ms_loader.msg_count(topic)),
+                    )
+
+                for topic, status in ms_loader.rejected_topics:
+                    table.add_row(
+                        topic,
+                        f"[{status.display_color()}]{status.value}",
+                        "-",
+                        "-",
+                    )
+
+                self.console.print(table)
+
+                rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
+                if rosbag_path.exists():
+                    if self.cfg.overwrite:
+                        self.console.print(
+                            f"[yellow]Output path '{rosbag_path}' already exists and would "
+                            "be deleted and recreated (overwrite=True).[/yellow]"
+                        )
+                    else:
+                        self.console.print(
+                            f"[red]Output path '{rosbag_path}' already exists and "
+                            "overwrite=False: run() would raise FileExistsError.[/red]"
+                        )
+                else:
+                    self.console.print(f"Output path '{rosbag_path}' would be created.")
+
+                self.console.print(
+                    f"[bold]{len(ms_loader.topics)}[/bold] topic(s) would be extracted, "
+                    f"[bold]{len(ms_loader.rejected_topics)}[/bold] rejected. "
+                    "No bag file was written."
+                )
+
     def run(self):
         """
         Executes the full extraction pipeline.
@@ -475,7 +562,14 @@ class ROSSequenceExtractor:
 
         Progress is displayed in real-time via a ``rich`` live progress bar.
         A ``KeyboardInterrupt`` exits cleanly with a warning log.
+
+        If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
+        without writing a bag file or touching the output path.
         """
+
+        if self.cfg.dry_run:
+            self._dry_run_report()
+            return
 
         # Create rosbag path and check whether it already exists
         rosbag_path = self._prepare_output_path()
@@ -597,6 +691,14 @@ def ros_sequence_extractor():
         default=False,
         help="Delete and recreate the rosbag path if it already exists",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Resolve topics/adapters/rejections and print a report, without connecting "
+            "the extraction pipeline to a bag writer or touching the output path."
+        ),
+    )
 
     parser.add_argument(
         "--log",
@@ -628,6 +730,7 @@ def ros_sequence_extractor():
         start_timestamp_ns=args.start_timestamp_ns,
         end_timestamp_ns=args.end_timestamp_ns,
         overwrite=args.overwrite,
+        dry_run=args.dry_run,
     )
 
     # --- Execution ---
