@@ -1,2 +1,3 @@
+from .jsonschema_converter import JsonschemaConverter as JsonschemaConverter
 from .protobuf_converter import ProtobufConverter as ProtobufConverter
 from .ros_converter import RosMsgConverter as RosMsgConverter

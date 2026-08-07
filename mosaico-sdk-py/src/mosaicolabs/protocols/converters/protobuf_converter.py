@@ -46,7 +46,7 @@ class ProtobufConverter(McapConverter):
     SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
 
     @classmethod
-    def _base_type(cls, field: FieldDescriptor):
+    def _base_type(cls, field: FieldDescriptor) -> pa.DataType | pa.StructType:
         """Arrow type for a single (non-repeated) value of this field."""
         if field.type in (FieldDescriptor.TYPE_MESSAGE, FieldDescriptor.TYPE_GROUP):
             assert (
@@ -59,7 +59,7 @@ class ProtobufConverter(McapConverter):
             raise ValueError(f"Unmapped proto type {field.type} on {field.full_name}")
 
     @classmethod
-    def _field_to_arrow(cls, field: FieldDescriptor):
+    def _field_to_arrow(cls, field: FieldDescriptor) -> pa.Field:
         """Turn one protobuf FieldDescriptor into a pa.field()."""
         if field.is_repeated:
             arrow_type = pa.list_(cls._base_type(field))
