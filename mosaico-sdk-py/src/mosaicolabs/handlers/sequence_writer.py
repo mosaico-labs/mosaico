@@ -192,8 +192,10 @@ class SequenceWriter(_BaseSessionWriter):
                     expected_type=None,
                 )
                 self._logger.info(f"Sequence '{self._name}' deleted successfully.")
-                self._status = SequenceStatus.Error
+                self._status = SequenceStatus.Null  # Reset status after deletion
             except Exception as e:
+                self._status = SequenceStatus.Error
+                self._last_err = str(e)
                 raise _make_exception(
                     f"Error sending 'delete' for sequence '{self._name}'.",
                     e,
