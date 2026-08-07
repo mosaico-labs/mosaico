@@ -49,3 +49,4 @@ This release substantially expands the **query engine** (new operators, regex, c
 - Facade functions and DB queries reworked to **prevent race conditions**; server shuts down on the first service failure. ([#583](https://github.com/mosaico-labs/mosaico/pull/583), [#636](https://github.com/mosaico-labs/mosaico/pull/636))
 - `InvalidArgument` returned for invalid keys in user metadata. ([#620](https://github.com/mosaico-labs/mosaico/pull/620))
 - Lint fixes and cleanup. ([#618](https://github.com/mosaico-labs/mosaico/pull/618))
+- Change memory utilization of datafusion replacing `FairSpillPool` with `GreedyMemoryPool`.
