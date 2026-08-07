@@ -55,13 +55,14 @@ def main():
 
                 try:
                     converter.to_pyarrow(schema)
-                except Exception:
+                except Exception as e:
                     table.add_row(
                         channel.topic,
                         schema.encoding,
                         "X",
                         style="red",
                     )
+                    print(e)
                     continue
 
                 table.add_row(channel.topic, schema.encoding, "✓")
