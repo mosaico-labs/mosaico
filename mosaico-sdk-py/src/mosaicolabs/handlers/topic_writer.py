@@ -110,6 +110,7 @@ class TopicWriter:
         self._status: TopicWriterStatus = TopicWriterStatus.Active
         """The status of the writer"""
         self._last_err: Optional[str] = None
+        """The last error message, if any, or None if no error has occurred."""
 
     @classmethod
     def _create(

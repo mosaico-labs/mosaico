@@ -148,8 +148,7 @@ class ROSMessage:
             standard nested Python dictionary.
         const_data (Dict[str, Any]): The message constants (e.g. `uint8 STATUS_FIX=0`)
             declared at the top level of the message, keyed by their `UPPER_CASE` name.
-        header (Optional[ROSHeader]): An automatically parsed `ROSHeader` if the
-            `data_field` payload contains a valid header field.
+        header (Optional[ROSHeader]): The message payload header, if present.
     """
 
     def __init__(
@@ -160,6 +159,16 @@ class ROSMessage:
         data: Optional[Dict[str, Any]],
         const_data: Optional[Dict[str, Any]] = None,
     ):
+        """
+        Initializes a new ROSMessage instance.
+
+        Args:
+            bag_timestamp_ns (int): The timestamp (in nanoseconds) when the message was written to the rosbag.
+            topic (str): The topic string of the message source.
+            msg_type (str): The message ROS type string.
+            data (Optional[Dict[str, Any]]): The message payload, converted into a standard nested Python dictionary.
+            const_data (Optional[Dict[str, Any]]): The message's top-level constants, keyed by their `UPPER_CASE` name.
+        """
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
         self.msg_type = msg_type

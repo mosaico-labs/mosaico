@@ -18,7 +18,7 @@ import argparse
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Type, Union
 
 from rich.live import Live
 from rosbags.interfaces import Connection
@@ -29,9 +29,11 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
-from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
+from mosaicolabs.ros_bridge.adapter_base import ROSAdapterBase
+from mosaicolabs.ros_bridge.loader import MosaicoLoader
 from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
+from mosaicolabs.ros_bridge.ui import ProgressManager
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -89,6 +91,20 @@ class ROSExtractorConfig:
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
 
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+
+    Registered into `registry` (or a fresh, private `ROSTypeRegistry` if `registry` is
+    `None`) before the loader's `Typestore` is built. Needed when encoding an ontology
+    value back to a ROS message whose `msgdef` isn't recoverable from the topic's own
+    `_ros_` metadata (e.g. the sequence wasn't ingested from a ROS bag in the first place).
+    """
+
+    registry: Optional[ROSTypeRegistry] = None
+    """
+    The `ROSTypeRegistry` instance to register `custom_msgs` into and to pull existing
+    definitions from. If `None` (default), a fresh, private instance is created for this
+    extractor alone — so its custom types can never leak into another injector/extractor
+    run in the same process. Pass the *same* `ROSTypeRegistry` instance across multiple
+    configs to deliberately share a centrally pre-registered set of definitions between them.
     """
 
     topics: Optional[list[str]] = None
@@ -138,6 +154,14 @@ class ROSExtractorConfig:
     overwrite: bool = False
     """If True, delete and recreate the rosbag path if it already exists. Defaults to False."""
 
+    dry_run: bool = False
+    """
+    If `True`, connects to the Mosaico server and reports which topics would be extracted
+    (and with which adapter/ROS message type), which topics would be rejected (and why), and
+    whether the output path already exists — without writing any bag file, and without
+    deleting an existing output path even if `overwrite=True`. Default: False.
+    """
+
 
 # --- Main Deinjector Class ---
 
@@ -174,32 +198,48 @@ class ROSSequenceExtractor:
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
         self.mosaico_loader: Optional[MosaicoLoader] = None
 
-    def _register_custom_types(self):
+        # Own a private registry by default, so this extractor's custom types can never
+        # leak into another injector/extractor run in the same process. Pass the same
+        # `ROSTypeRegistry` instance via `cfg.registry` to deliberately share definitions
+        # across multiple runs (e.g. a centralized setup routine).
+        self._registry: ROSTypeRegistry = self.cfg.registry or ROSTypeRegistry()
+
+        # Register custom ROS messages to the local typestore
+        self._typestore_custom_msgtypes()
+
+    def _typestore_custom_msgtypes(self):
         """
-        Loads custom ROS message definitions into the global `ROSTypeRegistry`.
-
-        This enables the extractor to correctly deserialize proprietary message types
-        found within the bag file.
+        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``
+        into ``self._registry``, then pulls every definition currently registered there
+        (including ones registered elsewhere on a *shared* `cfg.registry` instance) into
+        the local typestore. Safe to always run: `self._registry` is either private to
+        this extractor, or an instance the caller explicitly chose to share.
         """
-        if not self.cfg.custom_msgs:
-            return
+        if self.cfg.custom_msgs:
+            logger.info("Registering custom message definitions...")
+            for package, path, store in self.cfg.custom_msgs:
+                try:
+                    self._registry.register_directory(
+                        package_name=package, dir_path=path, store=store
+                    )
+                    logger.debug(f"Registered package '{package}' from '{path}'")
+                except Exception as e:
+                    logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
-        # Register Global Types (Registry Pattern)
-        logger.info("Registering custom message definitions...")
-        for package, path, store in self.cfg.custom_msgs:
-            try:
-                ROSTypeRegistry.register_directory(
-                    package_name=package, dir_path=path, store=store
-                )
-                logger.debug(f"Registered package '{package}' from '{path}'")
-            except Exception as e:
-                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+        self._register_definitions()
 
-    def _register_definitions(self, types_map: dict[str, str]):
+    def _register_definitions(self):
         """Safe registration wrapper."""
         from rosbags.typesys import get_types_from_msg
 
-        for msg_type, msg_def in types_map.items():
+        custom_types = self._registry.get_types(self.cfg.ros_distro)
+        if not custom_types:
+            return
+
+        logger.info(
+            f"Registering {list(custom_types.keys())} definitions to typestore..."
+        )
+        for msg_type, msg_def in custom_types.items():
             try:
                 add_types = get_types_from_msg(msg_def, msg_type)
                 self.typestore.register(add_types)
@@ -337,15 +377,8 @@ class ROSSequenceExtractor:
         # --- Translate Check ---
         ros_msg_type = self.mosaico_loader.resolve_rosmsg_type(t_name)
 
-        try:
-            ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
-        except (TypeError, NotImplementedError) as e:
-            self.ignored_topics.add(t_name)
-            logger.warning(
-                f"Could not encode to ros '{ms_msg.ontology_tag()}' type because: {e}. Skipping the topic associated to this message"
-            )
-            ui.update_status(t_name, "Failed encoding", style="yellow")
-            ui.advance_global()
+        ros_msg = self._encode_ros_message(adapter, ms_msg, ros_msg_type, t_name, ui)
+        if ros_msg is None:
             return
 
         # --- Resolve Check ---
@@ -410,6 +443,130 @@ class ROSSequenceExtractor:
 
         ui.advance_all(t_name)
 
+    def _encode_ros_message(
+        self,
+        adapter: Type[ROSAdapterBase],
+        ms_msg: Message,
+        ros_msg_type: Optional[str],
+        t_name: str,
+        ui: ProgressManager,
+    ):
+        try:
+            return adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
+        except (TypeError, NotImplementedError) as e:
+            return self._handle_encoding_error(
+                t_name,
+                ui,
+                f"Could not encode to ros '{ms_msg.ontology_tag()}' type. "
+                f"Skipping the topic associated to this message. Reason: {e}",
+                "Failed encoding",
+            )
+        except KeyError as e:
+            return self._handle_encoding_error(
+                t_name,
+                ui,
+                f"Schema mismatch or partially adapted message type for "
+                f"'{ms_msg.ontology_tag()}'. Skipping the topic associated to this "
+                f"message. Reason: {e}",
+                "Schema mismatch",
+            )
+        except Exception as e:
+            return self._handle_encoding_error(
+                t_name,
+                ui,
+                f"Unexpected error while encoding '{ms_msg.ontology_tag()}' type. "
+                f"Skipping the topic associated to this message. Reason: {e}",
+                "Error occurred",
+            )
+
+    def _handle_encoding_error(
+        self, t_name: str, ui: ProgressManager, log_message: str, status: str
+    ):
+        self.ignored_topics.add(t_name)
+        logger.error(log_message)
+        ui.update_status(t_name, status, style="red")
+        ui.advance_global()
+        return None
+
+    def _dry_run_report(self):
+        """
+        Resolves the sequence's topics against the current configuration and prints a
+        report of what would be extracted, without writing a bag file or touching the
+        output path.
+
+        Reports, per topic: acceptance status, resolved adapter and ROS message type (or
+        rejection reason), and message count. Also reports whether the target output path
+        already exists and what `run()` would do about it (fail, or delete+recreate under
+        `overwrite=True`) — without actually deleting anything.
+        """
+        from rich.table import Table
+
+        logger.info(
+            f"[DRY RUN] Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'..."
+        )
+
+        with MosaicoClient.connect(
+            host=self.cfg.host,
+            port=self.cfg.port,
+            api_key=self.cfg.mosaico_api_key,
+            enable_tls=self.cfg.enable_tls,
+            tls_cert_path=self.cfg.tls_cert_path,
+        ) as mclient:
+            with self._open_or_get_mosaicoloader(mclient) as ms_loader:
+                table = Table(
+                    title=f"Dry Run: sequence '{self.cfg.sequence_name}' -> '{self.cfg.rosbag_path}'"
+                )
+                table.add_column("Topic")
+                table.add_column("Status")
+                table.add_column("Adapter / ROS Type / Reason")
+                table.add_column("Messages", justify="right")
+
+                for topic in ms_loader.topics:
+                    adapter = ms_loader.resolve_adapter(topic)
+                    ros_msg_type = (
+                        ms_loader.resolve_rosmsg_type(topic)
+                        or adapter.get_default_ros_msg()
+                        if adapter
+                        else None
+                    )
+                    table.add_row(
+                        topic,
+                        "[bright_green]Accepted",
+                        f"{adapter.__name__ if adapter else '?'} -> {ros_msg_type or '?'}",
+                        str(ms_loader.msg_count(topic)),
+                    )
+
+                for topic, status in ms_loader.rejected_topics:
+                    table.add_row(
+                        topic,
+                        f"[{status.display_color()}]{status.value}",
+                        "-",
+                        "-",
+                    )
+
+                self.console.print(table)
+
+                rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
+                if rosbag_path.exists():
+                    if self.cfg.overwrite:
+                        self.console.print(
+                            f"[yellow]Output path '{rosbag_path}' already exists and would "
+                            "be deleted and recreated (overwrite=True).[/yellow]"
+                        )
+                    else:
+                        self.console.print(
+                            f"[red]Output path '{rosbag_path}' already exists and "
+                            "overwrite=False: run() would raise FileExistsError.[/red]"
+                        )
+                else:
+                    self.console.print(f"Output path '{rosbag_path}' would be created.")
+
+                self.console.print(
+                    f"[bold]{len(ms_loader.topics)}[/bold] topic(s) would be extracted, "
+                    f"[bold]{len(ms_loader.rejected_topics)}[/bold] rejected. "
+                    "No bag file was written."
+                )
+
     def run(self):
         """
         Executes the full extraction pipeline.
@@ -424,7 +581,14 @@ class ROSSequenceExtractor:
 
         Progress is displayed in real-time via a ``rich`` live progress bar.
         A ``KeyboardInterrupt`` exits cleanly with a warning log.
+
+        If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
+        without writing a bag file or touching the output path.
         """
+
+        if self.cfg.dry_run:
+            self._dry_run_report()
+            return
 
         # Create rosbag path and check whether it already exists
         rosbag_path = self._prepare_output_path()
@@ -438,14 +602,6 @@ class ROSSequenceExtractor:
                 tls_cert_path=self.cfg.tls_cert_path,
             ) as mclient:
                 logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
-
-                # Register custom ROS messages to ROSTypeRegistry
-                self._register_custom_types()
-
-                # Register all ROS messages to typestore
-                custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
-                if custom_types:
-                    self._register_definitions(custom_types)
 
                 # Creating the bagwriter
                 with self._open_or_get_mosaicoloader(mclient) as ms_loader:
@@ -554,6 +710,14 @@ def ros_sequence_extractor():
         default=False,
         help="Delete and recreate the rosbag path if it already exists",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help=(
+            "Resolve topics/adapters/rejections and print a report, without connecting "
+            "the extraction pipeline to a bag writer or touching the output path."
+        ),
+    )
 
     parser.add_argument(
         "--log",
@@ -585,6 +749,7 @@ def ros_sequence_extractor():
         start_timestamp_ns=args.start_timestamp_ns,
         end_timestamp_ns=args.end_timestamp_ns,
         overwrite=args.overwrite,
+        dry_run=args.dry_run,
     )
 
     # --- Execution ---

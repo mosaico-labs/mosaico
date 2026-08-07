@@ -1,7 +1,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, Type, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Generic,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from rosbags.typesys.store import Typestore
 
@@ -14,6 +24,101 @@ from mosaicolabs.models.core import Message, Serializable
 from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)
+
+
+class RosSchemaMetadata:
+    """
+    Encapsulates Mosaico's reserved ``_ros_`` topic-metadata namespace in a single place.
+
+    Every topic ingested by the ROS bridge carries ROS-specific bookkeeping (original
+    ``msgtype``, raw ``msgdef``, extracted ``enums``) plus bridge-internal fields (e.g. the
+    source bag file) under one reserved key, so that:
+
+    * The literal string ``"_ros_"`` exists in exactly one place (:attr:`KEY`), instead of
+      being duplicated across adapters, loaders, and the injector.
+    * Callers build up this namespace incrementally via :meth:`update` without ever touching
+      the wrapping dict shape by hand, which is what previously caused bugs (e.g. accidentally
+      overwriting the whole ``_ros_`` block instead of merging into it).
+
+    Example:
+        ```python
+        meta = RosSchemaMetadata(msgtype="sensor_msgs/msg/Imu").update(source_file="a.mcap")
+        topic_metadata = meta.merge_into(user_supplied_metadata)
+        # topic_metadata == {..., "_ros_": {"msgtype": "sensor_msgs/msg/Imu", "source_file": "a.mcap"}}
+        ```
+    """
+
+    KEY: ClassVar[str] = "_ros_"
+    """The reserved metadata key. Adapters/loaders/the injector should reference this
+    constant rather than the literal string, so the namespace can be renamed in one place."""
+
+    def __init__(self, **fields: Any):
+        self.fields: dict = dict(fields)
+
+    def update(self, **fields: Any) -> "RosSchemaMetadata":
+        """
+        Merges additional fields into this block, in place. Returns `self` for chaining.
+
+        Args:
+            **fields (Any): Additional fields to merge.
+
+        Returns:
+            RosSchemaMetadata: The updated metadata instance.
+        """
+        self.fields.update(fields)
+        return self
+
+    def to_dict(self) -> dict:
+        """
+        Wraps the current fields under the reserved key, e.g. `{"_ros_": {...}}`.
+
+        Returns:
+            dict: A dictionary containing the `_ros_` block with the current fields.
+        """
+        return {self.KEY: dict(self.fields)}
+
+    def merge_into(self, metadata: dict) -> dict:
+        """
+        Merges this block into an existing metadata dict's `_ros_` namespace, creating it
+        if absent. Mutates and returns `metadata`.
+
+        Args:
+            metadata (dict): The existing metadata dict to merge into.
+
+        Returns:
+            dict: The updated metadata dict with the `_ros_` block merged in.
+        """
+        metadata.setdefault(self.KEY, {}).update(self.fields)
+        return metadata
+
+    @classmethod
+    def extract(cls, metadata: Optional[dict]) -> dict:
+        """
+        Reads the `_ros_` block out of a metadata dict (e.g. a topic's `user_metadata`),
+        or `{}` if absent.
+
+        Args:
+            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
+
+        Returns:
+            dict: The extracted `_ros_` block, or an empty dict if not present.
+        """
+        return dict((metadata or {}).get(cls.KEY) or {})
+
+    @classmethod
+    def from_dict(cls, metadata: Optional[dict]) -> "RosSchemaMetadata":
+        """
+        Creates a `RosSchemaMetadata` from a plain metadata dict, e.g. the return value of
+        `ROSAdapterBase.schema_metadata()`. Any keys outside the `_ros_` namespace are ignored.
+
+        Args:
+            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
+
+        Returns:
+            RosSchemaMetadata: A new instance seeded with the extracted `_ros_` fields
+                (empty if `metadata` is `None` or carries no `_ros_` block).
+        """
+        return cls(**cls.extract(metadata))
 
 
 class ROSAdapterBase(ABC, Generic[T]):
@@ -80,7 +185,7 @@ class ROSAdapterBase(ABC, Generic[T]):
             Exception: If translation fails due to missing fields, type mismatches, or other errors.
         """
         if ros_msg.data_field is None:
-            raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
+            raise Exception(f"'data' payload is `None` for topic {ros_msg.topic}.")
 
         try:
             return Message(
@@ -257,7 +362,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         if not cls.is_rosmsg_type_valid(ros_msg_type):
             return None
 
-        out_dict = {}
+        ros_meta = RosSchemaMetadata(msgtype=ros_msg_type)
 
         # Check that ros_msg_type exists in typestore
         msg_def = typestore.fielddefs.get(ros_msg_type)
@@ -265,16 +370,13 @@ class ROSAdapterBase(ABC, Generic[T]):
         # Extract ENUM associated to ros_msg_type and adding it to the out dict (if available in typestore)
         if msg_def:
             enum_list, _ = msg_def
-            out_dict["enums"] = {name: val for name, _, val in enum_list}
-            out_dict["msgdef"], _ = typestore.generate_msgdef(
-                ros_msg_type, ros_version=ros_version
+            msgdef, _ = typestore.generate_msgdef(ros_msg_type, ros_version=ros_version)
+            ros_meta.update(
+                enums={name: val for name, _, val in enum_list},
+                msgdef=msgdef,
             )
 
-        out_dict["msgtype"] = ros_msg_type
-
-        ms_metadata = {"_ros_": out_dict}
-
-        return ms_metadata
+        return ros_meta.to_dict()
 
     @classmethod
     def ontology_data_type(cls) -> Type[T]:

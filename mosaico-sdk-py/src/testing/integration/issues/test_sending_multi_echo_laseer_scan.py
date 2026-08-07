@@ -5,7 +5,6 @@ from mosaicolabs.models.futures.laser import MultiEchoLaserScan
 
 
 def test_sending_MultiEchoLaserScan(mosaico_client: MosaicoClient):
-    print(MultiEchoLaserScan.__msco_pyarrow_struct__)
     with mosaico_client:
         try:
             with mosaico_client.sequence_create(
