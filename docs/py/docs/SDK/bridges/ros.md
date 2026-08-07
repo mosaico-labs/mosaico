@@ -551,12 +551,11 @@ def build_project_registry() -> ROSTypeRegistry:
 
 ```python
 # main_injection.py
-import setup_registry
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
 from rosbags.typesys import Stores
 from pathlib import Path
 
-shared_registry = setup_registry.build_project_registry()
+shared_registry = build_project_registry()
 
 config = ROSInjectionConfig(
     file_path=Path("mission_data.mcap"),
@@ -579,7 +578,7 @@ The same `shared_registry` instance can be passed to a `ROSExtractorConfig` too,
 
 The ROS Bag Injection module has been validated against a variety of standard datasets to ensure compatibility with different ROS distributions, message serialization formats (CDR/ROS 1), and bag container formats (`.bag`, `.mcap`, `.db3`). For evaluating Mosaico capabilities, we recommend the **[NVIDIA NGC Catalog - R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1)**, which has been verified to be fully compatible with the injection pipeline.
 
-Note: the benchmarks below cover **ingestion** (`RosbagInjector`) only; extraction performance (`ROSSequenceExtractor`) has not been separately benchmarked.
+Note: the benchmarks below cover **ingestion** (`RosbagInjector`) and **extraction** (`ROSSequenceExtractor`) performances.
 
 #### NVIDIA R2B Dataset 2024 Performances
 
