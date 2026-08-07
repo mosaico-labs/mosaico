@@ -557,7 +557,7 @@ class ROSLoader(_BaseROSTopicResolver):
 
         Example:
             ```python
-            with ROSLoader(file_path="data.mcap", typestore=get_typestore(Stores.EMPTY)) as loader:
+            with ROSLoader(file_path="data.mcap", typestore_or_distro=get_typestore(Stores.EMPTY)) as loader:
                 for topic, msg_type in zip(loader.topics, loader.msg_types):
                     print(f"Topic {topic} requires schema: {msg_type}")
             ```

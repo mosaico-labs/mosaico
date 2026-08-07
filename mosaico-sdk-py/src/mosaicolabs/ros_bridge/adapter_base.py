@@ -108,7 +108,7 @@ class RosSchemaMetadata:
     @classmethod
     def from_dict(cls, metadata: Optional[dict]) -> "RosSchemaMetadata":
         """
-        Rehydrates a `RosSchemaMetadata` from a plain metadata dict, e.g. the return value of
+        Creates a `RosSchemaMetadata` from a plain metadata dict, e.g. the return value of
         `ROSAdapterBase.schema_metadata()`. Any keys outside the `_ros_` namespace are ignored.
 
         Args:

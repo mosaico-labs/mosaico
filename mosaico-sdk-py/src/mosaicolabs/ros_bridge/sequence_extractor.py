@@ -453,10 +453,9 @@ class ROSSequenceExtractor:
     ):
         try:
             return adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
-        except TypeError as e:
+        except (TypeError, NotImplementedError) as e:
             return self._handle_encoding_error(
                 t_name,
-                ms_msg,
                 ui,
                 f"Could not encode to ros '{ms_msg.ontology_tag()}' type. "
                 f"Skipping the topic associated to this message. Reason: {e}",
@@ -465,7 +464,6 @@ class ROSSequenceExtractor:
         except KeyError as e:
             return self._handle_encoding_error(
                 t_name,
-                ms_msg,
                 ui,
                 f"Schema mismatch or partially adapted message type for "
                 f"'{ms_msg.ontology_tag()}'. Skipping the topic associated to this "
@@ -475,14 +473,15 @@ class ROSSequenceExtractor:
         except Exception as e:
             return self._handle_encoding_error(
                 t_name,
-                ms_msg,
                 ui,
                 f"Unexpected error while encoding '{ms_msg.ontology_tag()}' type. "
                 f"Skipping the topic associated to this message. Reason: {e}",
                 "Error occurred",
             )
 
-    def _handle_encoding_error(self, t_name, ms_msg, ui, log_message, status):
+    def _handle_encoding_error(
+        self, t_name: str, ui: ProgressManager, log_message: str, status: str
+    ):
         self.ignored_topics.add(t_name)
         logger.error(log_message)
         ui.update_status(t_name, status, style="red")

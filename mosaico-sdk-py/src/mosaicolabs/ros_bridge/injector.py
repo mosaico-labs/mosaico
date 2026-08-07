@@ -519,12 +519,6 @@ class RosbagInjector:
                     # multiple bags that should all land in the same sequence, and a derived/
                     # reprocessed bag whose topics should be merged into an already-ingested
                     # sequence. Should the sequence not exist yet, a new one is created regardless.
-                    # CAVEAT: `sequence_exists()` followed by `sequence_create()`/`sequence_update()`
-                    # is a check-then-act race: if two ingestions target the same `sequence_name`
-                    # concurrently, both could observe "does not exist" and both attempt to create
-                    # it, or one could update a sequence the other is still creating. Fine for the
-                    # typical single-operator workflow; avoid running concurrent injections against
-                    # the same sequence name until the server offers an atomic create-or-update.
                     if (
                         mclient.sequence_exists(self._cfg.sequence_name)
                         and self._cfg.update_if_exists
