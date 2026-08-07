@@ -216,7 +216,13 @@ impl StoreOptimizer {
         let df = session_ctx
             .read_parquet(
                 input_folder.as_str(),
-                df::datasource::file_format::options::ParquetReadOptions::default(),
+                // Keep schema/field-level metadata (e.g. client-supplied metadata written
+                // at `do_put` time) instead of having DataFusion strip it during schema
+                // inference, which would otherwise be silently and permanently dropped
+                // from the optimized/compacted output.
+                // Note: having all parquet files of a topic the same schema+metadata this operation can be done safely.
+                df::datasource::file_format::options::ParquetReadOptions::default()
+                    .skip_metadata(false),
             )
             .await
             .map_err(df_to_internal_error)?;
