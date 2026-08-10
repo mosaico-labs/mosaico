@@ -70,7 +70,7 @@ class RosMsgConverter(McapConverter):
         """
         # Extract msgtype from Typesdict since we need to create the pyarrow struct of that particular part
         _, fields_def = typesdict[msgtype]
-        pyarrow_fields: list[pa.field] = []
+        pyarrow_fields: list[pa.Field] = []
 
         for field_name, field_desc in fields_def:
             # field_def example for simple types:   ("x"               , (Nodetype.BASE    , ("float64", 0)                 ))
