@@ -15,6 +15,8 @@ from rosbags.interfaces import TopicInfo
 from mosaicolabs import SequenceHandler, TopicHandler
 from mosaicolabs.logging_config import get_logger
 
+from .adapter_base import RosSchemaMetadata
+
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
@@ -68,7 +70,7 @@ def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
     Raises:
         TypeError: When the topic's ``_ros_`` metadata carries malformed metadata.
     """
-    ros_metadata = t_handler.user_metadata.get("_ros_")
+    ros_metadata = RosSchemaMetadata.extract(t_handler.user_metadata)
 
     if not ros_metadata:
         return {}

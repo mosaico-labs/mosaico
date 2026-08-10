@@ -60,7 +60,11 @@ def pack_unmodeled(
         elif node_type == Nodetype.NAME and isinstance(content, str):
             msgtype = content
             RosNestedObjectType = typestore.types[msgtype]
-
+            if field_name not in raw_data:
+                raise KeyError(
+                    f"Expected field `{field_name}` in raw_data but it was not found. Schema and raw_data must match exactly."
+                    f" `raw_data` keys: {list(raw_data.keys())}; `msg_def` keys: {[f[0] for f in msg_def]}."
+                )
             raw_data[field_name] = RosNestedObjectType(
                 **pack_unmodeled(
                     raw_data[field_name],
@@ -68,7 +72,6 @@ def pack_unmodeled(
                     typestore,
                 )
             )
-
         elif node_type in (Nodetype.SEQUENCE, Nodetype.ARRAY):
             # Check that raw_data[field_name] is a list
             if not isinstance(raw_data[field_name], list):
@@ -114,12 +117,12 @@ def pack_unmodeled(
 
             else:
                 raise TypeError(
-                    f"Parameter {field_name} of type Sequence/Array containes unexpected inner NodeType {item_node_type}"
+                    f"Parameter `{field_name}` of type Sequence/Array containes unexpected inner NodeType {item_node_type}"
                 )
 
         else:
             raise TypeError(
-                f"Unsupported field definition for '{field_name}': "
+                f"Unsupported field definition for `{field_name}`: "
                 f"node type {node_type!r} with content {content!r}"
             )
 
@@ -207,9 +210,22 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         # Filling the data
         rosbag_msgdef = typestore.get_msgdef(resolved_rosmsg_type)
 
-        return RosUnmodeled(
-            **pack_unmodeled(unmodeled_data.raw_data, rosbag_msgdef.fields, typestore)
-        )
+        try:
+            return RosUnmodeled(
+                **pack_unmodeled(
+                    unmodeled_data.raw_data, rosbag_msgdef.fields, typestore
+                )
+            )
+        except KeyError as ke:
+            raise KeyError(
+                "Error occurred while creating ROS message. It is probably due to a schema mismatch or a partially adapted message type."
+                f" Please check if the adapter for the msgtype `{resolved_rosmsg_type}` does implement the `to_ros()` method."
+                f" Inner err: {ke}"
+            ) from ke
+        except Exception as e:
+            raise RuntimeError(
+                f"Unexpected error occurred while creating ROS message: {e}"
+            ) from e
 
     @classmethod
     def schema_metadata(
