@@ -29,10 +29,10 @@ mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
 
 # Arrow stack dependencies
-arrow = { version = "58.1.0", features = ["prettyprint", "ipc_compression"] }
-arrow-cast = "58.1.0"
-arrow-flight = "58.1.0"
-arrow-schema = "58.1.0"
+arrow = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0", features = ["prettyprint", "ipc_compression"] }
+arrow-flight = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-schema = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-cast = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
 parquet = "58.1.0"
 datafusion = { version = "54.0.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.6", features = ["tls-ring", "gzip"] }
@@ -62,9 +62,9 @@ sqlx = { version = "0.8.6", features = [
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 tokio-util = { version = "0.7" }
-tokio-stream = { version = "0.1"}
+tokio-stream = { version = "0.1" }
 url = "2.5.8"
-uuid = { version = "1.23.2", features = [ "v4" ] }
+uuid = { version = "1.23.2", features = ["v4"] }
 ulid = "1.2.1"
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
@@ -76,9 +76,23 @@ regex = "1.12.4"
 # Used for testing
 filetime = "0.2.27"
 
-# Used to implement middlewares in mosaicod-server crate 
+# Used to implement middlewares in mosaicod-server crate
 tower = "0.5.3"
 http = "1.4.0"
+
+# Force all arrow sub-crates onto the same source as the arrow-flight fork,
+# otherwise crates.io's arrow-array/buffer/etc. (pulled in via datafusion/parquet)
+# and the fork's own copies coexist as distinct, incompatible types.
+[patch.crates-io]
+arrow = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-array = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-buffer = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-cast = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-data = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-ipc = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-ord = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-schema = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
+arrow-select = { git = "https://github.com/DevMattG/arrow-rs.git", branch = "flight/adaptive-grpc-response-splitting-58.4.0" }
 
 [profile.release]
 strip = true    # Strip symbols from binary
