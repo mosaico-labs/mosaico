@@ -158,9 +158,7 @@ async fn build_topic_endpoint(
 
     // TODO: currently the full topic timestamp range is forwarded.
     // Consider if it's better to pass the input range here.
-    if let Some(data_info) = topic_info.data_info {
-        app_mdata = app_mdata.with_info(data_info);
-    }
+    app_mdata = app_mdata.with_info(topic_info.data_info);
 
     let endpoint = FlightEndpoint::new()
         .with_ticket(Ticket {

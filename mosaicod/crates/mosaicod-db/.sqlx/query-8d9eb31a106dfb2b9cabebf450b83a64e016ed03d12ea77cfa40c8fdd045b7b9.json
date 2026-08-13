@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE topic_t\n            SET chunks_number = $1, total_bytes = $2, start_index_timestamp = $3, end_index_timestamp = $4\n            WHERE locator_name = $5\n            RETURNING *\n    ",
+  "query": "\n            UPDATE topic_t\n            SET start_index_timestamp = $1, end_index_timestamp = $2\n            WHERE locator_name = $3\n            RETURNING *\n    ",
   "describe": {
     "columns": [
       {
@@ -60,29 +60,17 @@
       },
       {
         "ordinal": 11,
-        "name": "chunks_number",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 12,
-        "name": "total_bytes",
-        "type_info": "Int8"
-      },
-      {
-        "ordinal": 13,
         "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 14,
+        "ordinal": 12,
         "name": "end_index_timestamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8",
         "Int8",
         "Int8",
         "Text"
@@ -101,10 +89,8 @@
       false,
       true,
       true,
-      true,
-      true,
       true
     ]
   },
-  "hash": "fdecc6f84635b7ab92c4911880e03abf628519df3f5492b21389f8fffd0e39d7"
+  "hash": "8d9eb31a106dfb2b9cabebf450b83a64e016ed03d12ea77cfa40c8fdd045b7b9"
 }
