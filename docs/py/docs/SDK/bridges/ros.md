@@ -3,7 +3,7 @@ title: ROS
 description: ROS-Mosaico Bridge
 ---
 
-The **ROS Bridge** module serves as the ingestion gateway for ROS (Robot Operating System) data into the Mosaico Data Platform. Its primary function is to solve the interoperability challenges associated with ROS bag files—specifically format fragmentation (ROS 1 `.bag` vs. ROS 2 `.mcap`/`.db3`) and the lack of strict schema enforcement in custom message definitions.
+The **ROS Bridge** module serves as the bidirectional gateway between ROS (Robot Operating System) data and the Mosaico Data Platform: **ingesting** ROS bag files into Mosaico sequences (via [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]), and **extracting** Mosaico sequences back out as ROS bag files (via [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]). Its primary function is to solve the interoperability challenges associated with ROS bag files—specifically format fragmentation (ROS 1 `.bag` vs. ROS 2 `.mcap`/`.db3`) and the lack of strict schema enforcement in custom message definitions.
 
 !!! info "API-Keys"
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the ROS Ingestion employs the mosaico [Writing Workflow](../handling/writing.md), which is allowed only if the key has the `write` permission.
@@ -16,14 +16,22 @@ The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather 
 
 ## Architecture
 
-The module is composed of four distinct layers that handle the pipeline from raw file access to server transmission.
+The module is composed of five collaborating components that handle both directions of the pipeline — ROS bag → Mosaico (ingestion) and Mosaico → ROS bag (extraction) — from raw file/server access down to the shared adaptation layer.
 
-### The Loader (`ROSLoader`)
+### The Loaders (`ROSLoader` & `MosaicoLoader`)
 
-The [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader] acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
+Each direction has its own loader:
 
-  * **Responsibilities:** File I/O, raw deserialization, and topic filtering (supporting glob patterns like `/cam/*`).
-  * **Error Handling:** It implements configurable policies (`IGNORE`, `LOG_WARN`, `RAISE`) to handle corrupted messages or deserialization failures without crashing the entire pipeline.
+* **[`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]** (ingestion) acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
+* **[`MosaicoLoader`][mosaicolabs.ros_bridge.loader.MosaicoLoader]** (extraction) is the mirror image: it streams messages back out of a Mosaico sequence via [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer], resolving each topic's adapter and original ROS message type instead of parsing one from a bag file.
+
+Both loaders share the same topic classification logic (accepted / filtered / adapter-unresolved, plus source-specific rejection reasons), which is what powers `topics`, `rejected_topics`, and `resolve_adapter()` identically on either side.
+
+* **Responsibilities:** raw deserialization (or, for `MosaicoLoader`, remote streaming) and topic filtering (supporting glob patterns like `/cam/*`).
+* **Error Handling:** rejected topics are reported with a specific reason (filtered, no adapter, not in typestore, malformed metadata) rather than aborting the whole run; malformed *messages* on an otherwise-accepted topic are skipped and counted rather than raised.
+
+!!! note "Typestore setup is the caller's responsibility"
+    Neither loader consults the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] itself — both take an already-built [`Typestore`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#typestores) as a constructor argument. Resolving `ros_distro`/`custom_msgs` into that `Typestore` is done by [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] before they construct a loader — see [The Type Registry](#the-type-registry-rostyperegistry) below.
 
 ### The Orchestrator (`RosbagInjector`)
 
@@ -33,9 +41,9 @@ The ingestor orchestrates the interaction between the **[`ROSLoader`][mosaicolab
 
 #### Core Workflow Execution: `run()`
 
-The `run()` method is the heart of the ingestor. When called, it initiates a multi-phase pipeline:
+Constructing `RosbagInjector(config)` resolves `ros_distro`/`custom_msgs` into a `Typestore` via the [Type Registry](#the-type-registry-rostyperegistry) up front. `run()` itself then drives a multi-phase pipeline:
 
-1. **Handshake & Registry**: Establishes a connection to the Mosaico server and registers any provided custom `.msg` definitions into the global [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
+1. **Handshake**: Establishes a connection to the Mosaico server and opens the bag file via `ROSLoader`.
 2. **Sequence Creation**: Requests the server to initialize a new data sequence based on the provided name and metadata.
 3. **Adaptive Streaming**: Iterates through the ROS bag records. For each message, it identifies the correct adapter, translates the ROS dictionary into a Mosaico object, and pushes it into an optimized write buffer.
 4. **Transaction Finalization**: Once the bag is exhausted, it flushes all remaining buffers and signals the server to commit the sequence.
@@ -43,6 +51,63 @@ The `run()` method is the heart of the ingestor. When called, it initiates a mul
 #### Configuring the Ingestion
 
 The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
+
+#### Per-Topic Metadata (`topic_metadata`)
+
+Besides the sequence-level `metadata` dict, `topic_metadata: Optional[Dict[str, dict]]` lets you attach metadata to individual topics by exact topic name (the same exact-name convention as `adapter_overrides` and `topics_on_error`, rather than the glob patterns used by `topics`). Entries for topics excluded by `topics` filtering are simply unused. See [Metadata: Reserved Keys & Custom Fields](#metadata-reserved-keys-custom-fields) below for how it merges with metadata the bridge computes automatically.
+
+```python
+config = ROSInjectionConfig(
+    ...,
+    topic_metadata={
+        "/imu": {"unit": "rad/s"},
+    },
+)
+```
+
+It can also be loaded from a JSON file — handy for the CLI's `--topic-metadata` flag, or to keep large mappings out of your script:
+
+```json title="topic_metadata.json"
+{
+  "/imu": {"unit": "rad/s"},
+  "/estimation/pose": {"algorithm": "ekf_v2", "offline": true}
+}
+```
+
+```python
+import json
+
+config = ROSInjectionConfig(
+    ...,
+    topic_metadata=json.loads(Path("topic_metadata.json").read_text()),
+)
+```
+
+#### Updating an Existing Sequence (`update_if_exists`)
+
+By default, ingesting into a `sequence_name` that already exists on the server raises an error. Setting **`update_if_exists=True`** switches this to an append/merge: the ingestor appends this bag's topics to the existing sequence instead of creating a new one. This covers two distinct real-world scenarios with the same mechanism:
+
+* **Multi-part recordings**: a single logical recording split across several bag files, all of which should land in one sequence.
+* **Reprocessing / augmentation**: a derived bag (e.g. offline estimation results computed from an already-ingested recording, with timestamps aligned to the original) whose topics should be merged into the sequence that was already ingested from the original recording.
+
+Since sequence metadata can't be changed after creation, the per-topic `source_file` metadata (see [Metadata: Reserved Keys & Custom Fields](#metadata-reserved-keys-custom-fields) below) is what keeps this traceable: inspecting a topic's own metadata tells you which bag file introduced it, even after several `update_if_exists=True` runs against the same sequence.
+
+```python
+config = ROSInjectionConfig(
+    file_path=Path("estimation_results.mcap"),
+    sequence_name="on_track_experiment",  # already ingested from the original recording
+    metadata={},  # ignored: the sequence already exists, its metadata is immutable
+    update_if_exists=True,
+    topic_metadata={
+        "/estimation/pose": {"algorithm": "ekf_v2", "offline": True},
+    },
+)
+```
+
+If `sequence_name` doesn't exist yet, `update_if_exists=True` simply creates it, same as leaving it at the default `False`.
+
+!!! warning "Resuming after a crash is not idempotent"
+    If the process crashes mid-bag and you re-run the same command with `update_if_exists=True`, the injector has no memory of which topics it already fully ingested before the crash — that bookkeeping lives only in an in-memory cache scoped to the crashed process's session. Expect `topic_create` to be called again for those topics on resume, which the server is expected to reject as duplicates. There is currently no built-in dedup against the sequence's already-existing topics before re-creating them, so a genuinely safe resume isn't supported yet — plan for re-ingesting into a fresh sequence name if a run fails partway through, rather than relying on `update_if_exists` to pick up where it left off.
 
 #### Practical Example: Programmatic Usage
 
@@ -93,6 +158,18 @@ def run_injection():
         adapter_overrides={
             "/camera/depth/points": MyCustomRGBDAdapter,
         },
+
+        # Per-Topic Metadata (exact topic name -> dict; the reserved "_ros_" key,
+        # containing schema info and source_file, always overrides this on conflict)
+        topic_metadata={
+            "/cam/front": {"lens": "wide-angle", "calibrated": True},
+        },
+
+        # Update instead of Create
+        # If "test_ros_sequence" already exists (e.g. a previous bag of a multi-part
+        # recording, or a sequence to merge reprocessed results into), append to it
+        # instead of raising an error.
+        update_if_exists=False,
 
         # Execution Settings
         log_level="WARNING",  # Reduce verbosity for automated scripts
@@ -164,6 +241,27 @@ This is possible because ROS bag files carry the schema of every message type al
 
 See [Advanced: Ingesting Unmodeled Ontologies](../ontology.md#advanced-ingesting-unmodeled-ontologies) for the full mechanics of the `Unmodeled` ontology type — including how schema-variant fingerprinting keeps multiple versions of the same tag apart, and, most importantly, how to **query** this data on the server without ever needing to resolve a Python class for it.
 
+#### Metadata: Reserved Keys & Custom Fields
+
+!!! info "Internal behavior"
+    This section documents implementation detail useful for interpreting or querying ingested metadata — not something you need to configure to use the bridge.
+
+Sequence and topic metadata are populated from a mix of auto-computed and user-supplied sources. At the topic level, exactly **one** key is reserved because the bridge writes it itself: `_ros_`, encapsulated by [`RosSchemaMetadata`][mosaicolabs.ros_bridge.RosSchemaMetadata] so that the literal string `"_ros_"` exists in a single place in the codebase rather than being duplicated across adapters, loaders, and the injector. Everything the bridge computes automatically for a topic lives inside this one namespace:
+
+* Written by every adapter's `schema_metadata()` (e.g. [`ROSAdapterBase.schema_metadata`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase.schema_metadata]): the original ROS `msgtype`, the raw `msgdef`, and any `enums` extracted from `UPPER_CASE` message constants (the mechanism referenced in [Const/enum data is not part of the message payload](#extending-the-bridge-unmodeled-adapters) above).
+* `source_file`: the name of the bag file (`file_path.name`) that first created that topic. Written once per topic, at topic-creation time, regardless of `update_if_exists`.
+
+`_ros_` is fully reserved: `topic_metadata` ([Per-Topic Metadata](#per-topic-metadata-topic_metadata) above) is merged in *first*, then the bridge-computed `_ros_` block is applied on top — so the bridge always wins that key regardless of what `topic_metadata` sets for it. Every other key is fully user-owned; `topic_metadata` can freely use anything except `_ros_`.
+
+* **`metadata`** *(sequence-level)*: only applied at sequence-creation time — the Mosaico server does not support mutating a sequence's metadata after ingestion, so it's simply ignored when `update_if_exists=True` targets an already-existing sequence.
+* **`topic_metadata`**: merged underneath the auto-computed `_ros_` block (see above).
+
+!!! note "CLI-only sequence metadata"
+    When using the `mosaicolabs.ros_injector` CLI, an additional `rosbag_injection` key (the bag's filename) is automatically merged into `metadata` for traceability. This only happens in the CLI entry point — not when constructing `ROSInjectionConfig` directly in Python.
+
+!!! tip "Querying these keys"
+    `_ros_` and its nested fields (e.g. `_ros_.msgtype`, `_ros_.enums.<NAME>`) are ordinary metadata as far as the query engine is concerned — they're queryable through [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] and [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] `with_user_metadata()` exactly like any other metadata field, including [glob patterns for nested keys](../query.md#using-glob-pattern-for-metadata-keys) (e.g. `QueryTopic().with_user_metadata("_ros_.msgtype", eq="sensor_msgs/msg/Imu")`). See the [Query Workflow](../query.md) guide for the full API.
+
 #### Override Adapters
 
 Unlike the Custom Adapters above, which register a *new* mapping for a ROS type that has no default adapter, Override Adapters replace the *default* adapter for one specific topic only, leaving every other topic of that same ROS type on the standard path. This section explains how to implement and register them.
@@ -213,9 +311,9 @@ from mosaicolabs.ros_bridge import ROSMessage
 from mosaicolabs.ros_bridge.adapters import PointCloudAdapterBase
 from my_ontology import MyLidar # Your target Ontology class
 
-class MyLidarAdapter(PointCloudAdapterBase[MyVelodyneLidar]):
+class MyLidarAdapter(PointCloudAdapterBase[MyLidar]):
     # Define the target Mosaico Ontology class
-    __mosaico_ontology_type__: Type[MyLidar] = MyVelodyneLidar
+    __mosaico_ontology_type__: Type[MyLidar] = MyLidar
 
     _REQUIRED_FIELDS = [
         name for name, field in MyLidar.model_fields.items() 
@@ -307,83 +405,182 @@ mosaicolabs.ros_injector ./data.db3 \
   --topics /camera/front/* /gps/fix \
   --metadata ./metadata.json \
   --ros-distro ros2_humble
+
+# Advanced Usage: Per-topic metadata and appending to an existing sequence
+# (e.g. a second bag of a multi-part recording, or reprocessed results
+# to merge into an already-ingested sequence)
+mosaicolabs.ros_injector ./estimation_results.mcap \
+  --name "Test_Run_01" \
+  --topic-metadata '{"/estimation/pose": {"algorithm": "ekf_v2"}}' \
+  --update-if-exists
+```
+
+### The Extractor (`ROSSequenceExtractor`)
+
+The **[`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]** runs the ingestion pipeline in reverse: it reads a Mosaico sequence back out and writes it as a ROS 1 (`.bag`) or ROS 2 (`.mcap`/`.db3`) bag file, using the same [`ROSAdapterBase.to_ros()`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase.to_ros] adapters (and the [`_ros_` metadata][mosaicolabs.ros_bridge.RosSchemaMetadata] recorded at ingestion time, e.g. to recover the original ROS message type) that made the ingestion adaptation possible in the first place.
+
+#### Core Workflow Execution: `run()`
+
+1. **Prepare Output Path**: resolves `rosbag_path / sequence_name` and enforces the `overwrite` policy — raises `FileExistsError` if the path exists and `overwrite=False`, otherwise deletes it first.
+2. **Handshake**: connects to the Mosaico server and opens a [`MosaicoLoader`][mosaicolabs.ros_bridge.loader.MosaicoLoader] for the requested sequence (optionally filtered by `topics` and a `start_timestamp_ns`/`end_timestamp_ns` window).
+3. **Adaptive Streaming**: for each `(topic, message)` pair, resolves the topic's adapter and original ROS message type, converts the Mosaico message back to a native ROS message via `to_ros()`, and writes it to the bag. Topics with no resolvable adapter, or whose `to_ros()` call fails, are skipped (logged as a warning) rather than aborting the whole extraction.
+
+#### Configuring the Extraction
+
+The behavior of the extractor is entirely driven by **[`ROSExtractorConfig`][mosaicolabs.ros_bridge.ROSExtractorConfig]** — the mirror image of `ROSInjectionConfig` for the reverse direction. Its main knobs:
+
+* **`topics`**: the same glob-based include/exclude filtering as `ROSInjectionConfig.topics` (see [Configuring the Ingestion](#configuring-the-ingestion) above) — applied here against the sequence's topics instead of a bag's.
+* **`ros_distro`** / **`storage_plugin`**: select the target ROS distribution and, for ROS 2, the storage backend (`StoragePlugin.MCAP` or `StoragePlugin.SQLITE3`) for the *output* bag. Together with `ros_distro`, this also determines the output bag format: `Stores.ROS1_NOETIC` writes a ROS 1 `.bag`, anything else writes a ROS 2 bag via the selected `storage_plugin`.
+* **`start_timestamp_ns`** / **`end_timestamp_ns`**: an optional time window to extract. Out-of-range bounds are *clipped* to the sequence's own bounds (with a warning) rather than raising.
+* **`overwrite`**: if the resolved output path (`rosbag_path / sequence_name`) already exists, `overwrite=False` (default) raises `FileExistsError`; `overwrite=True` deletes and recreates it.
+* **`custom_msgs`**: register custom `.msg` definitions before extraction — needed when encoding an ontology type back to a ROS message whose `msgdef` isn't recoverable from the topic's own metadata (e.g. the sequence wasn't ingested from a ROS bag in the first place). See [The Type Registry](#the-type-registry-rostyperegistry) below for the full explanation.
+
+#### Dry Run (`dry_run`)
+
+Setting **`dry_run=True`** (or `--dry-run` on the CLI) resolves the sequence's topics and prints a report — per topic, the resolved adapter and target ROS message type (or the rejection reason), plus message counts — **without** opening a bag writer or touching the output path. This is deliberately checked before `_prepare_output_path()` runs, since that step can delete an existing output directory under `overwrite=True`; the dry run reports what *would* happen to that path (created, deleted+recreated, or a `FileExistsError`) without doing it.
+
+```python
+config = ROSExtractorConfig(
+    rosbag_path=Path("./exports"),
+    sequence_name="on_track_experiment",
+    dry_run=True,
+)
+ROSSequenceExtractor(config).run()  # prints a report; nothing is written or deleted
+```
+
+```bash
+mosaicolabs.ros_sequence_extractor on_track_experiment --rosbag_path ./exports --dry-run
+```
+
+#### Practical Example: Programmatic Usage
+
+```python
+from pathlib import Path
+from mosaicolabs.ros_bridge import ROSSequenceExtractor, ROSExtractorConfig
+from rosbags.typesys import Stores
+
+config = ROSExtractorConfig(
+    rosbag_path=Path("./exports"),
+    sequence_name="on_track_experiment",
+
+    # Topic Filtering (supports glob patterns, same semantics as ROSInjectionConfig.topics)
+    topics=["/cam*", "!/cam/debug*"],
+
+    # Target ROS distribution/format for the output bag
+    ros_distro=Stores.ROS2_HUMBLE,
+
+    # Optional time-window clipping (nanoseconds); out-of-range bounds are clipped
+    # to the sequence's own bounds rather than raising.
+    start_timestamp_ns=None,
+    end_timestamp_ns=None,
+
+    overwrite=True,
+)
+
+extractor = ROSSequenceExtractor(config)
+extractor.run()
+```
+
+#### CLI Usage
+
+The full list of options can be retrieved by running `mosaicolabs.ros_sequence_extractor -h`.
+
+```bash
+# Basic Usage
+mosaicolabs.ros_sequence_extractor on_track_experiment --rosbag_path ./exports
+
+# Advanced Usage: Filtering topics and targeting a specific ROS distro/format
+mosaicolabs.ros_sequence_extractor on_track_experiment \
+  --rosbag_path ./exports \
+  --topics /cam/* !/cam/debug* \
+  --ros_distro ROS2_HUMBLE \
+  --storage_plugin MCAP \
+  --overwrite
 ```
 
 ### The Type Registry (`ROSTypeRegistry`)
 
-The **[`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry]** is a context-aware singleton designed to manage the schemas required to decode ROS data. ROS message definitions are frequently external to the data files themselves—this is especially true for ROS 2 `.db3` (SQLite) formats and proprietary datasets containing custom sensors. Without these definitions, the bridge cannot deserialize the raw binary "blobs" into readable dictionaries.
+The **[`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry]** manages ROS `.msg` schemas that aren't otherwise available from the data itself. It's consulted by **both** [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] (via each one's `custom_msgs` config field) when building the `Typestore` they hand to their respective loader — neither `ROSLoader` nor `MosaicoLoader` talks to the registry directly (see [The Loaders](#the-loaders-rosloader-mosaicoloader) above).
 
-* **Schema Resolution**: It allows the [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader] to resolve custom `.msg` definitions on-the-fly during bag playback.
 * **Version Isolation (Stores)**: ROS messages often vary across distributions (e.g., a "Header" in ROS 1 Noetic is structurally different from ROS 2 Humble). The registry uses a "Profile" system to store these version-specific definitions separately, preventing cross-distribution conflicts.
-* **Global vs. Scoped Definitions**: You can register definitions **Globally** (available to all loaders) or **Scoped** to a specific distribution.
+* **Global vs. Scoped Definitions**: within one registry *instance*, you can register definitions **Globally** (available regardless of the distribution requested) or **Scoped** to a specific one.
 
-#### Pre-loading Definitions
+You'll need `custom_msgs` in two distinct situations, one per direction:
 
-While you can pass custom messages via [`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig], it can become cumbersome for large-scale projects with hundreds of proprietary types. The recommended approach is to pre-load the registry at the start of your application. This makes the definitions available to all subsequent loaders automatically.
+* **Ingestion**: a bag whose messages don't carry their own schema (this is common for ROS 2 `.db3` bags, and can also happen with proprietary types the standard `rosbags` typestores don't know) can't be deserialized at all without that `.msg` definition being registered first — `ROSLoader` has no schema to fall back on.
+* **Extraction**: encoding an ontology value back into a native ROS message (`to_ros()`) needs the target `msgtype` to be present in the typestore. `MosaicoLoader` tries to auto-register it from the topic's own `_ros_.msgdef` (recorded automatically at ingestion time — see [Metadata: Reserved Keys & Custom Fields](#metadata-reserved-keys-custom-fields)), but that fallback only works if the sequence *was* ingested from a ROS bag in the first place. If the sequence's data came from somewhere else (e.g. written directly via the SDK, with no `_ros_` metadata at all) and its ontology type happens to be one that's `@register_default_adapter`-adapted to/from ROS, extraction has no `msgdef` to fall back on — you must register the `.msg` schema yourself via `custom_msgs` so the typestore has it.
+
+!!! info "Instance-scoped, not global"
+    Unlike some registry patterns, `ROSTypeRegistry` is a plain instantiable class — there is no shared global state. `RosbagInjector`/`ROSSequenceExtractor` each construct their own private instance by default, so one run's custom types can never leak into another run's typestore just because they happened to execute in the same process. This is what `custom_msgs` registers into. To deliberately share a set of definitions across many runs (see below), construct one `ROSTypeRegistry()` yourself and pass that same instance via each config's `registry` field.
 
 | Method | Scope | Description |
 | --- | --- | --- |
-| **`register(...)`** | Single Message | Registers a single custom type. The source can be a path to a `.msg` file or a raw string containing the definition. |
+| **`register(...)`** | Single Message | Registers a single custom type on this instance. The source can be a path to a `.msg` file or a raw string containing the definition. |
 | **`register_directory(...)`** | Batch Package | Scans a directory for all `.msg` files and registers them under a specific package name (e.g., `my_pkg/msg/Sensor`). |
 | **`get_types(...)`** | Internal | Implements a "Cascade" logic: merges Global definitions with distribution-specific overrides for a loader. |
-| **`reset()`** | Utility | Clears all stored definitions. Primarily used for unit testing to ensure process isolation. |
+| **`reset()`** | Utility | Clears all definitions on this instance. Primarily used for unit testing to ensure isolation. |
 
 #### Centralized Registration Example
 
-A clean way to manage large projects is to centralize your message registration in a single setup function (e.g., `setup_registry.py`):
+For large projects with hundreds of proprietary types, centralize the registration calls in a single setup function (e.g., `setup_registry.py`) that builds and returns one shared registry, then pass that same instance to every `ROSInjectionConfig`/`ROSExtractorConfig` that should see it:
 
 ```python
+# setup_registry.py
 from pathlib import Path
 from mosaicolabs.ros_bridge import ROSTypeRegistry
 from rosbags.typesys import Stores
 
-def initialize_project_schemas():
+def build_project_registry() -> ROSTypeRegistry:
+    registry = ROSTypeRegistry()
+
     # 1. Register a proprietary message valid for all ROS versions
-    ROSTypeRegistry.register(
+    registry.register(
         msg_type="common_msgs/msg/SystemHeartbeat",
         source=Path("./definitions/Heartbeat.msg")
     )
 
     # 2. Batch register an entire package for ROS 2 Humble
-    ROSTypeRegistry.register_directory(
+    registry.register_directory(
         package_name="robot_v3_msgs",
         dir_path=Path("./definitions/robot_v3/msgs"),
         store=Stores.ROS2_HUMBLE
     )
 
+    return registry
 ```
-
-Once registered, the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] (and the underlying [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]) automatically detects and uses these definitions. There is no longer the need to pass the `custom_msgs` list in the [`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig].
 
 ```python
 # main_injection.py
-import setup_registry  # Runs the registration logic above
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
 from rosbags.typesys import Stores
 from pathlib import Path
 
-# Initialize registry
-setup_registry.initialize_project_schemas()
+shared_registry = build_project_registry()
 
-# Configure injection WITHOUT listing custom messages again
 config = ROSInjectionConfig(
     file_path=Path("mission_data.mcap"),
     sequence_name="mission_01",
     metadata={"operator": "Alice"},
-    ros_distro=Stores.ROS2_HUMBLE,  # Loader will pull the Humble-specific types we registered
-    # custom_msgs=[]  <-- No longer needed!
+    ros_distro=Stores.ROS2_HUMBLE,
+    # No need to list the individual (package, path, store) tuples again here —
+    # `registry` already has everything `build_project_registry()` registered.
+    registry=shared_registry,
 )
 
 ingestor = RosbagInjector(config)
 ingestor.run()
 ```
 
+The same `shared_registry` instance can be passed to a `ROSExtractorConfig` too, letting ingestion and extraction reuse the exact same set of custom definitions without re-registering them.
+
 
 ### Testing & Validation
 
 The ROS Bag Injection module has been validated against a variety of standard datasets to ensure compatibility with different ROS distributions, message serialization formats (CDR/ROS 1), and bag container formats (`.bag`, `.mcap`, `.db3`). For evaluating Mosaico capabilities, we recommend the **[NVIDIA NGC Catalog - R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1)**, which has been verified to be fully compatible with the injection pipeline.
 
-#### NVIDIA R2B Dataset 2024 Injection Performance
+Note: the benchmarks below cover **ingestion** (`RosbagInjector`) and **extraction** (`ROSSequenceExtractor`) performances.
+
+#### NVIDIA R2B Dataset 2024 Performances
 
 Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB RAM)**. Injection time includes local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and transmission to the Mosaico server. Compression factor depends on the data itself: scalar telemetry compresses well (~70%), while pre-compressed video feeds show minimal gains (~1%) since the data is already dense.
 
@@ -393,6 +590,15 @@ Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB
 | **`r2b_galileo`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression due to pre-compressed source images. |
 | **`r2b_robotarm`** | ~66% | ~50 sec | Apple M2 Pro (16GB) | High efficiency for high-frequency state updates. |
 | **`r2b_whitetunnel`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression; contains topics with no available adapter. |
+
+Extraction time includes data streaming from mosaico, semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and serialization into the rosbag.
+
+| Sequence Name |  Extraction Time | Hardware Architecture |
+| --- | --- | --- |
+| **`r2b_galileo2`** | ~12 sec | Apple M2 Pro (16GB) |
+| **`r2b_galileo`** |  ~2 sec | Apple M2 Pro (16GB) |
+| **`r2b_robotarm`** | ~18 sec | Apple M2 Pro (16GB) |
+| **`r2b_whitetunnel`** | ~2 sec | Apple M2 Pro (16GB) |
 
 #### Known Issues & Limitations
 

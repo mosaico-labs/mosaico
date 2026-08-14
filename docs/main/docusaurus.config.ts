@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Mosaico Doc',
   tagline: 'The Data Platform for Robotics and Physical AI',
-  favicon: 'img/favicon.png',
+  favicon: 'img/favicon-48.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {

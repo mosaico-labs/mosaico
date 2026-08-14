@@ -8,7 +8,7 @@ use super::{Error, IndexSpecifier, OntologyExprGroup, OntologyField, Op, Value};
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
-use datafusion::execution::memory_pool::FairSpillPool;
+use datafusion::execution::memory_pool::GreedyMemoryPool;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
 use datafusion::functions::regex::expr_fn::regexp_like;
@@ -37,7 +37,7 @@ pub struct TimeseriesEngine {
 impl TimeseriesEngine {
     pub fn try_new(store: Arc<store::Store>, memory_limit_bytes: usize) -> Result<Self, Error> {
         let memory_pool = if memory_limit_bytes != 0 {
-            Some(Arc::new(FairSpillPool::new(memory_limit_bytes)))
+            Some(Arc::new(GreedyMemoryPool::new(memory_limit_bytes)))
         } else {
             None
         };

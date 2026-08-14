@@ -133,12 +133,9 @@ def test_no_adapter_available(mosaico_client):
             )  # Serializable has no adapter!
 
             # Create and push data
-            pose_data = Pose(
-                position=Point3d(x=1, y=2, z=3),
-                orientation=Quaternion(x=0, y=0, z=0, w=1),
-            )
+            unadapted_data = NotAdaptedClass()
 
-            t_writer.push(Message(timestamp_ns=12345678, data=pose_data))
+            t_writer.push(Message(timestamp_ns=12345678, data=unadapted_data))
 
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
@@ -149,7 +146,7 @@ def test_no_adapter_available(mosaico_client):
 
         adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
 
-        assert adapter is None
+        assert issubclass(adapter, UnmodeledAdapter)
         assert rosmsg_type == "not_adapted_ontology"
 
         mosaico_client.sequence_delete(ros_sequence_name)
@@ -161,7 +158,7 @@ def test_not_adapted_msgtype_fallack_to_default_adapter(
     ros_distro = Stores.ROS2_JAZZY
     ros_sequence_name = "ros-sequence-not-adapted-msgtype-fallack-to-default-adapter"
     ros_topic_name = "/car/pose"
-    topic_with_ros_metadata = {"_ros_": {"msgtype": "not-adapted"}}
+    topic_with_ros_metadata = {"_ros_": {"msgtype": "not-helpful-msgtype"}}
 
     with mosaico_client:
         with mosaico_client.sequence_create(

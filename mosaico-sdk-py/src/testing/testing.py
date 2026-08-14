@@ -1,8 +1,22 @@
 import argparse
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+
+def _run_ruff_checks(src_dir: Path) -> None:
+    """Run `ruff check` and `ruff format --check` on src_dir, exiting on failure."""
+    checks = [
+        ["ruff", "check", str(src_dir)],
+        ["ruff", "format", "--check", str(src_dir)],
+    ]
+    sys.stdout.write(f"Running RUFF tests in {src_dir}\n")
+    for cmd in checks:
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            sys.exit(result.returncode)
 
 
 def mosaico_testing():
@@ -58,6 +72,8 @@ def mosaico_testing():
     args = parser.parse_args()
 
     src_dir = Path(__file__).resolve().parent
+    _run_ruff_checks(src_dir.parent)
+
     pytest_args = [str(src_dir)]
 
     if args.keyword:

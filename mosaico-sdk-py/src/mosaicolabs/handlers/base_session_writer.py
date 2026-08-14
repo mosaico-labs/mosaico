@@ -98,6 +98,8 @@ class _BaseSessionWriter(ABC):
         """Tag for inspecting if the writer is used in a 'with' context"""
         self._logger: Logger = logger
         """The logger for the writer"""
+        self._last_err: Optional[str] = None
+        """The last error message, if any, or None if no error has occurred."""
 
     @abstractmethod
     def _on_context_enter(self):
@@ -216,6 +218,7 @@ class _BaseSessionWriter(ABC):
 
             # Last thing to do: DO NOT SET BEFORE!
             self._status = SessionStatus.Error
+            self._last_err = str(out_exc)
 
             if exc_type is None and out_exc is not None:
                 self._logger.error(
@@ -323,6 +326,7 @@ class _BaseSessionWriter(ABC):
             except Exception as e:
                 # _do_action raised: re-raise
                 self._status = SessionStatus.Error  # Sets status to Error
+                self._last_err = str(e)
                 raise _make_exception(
                     f"Error sending 'finalize' action for session {self._locator}, sequence '{self._name}'. Server state may be inconsistent.",
                     e,
@@ -370,8 +374,10 @@ class _BaseSessionWriter(ABC):
                 self._logger.info(
                     f"Session {self._locator}, sequence '{self._name}' aborted successfully."
                 )
-                self._status = SessionStatus.Error
+                self._status = SessionStatus.Null  # Reset status after deletion
             except Exception as e:
+                self._status = SessionStatus.Error
+                self._last_err = str(e)
                 raise _make_exception(
                     f"Error sending 'abort' for session {self._locator}, sequence '{self._name}'.",
                     e,

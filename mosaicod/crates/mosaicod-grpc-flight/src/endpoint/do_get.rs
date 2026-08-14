@@ -91,13 +91,12 @@ pub async fn do_get(
             core::Error::internal(Some("arrow ipc lz4 compression not available".to_owned()))
         })?;
 
-    // Set max flight message size to our gRPC limit minus 2MB headroom,
-    // matching the same conservative margin used by the Flight default.
+    // Set max flight message size to half of our gRPC limit.
     //
     // If our value is below the default we keep the default.
     let max_flight_data_size = usize::max(
         GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
-        params::params().target_message_size.value,
+        params::params().target_message_size,
     );
 
     debug!(
