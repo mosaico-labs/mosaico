@@ -115,35 +115,34 @@ pub(super) mod internal {
         Ok(timestamp_range)
     }
 
-    pub async fn compute_data_info(
-        exe: &mut impl db::AsExec,
-        ts_engine: query::TimeseriesEngineRef,
-        topic_record: &db::TopicRecord,
-    ) -> Result<types::TopicDataInfo> {
-        let stats = db::topic_get_stats(exe, topic_record.topic_id).await?;
-
-        let ts_range = if stats.chunks_count == 0 {
-            types::TimestampRange::unbounded()
-        } else {
-            compute_timestamp_range(ts_engine, topic_record).await?
-        };
-
-        Ok(types::TopicDataInfo {
-            chunks_number: stats.chunks_count,
-            total_bytes: stats.total_size_bytes,
-            timestamp_range: ts_range,
-        })
-    }
-
     /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
     pub async fn info(
         exe: &mut impl db::AsExec,
         ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
     ) -> Result<TopicInfo> {
+        let stats = db::topic_get_stats(exe, topic_record.topic_id).await?;
+
+        let ts_range = if stats.chunks_count == 0 {
+            types::TimestampRange::unbounded()
+        } else {
+            // Return an unbounded range instead of throwing an error regarding missing data in DB,
+            // because a get_flight_info read could be performed when some chunk has already been
+            // stored, but the topic is not finalized yet.
+            topic_record
+                .timestamp_range()
+                .unwrap_or(types::TimestampRange::unbounded())
+        };
+
+        let data_info = types::TopicDataInfo {
+            chunks_number: stats.chunks_count,
+            total_bytes: stats.total_size_bytes,
+            timestamp_range: ts_range,
+        };
+
         Ok(TopicInfo {
             metadata: metadata(exe, topic_record).await?,
-            data_info: compute_data_info(exe, ts_engine.clone(), topic_record).await?,
+            data_info,
             schema: arrow_schema(ts_engine, topic_record).await?,
         })
     }
