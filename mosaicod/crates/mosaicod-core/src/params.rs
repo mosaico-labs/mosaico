@@ -22,8 +22,25 @@ pub const EPSILON: f64 = 1.0e-06;
 
 pub const MAX_BUFFERED_FUTURES: usize = 8;
 
+// MIN/MAX values admissible for grpc message size.
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MB. Default grpc message size.
 pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 128 * 1024 * 1024; // 128MB
+
+// Default values for Params.
+pub const DEFAULT_MAX_GRPC_MESSAGE_SIZE: usize = 50 * 1_000_000; // 50MB
+pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = 25 * 1_000_000; // 25MB
+pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: usize = 4;
+pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: usize = 1024;
+pub const DEFAULT_MAX_DB_CONNECTIONS: u32 = 19;
+pub const DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE: usize = 70 * 1_000_000;
+pub const DEFAULT_MAX_BATCH_SIZE: usize = 8192;
+pub const DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE: usize = 0; // No memory restriction.
+pub const DEFAULT_TLS_CERT_FILE: &str = "";
+pub const DEFAULT_TLS_PRIVATE_KEY_FILE: &str = "";
+pub const DEFAULT_STORE_ENDPOINT: &str = "";
+pub const DEFAULT_STORE_BUCKET: &str = "";
+pub const DEFAULT_STORE_SECRET_KEY: &str = "";
+pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 
 /// Module containing several file extensions
 pub mod ext {
@@ -276,16 +293,28 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         .expect("Unable to detect default parallelism, please define MOSAICOD_DEFAULT_PARALLELISM")
         .get();
 
-    let max_grpc_message_size = Param::optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 50 * 1_000_000);
+    let max_grpc_message_size = Param::optional(
+        "MOSAICOD_MAX_GRPC_MESSAGE_SIZE",
+        DEFAULT_MAX_GRPC_MESSAGE_SIZE,
+    );
     let target_message_size = max_grpc_message_size.value / 2;
 
     let ev = Params {
         // general
         max_grpc_message_size,
         target_message_size,
-        max_concurrent_chunk_queries: Param::optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
-        max_size_plain_list_eq: Param::optional("MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ", 1024),
-        max_db_connections: Param::optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
+        max_concurrent_chunk_queries: Param::optional(
+            "MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES",
+            DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES,
+        ),
+        max_size_plain_list_eq: Param::optional(
+            "MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ",
+            DEFAULT_MAX_SIZE_PLAIN_LIST_EQ,
+        ),
+        max_db_connections: Param::optional(
+            "MOSAICOD_MAX_DB_CONNECTIONS",
+            DEFAULT_MAX_DB_CONNECTIONS,
+        ),
         max_concurrent_writes: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_WRITES",
             default_parallelism,
@@ -293,14 +322,23 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         default_parallelism: Param::optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
         parquet_in_memory_encoding_buffer_size: Param::optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
-            75 * 1_000_000,
+            DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
         ),
-        max_batch_size: Param::optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
-        query_engine_memory_pool_size: Param::optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),
+        max_batch_size: Param::optional("MOSAICOD_MAX_BATCH_SIZE", DEFAULT_MAX_BATCH_SIZE),
+        query_engine_memory_pool_size: Param::optional(
+            "MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE",
+            DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE,
+        ),
 
         // tls
-        tls_certificate_file: Param::optional("MOSAICOD_TLS_CERT_FILE", "".to_owned()),
-        tls_private_key_file: Param::optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
+        tls_certificate_file: Param::optional(
+            "MOSAICOD_TLS_CERT_FILE",
+            DEFAULT_TLS_CERT_FILE.to_owned(),
+        ),
+        tls_private_key_file: Param::optional(
+            "MOSAICOD_TLS_PRIVATE_KEY_FILE",
+            DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned(),
+        ),
 
         // database
         db_url: if config.skip_db_url {
@@ -310,10 +348,19 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         },
 
         // store
-        store_endpoint: Param::optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
-        store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
-        store_secret_key: Param::optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned()),
-        store_access_key: Param::optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
+        store_endpoint: Param::optional(
+            "MOSAICOD_STORE_ENDPOINT",
+            DEFAULT_STORE_ENDPOINT.to_owned(),
+        ),
+        store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", DEFAULT_STORE_BUCKET.to_owned()),
+        store_secret_key: Param::optional(
+            "MOSAICOD_STORE_SECRET_KEY",
+            DEFAULT_STORE_SECRET_KEY.to_owned(),
+        ),
+        store_access_key: Param::optional(
+            "MOSAICOD_STORE_ACCESS_KEY",
+            DEFAULT_STORE_ACCESS_KEY.to_owned(),
+        ),
     };
 
     ev.validate()?;
