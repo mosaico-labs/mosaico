@@ -1,6 +1,6 @@
 ---
 title: Mosaico CLI
-sidebar_position: 4
+sidebar_position: 1
 description: Configure connections, inspect resources, and diagnose Mosaico from the command line.
 ---
 

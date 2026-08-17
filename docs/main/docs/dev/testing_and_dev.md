@@ -1,6 +1,6 @@
 --- 
 title: Testing & Development
-position: 2
+sidebar_position: 2
 description: "Development environment setup and contribution procedures for the Mosaico project. Covers local orchestration, database schema migration, and the test suite required before submitting changes."
 ---
 
