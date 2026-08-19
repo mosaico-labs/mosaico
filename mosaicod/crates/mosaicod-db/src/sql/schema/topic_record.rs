@@ -23,12 +23,6 @@ pub struct TopicRecord {
     pub(crate) creation_unix_tstamp: i64,
     pub(crate) completion_unix_tstamp: Option<i64>,
 
-    /// System info.
-    /// ATTENTION: They actually contain UNSIGNED int 64bit values,
-    /// converted into i64 just for compatibility with SQL Bigint standard.
-    pub(crate) total_bytes: Option<i64>,
-    pub(crate) chunks_number: Option<i64>,
-
     /// First and last timestamps stored inside topic's data.
     pub(crate) start_index_timestamp: Option<i64>,
     pub(crate) end_index_timestamp: Option<i64>,
@@ -77,24 +71,6 @@ impl TopicRecord {
 
     pub fn optimization_end_timestamp(&self) -> Option<types::Timestamp> {
         self.optimization_end_unix_tstamp.map(|ts| ts.into())
-    }
-
-    /// Either all the fields are set, or none.
-    /// Mixed combinations are a symptom that something went wrong
-    /// and most likely these metrics need to be recalculated.
-    pub fn info(&self) -> Option<types::TopicDataInfo> {
-        let info: Option<types::TopicDataInfo> = (|| {
-            Some(types::TopicDataInfo {
-                chunks_number: self.chunks_number? as u64,
-                total_bytes: self.total_bytes? as u64,
-                timestamp_range: types::TimestampRange::between(
-                    self.start_index_timestamp?.into(),
-                    self.end_index_timestamp?.into(),
-                ),
-            })
-        })();
-
-        info
     }
 
     /// Returns first and last timestamps stored inside topic's data.

@@ -337,27 +337,6 @@ impl StoreOptimizer {
         )
         .await?;
 
-        // Update statistics.
-        let topic_info = types::TopicDataInfo {
-            chunks_number: chunk_stats.len() as u64,
-            total_bytes: chunk_stats
-                .iter()
-                .map(|x| x.metadata.size_bytes as u64)
-                .sum(),
-            timestamp_range: acquired_topic
-                .topic_record
-                .timestamp_range()
-                .ok_or_else(|| {
-                    let err_msg = format!(
-                        "missing min/max timestamp range in DB for topic {}",
-                        acquired_topic.topic_record.locator()
-                    );
-                    core::Error::internal(Some(err_msg))
-                })?,
-        };
-        db::topic_update_system_info(&mut tx, &acquired_topic.topic_record.locator(), &topic_info)
-            .await?;
-
         self.update_chunk_stats(&mut tx, &acquired_topic.topic_record, chunk_stats)
             .await?;
 

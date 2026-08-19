@@ -20,8 +20,7 @@ pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetad
 #[derive(Clone)]
 pub struct TopicInfo {
     pub metadata: TopicMetadata,
-    // An empty topic can have no data info yet.
-    pub data_info: Option<types::TopicDataInfo>,
+    pub data_info: types::TopicDataInfo,
     pub schema: SchemaRef,
 }
 
@@ -83,12 +82,11 @@ pub(super) mod internal {
         Ok(Status::Finalized)
     }
 
-    /// Computes metrics about the topic's stored data
-    /// (e.g. total size in bytes, first and last timestamps recorded in the topic)
-    pub async fn compute_data_info(
-        context: &Context,
+    /// Computes first and last timestamps recorded in the topic.
+    pub async fn compute_timestamp_range(
+        ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
-    ) -> Result<types::TopicDataInfo> {
+    ) -> Result<types::TimestampRange> {
         let path_in_store = topic_record
             .path_in_store()
             .ok_or(Error::MissingDbData(format!(
@@ -100,8 +98,7 @@ pub(super) mod internal {
             .serialization_format()
             .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
 
-        let timeseries_res = context
-            .timeseries_querier
+        let timeseries_res = ts_engine
             .read(path_in_store.data_folder_path(), format, None)
             .await;
 
@@ -115,31 +112,7 @@ pub(super) mod internal {
             Err(_) => types::TimestampRange::unbounded(),
         };
 
-        let datafiles = context
-            .store
-            .list(
-                path_in_store.root(),
-                Some(&format.to_properties().as_extension()),
-            )
-            .await?;
-
-        let mut total_bytes = 0;
-        for file in &datafiles {
-            let meta = context
-                .store
-                .meta(file)
-                .await?
-                .ok_or(core::Error::internal(
-                    format!("File {} not found in Store", file).into(),
-                ))?;
-            total_bytes += meta.size as u64;
-        }
-
-        Ok(types::TopicDataInfo {
-            chunks_number: datafiles.len() as u64,
-            total_bytes,
-            timestamp_range,
-        })
+        Ok(timestamp_range)
     }
 
     /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
@@ -148,9 +121,28 @@ pub(super) mod internal {
         ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
     ) -> Result<TopicInfo> {
+        let stats = db::topic_get_stats(exe, topic_record.topic_id).await?;
+
+        let ts_range = if stats.chunks_count == 0 {
+            types::TimestampRange::unbounded()
+        } else {
+            // Return an unbounded range instead of throwing an error regarding missing data in DB,
+            // because a get_flight_info read could be performed when some chunk has already been
+            // stored, but the topic is not finalized yet.
+            topic_record
+                .timestamp_range()
+                .unwrap_or(types::TimestampRange::unbounded())
+        };
+
+        let data_info = types::TopicDataInfo {
+            chunks_number: stats.chunks_count,
+            total_bytes: stats.total_size_bytes,
+            timestamp_range: ts_range,
+        };
+
         Ok(TopicInfo {
             metadata: metadata(exe, topic_record).await?,
-            data_info: topic_record.info(),
+            data_info,
             schema: arrow_schema(ts_engine, topic_record).await?,
         })
     }
@@ -592,8 +584,14 @@ impl HandleWriter {
 
         let topic_locator = topic_record.locator();
 
-        let info = internal::compute_data_info(&self.context, &topic_record).await?;
-        db::topic_update_system_info(&mut tx, &topic_locator, &info).await?;
+        // ts_range can be unbounded if only empty batches have been sent.
+        let ts_range = internal::compute_timestamp_range(
+            self.context.timeseries_querier.clone(),
+            &topic_record,
+        )
+        .await?;
+
+        db::topic_update_index_timestamp_range(&mut tx, &topic_locator, ts_range).await?;
 
         // Check if topic has already been uploaded and finalized.
         if let Status::Finalized = internal::status(&topic_record).await? {

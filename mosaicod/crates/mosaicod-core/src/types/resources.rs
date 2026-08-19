@@ -276,10 +276,11 @@ impl<M> TopicMetadata<M> {
 /// Aggregated statistics for a topic's chunks.
 #[derive(Debug, Clone, Default)]
 pub struct TopicChunksStats {
-    pub total_size_bytes: i64,
-    pub total_row_count: i64,
+    pub chunks_count: u64,
+    pub total_size_bytes: u64,
+    pub total_row_count: u64,
     /// Average row footprint in uncompressed Arrow bytes
-    pub avg_bytes_per_row: i64,
+    pub avg_bytes_per_row: u64,
 }
 
 /// Metadata properties associated to a topic.
