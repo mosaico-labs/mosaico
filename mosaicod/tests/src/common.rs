@@ -10,8 +10,9 @@ use mosaicod_query as query;
 use mosaicod_store as store;
 use mosaicod_task as task;
 use serde::Deserialize;
+use std::convert::Into;
 use std::fs;
-use std::net::TcpListener;
+use std::net::{IpAddr, Ipv4Addr, TcpListener};
 use std::sync::Arc;
 use std::sync::Mutex;
 use tonic::service::interceptor;
@@ -22,7 +23,7 @@ use tonic::service::interceptor;
 static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// The local loopback address for testing.
-pub const HOST: &str = "127.0.0.1";
+pub const HOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 pub const TLS_CERT_FILE: &str = "./data/cert.pem";
 pub const TLS_CA_FILE: &str = "./data/ca.pem";
@@ -46,7 +47,7 @@ pub struct CleanupIntervalConfig {
 }
 
 pub struct ServerBuilder {
-    host: String,
+    host: IpAddr,
     tls: Option<grpc::TlsConfig>,
     cleanup_config: Option<CleanupIntervalConfig>,
     db: db::testing::Database,
@@ -54,11 +55,11 @@ pub struct ServerBuilder {
 }
 
 impl ServerBuilder {
-    pub fn new(host: &str, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+    pub fn new(host: IpAddr, pool: sqlx::Pool<db::DatabaseType>) -> Self {
         let db = db::testing::Database::new(pool.clone());
 
         Self {
-            host: host.to_owned(),
+            host,
             tls: None,
             cleanup_config: None,
             db,
@@ -122,7 +123,7 @@ impl ServerBuilder {
             tcp_listner.local_addr().unwrap().port()
         };
 
-        let mut opts = grpc::Options::new(self.host.to_owned(), port);
+        let mut opts = grpc::Options::new(self.host, port);
 
         if let Some(tls) = self.tls {
             opts.tls(tls);
@@ -193,7 +194,7 @@ impl ServerBuilder {
     }
 }
 
-/// A wrapper around a MosaicoD Flight server instance.
+/// A wrapper around a mosaicod Flight server instance.
 ///
 /// ### Usage:
 /// ```no_run
@@ -279,9 +280,9 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    pub fn new(host: &str, port: u16) -> Self {
+    pub fn new(host: IpAddr, port: u16) -> Self {
         Self {
-            url: format_endpoint(host, port, false)
+            url: format_endpoint(&host.to_string(), port, false)
                 .parse()
                 .expect("unable to convert host"),
             tls: None,

@@ -4,6 +4,7 @@ use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_store as store;
+use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -30,7 +31,7 @@ pub struct TlsConfig {
 
 #[derive(Clone)]
 pub struct Options {
-    pub host: String,
+    pub host: IpAddr,
 
     /// Default port
     pub port: u16,
@@ -46,7 +47,7 @@ pub struct Options {
 }
 
 impl Options {
-    pub fn new(host: String, port: u16) -> Self {
+    pub fn new(host: IpAddr, port: u16) -> Self {
         Self {
             host,
             port,
@@ -74,7 +75,7 @@ impl Options {
 
 impl Server {
     /// Creates a new server.
-    pub fn new(host: String, port: u16, store: store::StoreRef, db: db::Database) -> Self {
+    pub fn new(host: IpAddr, port: u16, store: store::StoreRef, db: db::Database) -> Self {
         Self {
             options: Options::new(host, port),
             store,
@@ -129,7 +130,7 @@ pub async fn serve(
     opts: Options,
     shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("{}:{}", opts.host, opts.port).parse()?;
+    let addr = SocketAddr::new(opts.host, opts.port);
 
     let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone())?;
 
@@ -229,9 +230,10 @@ mod tests {
 
         let test_db = db::testing::Database::new(pool);
 
-        // "999.999.999.999" is not a valid IP address, so `serve()` fails immediately while parsing the bind address.
+        // "123.123.123.123" is a valid IP address, but no interface has this IP associated.
+        // So `serve()` fails immediately while parsing the bind address.
         let mut server = Server::new(
-            "999.999.999.999".to_string(),
+            "123.123.123.123".parse().unwrap(),
             0,
             (*test_store).clone(),
             (*test_db).clone(),

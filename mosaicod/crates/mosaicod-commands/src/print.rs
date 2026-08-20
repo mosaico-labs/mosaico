@@ -23,7 +23,7 @@ pub fn set_colors(format: log::LogFormat) {
 }
 
 pub fn startup_info(
-    host: bool,
+    host: &IpAddr,
     port: u16,
     store: &str,
     db_config: &db::Config,
@@ -40,30 +40,24 @@ pub fn startup_info(
         "|".bold().purple()
     );
 
-    let addrs = if_addrs::get_if_addrs().unwrap_or_default();
-
-    if !host {
-        // List only loopback addresses
-        for iface in addrs {
-            match iface.ip() {
-                IpAddr::V4(ipv4) if ipv4.is_loopback() => {
-                    format_addr(true, format!("{}:{}", ipv4, port).cyan().to_string());
-                }
-                _ => {}
-            }
-        }
+    if host.is_loopback() {
+        format_addr(true, format!("{}:{}", host, port).cyan().to_string());
         format_addr(false, "use --host to expose".dimmed().to_string());
-    } else {
-        // List all of the machine's network interfaces
-        for iface in addrs {
-            if let IpAddr::V4(ipv4) = iface.ip() {
+    } else if host.is_unspecified() {
+        // List all machine's network interfaces.
+        let addrs = if_addrs::get_if_addrs().unwrap_or_default();
+        for interface in addrs {
+            if let IpAddr::V4(ip_v4) = interface.ip() {
                 format_addr(
-                    ipv4.is_loopback(),
-                    format!("{}:{}", iface.ip(), port).cyan().to_string(),
+                    ip_v4.is_loopback(),
+                    format!("{}:{}", ip_v4, port).cyan().to_string(),
                 );
             }
         }
+    } else {
+        format_addr(false, format!("{}:{}", host, port).cyan().to_string());
     }
+
     println!(" {}", "|".bold().purple());
     println!(" {} {:10} {}", "=".bold().purple(), "Store", store);
     println!(
