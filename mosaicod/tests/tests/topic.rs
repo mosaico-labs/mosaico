@@ -252,7 +252,10 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert!(!app_metadata.locked);
     assert_eq!(app_metadata.resource_locator, topic_name);
-    assert!(app_metadata.info.is_none());
+    let info = app_metadata.info.unwrap();
+    assert_eq!(info.chunks_number, 0);
+    assert_eq!(info.total_bytes, 0);
+    assert!(info.timestamp.is_none());
     assert_ne!(app_metadata.created_at_ns, 0);
     assert!(app_metadata.completed_at_ns.is_none());
 

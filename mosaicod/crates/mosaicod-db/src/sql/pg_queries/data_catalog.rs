@@ -217,6 +217,7 @@ pub async fn topic_get_stats(
 ) -> Result<types::TopicChunksStats, Error> {
     let res = sqlx::query!(
         r#"SELECT
+            COUNT(*) as "chunks_count!",
             COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!",
             COALESCE(
@@ -232,8 +233,9 @@ pub async fn topic_get_stats(
     .await?;
 
     Ok(types::TopicChunksStats {
-        total_size_bytes: res.total_size_bytes,
-        total_row_count: res.total_row_count,
-        avg_bytes_per_row: res.avg_bytes_per_row,
+        chunks_count: res.chunks_count as u64,
+        total_size_bytes: res.total_size_bytes as u64,
+        total_row_count: res.total_row_count as u64,
+        avg_bytes_per_row: res.avg_bytes_per_row as u64,
     })
 }
