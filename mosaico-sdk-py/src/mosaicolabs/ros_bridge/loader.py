@@ -747,8 +747,8 @@ class MosaicoLoader(_BaseROSTopicResolver):
         """
         self._topic_ros_metadata: dict[str, Any] = {}
         """Dictionary containing a map from Mosaico accepted topics to their extracted ROS metadata (from '_ros_' field)."""
-        self._topic_cached_adapters: dict[str, type[ROSAdapterBase]] = {}
-        """Dictionary containing a map from Mosaico accepted topics to their resolved Mosaico adapter class."""
+        # self._topic_cached_adapters: dict[str, type[ROSAdapterBase]] = {}
+        # """Dictionary containing a map from Mosaico accepted topics to their resolved Mosaico adapter class."""
 
     def _adapter_from_metadata_msgtype(
         self, t_handler: TopicHandler

@@ -201,6 +201,6 @@ class JsonschemaConverter(McapConverter):
             not isinstance(jsonschema_dict, dict)
             or cls.PROPERTIES_KEY not in jsonschema_dict
         ):
-            pa.struct()  # FIXME: should this raise or return None?
+            return pa.struct()  # FIXME: should this raise or return None?
 
         return cls._object_to_struct(jsonschema_dict[cls.PROPERTIES_KEY])
