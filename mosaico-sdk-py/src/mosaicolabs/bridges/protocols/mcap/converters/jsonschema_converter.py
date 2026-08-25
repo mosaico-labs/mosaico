@@ -2,6 +2,7 @@ import json
 from typing import Any, ClassVar, Tuple, Type, TypeVar
 
 import pyarrow as pa
+
 from mcap.records import Schema
 
 from ..base_converter import SchemaConverter

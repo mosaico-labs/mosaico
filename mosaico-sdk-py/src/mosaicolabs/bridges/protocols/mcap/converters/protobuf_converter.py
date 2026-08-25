@@ -6,6 +6,7 @@ from google.protobuf.descriptor_pb2 import (
     FileDescriptorSet,
 )
 from google.protobuf.descriptor_pool import DescriptorPool
+
 from mcap.records import Schema
 
 from ..base_converter import SchemaConverter

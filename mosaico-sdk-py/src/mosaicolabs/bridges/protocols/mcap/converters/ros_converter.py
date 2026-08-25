@@ -5,13 +5,14 @@
 from typing import ClassVar, Dict, Tuple, cast
 
 import pyarrow as pa
-from mcap.records import Schema
 from rosbags.interfaces.typing import (
     Basename,
     Nodetype,
     Typesdict,
 )
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
+
+from mcap.records import Schema
 
 from ..base_converter import SchemaConverter
 from ..registry import SchemaRegistry

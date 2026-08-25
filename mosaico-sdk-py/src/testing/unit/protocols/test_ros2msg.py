@@ -1,7 +1,7 @@
 import pyarrow as pa
 import pytest
 
-from mosaicolabs.bridges.protocols.mcaps.converters import RosMsgConverter
+from mosaicolabs.bridges.protocols.mcap.converters import RosMsgConverter
 
 # -----------------------------------------------------------------------------
 # Message definitions

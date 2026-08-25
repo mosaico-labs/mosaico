@@ -1,6 +1,6 @@
 from typing import ClassVar, Dict, Optional, Type, TypeVar
 
-from mosaicolabs.bridges.protocols.mcaps.base_converter import SchemaConverter
+from mosaicolabs.bridges.protocols.mcap.base_converter import SchemaConverter
 
 T = TypeVar("T", bound=SchemaConverter)
 

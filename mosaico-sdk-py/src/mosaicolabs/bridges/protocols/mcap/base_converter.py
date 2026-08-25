@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import ClassVar, Tuple
 
 import pyarrow as pa
+
 from mcap.records import Schema
 
 

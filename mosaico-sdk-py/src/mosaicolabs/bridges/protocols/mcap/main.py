@@ -1,11 +1,12 @@
 from pathlib import Path
 
-from mcap.reader import make_reader
 from rich.console import Console
 from rich.table import Table
 
+from mcap.reader import make_reader
+
 # from mcap_protobuf.decoder import DecoderFactory
-from mosaicolabs.bridges.protocols.mcaps.registry import SchemaRegistry
+from mosaicolabs.bridges.protocols.mcap.registry import SchemaRegistry
 
 console = Console()
 
