@@ -8,12 +8,12 @@ from google.protobuf.descriptor_pb2 import (
 from google.protobuf.descriptor_pool import DescriptorPool
 from mcap.records import Schema
 
-from mosaicolabs.protocols.base_converter import McapConverter
-from mosaicolabs.protocols.mcap_bridge import McapBridge
+from ..base_converter import SchemaConverter
+from ..registry import SchemaRegistry
 
 
-@McapBridge.register
-class ProtobufConverter(McapConverter):
+@SchemaRegistry.register
+class ProtobufConverter(SchemaConverter):
     """Converts protobuf message descriptors into PyArrow types.
 
     Works on the *rich* descriptors from google.protobuf.descriptor (a Descriptor /
@@ -78,7 +78,7 @@ class ProtobufConverter(McapConverter):
     @classmethod
     def _convert(cls, mcap_schema: Schema) -> pa.StructType:
         """
-        Abstract class implementation of McapConverter exploited when
+        Abstract class implementation of SchemaConverter exploited when
         converting MCAPs using mcap library.
         TODO: improve documentation
         """
@@ -90,8 +90,8 @@ class ProtobufConverter(McapConverter):
         """
         Conveverts a protobug MCAP schema into a pa.StrucType. Use this when
         you know at build time that you are dealing with protobuf encoding and
-        you don't want to pass through the McapBridge returning a specialisation
-        of McapConverter depending on the passed encoding at runtime.
+        you don't want to pass through the SchemaRegistry returning a specialisation
+        of SchemaConverter depending on the passed encoding at runtime.
         TODO: improve doc saying what are the args and the return args
         """
 

@@ -1,7 +1,7 @@
 import pytest
 from rosbags.typesys import Stores
 
-from mosaicolabs.bridges.ros_bridge.sequence_extractor import ROSExtractorConfig
+from mosaicolabs.bridges.ros.sequence_extractor import ROSExtractorConfig
 from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 

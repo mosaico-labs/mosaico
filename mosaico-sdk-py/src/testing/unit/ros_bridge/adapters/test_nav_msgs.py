@@ -11,14 +11,14 @@ from mosaicolabs import (
     Time,
     Velocity,
 )
-from mosaicolabs.bridges.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros.adapters import (
     GridCellsAdapter,
     MapMetadataAdapter,
     OccupancyGridAdapter,
     OdometryAdapter,
     RobotPathAdapter,
 )
-from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros.ros_message import ROSMessage
 from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
 from testing.unit.ros_bridge.adapters.helper import (
     assert_grid_cells,

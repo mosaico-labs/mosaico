@@ -17,7 +17,7 @@ from mosaicolabs import (
     Vector3d,
     Velocity,
 )
-from mosaicolabs.bridges.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros.adapters import (
     AccelAdapter,
     InertiaAdapter,
     PointAdapter,
@@ -29,7 +29,7 @@ from mosaicolabs.bridges.ros_bridge.adapters import (
     Vector3Adapter,
     WrenchAdapter,
 )
-from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros.ros_message import ROSMessage
 from testing.unit.ros_bridge.adapters.helper import (
     assert_accel,
     assert_accel_w_cov,

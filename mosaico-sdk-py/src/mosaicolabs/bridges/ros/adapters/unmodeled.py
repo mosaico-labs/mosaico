@@ -4,7 +4,7 @@ import numpy as np
 from rosbags.interfaces.typing import Fielddefs, Nodetype
 from rosbags.typesys.store import Typestore
 
-from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros.ros_message import ROSMessage
 from mosaicolabs.models.core.message import Message
 from mosaicolabs.models.core.unmodeled import Unmodeled
 

@@ -6,8 +6,8 @@ from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs import Pose, SessionLevelErrorPolicy
-from mosaicolabs.bridges.ros_bridge import MosaicoLoader, ROSBridge, ROSLoader
-from mosaicolabs.bridges.ros_bridge.sequence_extractor import (
+from mosaicolabs.bridges.ros import MosaicoLoader, ROSBridge, ROSLoader
+from mosaicolabs.bridges.ros.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
 )

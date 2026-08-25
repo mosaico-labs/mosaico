@@ -3,7 +3,7 @@ from pathlib import Path
 from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores
 
-from mosaicolabs.bridges.ros_bridge import ROSExtractorConfig, ROSSequenceExtractor
+from mosaicolabs.bridges.ros import ROSExtractorConfig, ROSSequenceExtractor
 from mosaicolabs.examples.config import (
     API_KEY,
     ASSET_DIR,

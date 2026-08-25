@@ -144,7 +144,7 @@ from .query import (
     TimestampRange as TimestampRange,
 )
 
-from .bridges.ros_bridge import data_ontology  # noqa: F401  # isort: skip
+from .bridges.ros import data_ontology  # noqa: F401  # isort: skip
 
 __all__ = [
     # Client

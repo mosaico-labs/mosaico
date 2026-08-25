@@ -1,6 +1,6 @@
 import pytest
 
-from mosaicolabs.bridges.ros_bridge.adapter_base import RosSchemaMetadata
+from mosaicolabs.bridges.ros.adapter_base import RosSchemaMetadata
 
 
 def test_to_dict_wraps_fields_under_reserved_key():

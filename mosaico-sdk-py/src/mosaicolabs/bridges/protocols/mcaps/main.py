@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 # from mcap_protobuf.decoder import DecoderFactory
-from mosaicolabs.protocols.mcap_bridge import McapBridge
+from mosaicolabs.bridges.protocols.mcaps.registry import SchemaRegistry
 
 console = Console()
 
@@ -42,7 +42,7 @@ def main():
                     )
                     continue
 
-                converter = McapBridge.get_converter(schema.encoding)
+                converter = SchemaRegistry.get_converter(schema.encoding)
 
                 if converter is None:
                     table.add_row(

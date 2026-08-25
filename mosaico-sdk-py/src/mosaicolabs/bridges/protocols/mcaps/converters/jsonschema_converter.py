@@ -4,12 +4,12 @@ from typing import Any, ClassVar, Tuple, Type, TypeVar
 import pyarrow as pa
 from mcap.records import Schema
 
-from mosaicolabs.protocols.base_converter import McapConverter
-from mosaicolabs.protocols.mcap_bridge import McapBridge
+from ..base_converter import SchemaConverter
+from ..registry import SchemaRegistry
 
 
-@McapBridge.register
-class JsonschemaConverter(McapConverter):
+@SchemaRegistry.register
+class JsonschemaConverter(SchemaConverter):
     """Converts jsonschema message descriptors into PyArrow types.
 
     Only a subset of JSON Schema is understood: ``object``/``properties`` and
@@ -158,7 +158,7 @@ class JsonschemaConverter(McapConverter):
 
     @classmethod
     def _convert(cls, mcap_schema: Schema) -> pa.StructType:
-        """Abstract class implementation of McapConverter exploited when
+        """Abstract class implementation of SchemaConverter exploited when
         converting MCAPs using mcap library.
 
         Args:
@@ -175,8 +175,8 @@ class JsonschemaConverter(McapConverter):
     def convert_jsonschema(cls, jsonschema_bytes: bytes) -> pa.StructType:
         """Converts a jsonschema MCAP schema into a pa.StructType. Use this when
         you know at build time that you are dealing with jsonschema encoding and
-        you don't want to pass through the McapBridge returning a specialisation
-        of McapConverter depending on the passed encoding at runtime.
+        you don't want to pass through the SchemaRegistry returning a specialisation
+        of SchemaConverter depending on the passed encoding at runtime.
 
         Args:
             jsonschema_bytes: Raw JSON-encoded jsonschema document (as bytes), expected

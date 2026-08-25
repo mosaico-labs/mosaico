@@ -13,12 +13,12 @@ from rosbags.interfaces.typing import (
 )
 from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
-from mosaicolabs.protocols.base_converter import McapConverter
-from mosaicolabs.protocols.mcap_bridge import McapBridge
+from ..base_converter import SchemaConverter
+from ..registry import SchemaRegistry
 
 
-@McapBridge.register
-class RosMsgConverter(McapConverter):
+@SchemaRegistry.register
+class RosMsgConverter(SchemaConverter):
     """
     TODO
     """
@@ -133,7 +133,7 @@ class RosMsgConverter(McapConverter):
     @classmethod
     def _convert(cls, mcap_schema: Schema) -> pa.StructType:
         """
-        Abstract class implementation of McapConverter exploited when
+        Abstract class implementation of SchemaConverter exploited when
         converting MCAPs using mcap library.
         TODO: improve documentation
         """

@@ -3,8 +3,8 @@ from typing import Any, Optional, Type
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message
-from mosaicolabs.bridges.ros_bridge.adapters.sensor_msgs import PointCloudAdapterBase
-from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros.adapters.sensor_msgs import PointCloudAdapterBase
+from mosaicolabs.bridges.ros.ros_message import ROSMessage
 from mosaicolabs.models.futures import Lidar, Radar, RGBDCamera, StereoCamera, ToFCamera
 
 from .helpers import (

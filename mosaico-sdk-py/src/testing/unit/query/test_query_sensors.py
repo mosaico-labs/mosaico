@@ -3,7 +3,7 @@
 # ======================================================================
 import pytest
 
-from mosaicolabs.bridges.ros_bridge.data_ontology import FrameTransform
+from mosaicolabs.bridges.ros.data_ontology import FrameTransform
 from mosaicolabs.models.data import Inertia, RobotPath
 from mosaicolabs.models.sensors import (
     GPS,

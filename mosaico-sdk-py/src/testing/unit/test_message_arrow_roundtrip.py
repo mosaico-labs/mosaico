@@ -42,7 +42,7 @@ from mosaicolabs import (
     Vector4d,
     Velocity,
 )
-from mosaicolabs.bridges.ros_bridge import FrameTransform
+from mosaicolabs.bridges.ros import FrameTransform
 from mosaicolabs.models.futures.depth_camera import (
     RGBDCamera,
     StereoCamera,

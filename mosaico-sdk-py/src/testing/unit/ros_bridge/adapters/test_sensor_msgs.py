@@ -31,8 +31,8 @@ from mosaicolabs import (
     Vector3d,
     futures,
 )
-from mosaicolabs.bridges.ros_bridge import ROSMessage
-from mosaicolabs.bridges.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros import ROSMessage
+from mosaicolabs.bridges.ros.adapters import (
     BatteryStateAdapter,
     CameraInfoAdapter,
     CompressedImageAdapter,
@@ -57,7 +57,7 @@ from mosaicolabs.bridges.ros_bridge.adapters import (
     TemperatureAdapter,
     ToFCameraAdapter,
 )
-from mosaicolabs.bridges.ros_bridge.data_ontology import (
+from mosaicolabs.bridges.ros.data_ontology import (
     BatteryState,
     PointCloud2,
     PointField,

@@ -10,8 +10,8 @@ from mosaicolabs import (
     Serializable,
     SessionLevelErrorPolicy,
 )
-from mosaicolabs.bridges.ros_bridge import MosaicoLoader
-from mosaicolabs.bridges.ros_bridge.adapters import UnmodeledAdapter
+from mosaicolabs.bridges.ros import MosaicoLoader
+from mosaicolabs.bridges.ros.adapters import UnmodeledAdapter
 from mosaicolabs.models.core import resolve_ontology_class
 
 

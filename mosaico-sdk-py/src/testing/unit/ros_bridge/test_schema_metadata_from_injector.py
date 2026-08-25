@@ -2,8 +2,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
 
-from mosaicolabs.bridges.ros_bridge.injector import RosbagInjector, ROSInjectionConfig
-from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros.injector import RosbagInjector, ROSInjectionConfig
+from mosaicolabs.bridges.ros.ros_message import ROSMessage
 
 
 class _FakeSessionWriter:

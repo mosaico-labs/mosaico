@@ -28,11 +28,11 @@ from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
-from mosaicolabs.bridges.ros_bridge.adapter_base import ROSAdapterBase
-from mosaicolabs.bridges.ros_bridge.loader import MosaicoLoader
-from mosaicolabs.bridges.ros_bridge.qos import get_qos_for_topic
-from mosaicolabs.bridges.ros_bridge.registry import ROSTypeRegistry
-from mosaicolabs.bridges.ros_bridge.ui import ProgressManager
+from mosaicolabs.bridges.ros.adapter_base import ROSAdapterBase
+from mosaicolabs.bridges.ros.loader import MosaicoLoader
+from mosaicolabs.bridges.ros.qos import get_qos_for_topic
+from mosaicolabs.bridges.ros.registry import ROSTypeRegistry
+from mosaicolabs.bridges.ros.ui import ProgressManager
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 # Set the hierarchical logger

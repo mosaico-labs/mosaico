@@ -34,7 +34,7 @@ from mosaicolabs import (
     Velocity,
     futures,
 )
-from mosaicolabs.bridges.ros_bridge.data_ontology import (
+from mosaicolabs.bridges.ros.data_ontology import (
     BatteryState,
     FrameTransform,
     PointCloud2,

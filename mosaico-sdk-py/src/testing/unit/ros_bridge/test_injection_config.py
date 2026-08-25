@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from mosaicolabs.bridges.ros_bridge.injector import (
+from mosaicolabs.bridges.ros.injector import (
     RosbagInjector,
     ROSInjectionConfig,
     _parse_json_arg,

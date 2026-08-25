@@ -5,7 +5,7 @@ import pyarrow as pa
 from mcap.records import Schema
 
 
-class McapConverter(ABC):
+class SchemaConverter(ABC):
     """
     TODO: explain that this is the abstract class that each subclass should implement
     """
