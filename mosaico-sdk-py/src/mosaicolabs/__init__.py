@@ -143,7 +143,8 @@ from .query import (
     QueryTopic as QueryTopic,
     TimestampRange as TimestampRange,
 )
-from .ros_bridge import data_ontology  # noqa: F401
+
+from .bridges.ros_bridge import data_ontology  # noqa: F401  # isort: skip
 
 __all__ = [
     # Client

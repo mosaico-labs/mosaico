@@ -5,7 +5,8 @@ from dataclasses import asdict
 import numpy as np
 import pytest
 from rosbags.typesys import get_types_from_msg
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     GPS,
@@ -30,8 +31,8 @@ from mosaicolabs import (
     Vector3d,
     futures,
 )
-from mosaicolabs.ros_bridge import ROSMessage
-from mosaicolabs.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros_bridge import ROSMessage
+from mosaicolabs.bridges.ros_bridge.adapters import (
     BatteryStateAdapter,
     CameraInfoAdapter,
     CompressedImageAdapter,
@@ -56,7 +57,7 @@ from mosaicolabs.ros_bridge.adapters import (
     TemperatureAdapter,
     ToFCameraAdapter,
 )
-from mosaicolabs.ros_bridge.data_ontology import (
+from mosaicolabs.bridges.ros_bridge.data_ontology import (
     BatteryState,
     PointCloud2,
     PointField,

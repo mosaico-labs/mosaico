@@ -1,7 +1,8 @@
 from dataclasses import asdict
 
 import pytest
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     Acceleration,
@@ -16,7 +17,7 @@ from mosaicolabs import (
     Vector3d,
     Velocity,
 )
-from mosaicolabs.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros_bridge.adapters import (
     AccelAdapter,
     InertiaAdapter,
     PointAdapter,
@@ -28,7 +29,7 @@ from mosaicolabs.ros_bridge.adapters import (
     Vector3Adapter,
     WrenchAdapter,
 )
-from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
 from testing.unit.ros_bridge.adapters.helper import (
     assert_accel,
     assert_accel_w_cov,

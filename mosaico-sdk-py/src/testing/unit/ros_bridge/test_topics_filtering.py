@@ -1,6 +1,6 @@
 import pytest
 
-from mosaicolabs.ros_bridge.helpers import _filter_topics_from_dict
+from mosaicolabs.bridges.ros_bridge.helpers import _filter_topics_from_dict
 
 
 @pytest.fixture

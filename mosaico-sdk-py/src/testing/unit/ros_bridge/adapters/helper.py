@@ -34,12 +34,12 @@ from mosaicolabs import (
     Velocity,
     futures,
 )
-from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
-from mosaicolabs.ros_bridge.data_ontology import (
+from mosaicolabs.bridges.ros_bridge.data_ontology import (
     BatteryState,
     FrameTransform,
     PointCloud2,
 )
+from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
 
 
 def assert_time(time: Time, ros_msg: dict):

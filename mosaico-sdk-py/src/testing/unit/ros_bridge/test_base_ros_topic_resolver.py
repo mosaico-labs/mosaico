@@ -1,4 +1,4 @@
-from mosaicolabs.ros_bridge.loader import TopicStatus, _BaseROSTopicResolver
+from mosaicolabs.bridges.ros_bridge.loader import TopicStatus, _BaseROSTopicResolver
 
 
 class _FakeAdapter:

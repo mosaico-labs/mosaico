@@ -24,13 +24,13 @@ from mosaicolabs import (
     SequenceHandler,
     TopicHandler,
 )
+from mosaicolabs.bridges.ros_bridge.adapters.unmodeled import UnmodeledAdapter
 from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
-from mosaicolabs.ros_bridge.adapters.unmodeled import UnmodeledAdapter
 
-from ..models.core.serializable import _compute_schema_fingerprint
-from ..protocols.converters.ros_converter import RosMsgConverter
+from ...models.core.serializable import _compute_schema_fingerprint
+from ...protocols.converters.ros_converter import RosMsgConverter
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
 from .helpers import (
     _class_name_from_ros_msgtype,

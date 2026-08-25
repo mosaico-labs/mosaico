@@ -18,9 +18,9 @@ from mosaicolabs import (
     Unsigned32,
     Unsigned64,
 )
-from mosaicolabs.ros_bridge import ROSBridge
-from mosaicolabs.ros_bridge.adapters.std_msgs import ROSAdapterBase
-from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros_bridge import ROSBridge
+from mosaicolabs.bridges.ros_bridge.adapters.std_msgs import ROSAdapterBase
+from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),

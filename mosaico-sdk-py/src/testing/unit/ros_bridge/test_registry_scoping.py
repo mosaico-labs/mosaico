@@ -3,9 +3,9 @@ from pathlib import Path
 import pytest
 from rosbags.typesys import Stores
 
-from mosaicolabs.ros_bridge.injector import RosbagInjector, ROSInjectionConfig
-from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
-from mosaicolabs.ros_bridge.sequence_extractor import (
+from mosaicolabs.bridges.ros_bridge.injector import RosbagInjector, ROSInjectionConfig
+from mosaicolabs.bridges.ros_bridge.registry import ROSTypeRegistry
+from mosaicolabs.bridges.ros_bridge.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
 )

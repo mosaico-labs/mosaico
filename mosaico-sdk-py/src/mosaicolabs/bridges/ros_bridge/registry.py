@@ -26,7 +26,7 @@ from typing import Dict, Optional, Union
 
 from rosbags.typesys import Stores
 
-from ..logging_config import get_logger
+from ...logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

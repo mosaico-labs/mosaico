@@ -10,9 +10,9 @@ from mosaicolabs import (
     Serializable,
     SessionLevelErrorPolicy,
 )
+from mosaicolabs.bridges.ros_bridge import MosaicoLoader
+from mosaicolabs.bridges.ros_bridge.adapters import UnmodeledAdapter
 from mosaicolabs.models.core import resolve_ontology_class
-from mosaicolabs.ros_bridge import MosaicoLoader
-from mosaicolabs.ros_bridge.adapters import UnmodeledAdapter
 
 
 def test_valid_msgtype(mosaico_client):

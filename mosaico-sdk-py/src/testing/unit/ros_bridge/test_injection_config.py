@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from mosaicolabs.enum import TopicLevelErrorPolicy
-from mosaicolabs.ros_bridge.injector import (
+from mosaicolabs.bridges.ros_bridge.injector import (
     RosbagInjector,
     ROSInjectionConfig,
     _parse_json_arg,
 )
+from mosaicolabs.enum import TopicLevelErrorPolicy
 
 # --- _parse_json_arg ---
 

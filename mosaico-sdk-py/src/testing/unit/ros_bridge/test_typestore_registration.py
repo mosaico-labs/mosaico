@@ -4,11 +4,11 @@ from pathlib import Path
 import pytest
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs.ros_bridge.injector import (
+from mosaicolabs.bridges.ros_bridge.injector import (
     RosbagInjector,
     ROSInjectionConfig,
 )
-from mosaicolabs.ros_bridge.sequence_extractor import (
+from mosaicolabs.bridges.ros_bridge.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
 )

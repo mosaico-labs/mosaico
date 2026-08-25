@@ -1,12 +1,13 @@
 import pytest
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import Duration, Message, Time
-from mosaicolabs.ros_bridge.adapters.builtin_interfaces import (
+from mosaicolabs.bridges.ros_bridge.adapters.builtin_interfaces import (
     DurationAdapter,
     TimeAdapter,
 )
-from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),

@@ -9,11 +9,11 @@ from mosaicolabs import (
     Message,
     Transform,
 )
-from mosaicolabs.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros_bridge.adapters import (
     FrameTransformAdapter,
 )
-from mosaicolabs.ros_bridge.data_ontology import FrameTransform
-from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros_bridge.data_ontology import FrameTransform
+from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
 from testing.unit.ros_bridge.adapters.helper import assert_frame_transform
 
 ROS_TYPESTORE_TO_TEST = [

@@ -1,7 +1,8 @@
 from dataclasses import asdict
 
 import pytest
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     MotionState,
@@ -10,15 +11,15 @@ from mosaicolabs import (
     Time,
     Velocity,
 )
-from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
-from mosaicolabs.ros_bridge.adapters import (
+from mosaicolabs.bridges.ros_bridge.adapters import (
     GridCellsAdapter,
     MapMetadataAdapter,
     OccupancyGridAdapter,
     OdometryAdapter,
     RobotPathAdapter,
 )
-from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.bridges.ros_bridge.ros_message import ROSMessage
+from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
 from testing.unit.ros_bridge.adapters.helper import (
     assert_grid_cells,
     assert_map_metadata,
