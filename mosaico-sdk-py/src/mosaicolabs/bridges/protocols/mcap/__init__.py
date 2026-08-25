@@ -1,3 +1,3 @@
 from . import converters as converters
-from .base_converter import SchemaConverter as SchemaConverter
-from .registry import SchemaRegistry as SchemaRegistry
+from .base_converter import McapSchemaConverter as McapSchemaConverter
+from .registry import McapSchemaRegistry as McapSchemaRegistry

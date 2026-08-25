@@ -1,11 +1,11 @@
 from typing import ClassVar, Dict, Optional, Type, TypeVar
 
-from mosaicolabs.bridges.protocols.mcap.base_converter import SchemaConverter
+from mosaicolabs.bridges.protocols.mcap.base_converter import McapSchemaConverter
 
-T = TypeVar("T", bound=SchemaConverter)
+T = TypeVar("T", bound=McapSchemaConverter)
 
 
-class SchemaRegistry:
+class McapSchemaRegistry:
     """
     TODO explain that this is the central registry for MCAP schemas to PyArrow struct
     """
@@ -17,7 +17,7 @@ class SchemaRegistry:
         ...
     } 
     """
-    _registry: ClassVar[Dict[str, Type[SchemaConverter]]] = {}
+    _registry: ClassVar[Dict[str, Type[McapSchemaConverter]]] = {}
 
     @classmethod
     def _register_converter(cls, converter_cls: Type[T]):
@@ -31,14 +31,14 @@ class SchemaRegistry:
                     f"Converter {converter_cls.__name__} is already registered"
                 )
 
-        # Add all the converter encodings within SchemaRegistry registry
+        # Add all the converter encodings within McapSchemaRegistry registry
         for converter_encoding in converter_cls.SUPPORTED_ENCODINGS:
             cls._registry[converter_encoding] = converter_cls
 
     # --- Main Bridge API ---
 
     @classmethod
-    def get_converter(cls, encoding: str) -> Optional[Type[SchemaConverter]]:
+    def get_converter(cls, encoding: str) -> Optional[Type[McapSchemaConverter]]:
         return cls._registry.get(encoding)
 
     @classmethod
@@ -48,7 +48,7 @@ class SchemaRegistry:
 
     @classmethod
     def register(cls, converter_class: Type[T]) -> Type[T]:
-        """TODO: explain that this is the decorator that is used to record each converter within the SchemaRegistry"""
+        """TODO: explain that this is the decorator that is used to record each converter within the McapSchemaRegistry"""
 
-        SchemaRegistry._register_converter(converter_class)
+        McapSchemaRegistry._register_converter(converter_class)
         return converter_class

@@ -14,12 +14,12 @@ from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 from mcap.records import Schema
 
-from ..base_converter import SchemaConverter
-from ..registry import SchemaRegistry
+from ..base_converter import McapSchemaConverter
+from ..registry import McapSchemaRegistry
 
 
-@SchemaRegistry.register
-class RosMsgConverter(SchemaConverter):
+@McapSchemaRegistry.register
+class RosMsgConverter(McapSchemaConverter):
     """
     TODO
     """
@@ -134,7 +134,7 @@ class RosMsgConverter(SchemaConverter):
     @classmethod
     def _convert(cls, mcap_schema: Schema) -> pa.StructType:
         """
-        Abstract class implementation of SchemaConverter exploited when
+        Abstract class implementation of McapSchemaConverter exploited when
         converting MCAPs using mcap library.
         TODO: improve documentation
         """
