@@ -1,8 +1,8 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// SEntinel value to represent the positive unbounded timestamp
+/// Sentinel value to represent the positive unbounded timestamp
 const TIMESTAMP_UB_POS_SENTINEL: i64 = i64::MAX;
-/// SEntinel value to represent the negative unbounded timestamp
+/// Sentinel value to represent the negative unbounded timestamp
 const TIMESTAMP_UB_NEG_SENTINEL: i64 = i64::MIN;
 
 /// Timestamp format used by mosaico, currently this timestamp represent nanoseconds
