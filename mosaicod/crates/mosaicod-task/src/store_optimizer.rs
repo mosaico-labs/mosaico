@@ -1,5 +1,32 @@
-//! This module provides the optimization routine that improves the efficiency of the files in the object store,
-//! merging small files into bigger ones.
+//! This module provides the optimization routine that improves the efficiency of the files in the
+//! object store, merging small files into bigger ones.
+//!
+//! # Overview
+//!
+//! [`StoreOptimizer::run`] loops forever (or once, if `time_interval` is zero), sleeping for
+//! `time_interval` between runs unless a shutdown is requested. Each iteration ([`StoreOptimizer::optimize`]):
+//!
+//! 1. Reclaims topics whose optimization lease is older than [`MAX_LEASE_NS`] (a previous run
+//!    likely crashed or was killed mid-optimization) and re-scans the database for topics that
+//!    need optimizing, queuing them in the `topic_optimization` table.
+//! 2. Acquires and processes queued topics one at a time. Acquiring a topic
+//!    ([`StoreOptimizer::acquire_next_topic`]) leases it (so concurrent optimizer instances don't
+//!    race on the same topic) and allocates a fresh [`types::TopicPathInStore`] that the rewritten
+//!    data will be written to, leaving the topic's current files untouched until the new ones are
+//!    ready.
+//! 3. A topic is optimized ([`StoreOptimizer::optimize_topic`]) by reading all of its existing
+//!    Parquet chunks through DataFusion, sorting the rows chronologically, and re-encoding the
+//!    stream into new chunks. Chunks are flushed once they reach roughly `max_file_size` bytes,
+//!    with the DataFusion batch size tuned so the underlying encoder fills each output file
+//!    efficiently. Schema and field-level metadata (e.g. anything a client attached at `do_put`
+//!    time) is preserved verbatim across the rewrite.
+//! 4. Once all chunks are written, the topic's DB record is atomically updated in a single
+//!    transaction: old chunk stats are replaced with the new ones, the topic's `path_in_store` is
+//!    switched to the freshly written data, and the topic is removed from the optimization queue.
+//!
+//! If optimizing a topic fails, it is simply dropped from the optimization queue (rather than
+//! left leased) so it gets picked up again on a future run; its original data is never modified,
+//! so a failure is always safe to retry.
 
 use datafusion as df;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -321,7 +348,7 @@ impl StoreOptimizer {
         let mut tx = self.db.transaction().await?;
 
         // Remove topic from optimization list once processed and update path_in_store inside topic record.
-        // These operations are done within the same transaction to prevent a cleanup routine scam in between.
+        // These operations are done within the same transaction to prevent a cleanup routine scan in between.
         db::topic_optimization_delete(
             &mut tx,
             acquired_topic.topic_record.topic_id,
