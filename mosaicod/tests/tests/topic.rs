@@ -343,6 +343,153 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let user_metadata = json!({"custom_key": "custom_value"});
+    let topic_uuid = actions::topic_create(
+        &mut client,
+        &session_uuid,
+        topic_name,
+        Some(&user_metadata.to_string()),
+    )
+    .await
+    .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let info = actions::get_flight_info(&mut client, topic_name, None)
+        .await
+        .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    assert!(!app_metadata.locked);
+    assert_eq!(&app_metadata.resource_locator, topic_name);
+    assert_ne!(app_metadata.created_at_ns, 0);
+    assert!(app_metadata.completed_at_ns.is_none());
+
+    let info = app_metadata.info.unwrap();
+    assert_eq!(info.chunks_number, 0);
+    assert_eq!(info.total_bytes, 0);
+    assert!(info.timestamp.is_none());
+
+    // ontology_tag and serialization_format are hard-coded by `actions::topic_create`'s
+    // action body.
+    assert_eq!(app_metadata.ontology_tag, "mock");
+    assert_eq!(app_metadata.serialization_format, marshal::Format::Default);
+
+    // Client-provided user_metadata must round-trip through get_flight_info.
+    let round_tripped =
+        serde_json::to_value(app_metadata.user_metadata.expect("user_metadata missing")).unwrap();
+    assert_eq!(round_tripped, user_metadata);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let user_metadata = json!({"custom_key": "custom_value"});
+    let topic_uuid = actions::topic_create(
+        &mut client,
+        &session_uuid,
+        topic_name,
+        Some(&user_metadata.to_string()),
+    )
+    .await
+    .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let response = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    let info = actions::get_flight_info(&mut client, topic_name, None)
+        .await
+        .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    assert!(app_metadata.locked);
+    assert_eq!(&app_metadata.resource_locator, topic_name);
+    assert_ne!(app_metadata.created_at_ns, 0);
+    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
+
+    let info = app_metadata.info.unwrap();
+    assert_eq!(info.chunks_number, 1);
+    assert_eq!(info.total_bytes, 895);
+    let ts_range: types::TimestampRange = info.timestamp.unwrap().into();
+    assert_eq!(ts_range.start.as_i64(), 10000);
+    assert_eq!(ts_range.end.as_i64(), 10030);
+
+    // ontology_tag and serialization_format are hard-coded by `actions::topic_create`'s
+    // action body.
+    assert_eq!(app_metadata.ontology_tag, "mock");
+    assert_eq!(app_metadata.serialization_format, marshal::Format::Default);
+
+    // Client-provided user_metadata must round-trip through get_flight_info.
+    let round_tripped =
+        serde_json::to_value(app_metadata.user_metadata.expect("user_metadata missing")).unwrap();
+    assert_eq!(round_tripped, user_metadata);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 

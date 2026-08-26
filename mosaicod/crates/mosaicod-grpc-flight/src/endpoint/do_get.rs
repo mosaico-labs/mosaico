@@ -6,10 +6,11 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use mosaicod_core::{self as core, params, types};
+use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
+use mosaicod_marshal::flight;
 use tracing::{debug, info, trace};
 
 pub async fn do_get(
@@ -31,11 +32,7 @@ pub async fn do_get(
         .timeseries_querier
         .read(
             &doget_params.data_folder_path,
-            doget_params
-                .metadata
-                .ontology_metadata
-                .properties
-                .serialization_format,
+            doget_params.metadata.ontology_metadata.serialization_format,
             Some(doget_params.optimal_batch_size),
         )
         .await?;
@@ -45,26 +42,20 @@ pub async fn do_get(
         query_result = query_result.filter_by_timestamp_range(ts_range)?;
     }
 
-    let mut metadata = doget_params.metadata;
-    let mut total_rows = None;
+    let mut do_get_app_metadata = None;
 
     // Timestamp_range can be None only if there is no data uploaded for the topic yet.
-    // In that case the entire interval_props is left empty.
+    // In that case the entire app metadata is left empty.
     if let Some(timestamp_range) = query_result.clone().timestamp_range().await? {
-        let message_count = query_result.clone().count().await?;
-        total_rows = Some(message_count);
+        let row_count = query_result.clone().count().await?;
 
-        metadata = metadata.with_interval(types::TopicIntervalProperties {
-            message_count,
+        do_get_app_metadata = Some(flight::TopicDoGetAppMetadata::new(
+            row_count,
             timestamp_range,
-        });
+        ));
     }
 
-    // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicMetadata::from(metadata);
-    let flatten_mdata = metadata.to_flat_hashmap()?;
-
-    let schema = query_result.schema_with_metadata(flatten_mdata);
+    let schema = query_result.schema();
     trace!("{:?}", schema);
 
     // Get data stream from query result
@@ -102,14 +93,22 @@ pub async fn do_get(
     debug!(
         target = "streaming topic",
         cols = schema.fields().len(),
-        total_rows = total_rows.unwrap_or(0),
+        total_rows = do_get_app_metadata
+            .clone()
+            .map(|am| am.row_count)
+            .unwrap_or(0),
         optimal_batch_size = doget_params.optimal_batch_size,
         max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );
 
-    Ok(FlightDataEncoderBuilder::new()
+    let mut data_enc_builder = FlightDataEncoderBuilder::new()
         .with_schema(schema)
         .with_options(ipc_options)
-        .with_max_flight_data_size(max_flight_data_size)
-        .build(stream))
+        .with_max_flight_data_size(max_flight_data_size);
+
+    if let Some(app_metadata) = do_get_app_metadata {
+        data_enc_builder = data_enc_builder.with_metadata(app_metadata.into());
+    }
+
+    Ok(data_enc_builder.build(stream))
 }

@@ -86,11 +86,7 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
 
     let metadata = metadata.unwrap();
 
-    let json_metadata = metadata["mosaico:properties"]
-        .parse::<serde_json::Value>()
-        .unwrap();
-    let json_metadata_obj = json_metadata.as_object().unwrap();
-    assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 300000);
+    assert_eq!(metadata.row_count, 300000);
 
     // Timestamps are not sorted inside a single input batch. But between batches they don't overlap.
     // This make data-fusion believe that a sort is not necessary. That's why it is returning data as it

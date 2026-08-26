@@ -208,79 +208,25 @@ impl std::fmt::Display for TopicPathInStore {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TopicOntologyProperties {
-    pub serialization_format: Format,
-    pub ontology_tag: String,
-}
-
 /// Properties defining the data semantic and encoding for a topic.
 #[derive(Debug, Clone)]
 pub struct TopicOntologyMetadata<M> {
-    pub properties: TopicOntologyProperties,
+    pub serialization_format: Format,
+    pub ontology_tag: String,
     pub user_metadata: Option<M>,
 }
 
 impl<M> TopicOntologyMetadata<M> {
-    pub fn new(props: TopicOntologyProperties, user_metadata: Option<M>) -> Self
+    pub fn new(ontology_tag: String, serialization_format: Format, user_metadata: Option<M>) -> Self
     where
         M: super::MetadataBlob,
     {
         Self {
-            properties: props,
+            serialization_format,
+            ontology_tag,
             user_metadata,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct TopicIntervalProperties {
-    pub message_count: usize,
-    pub timestamp_range: types::TimestampRange,
-}
-
-#[derive(Debug, Clone)]
-pub struct TopicMetadata<M> {
-    pub properties: TopicMetadataProperties,
-    pub ontology_metadata: TopicOntologyMetadata<M>,
-    pub interval_props: Option<TopicIntervalProperties>,
-}
-
-impl<M> TopicMetadata<M> {
-    pub fn new(
-        properties: TopicMetadataProperties,
-        ontology_metadata: TopicOntologyMetadata<M>,
-    ) -> Self
-    where
-        M: super::MetadataBlob,
-    {
-        Self {
-            properties,
-            ontology_metadata,
-            interval_props: None,
-        }
-    }
-
-    pub fn with_interval(self, interval: TopicIntervalProperties) -> Self
-    where
-        M: super::MetadataBlob,
-    {
-        Self {
-            properties: self.properties,
-            ontology_metadata: self.ontology_metadata,
-            interval_props: Some(interval),
-        }
-    }
-}
-
-/// Aggregated statistics for a topic's chunks.
-#[derive(Debug, Clone, Default)]
-pub struct TopicChunksStats {
-    pub chunks_count: u64,
-    pub total_size_bytes: u64,
-    pub total_row_count: u64,
-    /// Average row footprint in uncompressed Arrow bytes
-    pub avg_bytes_per_row: u64,
 }
 
 /// Metadata properties associated to a topic.
@@ -309,6 +255,37 @@ impl TopicMetadataProperties {
             session_locator,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct TopicMetadata<M> {
+    pub properties: TopicMetadataProperties,
+    pub ontology_metadata: TopicOntologyMetadata<M>,
+}
+
+impl<M> TopicMetadata<M> {
+    pub fn new(
+        properties: TopicMetadataProperties,
+        ontology_metadata: TopicOntologyMetadata<M>,
+    ) -> Self
+    where
+        M: super::MetadataBlob,
+    {
+        Self {
+            properties,
+            ontology_metadata,
+        }
+    }
+}
+
+/// Aggregated statistics for a topic's chunks.
+#[derive(Debug, Clone, Default)]
+pub struct TopicChunksStats {
+    pub chunks_count: u64,
+    pub total_size_bytes: u64,
+    pub total_row_count: u64,
+    /// Average row footprint in uncompressed Arrow bytes
+    pub avg_bytes_per_row: u64,
 }
 
 /// Represents system-level metadata and statistical information for a specific topic.

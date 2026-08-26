@@ -42,13 +42,8 @@ pub async fn create(
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
-    let ontology_metadata = types::TopicOntologyMetadata::new(
-        types::TopicOntologyProperties {
-            serialization_format,
-            ontology_tag,
-        },
-        Some(user_mdata),
-    );
+    let ontology_metadata =
+        types::TopicOntologyMetadata::new(ontology_tag, serialization_format, Some(user_mdata));
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
     let topic_uuid = facade::topic::try_create(
@@ -139,12 +134,8 @@ pub async fn query_by_timestamp(
     ontology_filter: query::OntologyFilter,
 ) -> grpc_common::Result<SendableRecordBatchStream> {
     let params = facade::topic::streaming_read_prepare(context, locator).await?;
-    let format = params
-        .metadata
-        .ontology_metadata
-        .properties
-        .serialization_format;
-    let topic_tag = &params.metadata.ontology_metadata.properties.ontology_tag;
+    let format = params.metadata.ontology_metadata.serialization_format;
+    let topic_tag = &params.metadata.ontology_metadata.ontology_tag;
 
     // Check if filter tag is registered before execute query
     for filter_tag in ontology_filter.ontology_tags() {

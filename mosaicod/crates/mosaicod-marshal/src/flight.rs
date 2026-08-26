@@ -1,4 +1,5 @@
 use super::Error;
+use super::JsonMetadataBlob;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
 use mosaicod_core::types::{SessionMetadata, TopicLocator};
@@ -78,20 +79,22 @@ pub struct SequenceAppMetadata {
     created_at_ns: i64,
     resource_locator: String,
     sessions: Vec<SessionAppMetadata>,
+    user_metadata: Option<JsonMetadataBlob>,
 }
 
-impl<M> From<types::SequenceMetadata<M>> for SequenceAppMetadata {
-    fn from(value: types::SequenceMetadata<M>) -> Self {
+impl From<types::SequenceMetadata<JsonMetadataBlob>> for SequenceAppMetadata {
+    fn from(value: types::SequenceMetadata<JsonMetadataBlob>) -> Self {
         Self {
             created_at_ns: value.created_at.as_i64(),
             resource_locator: value.resource_locator.to_string(),
             sessions: value.sessions.into_iter().map(Into::into).collect(),
+            user_metadata: value.user_metadata,
         }
     }
 }
 
 /// Used for testing.
-impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
+impl TryFrom<SequenceAppMetadata> for types::SequenceMetadata<JsonMetadataBlob> {
     type Error = super::Error;
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
@@ -106,7 +109,7 @@ impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
-            user_metadata: None,
+            user_metadata: value.user_metadata,
         };
 
         Ok(res)
@@ -240,12 +243,12 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 // TOPIC APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TopicAppMetadataTimestamp {
     /// First timestamp observed in the topic
-    start_ns: i64,
+    pub start_ns: i64,
     /// Last timestamp observed in the topic
-    end_ns: i64,
+    pub end_ns: i64,
 }
 
 impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
@@ -280,31 +283,35 @@ pub struct TopicAppMetadata {
     pub completed_at_ns: Option<i64>,
     pub locked: bool,
     pub resource_locator: String,
+    pub ontology_tag: String,
+    pub serialization_format: super::Format,
+    pub user_metadata: Option<JsonMetadataBlob>,
     pub info: Option<TopicAppMetadataInfo>,
 }
 
 impl TopicAppMetadata {
-    pub fn new(metadata: types::TopicMetadataProperties) -> Self {
+    pub fn new(
+        metadata: types::TopicMetadata<JsonMetadataBlob>,
+        info: types::TopicDataInfo,
+    ) -> Self {
         Self {
-            created_at_ns: metadata.created_at.as_i64(),
-            completed_at_ns: metadata.completed_at.map(Into::into),
-            locked: metadata.completed_at.is_some(),
-            resource_locator: metadata.resource_locator.to_string(),
-            info: None,
+            created_at_ns: metadata.properties.created_at.as_i64(),
+            completed_at_ns: metadata.properties.completed_at.map(Into::into),
+            locked: metadata.properties.completed_at.is_some(),
+            resource_locator: metadata.properties.resource_locator.to_string(),
+            ontology_tag: metadata.ontology_metadata.ontology_tag,
+            serialization_format: metadata.ontology_metadata.serialization_format.into(),
+            user_metadata: metadata.ontology_metadata.user_metadata,
+            info: Some(TopicAppMetadataInfo {
+                chunks_number: info.chunks_number,
+                total_bytes: info.total_bytes,
+                timestamp: if info.timestamp_range.is_unbounded() {
+                    None
+                } else {
+                    Some(info.timestamp_range.into())
+                },
+            }),
         }
-    }
-
-    pub fn with_info(mut self, info: types::TopicDataInfo) -> Self {
-        self.info = Some(TopicAppMetadataInfo {
-            chunks_number: info.chunks_number,
-            total_bytes: info.total_bytes,
-            timestamp: if info.timestamp_range.is_unbounded() {
-                None
-            } else {
-                Some(info.timestamp_range.into())
-            },
-        });
-        self
     }
 }
 
@@ -315,6 +322,36 @@ impl From<TopicAppMetadata> for bytes::Bytes {
 }
 
 impl TryFrom<bytes::Bytes> for TopicAppMetadata {
+    type Error = Error;
+    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
+        serde_json::from_slice(value.as_ref())
+            .map_err(|e| Error::DeserializationError(e.to_string()))
+    }
+}
+
+/// Topic app metadata sent when requesting data streaming (DO_GET action).
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TopicDoGetAppMetadata {
+    pub row_count: usize,
+    pub interval: TopicAppMetadataTimestamp,
+}
+
+impl TopicDoGetAppMetadata {
+    pub fn new(row_count: usize, interval: types::TimestampRange) -> Self {
+        Self {
+            row_count,
+            interval: interval.into(),
+        }
+    }
+}
+
+impl From<TopicDoGetAppMetadata> for bytes::Bytes {
+    fn from(value: TopicDoGetAppMetadata) -> Self {
+        serde_json::to_vec(&value).unwrap_or_default().into()
+    }
+}
+
+impl TryFrom<bytes::Bytes> for TopicDoGetAppMetadata {
     type Error = Error;
     fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
         serde_json::from_slice(value.as_ref())

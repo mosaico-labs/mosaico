@@ -50,19 +50,9 @@ async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
 
     let metadata = metadata.unwrap();
 
-    let json_metadata = metadata["mosaico:properties"]
-        .parse::<serde_json::Value>()
-        .unwrap();
-    let json_metadata_obj = json_metadata.as_object().unwrap();
-    assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 7);
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_min"].as_i64().unwrap(),
-        10000
-    );
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_max"].as_i64().unwrap(),
-        10030
-    );
+    assert_eq!(metadata.row_count, 7);
+    assert_eq!(metadata.interval.start_ns, 10000);
+    assert_eq!(metadata.interval.end_ns, 10030);
 
     assert_eq!(received_batches.len(), 1);
     assert_eq!(received_batches[0].num_rows(), original_batch.num_rows());
@@ -119,18 +109,15 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     let metadata = metadata.unwrap();
 
-    let json_metadata = metadata["mosaico:properties"]
-        .parse::<serde_json::Value>()
-        .unwrap();
-    let json_metadata_obj = json_metadata.as_object().unwrap();
-    assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 1);
+    assert_eq!(metadata.row_count, 1);
+    assert_eq!(metadata.interval.start_ns, 10015);
+    assert_eq!(metadata.interval.end_ns, 10015);
+
+    assert_eq!(received_batches.len(), 1);
+    assert_eq!(received_batches[0].num_rows(), 1);
     assert_eq!(
-        json_metadata_obj["timestamp_ns_min"].as_i64().unwrap(),
-        10015
-    );
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_max"].as_i64().unwrap(),
-        10015
+        received_batches[0].num_columns(),
+        original_batch.num_columns()
     );
 
     assert_eq!(received_batches.len(), 1);
@@ -156,19 +143,9 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     let metadata = metadata.unwrap();
 
-    let json_metadata = metadata["mosaico:properties"]
-        .parse::<serde_json::Value>()
-        .unwrap();
-    let json_metadata_obj = json_metadata.as_object().unwrap();
-    assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 2);
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_min"].as_i64().unwrap(),
-        10015
-    );
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_max"].as_i64().unwrap(),
-        10020
-    );
+    assert_eq!(metadata.row_count, 2);
+    assert_eq!(metadata.interval.start_ns, 10015);
+    assert_eq!(metadata.interval.end_ns, 10020);
 
     assert_eq!(received_batches.len(), 1);
     assert_eq!(received_batches[0].num_rows(), 2);
@@ -193,19 +170,9 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     let metadata = metadata.unwrap();
 
-    let json_metadata = metadata["mosaico:properties"]
-        .parse::<serde_json::Value>()
-        .unwrap();
-    let json_metadata_obj = json_metadata.as_object().unwrap();
-    assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 7);
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_min"].as_i64().unwrap(),
-        10000
-    );
-    assert_eq!(
-        json_metadata_obj["timestamp_ns_max"].as_i64().unwrap(),
-        10030
-    );
+    assert_eq!(metadata.row_count, 7);
+    assert_eq!(metadata.interval.start_ns, 10000);
+    assert_eq!(metadata.interval.end_ns, 10030);
 
     assert_eq!(received_batches.len(), 1);
     assert_eq!(received_batches[0].num_rows(), 7);

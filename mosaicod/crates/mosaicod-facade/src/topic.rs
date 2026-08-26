@@ -21,7 +21,6 @@ pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetad
 pub struct TopicInfo {
     pub metadata: TopicMetadata,
     pub data_info: types::TopicDataInfo,
-    pub schema: SchemaRef,
 }
 
 pub struct TopicStreamingReadParams {
@@ -52,15 +51,12 @@ pub(super) mod internal {
                 resource_locator: topic_record.locator(),
             },
             ontology_metadata: TopicOntologyMetadata {
-                properties: types::TopicOntologyProperties {
-                    serialization_format: topic_record
-                        .serialization_format()
-                        .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?,
-                    ontology_tag: topic_record.ontology_tag.clone(),
-                },
+                serialization_format: topic_record
+                    .serialization_format()
+                    .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?,
+                ontology_tag: topic_record.ontology_tag.clone(),
                 user_metadata: topic_record.user_metadata(),
             },
-            interval_props: None,
         })
     }
 
@@ -118,7 +114,6 @@ pub(super) mod internal {
     /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
     pub async fn info(
         exe: &mut impl db::AsExec,
-        ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
     ) -> Result<TopicInfo> {
         let stats = db::topic_get_stats(exe, topic_record.topic_id).await?;
@@ -143,13 +138,13 @@ pub(super) mod internal {
         Ok(TopicInfo {
             metadata: metadata(exe, topic_record).await?,
             data_info,
-            schema: arrow_schema(ts_engine, topic_record).await?,
         })
     }
 
     /// Returns the topic arrow schema.
     /// The serialization format is required to extract the schema.
     /// It can be retrieved using [`metadata`] function.
+    #[allow(dead_code)]
     pub async fn arrow_schema(
         ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
@@ -265,11 +260,8 @@ pub async fn try_create(
         &mut tx,
         locator,
         session_uuid.clone(),
-        &ontology_metadata.properties.ontology_tag,
-        &ontology_metadata
-            .properties
-            .serialization_format
-            .to_string(),
+        &ontology_metadata.ontology_tag,
+        &ontology_metadata.serialization_format.to_string(),
         None,
         ontology_metadata.user_metadata.map(Into::into),
     )
@@ -297,7 +289,7 @@ pub async fn info(context: &Context, locator: &types::TopicLocator) -> Result<To
             db::Error::NotFound => core::Error::not_found(locator.to_string()),
             _ => e.error(),
         })?;
-    internal::info(&mut cx, context.timeseries_querier.clone(), &topic_record).await
+    internal::info(&mut cx, &topic_record).await
 }
 
 /// Serializes and writes [`TopicMetadata`] to the object store.
@@ -312,8 +304,8 @@ async fn metadata_write_to_store(
 ) -> Result<()> {
     trace!("writing topic metadata `{}` to store", path.display());
 
-    let json_manifest = marshal::JsonTopicMetadata::from(metadata);
-    let bytes: Vec<u8> = json_manifest.try_into()?;
+    let json_topic_metadata = marshal::JsonTopicMetadata::from(metadata);
+    let bytes: Vec<u8> = json_topic_metadata.try_into()?;
 
     context.store.write_bytes(path, bytes).await?;
 
@@ -356,8 +348,8 @@ pub async fn writer(
 
     // Set up the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
-    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag.clone();
-    let format = mdata.ontology_metadata.properties.serialization_format;
+    let ontology_tag = mdata.ontology_metadata.ontology_tag.clone();
+    let format = mdata.ontology_metadata.serialization_format;
 
     // Create random folder for the Store.
     let path_in_store = types::TopicPathInStore::new();
@@ -662,13 +654,7 @@ mod tests {
     }
 
     fn dummy_ontology_metadata() -> TopicOntologyMetadata {
-        types::TopicOntologyMetadata::new(
-            types::TopicOntologyProperties {
-                ontology_tag: "dummy".to_owned(),
-                serialization_format: types::Format::Default,
-            },
-            None,
-        )
+        types::TopicOntologyMetadata::new("dummy".to_owned(), types::Format::Default, None)
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]

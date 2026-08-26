@@ -1,5 +1,6 @@
 use super::common::{ActionResponse, Client};
 use arrow::array::RecordBatch;
+use arrow_flight::decode::DecodedPayload;
 use arrow_flight::decode::FlightRecordBatchStream;
 use arrow_flight::encode::FlightDataEncoderBuilder;
 use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
@@ -7,11 +8,10 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
-use std::collections::HashMap;
 
 use arrow_flight::Ticket;
 use mosaicod_marshal::flight::FilterTimestampRange;
-use mosaicod_marshal::{self as marshal, Ontology};
+use mosaicod_marshal::{self as marshal, Ontology, flight};
 
 use serde_json::json;
 use tonic::Streaming;
@@ -326,7 +326,7 @@ pub async fn do_get(
     Ok(do_get_with_ticket(client, ticket).await?.1)
 }
 
-pub type DoGetMetadata = Option<HashMap<String, String>>;
+pub type DoGetMetadata = Option<flight::TopicDoGetAppMetadata>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
@@ -337,12 +337,26 @@ pub async fn do_get_with_ticket(
     let record_batch_stream =
         FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
 
-    let batches = record_batch_stream
-        .try_collect::<Vec<_>>()
-        .await
-        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))?;
+    let mut decoder = record_batch_stream.into_inner();
 
-    let metadata = batches.first().map(|b| b.schema().metadata().clone());
+    let mut metadata = None;
+
+    // Extract app_metadata from the very first message carrying the schema.
+    if let Some(result) = decoder.next().await {
+        let msg = result?;
+        if !msg.app_metadata().is_empty() {
+            metadata = Some(msg.app_metadata().try_into().unwrap());
+        }
+    }
+
+    let mut batches: Vec<RecordBatch> = vec![];
+
+    while let Some(result) = decoder.next().await {
+        let decoded = result?;
+        if let DecodedPayload::RecordBatch(batch) = decoded.payload {
+            batches.push(batch);
+        }
+    }
 
     Ok((metadata, batches))
 }

@@ -196,10 +196,8 @@ pub async fn info(context: &Context, locator: &types::SequenceLocator) -> Result
     let topics = db::sequence_find_all_topics(&mut cx, sequence_record.sequence_id).await?;
 
     for topic_record in topics {
-        res.topics.push(
-            topic::internal::info(&mut cx, context.timeseries_querier.clone(), &topic_record)
-                .await?,
-        );
+        res.topics
+            .push(topic::internal::info(&mut cx, &topic_record).await?);
     }
 
     Ok(res)

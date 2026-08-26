@@ -71,23 +71,14 @@ async fn sequence_flight_info(
     sequence_locator: types::SequenceLocator,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<FlightInfo> {
-    trace!(
-        "{} building empty schema (+platform metadata)",
-        sequence_locator
-    );
+    trace!("{} building empty schema", sequence_locator);
 
-    let mut schema = Schema::new(Vec::<Field>::new());
+    // Sequences have no data schema of their own; the schema is always empty and
+    // carries no mosaico-specific metadata. All descriptive metadata (including the
+    // sequence's own user metadata) travels on `FlightInfo::app_metadata` instead.
+    let schema = Schema::new(Vec::<Field>::new());
 
     let sequence_info = facade::sequence::info(ctx, &sequence_locator).await?;
-
-    // Collect user metadata
-    if let Some(user_metadata) = &sequence_info.metadata.user_metadata {
-        let sequence_metadata = marshal::JsonSequenceMetadata {
-            user_metadata: user_metadata.clone(),
-        };
-        let flatten_user_metadata = sequence_metadata.to_flat_hashmap()?;
-        schema = schema.with_metadata(flatten_user_metadata);
-    }
 
     trace!("{} generating endpoints", sequence_locator);
 
@@ -127,15 +118,13 @@ async fn topic_flight_info(
 ) -> grpc_common::Result<FlightInfo> {
     let topic_info = facade::topic::info(ctx, &topic_locator).await?;
 
-    let endpoint = build_topic_endpoint(topic_info.clone(), timestamp_range).await?;
-
-    let schema = topic_arrow_schema_with_metadata(topic_info).await?;
+    // Topic's metadata are stored inside endpoint and not FlightInfo::app_metadata to replicate
+    // the same behavior inside sequence_flight_info.
+    let endpoint = build_topic_endpoint(topic_info, timestamp_range).await?;
 
     let flight_info = FlightInfo::new()
         .with_descriptor(desc)
-        .with_endpoint(endpoint)
-        .try_with_schema(&schema)
-        .map_err(|_| core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned())))?;
+        .with_endpoint(endpoint);
 
     trace!("{} done", topic_locator);
     Ok(flight_info)
@@ -153,12 +142,8 @@ async fn build_topic_endpoint(
         timestamp_range,
     };
 
-    let mut app_mdata =
-        marshal::flight::TopicAppMetadata::new(topic_info.metadata.properties.clone());
-
-    // TODO: currently the full topic timestamp range is forwarded.
-    // Consider if it's better to pass the input range here.
-    app_mdata = app_mdata.with_info(topic_info.data_info);
+    // TODO: currently the full topic timestamp range is forwarded. Consider if it's better to pass the input range instead.
+    let app_mdata = flight::TopicAppMetadata::new(topic_info.metadata, topic_info.data_info);
 
     let endpoint = FlightEndpoint::new()
         .with_ticket(Ticket {
@@ -169,23 +154,4 @@ async fn build_topic_endpoint(
     trace!("{} generating endpoint {:?}", topic_locator, endpoint);
 
     Ok(endpoint)
-}
-
-/// Utility function to create an arrow schema with metadata for the given Topic.
-async fn topic_arrow_schema_with_metadata(
-    topic_info: facade::topic::TopicInfo,
-) -> grpc_common::Result<Schema> {
-    trace!(
-        "{} building schema (+platform metadata)",
-        topic_info.metadata.properties.resource_locator
-    );
-
-    // Collect schema metadata
-    let json_topic_metadata = marshal::JsonTopicMetadata::from(topic_info.metadata);
-    let flatten_ontology_metadata = json_topic_metadata.to_flat_hashmap()?;
-
-    Ok(Schema::new_with_metadata(
-        topic_info.schema.fields().clone(),
-        flatten_ontology_metadata,
-    ))
 }
