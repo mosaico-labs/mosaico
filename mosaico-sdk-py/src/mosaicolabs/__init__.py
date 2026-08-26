@@ -260,4 +260,5 @@ logging_config = get_logger()
 logging_config.addHandler(NullHandler())
 
 _alias_moved_package("mosaicolabs.models.query", "mosaicolabs.query")
+_alias_moved_package("mosaicolabs.ros_bridge", "mosaicolabs.bridges.ros")
 del _alias_moved_package
