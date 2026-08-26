@@ -14,7 +14,7 @@ from mosaicolabs.bridges.ros.adapters import (
 )
 from mosaicolabs.bridges.ros.data_ontology import FrameTransform
 from mosaicolabs.bridges.ros.ros_message import ROSMessage
-from testing.unit.ros_bridge.adapters.helper import assert_frame_transform
+from testing.unit.bridges.ros.adapters.helper import assert_frame_transform
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),

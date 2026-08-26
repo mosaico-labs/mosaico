@@ -2,8 +2,8 @@
 ROS Message Type Registry.
 
 This module provides a small, self-contained registry of custom ROS message
-definitions, used by [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and
-[`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] to build the
+definitions, used by [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector] and
+[`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] to build the
 `Typestore` they hand to their respective loader.
 
 ROS message definitions (`.msg`) are not self-contained; they depend on the specific
@@ -41,8 +41,8 @@ class ROSTypeRegistry:
     `ROSTypeRegistry` resolves this by organizing schemas into "Profiles"
     ([`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores)).
 
-    Each instance is independent. By default, [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]
-    and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] each construct
+    Each instance is independent. By default, [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]
+    and [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] each construct
     their own private instance, so one run's custom types can never leak into another's
     in the same process. To deliberately share a set of definitions across many runs,
     construct a single instance and pass it explicitly wherever it should apply (e.g. via

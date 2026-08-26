@@ -41,7 +41,8 @@ from .helpers import (
     _to_dict,
     _validate_sequence,
 )
-from .ros_bridge import ROSBridge, ROSMessage
+from .ros_bridge import ROSBridge
+from .ros_message import ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -241,9 +242,9 @@ class ROSLoader(_BaseROSTopicResolver):
     It provides a standardized Pythonic interface for filtering topics and streaming data
     into the Mosaico adaptation pipeline, against a caller-supplied `Typestore`.
 
-    Note: `ROSLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
+    Note: `ROSLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry].
         Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
-        `.msg` registration) is the caller's responsibility — [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]
+        `.msg` registration) is the caller's responsibility — [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]
         does this internally before constructing a `ROSLoader`.
 
     ### Key Features
@@ -281,7 +282,7 @@ class ROSLoader(_BaseROSTopicResolver):
             ```python
             from rosbags.typesys import Stores
             from mosaicolabs.enum.serialization_format import SerializationFormat
-            from mosaicolabs.ros_bridge import ROSLoader
+            from mosaicolabs.bridges.ros import ROSLoader
 
             # Initialize to read only IMU and GPS data from an MCAP file
             with ROSLoader(
@@ -429,7 +430,7 @@ class ROSLoader(_BaseROSTopicResolver):
            for a hand-written adapter registered for this exact ``msgtype`` (e.g.
            `sensor_msgs/msg/Imu` -> `IMUAdapter`). If one is found, it is returned as-is
            and no further work is needed.
-        3. **Fall back to an [`UnmodeledAdapter`][mosaicolabs.ros_bridge.adapters.UnmodeledAdapter]**:
+        3. **Fall back to an [`UnmodeledAdapter`][mosaicolabs.bridges.ros.adapters.UnmodeledAdapter]**:
            when no hand-written adapter exists, one is synthesized on the fly so the
            topic can still be loaded generically, without a semantic ontology mapping:
 
@@ -444,7 +445,7 @@ class ROSLoader(_BaseROSTopicResolver):
                used for this ontology is looked up in ``self._serialization_formats``
                by ``msgtype``, falling back to ``SerializationFormat.Default`` when the
                msgtype has no entry there.
-            c. [`UnmodeledAdapter.get_or_create`][mosaicolabs.ros_bridge.adapters.UnmodeledAdapter.get_or_create]
+            c. [`UnmodeledAdapter.get_or_create`][mosaicolabs.bridges.ros.adapters.UnmodeledAdapter.get_or_create]
                returns a cached adapter class for that ontology if one was already
                synthesized for an equivalent topic, or builds and registers a new one
                otherwise, so repeated topics of the same unmodeled type reuse a single
@@ -651,9 +652,9 @@ class MosaicoLoader(_BaseROSTopicResolver):
     Conforms to the :class:`Loader` protocol, making it usable with
     :class:`ProgressManager` for live progress reporting.
 
-    Note: `MosaicoLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
+    Note: `MosaicoLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry].
         Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
-        `.msg` registration) is the caller's responsibility — [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]
+        `.msg` registration) is the caller's responsibility — [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]
         does this internally before constructing a `MosaicoLoader`.
     """
 
@@ -681,7 +682,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
             ```python
             from rosbags.typesys import Stores
             from mosaicolabs import MosaicoClient
-            from mosaicolabs.ros_bridge import MosaicoLoader
+            from mosaicolabs.bridges.ros import MosaicoLoader
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Stream only IMU and GPS topics back out of a sequence

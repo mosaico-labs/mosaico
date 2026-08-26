@@ -44,10 +44,10 @@ from mosaicolabs.enum.session_status import SessionStatus
 from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .adapter_base import RosSchemaMetadata
+from .adapter_base import ROSAdapterBase, RosSchemaMetadata
 from .loader import ROSLoader
 from .registry import ROSTypeRegistry
-from .ros_bridge import ROSAdapterBase, ROSBridge
+from .ros_bridge import ROSBridge
 from .ros_message import ROSMessage
 from .ui import ProgressManager
 
@@ -110,7 +110,7 @@ class ROSInjectionConfig:
         from pathlib import Path
         from rosbags.typesys import Stores
         from mosaicolabs.enum import SessionLevelErrorPolicy
-        from mosaicolabs.ros_bridge import ROSInjectionConfig
+        from mosaicolabs.bridges.ros import ROSInjectionConfig
 
         config = ROSInjectionConfig(
             file_path=Path("recording.mcap"),
@@ -307,7 +307,7 @@ class RosbagInjector:
 
     Example:
         ```python
-        from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+        from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
 
         # Define configuration
         config = ROSInjectionConfig(file_path=Path("data.db3"), sequence_name="auto_ingest")

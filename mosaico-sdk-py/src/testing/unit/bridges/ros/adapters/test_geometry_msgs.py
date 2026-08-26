@@ -30,7 +30,7 @@ from mosaicolabs.bridges.ros.adapters import (
     WrenchAdapter,
 )
 from mosaicolabs.bridges.ros.ros_message import ROSMessage
-from testing.unit.ros_bridge.adapters.helper import (
+from testing.unit.bridges.ros.adapters.helper import (
     assert_accel,
     assert_accel_w_cov,
     assert_force_torque,

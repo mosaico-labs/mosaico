@@ -20,7 +20,7 @@ from mosaicolabs.bridges.ros.adapters import (
 )
 from mosaicolabs.bridges.ros.ros_message import ROSMessage
 from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
-from testing.unit.ros_bridge.adapters.helper import (
+from testing.unit.bridges.ros.adapters.helper import (
     assert_grid_cells,
     assert_map_metadata,
     assert_motion_state,

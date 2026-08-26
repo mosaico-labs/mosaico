@@ -63,7 +63,7 @@ from mosaicolabs.bridges.ros.data_ontology import (
     PointField,
     PointFieldDataType,
 )
-from testing.unit.ros_bridge.adapters.helper import (
+from testing.unit.bridges.ros.adapters.helper import (
     assert_battery_state,
     assert_camera_info,
     assert_compressed_image,

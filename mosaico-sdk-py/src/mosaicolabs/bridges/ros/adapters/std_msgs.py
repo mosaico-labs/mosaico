@@ -114,7 +114,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
 
     1.  **Injected** with a specific `ros_msgtype` (e.g., `"std_msgs/msg/String"`).
     2.  **Injected** with a specific target `__mosaico_ontology_type__` (e.g., `String`).
-    3.  **Registered** automatically in the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]
+    3.  **Registered** automatically in the [`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge]
         using the `@register_default_adapter` mechanism.
 
     ### "Adaptation" Strategy

@@ -249,7 +249,7 @@ def register_default_adapter(
 
     Example:
         ```python
-        from mosaicolabs.ros_bridge import register_default_adapter, ROSAdapterBase
+        from mosaicolabs.bridges.ros import register_default_adapter, ROSAdapterBase
 
         @register_default_adapter(is_default=False)
         class MySensorAdapter(ROSAdapterBase):

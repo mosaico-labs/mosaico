@@ -2300,9 +2300,9 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
 
         Note:
             This method is **not** meant to be overridden in most subclasses.
-            Only [`PointCloudAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapter] overrides it,
+            Only [`PointCloudAdapter`][mosaicolabs.bridges.ros.adapters.sensor_msgs.PointCloudAdapter] overrides it,
             as it operates at a different abstraction level, returning the raw
-            [`PointCloud2`][mosaicolabs.ros_bridge.data_ontology.PointCloud2] message instead of a decoded model.
+            [`PointCloud2`][mosaicolabs.bridges.ros.data_ontology.PointCloud2] message instead of a decoded model.
         """
         decoded_fields = cls.decode(ros_data)
         _validate_required_fields(cls, cls._REQUIRED_FIELDS, decoded_fields)
