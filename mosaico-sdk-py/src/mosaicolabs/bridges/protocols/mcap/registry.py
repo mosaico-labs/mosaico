@@ -6,22 +6,33 @@ T = TypeVar("T", bound=McapSchemaConverter)
 
 
 class McapSchemaRegistry:
-    """
-    TODO explain that this is the central registry for MCAP schemas to PyArrow struct
-    """
+    """Registry holding all the supported MCAP->PyArrow converters.
 
-    """ Registry holding all the converters. It maps the encoding string to its converter:
+    Maps the encoding string to its converter class, as follows:
+
     {
         "protobuf": ProtobufConverter,
         "flatbuffer": FlatBufferConverter,
         ...
-    } 
+    }
+
+    To register a new converter, use the ``@McapSchemaRegistry.register`` decorator
+    to include it in the global registry.
     """
+
     _registry: ClassVar[Dict[str, Type[McapSchemaConverter]]] = {}
 
     @classmethod
     def _register_converter(cls, converter_cls: Type[T]):
-        """Adds to registry the passed converter class"""
+        """Adds ``converter_cls`` to the registry under each of its supported encodings.
+
+        Args:
+            converter_cls: The ``McapSchemaConverter`` subclass to register.
+
+        Raises:
+            ValueError: If any of ``converter_cls.SUPPORTED_ENCODINGS`` is already
+                registered to another converter.
+        """
 
         # Check that all the encoding of converter_cls are not already present within registry
         # before adding them within the registry
@@ -39,16 +50,33 @@ class McapSchemaRegistry:
 
     @classmethod
     def get_converter(cls, encoding: str) -> Optional[Type[McapSchemaConverter]]:
+        """Looks up the converter class registered for ``encoding``.
+
+        Args:
+            encoding: The MCAP schema encoding string to look up (e.g. ``"protobuf"``).
+
+        Returns:
+            The registered ``McapSchemaConverter`` subclass, or ``None`` if no converter
+            is registered for ``encoding``.
+        """
+
         return cls._registry.get(encoding)
 
     @classmethod
-    def is_encoding_adapted(cls, encoding) -> bool:
-        """TODO: add function args and return type"""
+    def is_encoding_adapted(cls, encoding: str) -> bool:
+        """Check whether the passed encoding is supported.
+
+        Args:
+            encoding(str): the encoding that needs to be checked
+
+        Returns:
+            bool: True if the passed encoding is adapted. False otherwise.
+        """
         return encoding in cls._registry.keys()
 
     @classmethod
     def register(cls, converter_class: Type[T]) -> Type[T]:
-        """TODO: explain that this is the decorator that is used to record each converter within the McapSchemaRegistry"""
+        """Class decorator that registers ``converter_class`` in the McapSchemaRegistry."""
 
         McapSchemaRegistry._register_converter(converter_class)
         return converter_class

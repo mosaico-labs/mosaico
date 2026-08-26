@@ -81,7 +81,14 @@ class ProtobufConverter(McapSchemaConverter):
         """
         Abstract class implementation of McapSchemaConverter exploited when
         converting MCAPs using mcap library.
-        TODO: improve documentation
+
+        Args:
+            mcap_schema: The MCAP ``Schema`` record whose ``data`` holds the raw,
+                serialized ``FileDescriptorSet`` bytes to convert, and whose
+                ``name`` is the fully-qualified message type it defines.
+
+        Returns:
+            A ``pa.StructType`` mirroring the message's fields (see ``convert_protobuf``).
         """
 
         return cls.convert_protobuf(mcap_schema.data, mcap_schema.name)
@@ -89,11 +96,21 @@ class ProtobufConverter(McapSchemaConverter):
     @classmethod
     def convert_protobuf(cls, fds_bytes: bytes, msgtype: str) -> pa.StructType:
         """
-        Conveverts a protobug MCAP schema into a pa.StrucType. Use this when
+        Converts a protobuf MCAP schema into a pa.StructType. Use this when
         you know at build time that you are dealing with protobuf encoding and
         you don't want to pass through the McapSchemaRegistry returning a specialisation
         of McapSchemaConverter depending on the passed encoding at runtime.
-        TODO: improve doc saying what are the args and the return args
+
+        Args:
+            fds_bytes: Serialized ``FileDescriptorSet`` bytes (as found in the MCAP
+                schema's ``data``) containing ``msgtype`` and any message/enum types
+                it references.
+            msgtype: Fully-qualified protobuf message name (e.g. ``"geometry_msgs.Point"``)
+                to look up within ``fds_bytes`` and convert.
+
+        Returns:
+            A ``pa.StructType`` mirroring the top-level fields of ``msgtype``, with
+            nested messages as nested structs and repeated fields as PyArrow lists.
         """
 
         pool = DescriptorPool()

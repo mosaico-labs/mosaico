@@ -20,11 +20,16 @@ from ..registry import McapSchemaRegistry
 
 @McapSchemaRegistry.register
 class RosMsgConverter(McapSchemaConverter):
-    """
-    TODO
+    """Converts ROS 1 and ROS 2 ``.msg`` message definitions into PyArrow types.
+
+    Works on the raw ``.msg`` definition text (optionally with concatenated nested
+    definitions, mirroring what MCAP stores as the schema's ``data``), parsing it via
+    ``rosbags.typesys.get_types_from_msg`` into a ``Typesdict`` and then walking that
+    recursively to build a matching ``pa.StructType``.
     """
 
-    # TODO: explain what this is
+    # One ROS primitive type name -> one Arrow type. ROS's 128-bit float128 has no
+    # native Arrow equivalent, so it collapses onto float64 (precision loss aside).
     _ROS_2_PYARROW_TYPE: Dict[str, pa.DataType] = {
         "bool": pa.bool_(),
         "byte": pa.uint8(),
@@ -136,7 +141,14 @@ class RosMsgConverter(McapSchemaConverter):
         """
         Abstract class implementation of McapSchemaConverter exploited when
         converting MCAPs using mcap library.
-        TODO: improve documentation
+
+        Args:
+            mcap_schema: The MCAP ``Schema`` record whose ``data`` holds the raw,
+                UTF-8-encoded ROS ``.msg`` definition text to convert, and whose
+                ``name`` is the fully-qualified message type it defines.
+
+        Returns:
+            A ``pa.StructType`` mirroring the message's fields (see ``convert_rosmsg``).
         """
 
         msgdef: str = mcap_schema.data.decode("utf-8")

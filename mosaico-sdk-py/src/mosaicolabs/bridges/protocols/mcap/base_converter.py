@@ -7,8 +7,12 @@ from mcap.records import Schema
 
 
 class McapSchemaConverter(ABC):
-    """
-    TODO: explain that this is the abstract class that each subclass should implement
+    """Base class all MCAP schema converters (jsonschema, protobuf, ...) inherit from
+    to convert their schema content into PyArrow types.
+
+    Each subclass must declare a non-empty ``SUPPORTED_ENCODINGS`` (enforced by
+    ``__init_subclass__``) and override ``_convert()``, which is invoked by
+    ``to_pyarrow()`` to produce the resulting PyArrow struct.
     """
 
     SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]]
@@ -28,18 +32,35 @@ class McapSchemaConverter(ABC):
     @classmethod
     @abstractmethod
     def _convert(cls, mcap_schema: Schema) -> pa.StructType:
-        """Abstract function that should be implemented by each subclass"""
+        """Abstract: subclasses convert ``mcap_schema`` into an equivalent ``pa.StructType``."""
         ...
 
     @classmethod
     def is_encoding_supported(cls, encoding: str):
-        """Checks that encoding is within supported ones"""
+        """Checks whether ``encoding`` is one of this converter's ``SUPPORTED_ENCODINGS``.
+
+        Args:
+            encoding: The MCAP schema encoding string to check (e.g. ``"protobuf"``).
+
+        Returns:
+            ``True`` if ``encoding`` is supported by this converter, ``False`` otherwise.
+        """
 
         return encoding in cls.SUPPORTED_ENCODINGS
 
     @classmethod
     def to_pyarrow(cls, mcap_schema: Schema) -> pa.StructType:
-        """Concrete: validates, then delegates to the subclass's _convert."""
+        """Concrete: validates, then delegates to the subclass's _convert().
+
+        Args:
+            mcap_schema: The MCAP ``Schema`` record to convert.
+
+        Returns:
+            A ``pa.StructType`` mirroring the schema's fields, as produced by ``_convert()``.
+
+        Raises:
+            ValueError: If ``mcap_schema.encoding`` is not in ``cls.SUPPORTED_ENCODINGS``.
+        """
 
         if not cls.is_encoding_supported(mcap_schema.encoding):
             raise ValueError(
