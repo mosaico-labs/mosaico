@@ -3,7 +3,7 @@ title: ROS
 description: ROS-Mosaico Bridge
 ---
 
-The **ROS Bridge** module serves as the bidirectional gateway between ROS (Robot Operating System) data and the Mosaico Data Platform: **ingesting** ROS bag files into Mosaico sequences (via [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]), and **extracting** Mosaico sequences back out as ROS bag files (via [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]). Its primary function is to solve the interoperability challenges associated with ROS bag files—specifically format fragmentation (ROS 1 `.bag` vs. ROS 2 `.mcap`/`.db3`) and the lack of strict schema enforcement in custom message definitions.
+The **ROS Bridge** module serves as the bidirectional gateway between ROS (Robot Operating System) data and the Mosaico Data Platform: **ingesting** ROS bag files into Mosaico sequences (via [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]), and **extracting** Mosaico sequences back out as ROS bag files (via [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]). Its primary function is to solve the interoperability challenges associated with ROS bag files—specifically format fragmentation (ROS 1 `.bag` vs. ROS 2 `.mcap`/`.db3`) and the lack of strict schema enforcement in custom message definitions.
 
 !!! info "API-Keys"
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the ROS Ingestion employs the mosaico [Writing Workflow](../handling/writing.md), which is allowed only if the key has the `write` permission.
@@ -22,8 +22,8 @@ The module is composed of five collaborating components that handle both directi
 
 Each direction has its own loader:
 
-* **[`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]** (ingestion) acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
-* **[`MosaicoLoader`][mosaicolabs.ros_bridge.loader.MosaicoLoader]** (extraction) is the mirror image: it streams messages back out of a Mosaico sequence via [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer], resolving each topic's adapter and original ROS message type instead of parsing one from a bag file.
+* **[`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader]** (ingestion) acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
+* **[`MosaicoLoader`][mosaicolabs.bridges.ros.loader.MosaicoLoader]** (extraction) is the mirror image: it streams messages back out of a Mosaico sequence via [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer], resolving each topic's adapter and original ROS message type instead of parsing one from a bag file.
 
 Both loaders share the same topic classification logic (accepted / filtered / adapter-unresolved, plus source-specific rejection reasons), which is what powers `topics`, `rejected_topics`, and `resolve_adapter()` identically on either side.
 
@@ -31,13 +31,13 @@ Both loaders share the same topic classification logic (accepted / filtered / ad
 * **Error Handling:** rejected topics are reported with a specific reason (filtered, no adapter, not in typestore, malformed metadata) rather than aborting the whole run; malformed *messages* on an otherwise-accepted topic are skipped and counted rather than raised.
 
 !!! note "Typestore setup is the caller's responsibility"
-    Neither loader consults the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] itself — both take an already-built [`Typestore`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#typestores) as a constructor argument. Resolving `ros_distro`/`custom_msgs` into that `Typestore` is done by [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] before they construct a loader — see [The Type Registry](#the-type-registry-rostyperegistry) below.
+    Neither loader consults the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry] itself — both take an already-built [`Typestore`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#typestores) as a constructor argument. Resolving `ros_distro`/`custom_msgs` into that `Typestore` is done by [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] before they construct a loader — see [The Type Registry](#the-type-registry-rostyperegistry) below.
 
 ### The Orchestrator (`RosbagInjector`)
 
-The **[`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]** is the central command center of the ROS Bridge module. It is designed to be the primary entry point for developers who want to embed high-performance ROS ingestion directly into their Python applications or automation scripts.
+The **[`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]** is the central command center of the ROS Bridge module. It is designed to be the primary entry point for developers who want to embed high-performance ROS ingestion directly into their Python applications or automation scripts.
 
-The ingestor orchestrates the interaction between the **[`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
+The ingestor orchestrates the interaction between the **[`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
 
 #### Core Workflow Execution: `run()`
 
@@ -50,7 +50,7 @@ Constructing `RosbagInjector(config)` resolves `ros_distro`/`custom_msgs` into a
 
 #### Configuring the Ingestion
 
-The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
+The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.bridges.ros.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
 
 #### Per-Topic Metadata (`topic_metadata`)
 
@@ -114,7 +114,7 @@ If `sequence_name` doesn't exist yet, `update_if_exists=True` simply creates it,
 ```python
 from pathlib import Path
 from mosaicolabs import SessionLevelErrorPolicy, TopicLevelErrorPolicy
-from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
 from rosbags.typesys import Stores
 
 def run_injection():
@@ -202,21 +202,21 @@ if __name__ == "__main__":
 
 This layer represents the default semantic core of the module, translating raw ROS data into the Mosaico Ontology.
 
-* **[`ROSAdapterBase`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase]:** An abstract base class that establishes the **default** contracts for converting specific ROS message types into their corresponding Mosaico Ontology types.
-* **Concrete Adapters:** The library provides built-in implementations for common standards, such as [`IMUAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.IMUAdapter] (mapping `sensor_msgs/Imu` to [`IMU`][mosaicolabs.models.sensors.IMU]) and [`ImageAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.ImageAdapter] (mapping `sensor_msgs/Image` to [`Image`][mosaicolabs.models.sensors.Image]). These adapters include advanced logic for recursive unwrapping, automatically extracting data from complex nested wrappers like [`PoseWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovarianceStamped.html). Developers can also implement custom adapters to handle non-standard or proprietary types.
-* **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]:** A central registry and dispatch mechanism that maps ROS message type strings (e.g., [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html)) to their corresponding default adapter classes, ensuring the correct translation logic is applied for each message.
+* **[`ROSAdapterBase`][mosaicolabs.bridges.ros.adapter_base.ROSAdapterBase]:** An abstract base class that establishes the **default** contracts for converting specific ROS message types into their corresponding Mosaico Ontology types.
+* **Concrete Adapters:** The library provides built-in implementations for common standards, such as [`IMUAdapter`][mosaicolabs.bridges.ros.adapters.sensor_msgs.IMUAdapter] (mapping `sensor_msgs/Imu` to [`IMU`][mosaicolabs.models.sensors.IMU]) and [`ImageAdapter`][mosaicolabs.bridges.ros.adapters.sensor_msgs.ImageAdapter] (mapping `sensor_msgs/Image` to [`Image`][mosaicolabs.models.sensors.Image]). These adapters include advanced logic for recursive unwrapping, automatically extracting data from complex nested wrappers like [`PoseWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovarianceStamped.html). Developers can also implement custom adapters to handle non-standard or proprietary types.
+* **[`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge]:** A central registry and dispatch mechanism that maps ROS message type strings (e.g., [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html)) to their corresponding default adapter classes, ensuring the correct translation logic is applied for each message.
 
 #### Extending the Bridge (Custom Adapters)
 
 Users can extend the bridge to support new ROS message types by implementing a custom adapter and registering it.
 
 1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
-2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an instance of the target ontology object.
-3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
+2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.bridges.ros.ROSMessage] dictionary into an instance of the target ontology object.
+3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.bridges.ros.register_default_adapter].
 
 ```python
 from mosaicolabs import Message
-from mosaicolabs.ros_bridge import ROSAdapterBase, register_default_adapter, ROSMessage
+from mosaicolabs.bridges.ros import ROSAdapterBase, register_default_adapter, ROSMessage
 from my_ontology import MyCustomData # Assuming this class exists
 
 @register_default_adapter
@@ -232,7 +232,7 @@ class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
 
 #### Extending the Bridge (Unmodeled Adapters)
 
-Not every ROS message type needs a hand-written adapter before it can be ingested. When the bridge encounters a topic whose message type has no registered adapter — a proprietary or custom `.msg`/`.idl` definition, for instance — it doesn't reject the topic. Instead, it synthesizes an **[`UnmodeledAdapter`][mosaicolabs.ros_bridge.adapters.unmodeled.UnmodeledAdapter]** for it at runtime, transparently and with no user intervention required, capable of translating that type in both directions: ROS bag to Mosaico, and back again from Mosaico to ROS.
+Not every ROS message type needs a hand-written adapter before it can be ingested. When the bridge encounters a topic whose message type has no registered adapter — a proprietary or custom `.msg`/`.idl` definition, for instance — it doesn't reject the topic. Instead, it synthesizes an **[`UnmodeledAdapter`][mosaicolabs.bridges.ros.adapters.unmodeled.UnmodeledAdapter]** for it at runtime, transparently and with no user intervention required, capable of translating that type in both directions: ROS bag to Mosaico, and back again from Mosaico to ROS.
 
 This is possible because ROS bag files carry the schema of every message type alongside the raw data. The bridge converts that schema into an equivalent PyArrow schema and wraps it into a dynamically-generated [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology class via [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class] — the same mechanism the Mosaico ontology system uses for any schema that isn't backed by a hand-authored Python class.
 
@@ -246,9 +246,9 @@ See [Advanced: Ingesting Unmodeled Ontologies](../ontology.md#advanced-ingesting
 !!! info "Internal behavior"
     This section documents implementation detail useful for interpreting or querying ingested metadata — not something you need to configure to use the bridge.
 
-Sequence and topic metadata are populated from a mix of auto-computed and user-supplied sources. At the topic level, exactly **one** key is reserved because the bridge writes it itself: `_ros_`, encapsulated by [`RosSchemaMetadata`][mosaicolabs.ros_bridge.RosSchemaMetadata] so that the literal string `"_ros_"` exists in a single place in the codebase rather than being duplicated across adapters, loaders, and the injector. Everything the bridge computes automatically for a topic lives inside this one namespace:
+Sequence and topic metadata are populated from a mix of auto-computed and user-supplied sources. At the topic level, exactly **one** key is reserved because the bridge writes it itself: `_ros_`, encapsulated by [`RosSchemaMetadata`][mosaicolabs.bridges.ros.RosSchemaMetadata] so that the literal string `"_ros_"` exists in a single place in the codebase rather than being duplicated across adapters, loaders, and the injector. Everything the bridge computes automatically for a topic lives inside this one namespace:
 
-* Written by every adapter's `schema_metadata()` (e.g. [`ROSAdapterBase.schema_metadata`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase.schema_metadata]): the original ROS `msgtype`, the raw `msgdef`, and any `enums` extracted from `UPPER_CASE` message constants (the mechanism referenced in [Const/enum data is not part of the message payload](#extending-the-bridge-unmodeled-adapters) above).
+* Written by every adapter's `schema_metadata()` (e.g. [`ROSAdapterBase.schema_metadata`][mosaicolabs.bridges.ros.adapter_base.ROSAdapterBase.schema_metadata]): the original ROS `msgtype`, the raw `msgdef`, and any `enums` extracted from `UPPER_CASE` message constants (the mechanism referenced in [Const/enum data is not part of the message payload](#extending-the-bridge-unmodeled-adapters) above).
 * `source_file`: the name of the bag file (`file_path.name`) that first created that topic. Written once per topic, at topic-creation time, regardless of `update_if_exists`.
 
 `_ros_` is fully reserved: `topic_metadata` ([Per-Topic Metadata](#per-topic-metadata-topic_metadata) above) is merged in *first*, then the bridge-computed `_ros_` block is applied on top — so the bridge always wins that key regardless of what `topic_metadata` sets for it. Every other key is fully user-owned; `topic_metadata` can freely use anything except `_ros_`.
@@ -271,7 +271,7 @@ While the ROS Bridge provides a robust set of default adapters for standard mess
 Through the **`adapter_overrides`** parameter in the `ROSInjectionConfig`, you can explicitly map a specific topic to a chosen adapter. This is particularly useful for types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where, for example, different LiDAR vendors may encode data in unique ways that require specialized parsing logic.
 
 !!! important "Override adapter usage"
-    Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be defined and used when a given ROS message type has its own **default adapter** registered in the `ROSBridge` registry, but such an adapter cannot satisfy topic-specific requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
+    Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be defined and used when a given ROS message type has its own **default adapter** registered in the `ROSBridge` registry, but such an adapter cannot satisfy topic-specific requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.bridges.ros.register_default_adapter] decorator to establish a global fallback.
 
 ##### Available Adapters override 
 
@@ -279,20 +279,20 @@ Built-in adapters are provided for the most common sensor types and are ready to
 
 | Sensor type   | Adapter class         |
 |---------------|-----------------------|
-| LiDAR         | [`LidarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.LidarAdapter]        |
-| Radar         | [`RadarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.RadarAdapter]        |
-| RGBD Camera   | [`RGBDCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.RGBDCameraAdapter]   |
-| ToF Camera    | [`ToFCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.ToFCameraAdapter]    |
-| Stereo Camera | [`StereoCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.StereoCameraAdapter] |
+| LiDAR         | [`LidarAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.LidarAdapter]        |
+| Radar         | [`RadarAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.RadarAdapter]        |
+| RGBD Camera   | [`RGBDCameraAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.RGBDCameraAdapter]   |
+| ToF Camera    | [`ToFCameraAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.ToFCameraAdapter]    |
+| Stereo Camera | [`StereoCameraAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.StereoCameraAdapter] |
 
-All of them extend [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapterBase], which exposes the following interface:
+All of them extend [`PointCloudAdapterBase`][mosaicolabs.bridges.ros.adapters.sensor_msgs.PointCloudAdapterBase], which exposes the following interface:
 
 - **`decode`**: deserializes the binary buffer of a `PointCloud2` message into named field arrays.
 - **`_build`** *(abstract)*: constructs and returns an instance of the target ontology object from the decoded fields. Must be overridden in every concrete subclass.
 - **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.core.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **no Optional**.
 
 ##### Implementing a Custom PointCloud2 Adapter Override
-To create a custom `PointCloud2` adapter, inherit from [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapterBase].
+To create a custom `PointCloud2` adapter, inherit from [`PointCloudAdapterBase`][mosaicolabs.bridges.ros.adapters.sensor_msgs.PointCloudAdapterBase].
 You only need to define:
 
 - `_build`: the mapping logic from decoded field arrays to your ontology instance.
@@ -301,14 +301,14 @@ You only need to define:
 
 All core business logic is encapsulated inside `PointCloudAdapterBase`.
 
-The following example shows a custom LiDAR adapter whose encoding differs from the generic [`LidarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.LidarAdapter] already provided by Mosaico. 
+The following example shows a custom LiDAR adapter whose encoding differs from the generic [`LidarAdapter`][mosaicolabs.bridges.ros.adapters.override_msgs.LidarAdapter] already provided by Mosaico. 
 Note that the adapter is **not** registered as default, since `sensor_msgs/msg/PointCloud2` already has one.
 
 ```python
 from typing import Any, Optional, Type
 from mosaicolabs import Message
-from mosaicolabs.ros_bridge import ROSMessage
-from mosaicolabs.ros_bridge.adapters import PointCloudAdapterBase
+from mosaicolabs.bridges.ros import ROSMessage
+from mosaicolabs.bridges.ros.adapters import PointCloudAdapterBase
 from my_ontology import MyLidar # Your target Ontology class
 
 class MyLidarAdapter(PointCloudAdapterBase[MyLidar]):
@@ -361,7 +361,7 @@ class MyLidarAdapter(PointCloudAdapterBase[MyLidar]):
     Only `_build` is mandatory. Override `translate`, `from_dict`, or `schema_metadata` only when the default behaviour of the base class does not meet your needs.
 
 ##### Registering the Override
-Once implemented, the adapter is registered against a specific topic via `adapter_overrides` in [ROSInjectionConfig][mosaicolabs.ros_bridge.ROSInjectionConfig]:
+Once implemented, the adapter is registered against a specific topic via `adapter_overrides` in [ROSInjectionConfig][mosaicolabs.bridges.ros.ROSInjectionConfig]:
 
 ```python
 from .my_adapter import MyLidarAdapter
@@ -417,17 +417,17 @@ mosaicolabs.ros_injector ./estimation_results.mcap \
 
 ### The Extractor (`ROSSequenceExtractor`)
 
-The **[`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor]** runs the ingestion pipeline in reverse: it reads a Mosaico sequence back out and writes it as a ROS 1 (`.bag`) or ROS 2 (`.mcap`/`.db3`) bag file, using the same [`ROSAdapterBase.to_ros()`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase.to_ros] adapters (and the [`_ros_` metadata][mosaicolabs.ros_bridge.RosSchemaMetadata] recorded at ingestion time, e.g. to recover the original ROS message type) that made the ingestion adaptation possible in the first place.
+The **[`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]** runs the ingestion pipeline in reverse: it reads a Mosaico sequence back out and writes it as a ROS 1 (`.bag`) or ROS 2 (`.mcap`/`.db3`) bag file, using the same [`ROSAdapterBase.to_ros()`][mosaicolabs.bridges.ros.adapter_base.ROSAdapterBase.to_ros] adapters (and the [`_ros_` metadata][mosaicolabs.bridges.ros.RosSchemaMetadata] recorded at ingestion time, e.g. to recover the original ROS message type) that made the ingestion adaptation possible in the first place.
 
 #### Core Workflow Execution: `run()`
 
 1. **Prepare Output Path**: resolves `rosbag_path / sequence_name` and enforces the `overwrite` policy — raises `FileExistsError` if the path exists and `overwrite=False`, otherwise deletes it first.
-2. **Handshake**: connects to the Mosaico server and opens a [`MosaicoLoader`][mosaicolabs.ros_bridge.loader.MosaicoLoader] for the requested sequence (optionally filtered by `topics` and a `start_timestamp_ns`/`end_timestamp_ns` window).
+2. **Handshake**: connects to the Mosaico server and opens a [`MosaicoLoader`][mosaicolabs.bridges.ros.loader.MosaicoLoader] for the requested sequence (optionally filtered by `topics` and a `start_timestamp_ns`/`end_timestamp_ns` window).
 3. **Adaptive Streaming**: for each `(topic, message)` pair, resolves the topic's adapter and original ROS message type, converts the Mosaico message back to a native ROS message via `to_ros()`, and writes it to the bag. Topics with no resolvable adapter, or whose `to_ros()` call fails, are skipped (logged as a warning) rather than aborting the whole extraction.
 
 #### Configuring the Extraction
 
-The behavior of the extractor is entirely driven by **[`ROSExtractorConfig`][mosaicolabs.ros_bridge.ROSExtractorConfig]** — the mirror image of `ROSInjectionConfig` for the reverse direction. Its main knobs:
+The behavior of the extractor is entirely driven by **[`ROSExtractorConfig`][mosaicolabs.bridges.ros.ROSExtractorConfig]** — the mirror image of `ROSInjectionConfig` for the reverse direction. Its main knobs:
 
 * **`topics`**: the same glob-based include/exclude filtering as `ROSInjectionConfig.topics` (see [Configuring the Ingestion](#configuring-the-ingestion) above) — applied here against the sequence's topics instead of a bag's.
 * **`ros_distro`** / **`storage_plugin`**: select the target ROS distribution and, for ROS 2, the storage backend (`StoragePlugin.MCAP` or `StoragePlugin.SQLITE3`) for the *output* bag. Together with `ros_distro`, this also determines the output bag format: `Stores.ROS1_NOETIC` writes a ROS 1 `.bag`, anything else writes a ROS 2 bag via the selected `storage_plugin`.
@@ -456,7 +456,7 @@ mosaicolabs.ros_sequence_extractor on_track_experiment --rosbag_path ./exports -
 
 ```python
 from pathlib import Path
-from mosaicolabs.ros_bridge import ROSSequenceExtractor, ROSExtractorConfig
+from mosaicolabs.bridges.ros import ROSSequenceExtractor, ROSExtractorConfig
 from rosbags.typesys import Stores
 
 config = ROSExtractorConfig(
@@ -500,7 +500,7 @@ mosaicolabs.ros_sequence_extractor on_track_experiment \
 
 ### The Type Registry (`ROSTypeRegistry`)
 
-The **[`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry]** manages ROS `.msg` schemas that aren't otherwise available from the data itself. It's consulted by **both** [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.ros_bridge.ROSSequenceExtractor] (via each one's `custom_msgs` config field) when building the `Typestore` they hand to their respective loader — neither `ROSLoader` nor `MosaicoLoader` talks to the registry directly (see [The Loaders](#the-loaders-rosloader-mosaicoloader) above).
+The **[`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry]** manages ROS `.msg` schemas that aren't otherwise available from the data itself. It's consulted by **both** [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] (via each one's `custom_msgs` config field) when building the `Typestore` they hand to their respective loader — neither `ROSLoader` nor `MosaicoLoader` talks to the registry directly (see [The Loaders](#the-loaders-rosloader-mosaicoloader) above).
 
 * **Version Isolation (Stores)**: ROS messages often vary across distributions (e.g., a "Header" in ROS 1 Noetic is structurally different from ROS 2 Humble). The registry uses a "Profile" system to store these version-specific definitions separately, preventing cross-distribution conflicts.
 * **Global vs. Scoped Definitions**: within one registry *instance*, you can register definitions **Globally** (available regardless of the distribution requested) or **Scoped** to a specific one.
@@ -527,7 +527,7 @@ For large projects with hundreds of proprietary types, centralize the registrati
 ```python
 # setup_registry.py
 from pathlib import Path
-from mosaicolabs.ros_bridge import ROSTypeRegistry
+from mosaicolabs.bridges.ros import ROSTypeRegistry
 from rosbags.typesys import Stores
 
 def build_project_registry() -> ROSTypeRegistry:
@@ -551,7 +551,7 @@ def build_project_registry() -> ROSTypeRegistry:
 
 ```python
 # main_injection.py
-from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
 from rosbags.typesys import Stores
 from pathlib import Path
 
@@ -582,7 +582,7 @@ Note: the benchmarks below cover **ingestion** (`RosbagInjector`) and **extracti
 
 #### NVIDIA R2B Dataset 2024 Performances
 
-Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB RAM)**. Injection time includes local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and transmission to the Mosaico server. Compression factor depends on the data itself: scalar telemetry compresses well (~70%), while pre-compressed video feeds show minimal gains (~1%) since the data is already dense.
+Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB RAM)**. Injection time includes local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge], and transmission to the Mosaico server. Compression factor depends on the data itself: scalar telemetry compresses well (~70%), while pre-compressed video feeds show minimal gains (~1%) since the data is already dense.
 
 | Sequence Name | Compression Factor | Injection Time | Hardware Architecture | Notes |
 | --- | --- | --- | --- | --- |
@@ -591,7 +591,7 @@ Benchmarks below were captured on **macOS 26.2**, **Apple M2 Pro (10 cores, 16GB
 | **`r2b_robotarm`** | ~66% | ~50 sec | Apple M2 Pro (16GB) | High efficiency for high-frequency state updates. |
 | **`r2b_whitetunnel`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression; contains topics with no available adapter. |
 
-Extraction time includes data streaming from mosaico, semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and serialization into the rosbag.
+Extraction time includes data streaming from mosaico, semantic translation through the [`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge], and serialization into the rosbag.
 
 | Sequence Name |  Extraction Time | Hardware Architecture |
 | --- | --- | --- |
@@ -650,7 +650,7 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`sensor_msgs/msg/CameraInfo`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CameraInfo.html) | [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo] | `CameraInfoAdapter` |
   | [`sensor_msgs/msg/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |
   | [`sensor_msgs/msg/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html) | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | `RobotJointAdapter` |
-  | [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.ros_bridge.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
+  | [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.bridges.ros.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
   | [`sensor_msgs/msg/Temperature`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Temperature.html) | [`Temperature`][mosaicolabs.models.sensors.Temperature] | `TemperatureAdapter` |
   | [`sensor_msgs/msg/FluidPressure`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/FluidPressure.html) | [`FluidPressure`][mosaicolabs.models.sensors.Pressure] | `PressureAdapter` |
   | [`sensor_msgs/msg/LaserScan`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/LaserScan.html) | [`LaserScan`][mosaicolabs.models.futures.LaserScan] (ROS-specific)| `LaserScanAdapter` |
@@ -660,5 +660,5 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`std_msgs/msg/UInt8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/UInt8.html) | [`Unsigned8(16,32,64)`][mosaicolabs.models.data.Unsigned8]| `_GenericStdAdapter` |
   | [`std_msgs/msg/Float32(64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Float32.html) | [`Floating32(64)`][mosaicolabs.models.data.Floating32]| `_GenericStdAdapter` |
   | [`std_msgs/msg/Bool`](https://docs.ros2.org/foxy/api/std_msgs/msg/Bool.html) | [`Boolean`][mosaicolabs.models.data.Boolean]| `_GenericStdAdapter` |
-  | [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html) | [`FrameTransform`][mosaicolabs.ros_bridge.data_ontology.FrameTransform] (ROS-specific)| `FrameTransformAdapter` |
-  | [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) | [`PointCloud2`][mosaicolabs.ros_bridge.data_ontology.PointCloud2] (ROS-specific)| `PointCloudAdapter` |
+  | [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html) | [`FrameTransform`][mosaicolabs.bridges.ros.data_ontology.FrameTransform] (ROS-specific)| `FrameTransformAdapter` |
+  | [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) | [`PointCloud2`][mosaicolabs.bridges.ros.data_ontology.PointCloud2] (ROS-specific)| `PointCloudAdapter` |
