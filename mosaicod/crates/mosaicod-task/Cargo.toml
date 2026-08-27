@@ -21,6 +21,7 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 datafusion = { workspace = true }
 futures = { workspace = true }
+hostname = { workspace = true }
 
 [dev-dependencies]
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }

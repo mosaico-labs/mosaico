@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE instance_registry_t SET last_heartbeat_unix_tstamp_secs = $1 WHERE instance_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a320ee1360024a1564b51035fc0b096edffb9b60b99d26258729a09a0fb5e11"
+}

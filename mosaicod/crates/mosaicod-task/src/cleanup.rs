@@ -1,7 +1,7 @@
 //! This module provides the cleanup routine in charge of deleting obsolete files
 //! (not associated with any entry in the database) from the object storage.
 
-use mosaicod_core::{error::PublicResult as Result, types};
+use mosaicod_core::{error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
 use tokio_util::sync::CancellationToken;
@@ -10,6 +10,65 @@ use tracing::{error, info, warn};
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 const DEFAULT_RETENTION_DURATION: u32 = 86400;
+
+/// Reads the local hostname, falling back to `"unknown"` if it can't be determined.
+fn local_hostname() -> String {
+    hostname::get()
+        .map(|h| h.to_string_lossy().into_owned())
+        .unwrap_or_else(|e| {
+            warn!("unable to determine local hostname: {}", e);
+            "unknown".to_owned()
+        })
+}
+
+/// Periodically refreshes `instance_id`'s heartbeat in the instance registry, and opportunistically
+/// purges long-expired entries, until `shutdown` is cancelled.
+///
+/// This is intentionally its own small loop (rather than folded into [`Cleanup::run`]'s loop):
+/// the cleanup routine's own schedule is driven by `time_interval` (which can be as sparse as
+/// once a day), while the heartbeat needs a much tighter, fixed cadence to be a useful liveness
+/// signal.
+async fn instance_heartbeat_loop(db: db::Database, instance_id: i32, shutdown: CancellationToken) {
+    let interval = std::time::Duration::from_secs(params::INSTANCE_HEARTBEAT_INTERVAL_SECS as u64);
+
+    loop {
+        tokio::select! {
+            _ = tokio::time::sleep(interval) => {}
+            _ = shutdown.cancelled() => break,
+        }
+
+        let now = chrono::Utc::now().timestamp();
+
+        let updated = db::instance_registry_heartbeat(&mut db.connection(), instance_id, now)
+            .await
+            .inspect_err(|e| {
+                warn!(
+                    "failed to send heartbeat for instance {}: {}",
+                    instance_id, e
+                )
+            })
+            .unwrap_or(true);
+
+        if !updated {
+            warn!(
+                "instance {} heartbeat found no matching registry entry, it may have been purged as expired",
+                instance_id
+            );
+        }
+
+        let expiry_threshold = now - params::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS as i64;
+
+        if let Err(e) = db::instance_registry_delete_expired(
+            &mut db.connection(),
+            expiry_threshold,
+            types::allow_data_loss(),
+        )
+        .await
+        {
+            warn!("failed to purge expired instance registry entries: {}", e);
+        }
+    }
+}
 
 /// Statistics resulting from a performed cleaning operation.
 #[derive(Debug, Default)]
@@ -34,6 +93,9 @@ pub struct Cleanup {
     store: store::StoreRef,
     time_interval: types::Duration,
     retention_duration: types::Duration,
+    // The instance registry id this routine registered itself under, once `run()` has started.
+    // `None` if `try_cleanup()` is invoked directly, without going through `run()` (e.g. tests).
+    instance_id: Option<i32>,
 }
 
 impl Cleanup {
@@ -44,6 +106,7 @@ impl Cleanup {
             store,
             time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
             retention_duration: types::Duration::seconds(DEFAULT_RETENTION_DURATION),
+            instance_id: None,
         }
     }
 
@@ -59,11 +122,41 @@ impl Cleanup {
 
     /// Starts the cleanup routine.
     ///
+    /// Before entering its loop, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
+    /// Registration failure is treated as fatal, consistent with how other DB-dependency
+    /// failures are handled at startup.
+    ///
     /// When `time_interval` is `0` a single cleanup is performed and the routine returns
     /// (one-shot mode). Otherwise it loops, performing a cleanup every `time_interval` until
     /// `shutdown_notifier` is cancelled.
-    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
+    ///
+    /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
+    /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
         info!("Launching cleanup routine");
+
+        let instance = db::instance_registry_create(
+            &mut self.db.connection(),
+            types::InstanceKind::Cleanup,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            self.time_interval.is_zero(),
+        )
+        .await?;
+
+        self.instance_id = Some(instance.instance_id);
+
+        // A dedicated child token lets us stop the heartbeat task once this routine's own loop
+        // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
+        // the caller may still be relying on for other purposes.
+        let heartbeat_shutdown = shutdown_notifier.child_token();
+        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
+            self.db.clone(),
+            instance.instance_id,
+            heartbeat_shutdown.clone(),
+        ));
 
         loop {
             let cleanup_res = self.try_cleanup().await;
@@ -103,6 +196,20 @@ impl Cleanup {
                 }
             }
         }
+
+        heartbeat_shutdown.cancel();
+        let _ = heartbeat_handle.await;
+
+        if let Err(e) =
+            db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+        {
+            warn!(
+                "failed to deregister instance {}: {}",
+                instance.instance_id, e
+            );
+        }
+
+        Ok(())
     }
 
     /// Launches the cleanup of the store.
@@ -129,7 +236,8 @@ impl Cleanup {
             return Ok(stats);
         }
 
-        let cleanup_log = db::cleanup_log_create(&mut tx, start_time.timestamp()).await?;
+        let cleanup_log =
+            db::cleanup_log_create(&mut tx, start_time.timestamp(), self.instance_id).await?;
 
         tx.commit().await?;
 
