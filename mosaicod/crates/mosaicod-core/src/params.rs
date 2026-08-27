@@ -50,11 +50,6 @@ pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 /// `mosaicod` processes (server, cleanup).
 pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 60;
 
-/// After this many seconds without a heartbeat, `mosaicod ps` considers an instance possibly
-/// down or stopped. Set to a few missed heartbeats so a single transient DB hiccup doesn't
-/// falsely flag a live instance.
-pub const INSTANCE_STALE_THRESHOLD_SECS: u32 = 3 * INSTANCE_HEARTBEAT_INTERVAL_SECS;
-
 /// After this many seconds without a heartbeat, an instance's registry row is permanently
 /// deleted. Much larger than [`INSTANCE_STALE_THRESHOLD_SECS`] so a "stale" instance can still
 /// be inspected for a while before its row disappears.

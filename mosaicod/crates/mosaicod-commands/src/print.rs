@@ -1,6 +1,6 @@
 use super::log;
 use colored::Colorize;
-use mosaicod_core::{error::PublicError, params, types};
+use mosaicod_core::error::PublicError;
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::{net::IpAddr, time::Instant};
@@ -123,11 +123,12 @@ fn format_uptime(delta: chrono::TimeDelta) -> String {
     let mins = (total_secs % 3600) / 60;
     let secs = total_secs % 60;
 
-    match (days, hours, mins) {
-        (d, h, m) if d > 0 => format!("{d}d {h}h {m}m"),
-        (_, h, m) if h > 0 => format!("{h}h {m}m"),
-        (_, _, m) if m > 0 => format!("{m}m {secs}s"),
-        _ => format!("{secs}s"),
+    match (days, hours, mins, secs) {
+        (d, h, m, _) if d > 0 => format!("{d}d {h}h {m}m"),
+        (_, h, m, _) if h > 0 => format!("{h}h {m}m"),
+        (_, _, m, s) if m > 0 => format!("{m}m {s}s"),
+        (_, _, _, s) if s > 0 => format!("{s}s"),
+        _ => "-".to_owned(),
     }
 }
 
@@ -149,9 +150,9 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
         format!("{:<W_ID$}", "ID").bold(),
         format!("{:<W_HOST$}", "HOST").bold(),
         format!("{:<W_PID$}", "PID").bold(),
-        format!("{:<W_STARTED$}", "STARTED").bold(),
+        format!("{:<W_STARTED$}", "STARTED (UTC)").bold(),
         format!("{:<W_UPTIME$}", "UPTIME").bold(),
-        format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT").bold(),
+        format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT (UTC)").bold(),
         "STATUS".bold(),
     );
 
@@ -160,19 +161,11 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
         return;
     }
 
-    let now = chrono::Utc::now();
-
     for instance in instances {
-        let alive = instance.is_alive(
-            now,
-            types::Duration::seconds(params::INSTANCE_STALE_THRESHOLD_SECS),
-        );
+        let start_datetime = instance.started_datetime();
+        let last_heartbeat_datetime = instance.last_heartbeat_datetime();
 
-        let status = if alive {
-            "alive".green()
-        } else {
-            "stale".yellow()
-        };
+        let status = instance.status();
 
         let kind = instance
             .kind()
@@ -185,9 +178,18 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
             "continuous"
         };
 
-        let start_datetime = instance.started_datetime();
-        let last_heartbeat_datetime = instance.last_heartbeat_datetime();
-        let uptime = chrono::Utc::now() - start_datetime;
+        let uptime = match status {
+            db::InstanceStatus::Alive | db::InstanceStatus::Stale => {
+                chrono::Utc::now() - start_datetime
+            }
+            db::InstanceStatus::Dead => chrono::Duration::seconds(0),
+        };
+
+        let status_str = match status {
+            db::InstanceStatus::Alive => "alive".green(),
+            db::InstanceStatus::Stale => "stale".yellow(),
+            db::InstanceStatus::Dead => "dead".red(),
+        };
 
         println!(
             "{:<W_PROCESS$} {:<W_MODE$} {:<W_ID$} {:<W_HOST$} {:<W_PID$} {:<W_STARTED$} {:<W_UPTIME$} {:<W_HEARTBEAT$} {}",
@@ -203,7 +205,7 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
             last_heartbeat_datetime
                 .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
                 .to_string(),
-            status,
+            status_str,
         );
     }
 }

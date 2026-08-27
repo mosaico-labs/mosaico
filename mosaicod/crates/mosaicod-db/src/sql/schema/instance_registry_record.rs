@@ -1,5 +1,26 @@
+use mosaicod_core::params;
 use mosaicod_core::types;
 use tracing::error;
+
+/// After this many seconds without a heartbeat, `mosaicod ps` considers an instance possibly
+/// down or stopped. Set to a few missed heartbeats so a single transient DB hiccup doesn't
+/// falsely flag a live instance.
+///
+/// TODO: the 3x multiplier is an unvalidated guess, not derived from observed heartbeat
+/// jitter/latency. Revisit once we have real data.
+const INSTANCE_STALE_THRESHOLD_SECS: u32 = 3 * params::INSTANCE_HEARTBEAT_INTERVAL_SECS;
+
+/// After this many seconds without a heartbeat, `mosaicod ps` considers an instance dead.
+///
+/// TODO: the 10x multiplier is an unvalidated guess, not derived from observed heartbeat
+/// jitter/latency. Revisit once we have real data.
+const INSTANCE_DEAD_THRESHOLD_SECS: u32 = 10 * params::INSTANCE_HEARTBEAT_INTERVAL_SECS;
+
+pub enum InstanceStatus {
+    Alive,
+    Stale,
+    Dead,
+}
 
 /// A registered `mosaicod` process (server, cleanup, ...). See `mosaicod ps`.
 #[derive(Debug, Clone, PartialEq)]
@@ -44,13 +65,20 @@ impl InstanceRegistryRecord {
         )
     }
 
-    /// Returns `true` if, relative to `now`, this instance's last heartbeat is recent enough to
-    /// be considered alive (i.e. more recent than `now - staleness_threshold`).
-    pub fn is_alive(
-        &self,
-        now: chrono::DateTime<chrono::Utc>,
-        staleness_threshold: types::Duration,
-    ) -> bool {
-        now.timestamp() - self.last_heartbeat_unix_tstamp_secs < staleness_threshold.num_seconds()
+    /// Derives the instance's liveness from how long it's been since its last heartbeat,
+    /// relative to `INSTANCE_STALE_THRESHOLD_SECS` and `INSTANCE_DEAD_THRESHOLD_SECS`.
+    ///
+    /// `last_heartbeat_unix_tstamp_secs` is stamped with the instance's own clock, and compared
+    /// here against the caller's clock, so this assumes reasonably synced clocks across hosts.
+    pub fn status(&self) -> InstanceStatus {
+        let delta =
+            (chrono::Utc::now().timestamp() - self.last_heartbeat_unix_tstamp_secs).max(0) as u64;
+        if delta < INSTANCE_STALE_THRESHOLD_SECS as u64 {
+            InstanceStatus::Alive
+        } else if delta < INSTANCE_DEAD_THRESHOLD_SECS as u64 {
+            InstanceStatus::Stale
+        } else {
+            InstanceStatus::Dead
+        }
     }
 }
