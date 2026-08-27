@@ -6,8 +6,6 @@ use mosaicod_store as store;
 use std::{net::IpAddr, time::Instant};
 use tracing::error;
 
-const DATETIME_FMT: &str = "%Y-%m-%d %H:%M:%S";
-
 fn format_addr(is_loopback: bool, msg: String) {
     println!(
         " {} {:10} {}",
@@ -85,9 +83,6 @@ pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
 }
 
 fn format_db_host(db_config: &db::Config) -> String {
-    // let schema = db_config.db_url.scheme();
-    // let domain = db_config.db_url.domain().unwrap_or("???");
-    // let port = db_config.db_url.port();
     let mut url = db_config.db_url.clone();
 
     url.set_username("").unwrap();
@@ -120,6 +115,22 @@ pub fn store_display_name(store: &store::StoreRef) -> String {
     }
 }
 
+fn format_uptime(delta: chrono::TimeDelta) -> String {
+    let total_secs = delta.num_seconds().max(0);
+
+    let days = delta.num_days();
+    let hours = (total_secs % 86400) / 3600;
+    let mins = (total_secs % 3600) / 60;
+    let secs = total_secs % 60;
+
+    match (days, hours, mins) {
+        (d, h, m) if d > 0 => format!("{d}d {h}h {m}m"),
+        (_, h, m) if h > 0 => format!("{h}h {m}m"),
+        (_, _, m) if m > 0 => format!("{m}m {secs}s"),
+        _ => format!("{secs}s"),
+    }
+}
+
 /// Prints the table of registered `mosaicod` instances (see `mosaicod ps`).
 pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
     const W_PROCESS: usize = 9;
@@ -128,16 +139,18 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
     const W_HOST: usize = 15;
     const W_PID: usize = 8;
     const W_STARTED: usize = 22;
+    const W_UPTIME: usize = 11;
     const W_HEARTBEAT: usize = 22;
 
     println!(
-        "{} {} {} {} {} {} {} {}",
+        "{} {} {} {} {} {} {} {} {}",
         format!("{:<W_PROCESS$}", "PROCESS").bold(),
         format!("{:<W_MODE$}", "MODE").bold(),
         format!("{:<W_ID$}", "ID").bold(),
         format!("{:<W_HOST$}", "HOST").bold(),
         format!("{:<W_PID$}", "PID").bold(),
         format!("{:<W_STARTED$}", "STARTED").bold(),
+        format!("{:<W_UPTIME$}", "UPTIME").bold(),
         format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT").bold(),
         "STATUS".bold(),
     );
@@ -172,19 +185,22 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
             "continuous"
         };
 
+        let start_datetime = instance.started_datetime();
+        let last_heartbeat_datetime = instance.last_heartbeat_datetime();
+        let uptime = chrono::Utc::now() - start_datetime;
+
         println!(
-            "{:<W_PROCESS$} {:<W_MODE$} {:<W_ID$} {:<W_HOST$} {:<W_PID$} {:<W_STARTED$} {:<W_HEARTBEAT$} {}",
+            "{:<W_PROCESS$} {:<W_MODE$} {:<W_ID$} {:<W_HOST$} {:<W_PID$} {:<W_STARTED$} {:<W_UPTIME$} {:<W_HEARTBEAT$} {}",
             kind,
             mode,
             instance.instance_id,
             instance.hostname,
             instance.pid,
-            instance
-                .started_datetime()
+            start_datetime
                 .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
                 .to_string(),
-            instance
-                .last_heartbeat_datetime()
+            format_uptime(uptime),
+            last_heartbeat_datetime
                 .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
                 .to_string(),
             status,
@@ -217,7 +233,8 @@ pub fn print_cleanup_status(
             println!(
                 "{} — started {}{}",
                 "RUNNING".yellow(),
-                log.start_datetime().format(DATETIME_FMT),
+                log.start_datetime()
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                 by_instance,
             );
         }
@@ -225,8 +242,9 @@ pub fn print_cleanup_status(
             println!(
                 "{} — last run {} .. {}{}",
                 "IDLE".green(),
-                log.start_datetime().format(DATETIME_FMT),
-                end.format(DATETIME_FMT),
+                log.start_datetime()
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                end.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
                 by_instance,
             );
         }
