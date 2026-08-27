@@ -18,7 +18,7 @@ from mosaicolabs.models.futures import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_default_adapter
+from ..bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .builtin_interfaces import TimeAdapter
 from .geometry_msgs import PointAdapter, PoseAdapter, TwistAdapter

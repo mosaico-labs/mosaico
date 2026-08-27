@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 from mosaicolabs import Duration, Message, Time
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_default_adapter
+from ..bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 

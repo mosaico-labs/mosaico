@@ -19,7 +19,7 @@ from ..registry import McapSchemaRegistry
 
 
 @McapSchemaRegistry.register
-class RosMsgConverter(McapSchemaConverter):
+class RosMsgSchemaConverter(McapSchemaConverter):
     """Converts ROS 1 and ROS 2 ``.msg`` message definitions into PyArrow types.
 
     Works on the raw ``.msg`` definition text (optionally with concatenated nested

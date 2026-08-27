@@ -10,7 +10,7 @@ from ..registry import McapSchemaRegistry
 
 
 @McapSchemaRegistry.register
-class JsonschemaConverter(McapSchemaConverter):
+class JsonschemaSchemaConverter(McapSchemaConverter):
     """Converts jsonschema message descriptors into PyArrow types.
 
     Only a subset of JSON Schema is understood: ``object``/``properties`` and

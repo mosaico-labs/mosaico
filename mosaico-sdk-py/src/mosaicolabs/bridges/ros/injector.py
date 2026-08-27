@@ -45,9 +45,9 @@ from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
+from .bridge import ROSBridge
 from .loader import ROSLoader
 from .registry import ROSTypeRegistry
-from .ros_bridge import ROSBridge
 from .ros_message import ROSMessage
 from .ui import ProgressManager
 

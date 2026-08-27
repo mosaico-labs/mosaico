@@ -1,3 +1,3 @@
-from .jsonschema_converter import JsonschemaConverter as JsonschemaConverter
-from .protobuf_converter import ProtobufConverter as ProtobufConverter
-from .ros_converter import RosMsgConverter as RosMsgConverter
+from .jsonschema_converter import JsonschemaSchemaConverter as JsonschemaSchemaConverter
+from .protobuf_converter import ProtobufSchemaConverter as ProtobufSchemaConverter
+from .ros_converter import RosMsgSchemaConverter as RosMsgSchemaConverter

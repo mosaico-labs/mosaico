@@ -32,7 +32,7 @@ from mosaicolabs.models.data import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_default_adapter
+from ..bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .helpers import _is_valid_covariance, _is_valid_header, _validate_msgdata
 from .std_msgs import HeaderAdapter

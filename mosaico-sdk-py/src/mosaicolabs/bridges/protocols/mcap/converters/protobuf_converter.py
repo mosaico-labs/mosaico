@@ -14,7 +14,7 @@ from ..registry import McapSchemaRegistry
 
 
 @McapSchemaRegistry.register
-class ProtobufConverter(McapSchemaConverter):
+class ProtobufSchemaConverter(McapSchemaConverter):
     """Converts protobuf message descriptors into PyArrow types.
 
     Works on the *rich* descriptors from google.protobuf.descriptor (a Descriptor /

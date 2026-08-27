@@ -30,8 +30,9 @@ from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ...models.core.serializable import _compute_schema_fingerprint
-from ..protocols.mcap.converters.ros_converter import RosMsgConverter
+from ..protocols.mcap.converters.ros_converter import RosMsgSchemaConverter
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
+from .bridge import ROSBridge
 from .helpers import (
     _class_name_from_ros_msgtype,
     _clip_timestamp,
@@ -41,7 +42,6 @@ from .helpers import (
     _to_dict,
     _validate_sequence,
 )
-from .ros_bridge import ROSBridge
 from .ros_message import ROSMessage
 
 # Set the hierarchical logger
@@ -472,7 +472,7 @@ class ROSLoader(_BaseROSTopicResolver):
         # If adapter does not exist, create a new one through pyarrow schema deduced from msgdef
         msgtype: str = topic_info.msgtype
         msgdef: str = topic_info.msgdef.data
-        pyarrow_schema = RosMsgConverter.convert_rosmsg(msgdef, msgtype)
+        pyarrow_schema = RosMsgSchemaConverter.convert_rosmsg(msgdef, msgtype)
 
         if not pyarrow_schema:
             logger.warning(

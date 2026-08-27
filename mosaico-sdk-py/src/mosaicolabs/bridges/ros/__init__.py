@@ -5,6 +5,10 @@ from .adapter_base import (
     ROSAdapterBase as ROSAdapterBase,
     RosSchemaMetadata as RosSchemaMetadata,
 )
+from .bridge import (
+    ROSBridge as ROSBridge,
+    register_default_adapter as register_default_adapter,
+)
 from .data_ontology import (
     BatteryState as BatteryState,
     FrameTransform as FrameTransform,
@@ -20,10 +24,6 @@ from .loader import (
     ROSLoader as ROSLoader,
 )
 from .registry import ROSTypeRegistry as ROSTypeRegistry
-from .ros_bridge import (
-    ROSBridge as ROSBridge,
-    register_default_adapter as register_default_adapter,
-)
 from .ros_message import ROSHeader as ROSHeader, ROSMessage as ROSMessage
 from .sequence_extractor import (
     ROSExtractorConfig as ROSExtractorConfig,

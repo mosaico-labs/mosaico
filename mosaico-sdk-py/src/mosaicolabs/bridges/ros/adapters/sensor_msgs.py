@@ -47,8 +47,8 @@ from mosaicolabs.models.sensors import (
 )
 
 from ..adapter_base import ROSAdapterBase
+from ..bridge import register_default_adapter
 from ..data_ontology import BatteryState, PointCloud2, PointField, PointFieldDataType
-from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import (
     QuaternionAdapter,

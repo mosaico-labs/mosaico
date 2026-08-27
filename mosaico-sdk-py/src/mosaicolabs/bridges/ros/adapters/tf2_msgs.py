@@ -10,8 +10,8 @@ if TYPE_CHECKING:
 from mosaicolabs.models.core import Message
 
 from ..adapter_base import ROSAdapterBase
+from ..bridge import register_default_adapter
 from ..data_ontology import FrameTransform
-from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import TransformAdapter
 from .helpers import _validate_msgdata
