@@ -13,10 +13,14 @@ name = "mosaicod_task"
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-store = { workspace = true }
+mosaicod-rw = { workspace = true }
+mosaicod-facade = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+datafusion = { workspace = true }
+futures = { workspace = true }
 
 [dev-dependencies]
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }

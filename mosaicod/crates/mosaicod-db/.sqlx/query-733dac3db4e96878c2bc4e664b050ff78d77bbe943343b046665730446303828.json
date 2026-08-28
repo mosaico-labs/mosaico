@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO topic_optimization_t (topic_id)\n           SELECT topic_id\n           FROM topic_t\n           WHERE completion_unix_tstamp IS NOT NULL AND optimization_end_unix_tstamp IS NULL\n           ON CONFLICT (topic_id) DO NOTHING\n           ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "733dac3db4e96878c2bc4e664b050ff78d77bbe943343b046665730446303828"
+}

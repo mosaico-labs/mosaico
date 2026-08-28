@@ -81,7 +81,7 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
     );
 
     // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(
         &mut client,
@@ -180,7 +180,7 @@ async fn test_topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         .unwrap();
     assert!(topic_uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -300,7 +300,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(&mut client, &uuid, topic_name, batches, false)
         .await
@@ -565,7 +565,7 @@ async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -709,7 +709,7 @@ async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) 
     let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
         .await
         .unwrap();
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();

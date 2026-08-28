@@ -161,21 +161,19 @@ async fn on_chunk_created(
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> grpc_common::Result<()> {
-    let mut handle = facade::Chunk::create(
+    let mut tx = ctx.db.transaction().await?;
+
+    facade::update_chunk_stats(
+        &mut tx,
         topic_uuid,
         &target_path,
-        chunk_metadata.size_bytes as i64,
-        chunk_metadata.arrow_size_bytes as i64,
-        chunk_metadata.row_count as i64,
-        &ctx.inner,
+        chunk_metadata,
+        ontology_tag,
+        cstats,
     )
     .await?;
 
-    handle
-        .push_ontology_model_stats(ontology_tag, cstats)
-        .await?;
-
-    handle.finalize().await?;
+    tx.commit().await?;
 
     Ok(())
 }

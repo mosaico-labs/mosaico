@@ -63,7 +63,7 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         tonic::Code::FailedPrecondition,
     );
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, false)
         .await
@@ -126,7 +126,7 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(topic_uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
@@ -218,7 +218,7 @@ async fn test_session_delete_unlocked_with_data(pool: sqlx::Pool<db::DatabaseTyp
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -259,8 +259,8 @@ async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseTyp
         .await
         .unwrap();
 
-    let batches_a = vec![ext::arrow::testing::dummy_batch()];
-    let batches_b = vec![ext::arrow::testing::dummy_batch()];
+    let batches_a = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
+    let batches_b = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid_a, topic_name_a, batches_a, false)
         .await
         .unwrap();

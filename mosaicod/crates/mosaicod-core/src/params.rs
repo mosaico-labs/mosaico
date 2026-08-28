@@ -28,7 +28,7 @@ pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 128 * 1024 * 1024; // 128MB
 
 // Default values for Params.
 pub const DEFAULT_MAX_GRPC_MESSAGE_SIZE: usize = 50 * 1_000_000; // 50MB
-pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = 25 * 1_000_000; // 25MB
+pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = DEFAULT_MAX_GRPC_MESSAGE_SIZE / 2; // 25MB
 pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: usize = 4;
 pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: usize = 1024;
 pub const DEFAULT_MAX_DB_CONNECTIONS: u32 = 19;
@@ -41,6 +41,7 @@ pub const DEFAULT_STORE_ENDPOINT: &str = "";
 pub const DEFAULT_STORE_BUCKET: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
+pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 
 /// Module containing several file extensions
 pub mod ext {
@@ -217,6 +218,13 @@ pub struct Params {
     /// Defaults to 0 (no limit).
     pub query_engine_memory_pool_size: Param<usize>,
 
+    /// Defines the amount of memory (in bytes) used by the store optimizer (DataFusion).
+    /// Set this value to a number greater than 0 to enforce a hard limit
+    /// on the memory allocated. Use this setting if mosaicod encounters OOM (Out Of Memory) errors.
+    ///
+    /// Defaults to 0 (no limit).
+    pub store_optimizer_memory_pool_size: Param<usize>,
+
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
     /// Defaults to 75 MB
@@ -361,6 +369,12 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
             "MOSAICOD_STORE_ACCESS_KEY",
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
         ),
+
+        // store optimizer
+        store_optimizer_memory_pool_size: Param::optional(
+            "MOSAICOD_STORE_OPTIMIZER_MEMORY_POOL_SIZE",
+            DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE,
+        ),
     };
 
     ev.validate()?;
@@ -412,21 +426,24 @@ mod tests {
         Params {
             max_grpc_message_size: param(GRPC_MSG_MIN_SIZE_BYTES),
             target_message_size: GRPC_MSG_MIN_SIZE_BYTES / 2,
-            max_concurrent_chunk_queries: param(4),
-            max_size_plain_list_eq: param(1024),
+            max_concurrent_chunk_queries: param(DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES),
+            max_size_plain_list_eq: param(DEFAULT_MAX_SIZE_PLAIN_LIST_EQ),
             max_concurrent_writes: param(1),
-            max_batch_size: param(8192),
+            max_batch_size: param(DEFAULT_MAX_BATCH_SIZE),
             default_parallelism: param(1),
-            query_engine_memory_pool_size: param(0),
-            parquet_in_memory_encoding_buffer_size: param(75 * 1_000_000),
-            tls_certificate_file: param("".to_owned()),
-            tls_private_key_file: param("".to_owned()),
+            query_engine_memory_pool_size: param(DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE),
+            parquet_in_memory_encoding_buffer_size: param(
+                DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
+            ),
+            tls_certificate_file: param(DEFAULT_TLS_CERT_FILE.to_owned()),
+            tls_private_key_file: param(DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned()),
             db_url: param("".to_owned()),
-            max_db_connections: param(10),
-            store_endpoint: param("".to_owned()),
-            store_bucket: param("".to_owned()),
-            store_secret_key: param_hidden("".to_owned()),
-            store_access_key: param("".to_owned()),
+            max_db_connections: param(DEFAULT_MAX_DB_CONNECTIONS),
+            store_endpoint: param(DEFAULT_STORE_ENDPOINT.to_owned()),
+            store_bucket: param(DEFAULT_STORE_BUCKET.to_owned()),
+            store_secret_key: param_hidden(DEFAULT_STORE_SECRET_KEY.to_owned()),
+            store_access_key: param(DEFAULT_STORE_ACCESS_KEY.to_owned()),
+            store_optimizer_memory_pool_size: param(DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE),
         }
     }
 

@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// SEntinel value to represent the positive unbounded timestamp
@@ -176,6 +177,36 @@ impl From<Timestamp> for DateTime {
         Self(chrono::DateTime::<chrono::Utc>::from_timestamp_nanos(
             value.0,
         ))
+    }
+}
+
+/// Utility type to accept only non-negative durations (u32).
+#[derive(Debug, Clone, Copy)]
+pub struct Duration(chrono::Duration);
+
+impl Duration {
+    pub const fn seconds(secs: u32) -> Self {
+        Self(chrono::Duration::seconds(secs as i64))
+    }
+
+    pub const fn minutes(mins: u32) -> Self {
+        Self(chrono::Duration::minutes(mins as i64))
+    }
+
+    pub const fn hours(hours: u32) -> Self {
+        Self(chrono::Duration::hours(hours as i64))
+    }
+
+    pub const fn days(days: u32) -> Self {
+        Self(chrono::Duration::days(days as i64))
+    }
+}
+
+impl Deref for Duration {
+    type Target = chrono::Duration;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

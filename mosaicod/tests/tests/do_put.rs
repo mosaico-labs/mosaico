@@ -31,7 +31,7 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, false)
         .await
@@ -43,7 +43,7 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     // Check do_put() without descriptor.
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     assert_eq!(
         actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, true)
             .await
@@ -68,7 +68,7 @@ async fn test_do_put_nonexistent_topic_uuid(pool: sqlx::Pool<db::DatabaseType>) 
         .unwrap();
 
     let fake_uuid = Uuid::new();
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let res = actions::do_put(
         &mut client,
@@ -103,7 +103,7 @@ async fn test_do_put_on_locked_topic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -111,7 +111,7 @@ async fn test_do_put_on_locked_topic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     let res = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::FailedPrecondition);
 
@@ -142,7 +142,7 @@ async fn test_do_put_descriptor_mismatch(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     let res = actions::do_put(&mut client, &uuid_a, topic_b, batches, false).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 

@@ -30,6 +30,10 @@ enum Commands {
     /// Run the store cleanup routine
     Cleanup(command::Cleanup),
 
+    /// Run the store optimization routine
+    #[command(name = "store-optimizer")]
+    StoreOptimizer(command::StoreOptimizer),
+
     /// Manage mosaico API keys
     #[command(subcommand, name = "api-key")]
     Auth(command::ApiKey),
@@ -65,6 +69,7 @@ fn start() -> Result<Option<String>> {
     match args.cmd {
         Commands::Server(sub_args) => command::server(sub_args, is_json_output)?,
         Commands::Cleanup(sub_args) => command::cleanup(sub_args)?,
+        Commands::StoreOptimizer(sub_args) => command::store_optimization(sub_args)?,
         Commands::Auth(sub_args) => command::auth(sub_args)?,
     }
 

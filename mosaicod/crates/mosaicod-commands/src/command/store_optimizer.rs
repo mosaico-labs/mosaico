@@ -9,23 +9,23 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
 #[derive(Args, Debug)]
-pub struct Cleanup {
-    /// Minimum interval, in seconds, that must pass between a cleanup run and the next one.
+pub struct StoreOptimizer {
+    /// Minimum interval, in seconds, that must pass between an optimization run and the next one.
     ///
-    /// When set to `0` (the default) a single cleanup is performed and then the process
-    /// terminates. Any value greater than `0` runs the cleanup routine in a loop, sleeping
-    /// `time_interval` seconds between runs.
+    /// When set to `0` (the default) a single run is performed and then the process
+    /// terminates. Any value greater than `0` runs the routine in a loop, sleeping
+    /// `time_interval` seconds between each.
     #[arg(long, default_value_t = 0)]
     pub time_interval: u32,
 
-    /// Maximum period, in seconds, an obsolete file is kept in the store before being
-    /// permanently deleted.
-    #[arg(long, default_value_t = 86400)]
-    pub retention_duration: u32,
+    /// Maximum size (in bytes) for an output chunk after optimization.
+    /// This is a soft limit, actual files on store may exceed this value slightly.
+    #[arg(long, default_value_t = 256_000_000)]
+    pub max_chunk_size: usize,
 }
 
-/// Run the store cleanup routine.
-pub fn cleanup(args: Cleanup) -> Result<()> {
+/// Run the store optimization routine.
+pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
     info!("startup store");
     let store = common::init_store()?;
 
@@ -63,14 +63,13 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
     });
 
     let time_interval = types::Duration::seconds(args.time_interval);
-    let retention_duration = types::Duration::seconds(args.retention_duration);
 
     rt.block_on(async {
-        let cleanup = task::Cleanup::new(db, store)
+        let store_optimizer = task::StoreOptimizer::new(db, store)
             .with_time_interval(time_interval)
-            .with_retention_duration(retention_duration);
+            .with_max_file_size(args.max_chunk_size);
 
-        cleanup.run(shutdown).await;
+        store_optimizer.run(shutdown).await;
     });
 
     Ok(())
