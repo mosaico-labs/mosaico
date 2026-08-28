@@ -4,10 +4,12 @@ mod do_action;
 mod do_get;
 mod do_put;
 mod get_flight_info;
+mod get_schema;
 mod list_flights;
 
 pub use do_action::do_action;
 pub use do_get::do_get;
 pub use do_put::{DoPutContext, do_put};
 pub use get_flight_info::get_flight_info;
+pub use get_schema::get_schema;
 pub use list_flights::list_flights;

@@ -13,6 +13,11 @@ pub struct GetFlightInfoCmd {
     pub timestamp_range: Option<TimestampRange>,
 }
 
+/// Request the schema of a mosaico topic
+pub struct GetSchemaCmd {
+    pub resource_locator: String, //(cabba) TODO: replace this with a resource locator
+}
+
 pub struct TicketTopic {
     /// Locator for the topic
     pub locator: types::TopicLocator,

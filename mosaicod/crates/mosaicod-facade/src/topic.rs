@@ -300,6 +300,18 @@ pub async fn info(context: &Context, locator: &types::TopicLocator) -> Result<To
     internal::info(&mut cx, context.timeseries_querier.clone(), &topic_record).await
 }
 
+/// Returns the arrow schema of the topic identified by [`locator`].
+pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<SchemaRef> {
+    let mut cx = context.db.connection();
+    let topic_record = db::topic_find_by_locator(&mut cx, locator)
+        .await
+        .map_err(|e| match e {
+            db::Error::NotFound => core::Error::not_found(locator.to_string()),
+            _ => e.error(),
+        })?;
+    internal::arrow_schema(context.timeseries_querier.clone(), &topic_record).await
+}
+
 /// Serializes and writes [`TopicMetadata`] to the object store.
 ///
 /// # Errors

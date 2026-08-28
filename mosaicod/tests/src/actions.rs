@@ -415,6 +415,30 @@ pub async fn get_flight_info(
     Ok(info)
 }
 
+/// Returns the arrow schema for a topic.
+pub async fn get_schema(
+    client: &mut Client,
+    topic_name: &str,
+) -> Result<arrow::datatypes::Schema, tonic::Status> {
+    let cmd = format!(
+        r#"
+        {{
+            "resource_locator": "{}"
+        }}
+        "#,
+        topic_name,
+    );
+
+    dbg!(&cmd);
+
+    let descriptor = FlightDescriptor::new_cmd(cmd);
+
+    let schema_result = client.get_schema(descriptor).await?.into_inner();
+
+    arrow::datatypes::Schema::try_from(schema_result)
+        .map_err(|e| tonic::Status::internal(format!("failed to decode schema: {e}")))
+}
+
 pub async fn sequence_notification_create(
     client: &mut Client,
     locator: &str,
