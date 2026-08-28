@@ -11,7 +11,7 @@ use mosaicod_ext as ext;
 
 use arrow_flight::Ticket;
 use mosaicod_marshal::flight::FilterTimestampRange;
-use mosaicod_marshal::{self as marshal, Ontology, flight};
+use mosaicod_marshal::{self as marshal, Ontology};
 
 use serde_json::json;
 use tonic::Streaming;
@@ -323,31 +323,19 @@ pub async fn do_get(
             .into(),
     };
 
-    Ok(do_get_with_ticket(client, ticket).await?.1)
+    do_get_with_ticket(client, ticket).await
 }
-
-pub type DoGetMetadata = Option<flight::TopicDoGetAppMetadata>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
     ticket: arrow_flight::Ticket,
-) -> Result<(DoGetMetadata, Vec<RecordBatch>), tonic::Status> {
+) -> Result<Vec<RecordBatch>, tonic::Status> {
     let stream = client.do_get(ticket).await?.into_inner();
 
     let record_batch_stream =
         FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
 
     let mut decoder = record_batch_stream.into_inner();
-
-    let mut metadata = None;
-
-    // Extract app_metadata from the very first message carrying the schema.
-    if let Some(result) = decoder.next().await {
-        let msg = result?;
-        if !msg.app_metadata().is_empty() {
-            metadata = Some(msg.app_metadata().try_into().unwrap());
-        }
-    }
 
     let mut batches: Vec<RecordBatch> = vec![];
 
@@ -358,7 +346,7 @@ pub async fn do_get_with_ticket(
         }
     }
 
-    Ok((metadata, batches))
+    Ok(batches)
 }
 
 pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
@@ -413,9 +401,7 @@ pub async fn get_flight_info(
         }}
         "#,
         topic_name,
-        interval
-            .clone()
-            .map_or("null".to_owned(), |range| range.start.to_string()),
+        interval.map_or("null".to_owned(), |range| range.start.to_string()),
         interval.map_or("null".to_owned(), |range| range.end.to_string()),
     );
 

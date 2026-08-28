@@ -99,7 +99,7 @@ impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
 ///
 /// This struct defines a range $[start, end]$. A timestamp is considered
 /// contained within this range if $start \le t \l end$.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct TimestampRange {
     pub start: Timestamp,
     pub end: Timestamp,

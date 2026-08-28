@@ -269,11 +269,21 @@ impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
     }
 }
 
+/// Topic information for the time window specified in the request.
 #[derive(Serialize, Deserialize)]
-pub struct TopicAppMetadataInfo {
-    pub chunks_number: u64,
+pub struct TopicAppMetadataTimeWindow {
+    // First and last timestamps. It's None if the topic has no data.
+    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub row_count: u64,
+}
+
+/// Topic information regarding the whole topic.
+#[derive(Serialize, Deserialize)]
+pub struct TopicAppMetadataDataInfo {
+    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub total_row_count: u64,
     pub total_bytes: u64,
-    pub timestamp: Option<TopicAppMetadataTimestamp>,
+    pub total_chunks_count: u64,
 }
 
 /// Topic app metadata sent when requesting flight info topics and sequences flights
@@ -286,13 +296,15 @@ pub struct TopicAppMetadata {
     pub ontology_tag: String,
     pub serialization_format: super::Format,
     pub user_metadata: Option<JsonMetadataBlob>,
-    pub info: Option<TopicAppMetadataInfo>,
+    pub data_info: TopicAppMetadataDataInfo,
+    pub time_window_info: Option<TopicAppMetadataTimeWindow>,
 }
 
 impl TopicAppMetadata {
     pub fn new(
         metadata: types::TopicMetadata<JsonMetadataBlob>,
-        info: types::TopicDataInfo,
+        data_info: types::TopicDataInfo,
+        time_window_info: Option<types::TopicTimeWindowInfo>,
     ) -> Self {
         Self {
             created_at_ns: metadata.properties.created_at.as_i64(),
@@ -302,14 +314,23 @@ impl TopicAppMetadata {
             ontology_tag: metadata.ontology_metadata.ontology_tag,
             serialization_format: metadata.ontology_metadata.serialization_format.into(),
             user_metadata: metadata.ontology_metadata.user_metadata,
-            info: Some(TopicAppMetadataInfo {
-                chunks_number: info.chunks_number,
-                total_bytes: info.total_bytes,
-                timestamp: if info.timestamp_range.is_unbounded() {
+            data_info: TopicAppMetadataDataInfo {
+                interval: if data_info.timestamp_range.is_unbounded() {
                     None
                 } else {
-                    Some(info.timestamp_range.into())
+                    Some(data_info.timestamp_range.into())
                 },
+                total_row_count: data_info.total_row_count,
+                total_bytes: data_info.total_bytes,
+                total_chunks_count: data_info.total_chunks,
+            },
+            time_window_info: time_window_info.map(|tw_info| TopicAppMetadataTimeWindow {
+                interval: if tw_info.timestamp_range.is_unbounded() {
+                    None
+                } else {
+                    Some(tw_info.timestamp_range.into())
+                },
+                row_count: tw_info.row_count,
             }),
         }
     }
@@ -329,35 +350,35 @@ impl TryFrom<bytes::Bytes> for TopicAppMetadata {
     }
 }
 
-/// Topic app metadata sent when requesting data streaming (DO_GET action).
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TopicDoGetAppMetadata {
-    pub row_count: usize,
-    pub interval: TopicAppMetadataTimestamp,
-}
+// /// Topic app metadata sent when requesting data streaming (DO_GET action).
+// #[derive(Serialize, Deserialize, Clone, Debug)]
+// pub struct TopicDoGetAppMetadata {
+//     pub row_count: usize,
+//     pub interval: TopicAppMetadataTimestamp,
+// }
 
-impl TopicDoGetAppMetadata {
-    pub fn new(row_count: usize, interval: types::TimestampRange) -> Self {
-        Self {
-            row_count,
-            interval: interval.into(),
-        }
-    }
-}
+// impl TopicDoGetAppMetadata {
+//     pub fn new(row_count: usize, interval: types::TimestampRange) -> Self {
+//         Self {
+//             row_count,
+//             interval: interval.into(),
+//         }
+//     }
+// }
 
-impl From<TopicDoGetAppMetadata> for bytes::Bytes {
-    fn from(value: TopicDoGetAppMetadata) -> Self {
-        serde_json::to_vec(&value).unwrap_or_default().into()
-    }
-}
+// impl From<TopicDoGetAppMetadata> for bytes::Bytes {
+//     fn from(value: TopicDoGetAppMetadata) -> Self {
+//         serde_json::to_vec(&value).unwrap_or_default().into()
+//     }
+// }
 
-impl TryFrom<bytes::Bytes> for TopicDoGetAppMetadata {
-    type Error = Error;
-    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
-        serde_json::from_slice(value.as_ref())
-            .map_err(|e| Error::DeserializationError(e.to_string()))
-    }
-}
+// impl TryFrom<bytes::Bytes> for TopicDoGetAppMetadata {
+//     type Error = Error;
+//     fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
+//         serde_json::from_slice(value.as_ref())
+//             .map_err(|e| Error::DeserializationError(e.to_string()))
+//     }
+// }
 
 // ////////////////////////////////////////////////////////////////////////////
 // Filter

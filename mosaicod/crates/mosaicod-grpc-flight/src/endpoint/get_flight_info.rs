@@ -48,7 +48,7 @@ async fn do_get_flight_info(
     if let Some(ts_range) = &cmd.timestamp_range
         && ts_range.is_empty()
     {
-        Err(core::Error::bad_timestamp_range(ts_range.clone()))?;
+        Err(core::Error::bad_timestamp_range(*ts_range))?;
     }
 
     return if let Ok(sequence_locator) = resource_name.parse::<types::SequenceLocator>() {
@@ -78,14 +78,14 @@ async fn sequence_flight_info(
     // sequence's own user metadata) travels on `FlightInfo::app_metadata` instead.
     let schema = Schema::new(Vec::<Field>::new());
 
-    let sequence_info = facade::sequence::info(ctx, &sequence_locator).await?;
+    let sequence_info = facade::sequence::info(ctx, &sequence_locator, timestamp_range).await?;
 
     trace!("{} generating endpoints", sequence_locator);
 
     // Populate endpoints
     let endpoints = stream::iter(sequence_info.topics)
         .map(async |topic_info: facade::topic::TopicInfo| {
-            let topic_endpoint = build_topic_endpoint(topic_info, timestamp_range.clone()).await?;
+            let topic_endpoint = build_topic_endpoint(topic_info, timestamp_range).await?;
             Ok::<FlightEndpoint, BoxPublicError>(topic_endpoint)
         })
         .buffer_unordered(params::MAX_BUFFERED_FUTURES)
@@ -116,7 +116,7 @@ async fn topic_flight_info(
     topic_locator: types::TopicLocator,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<FlightInfo> {
-    let topic_info = facade::topic::info(ctx, &topic_locator).await?;
+    let topic_info = facade::topic::info(ctx, &topic_locator, timestamp_range).await?;
 
     // Topic's metadata are stored inside endpoint and not FlightInfo::app_metadata to replicate
     // the same behavior inside sequence_flight_info.
@@ -142,8 +142,11 @@ async fn build_topic_endpoint(
         timestamp_range,
     };
 
-    // TODO: currently the full topic timestamp range is forwarded. Consider if it's better to pass the input range instead.
-    let app_mdata = flight::TopicAppMetadata::new(topic_info.metadata, topic_info.data_info);
+    let app_mdata = flight::TopicAppMetadata::new(
+        topic_info.metadata,
+        topic_info.data_info,
+        topic_info.time_window_info,
+    );
 
     let endpoint = FlightEndpoint::new()
         .with_ticket(Ticket {

@@ -252,10 +252,9 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert!(!app_metadata.locked);
     assert_eq!(app_metadata.resource_locator, topic_name);
-    let info = app_metadata.info.unwrap();
-    assert_eq!(info.chunks_number, 0);
-    assert_eq!(info.total_bytes, 0);
-    assert!(info.timestamp.is_none());
+    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_bytes, 0);
+    assert!(app_metadata.data_info.interval.is_none());
     assert_ne!(app_metadata.created_at_ns, 0);
     assert!(app_metadata.completed_at_ns.is_none());
 
@@ -289,10 +288,9 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(app_metadata.resource_locator, topic_name);
 
-    let info = app_metadata.info.unwrap();
-    assert_eq!(info.chunks_number, 0);
-    assert_eq!(info.total_bytes, 0);
-    assert!(info.timestamp.is_none());
+    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_bytes, 0);
+    assert!(app_metadata.data_info.interval.is_none());
 
     // Check flight info for a locked topic with data.
     let topic_name = "test_sequence/my_topic";
@@ -332,10 +330,9 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(app_metadata.resource_locator, topic_name);
 
-    let info = app_metadata.info.unwrap();
-    assert_eq!(info.chunks_number, 1);
-    assert_eq!(info.total_bytes, 895);
-    let ts_range: types::TimestampRange = info.timestamp.unwrap().into();
+    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    let ts_range: types::TimestampRange = app_metadata.data_info.interval.unwrap().into();
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 
@@ -390,10 +387,9 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
     assert_ne!(app_metadata.created_at_ns, 0);
     assert!(app_metadata.completed_at_ns.is_none());
 
-    let info = app_metadata.info.unwrap();
-    assert_eq!(info.chunks_number, 0);
-    assert_eq!(info.total_bytes, 0);
-    assert!(info.timestamp.is_none());
+    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_bytes, 0);
+    assert!(app_metadata.data_info.interval.is_none());
 
     // ontology_tag and serialization_format are hard-coded by `actions::topic_create`'s
     // action body.
@@ -404,6 +400,66 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
     let round_tripped =
         serde_json::to_value(app_metadata.user_metadata.expect("user_metadata missing")).unwrap();
     assert_eq!(round_tripped, user_metadata);
+
+    server.shutdown().await;
+}
+
+/// Requesting `get_flight_info` with a timestamp range for a topic that has no data at all must
+/// not fail, and the resulting `time_window_info` must reflect an empty window (zero rows, no
+/// interval) rather than being omitted.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_flight_info_time_window_no_data(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let info = actions::get_flight_info(
+        &mut client,
+        topic_name,
+        Some(types::TimestampRange::between(10000.into(), 10030.into())),
+    )
+    .await
+    .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    assert!(!app_metadata.locked);
+    assert_eq!(&app_metadata.resource_locator, topic_name);
+
+    // Whole-topic stats are still all-zero/unbounded, same as without a time window.
+    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_bytes, 0);
+    assert!(app_metadata.data_info.interval.is_none());
+
+    // A time window was requested, so `time_window_info` must be present, but with no data in it.
+    let time_window_info = app_metadata.time_window_info.unwrap();
+    assert_eq!(time_window_info.row_count, 0);
+    assert!(time_window_info.interval.is_none());
 
     server.shutdown().await;
 }
@@ -469,10 +525,9 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
     assert_ne!(app_metadata.created_at_ns, 0);
     assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
 
-    let info = app_metadata.info.unwrap();
-    assert_eq!(info.chunks_number, 1);
-    assert_eq!(info.total_bytes, 895);
-    let ts_range: types::TimestampRange = info.timestamp.unwrap().into();
+    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    let ts_range: types::TimestampRange = app_metadata.data_info.interval.unwrap().into();
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 

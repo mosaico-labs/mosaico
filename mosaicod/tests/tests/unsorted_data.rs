@@ -4,6 +4,7 @@ use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_core::params;
 use mosaicod_db as db;
+use mosaicod_marshal as marshal;
 use rand::{random, random_range};
 use std::sync::Arc;
 use tests::{self, actions, common};
@@ -80,13 +81,14 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+    let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
 
-    let metadata = metadata.unwrap();
+    let app_metadata: marshal::flight::TopicAppMetadata =
+        info.endpoint[0].clone().app_metadata.try_into().unwrap();
 
-    assert_eq!(metadata.row_count, 300000);
+    assert_eq!(app_metadata.data_info.total_row_count, 300000);
 
     // Timestamps are not sorted inside a single input batch. But between batches they don't overlap.
     // This make data-fusion believe that a sort is not necessary. That's why it is returning data as it

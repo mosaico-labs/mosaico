@@ -10,7 +10,6 @@ use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
-use mosaicod_marshal::flight;
 use tracing::{debug, info, trace};
 
 pub async fn do_get(
@@ -37,19 +36,6 @@ pub async fn do_get(
     if let Some(ts_range) = ticket.timestamp_range {
         debug!("requesting timestamp range {}", ts_range);
         query_result = query_result.filter_by_timestamp_range(ts_range)?;
-    }
-
-    let mut do_get_app_metadata = None;
-
-    // Timestamp_range can be None only if there is no data uploaded for the topic yet.
-    // In that case the entire app metadata is left empty.
-    let (row_count, timestamp_range) = query_result.clone().count_and_timestamp_range().await?;
-
-    if let Some(timestamp_range) = timestamp_range {
-        do_get_app_metadata = Some(flight::TopicDoGetAppMetadata::new(
-            row_count,
-            timestamp_range,
-        ));
     }
 
     let schema = query_result.schema();
@@ -90,22 +76,13 @@ pub async fn do_get(
     debug!(
         target = "streaming topic",
         cols = schema.fields().len(),
-        total_rows = do_get_app_metadata
-            .clone()
-            .map(|am| am.row_count)
-            .unwrap_or(0),
         optimal_batch_size = doget_params.optimal_batch_size,
         max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );
 
-    let mut data_enc_builder = FlightDataEncoderBuilder::new()
+    Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
         .with_options(ipc_options)
-        .with_max_flight_data_size(max_flight_data_size);
-
-    if let Some(app_metadata) = do_get_app_metadata {
-        data_enc_builder = data_enc_builder.with_metadata(app_metadata.into());
-    }
-
-    Ok(data_enc_builder.build(stream))
+        .with_max_flight_data_size(max_flight_data_size)
+        .build(stream))
 }

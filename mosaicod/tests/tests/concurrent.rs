@@ -161,7 +161,7 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let app_metadata: marshal::flight::TopicAppMetadata =
         info.endpoint[0].clone().app_metadata.try_into().unwrap();
-    let chunks = app_metadata.info.unwrap().chunks_number;
+    let chunks = app_metadata.data_info.total_chunks_count;
 
     assert_eq!(chunks as usize, success_count);
 

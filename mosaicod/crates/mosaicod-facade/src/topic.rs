@@ -21,6 +21,7 @@ pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetad
 pub struct TopicInfo {
     pub metadata: TopicMetadata,
     pub data_info: types::TopicDataInfo,
+    pub time_window_info: Option<types::TopicTimeWindowInfo>,
 }
 
 pub struct TopicStreamingReadParams {
@@ -32,6 +33,7 @@ pub struct TopicStreamingReadParams {
 pub(super) mod internal {
     use super::*;
     use mosaicod_core::error::PublicError;
+    use mosaicod_core::types::TopicTimeWindowInfo;
 
     /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
     pub async fn metadata(
@@ -111,10 +113,48 @@ pub(super) mod internal {
         Ok(timestamp_range)
     }
 
-    /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
+    async fn time_window_info(
+        ts_engine: &query::TimeseriesEngineRef,
+        topic_record: &db::TopicRecord,
+        time_window: types::TimestampRange,
+    ) -> Result<types::TopicTimeWindowInfo> {
+        let Some(path_in_store) = &topic_record.path_in_store() else {
+            return Ok(types::TopicTimeWindowInfo {
+                row_count: 0,
+                timestamp_range: types::TimestampRange::unbounded(),
+            });
+        };
+
+        let format = topic_record
+            .serialization_format()
+            .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
+
+        // Get chunk 0 since this chunk needs to exist always.
+        // Here we use a single file and not the directory path to improve performance.
+        // Timeseries engine backend (datafusion) needs to scan only a single file avoiding reading
+        // metadata about all files in the directory.
+        let path = path_in_store.path_data(0, format.to_properties().as_ref());
+
+        let mut query_result = ts_engine.read(&path, format, None).await?;
+
+        query_result = query_result.filter_by_timestamp_range(time_window)?;
+
+        // Timestamp_range can be None only if there is no data uploaded for the topic yet.
+        // In that case the entire app metadata is left empty.
+        let (row_count, timestamp_range) = query_result.clone().count_and_timestamp_range().await?;
+
+        Ok(TopicTimeWindowInfo {
+            row_count: row_count as u64,
+            timestamp_range: timestamp_range.unwrap_or(types::TimestampRange::unbounded()),
+        })
+    }
+
+    /// Creates [`TopicInfo`] associated to the given [`topic_record`].
     pub async fn info(
         exe: &mut impl db::AsExec,
+        ts_engine: &query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
+        time_window: Option<types::TimestampRange>,
     ) -> Result<TopicInfo> {
         let stats = db::topic_get_stats(exe, topic_record.topic_id).await?;
 
@@ -130,14 +170,22 @@ pub(super) mod internal {
         };
 
         let data_info = types::TopicDataInfo {
-            chunks_number: stats.chunks_count,
+            total_chunks: stats.chunks_count,
             total_bytes: stats.total_size_bytes,
             timestamp_range: ts_range,
+            total_row_count: stats.total_row_count,
+        };
+
+        let time_window_info = if let Some(time_window) = time_window {
+            Some(time_window_info(ts_engine, topic_record, time_window).await?)
+        } else {
+            None
         };
 
         Ok(TopicInfo {
             metadata: metadata(exe, topic_record).await?,
             data_info,
+            time_window_info,
         })
     }
 
@@ -281,7 +329,11 @@ pub async fn try_create(
 }
 
 /// Creates [`TopicInfo`] associated to the given topic [`locator`].
-pub async fn info(context: &Context, locator: &types::TopicLocator) -> Result<TopicInfo> {
+pub async fn info(
+    context: &Context,
+    locator: &types::TopicLocator,
+    time_window: Option<types::TimestampRange>,
+) -> Result<TopicInfo> {
     let mut cx = context.db.connection();
     let topic_record = db::topic_find_by_locator(&mut cx, locator)
         .await
@@ -289,7 +341,13 @@ pub async fn info(context: &Context, locator: &types::TopicLocator) -> Result<To
             db::Error::NotFound => core::Error::not_found(locator.to_string()),
             _ => e.error(),
         })?;
-    internal::info(&mut cx, &topic_record).await
+    internal::info(
+        &mut cx,
+        &context.timeseries_querier,
+        &topic_record,
+        time_window,
+    )
+    .await
 }
 
 /// Serializes and writes [`TopicMetadata`] to the object store.

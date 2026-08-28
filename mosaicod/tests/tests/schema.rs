@@ -69,7 +69,7 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+    let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
 

@@ -294,13 +294,26 @@ pub struct TopicChunksStats {
 /// its size, structure, and lifecycle status.
 #[derive(Debug, Clone)]
 pub struct TopicDataInfo {
-    /// Number of chunks in the topic
-    pub chunks_number: u64,
+    /// Number of chunks considering the whole topic.
+    pub total_chunks: u64,
     /// Total size in bytes of the data.
     /// Metadata and other system files are excluded in the count.
     pub total_bytes: u64,
     /// First and last timestamps present in the topic data.
+    /// If the topic has no data, or it's not yet finalized, the timestamp range is set to UNBOUNDED.
     pub timestamp_range: TimestampRange,
+    /// Total number of samples for the topic.
+    pub total_row_count: u64,
+}
+
+/// Topic info regarding the provided time window.
+#[derive(Debug, Clone)]
+pub struct TopicTimeWindowInfo {
+    /// First and last timestamps observed in the topic data (within the input time window).
+    /// If the topic has no data in the given time window, the timestamp range is set to UNBOUNDED.
+    pub timestamp_range: TimestampRange,
+    /// Number of samples within the input time window.
+    pub row_count: u64,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
