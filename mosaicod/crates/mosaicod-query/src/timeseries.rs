@@ -12,7 +12,7 @@ use datafusion::execution::memory_pool::GreedyMemoryPool;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
 use datafusion::functions::regex::expr_fn::regexp_like;
-use datafusion::functions_aggregate::expr_fn::{max, min};
+use datafusion::functions_aggregate::expr_fn::{count, max, min};
 use datafusion::functions_nested::expr_fn::{
     array_distinct, array_element, array_has, array_has_any, array_intersect, array_max, array_min,
     cardinality, make_array,
@@ -243,6 +243,51 @@ impl TimeseriesResult {
         }
 
         Ok(None)
+    }
+
+    /// Returns both the row count and the timestamp range matching the current query, in a
+    /// single scan of the underlying data rather than the two independent scans that calling
+    /// [`Self::count`] and [`Self::timestamp_range`] separately would perform.
+    ///
+    /// # Errors
+    ///
+    /// See [`Self::timestamp_range`].
+    pub async fn count_and_timestamp_range(
+        self,
+    ) -> Result<(usize, Option<types::TimestampRange>), Error> {
+        let stats = self.data_frame.aggregate(
+            vec![],
+            vec![
+                count(lit(1i64)),
+                min(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                max(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+            ],
+        )?;
+
+        let batches = stats.collect().await?;
+
+        let Some(batch) = batches.first() else {
+            return Ok((0, None));
+        };
+
+        let row_count = match ScalarValue::try_from_array(batch.column(0), 0)? {
+            ScalarValue::Int64(Some(n)) => n as usize,
+            _ => 0,
+        };
+
+        let ts_min = ScalarValue::try_from_array(batch.column(1), 0)?;
+        let ts_max = ScalarValue::try_from_array(batch.column(2), 0)?;
+
+        let ts_min = scalar_value_to_timestamp(ts_min);
+        let ts_max = scalar_value_to_timestamp(ts_max);
+
+        let range = match (ts_min, ts_max) {
+            (Some(min), Some(max)) => Some(types::TimestampRange::between(min, max)),
+            (None, None) => None,
+            _ => return Err(Error::NullMinMaxTimestamps),
+        };
+
+        Ok((row_count, range))
     }
 }
 
@@ -841,5 +886,59 @@ mod tests {
             assert_eq!(ts.start, 10010.into());
             assert_eq!(ts.end, 10020.into());
         }
+    }
+
+    /// `count_and_timestamp_range()` must return the same values that calling `count()` and
+    /// `timestamp_range()` separately would, since `do_get.rs` relies on it as a single-scan
+    /// replacement for both.
+    #[tokio::test]
+    async fn count_and_timestamp_range_matches_separate_calls() {
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+
+        let file_path = "dummy_file.parquet";
+
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+        write_dummy_file(&store, file_path).await;
+
+        let ts_gw = TimeseriesEngine::try_new((*store).clone(), 0).unwrap();
+
+        // Unfiltered: all 7 rows (timestamps 10000..=10030 step 5).
+        let res = ts_gw
+            .read(file_path, types::Format::Default, None)
+            .await
+            .unwrap();
+
+        let (row_count, range) = res.count_and_timestamp_range().await.unwrap();
+        assert_eq!(row_count, 7);
+        let range = range.unwrap();
+        assert_eq!(range.start, 10000.into());
+        assert_eq!(range.end, 10030.into());
+
+        // Filtered to a range matching some rows (10010, 10015, 10020).
+        let res = ts_gw
+            .read(file_path, types::Format::Default, None)
+            .await
+            .unwrap()
+            .filter_by_timestamp_range(types::TimestampRange::between(10010.into(), 10025.into()))
+            .unwrap();
+
+        let (row_count, range) = res.count_and_timestamp_range().await.unwrap();
+        assert_eq!(row_count, 3);
+        let range = range.unwrap();
+        assert_eq!(range.start, 10010.into());
+        assert_eq!(range.end, 10020.into());
+
+        // Filtered to a range matching no rows.
+        let res = ts_gw
+            .read(file_path, types::Format::Default, None)
+            .await
+            .unwrap()
+            .filter_by_timestamp_range(types::TimestampRange::between(20000.into(), 20010.into()))
+            .unwrap();
+
+        let (row_count, range) = res.count_and_timestamp_range().await.unwrap();
+        assert_eq!(row_count, 0);
+        assert!(range.is_none());
     }
 }

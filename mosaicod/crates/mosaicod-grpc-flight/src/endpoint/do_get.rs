@@ -25,9 +25,6 @@ pub async fn do_get(
 
     trace!("{:?}", doget_params.metadata);
 
-    // TODO: since we are calling timestamp_range(), count() and stream() on query_result,
-    // in some cases it could increase I/O and computes. Maybe a better approach overall is possible?
-
     let mut query_result = ctx
         .timeseries_querier
         .read(
@@ -46,9 +43,9 @@ pub async fn do_get(
 
     // Timestamp_range can be None only if there is no data uploaded for the topic yet.
     // In that case the entire app metadata is left empty.
-    if let Some(timestamp_range) = query_result.clone().timestamp_range().await? {
-        let row_count = query_result.clone().count().await?;
+    let (row_count, timestamp_range) = query_result.clone().count_and_timestamp_range().await?;
 
+    if let Some(timestamp_range) = timestamp_range {
         do_get_app_metadata = Some(flight::TopicDoGetAppMetadata::new(
             row_count,
             timestamp_range,
