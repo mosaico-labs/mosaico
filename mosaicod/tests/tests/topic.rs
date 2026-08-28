@@ -493,7 +493,7 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
     .unwrap();
     assert!(topic_uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     let response = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();

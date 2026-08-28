@@ -203,7 +203,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+    let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
 
@@ -340,7 +340,7 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+    let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
 
@@ -499,7 +499,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+    let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
 
