@@ -348,9 +348,9 @@ pub async fn do_get_with_ticket(
     Ok((metadata, batches))
 }
 
-pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
+pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
     let action = Action {
-        r#type: "version".to_owned(),
+        r#type: "info".to_owned(),
         body: r#"{}"#.to_string().into(),
     };
 
@@ -361,7 +361,7 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
     while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "version");
+        assert_eq!(r.action, "info");
 
         assert!(r.response.as_object().unwrap().contains_key("version"));
         let semver = r.response.as_object().unwrap().get("semver").unwrap();
@@ -380,6 +380,20 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
         if let Some(pre) = semver.as_object().unwrap().get("pre") {
             assert!(pre.is_string());
         }
+
+        let config = r
+            .response
+            .as_object()
+            .unwrap()
+            .get("config")
+            .unwrap()
+            .as_object()
+            .unwrap();
+
+        let max_grpc_message_size = config.get("max_grpc_message_size").unwrap();
+        assert!(max_grpc_message_size.is_u64());
+        let target_message_size = config.get("target_message_size").unwrap();
+        assert!(target_message_size.is_u64());
     }
 
     Ok(())
