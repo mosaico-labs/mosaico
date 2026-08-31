@@ -159,7 +159,7 @@ impl Cleanup {
         ));
 
         loop {
-            let cleanup_res = self.try_cleanup().await;
+            let cleanup_res = self.try_cleanup(&shutdown_notifier).await;
 
             match cleanup_res {
                 Ok(stats) => {
@@ -215,7 +215,13 @@ impl Cleanup {
     /// Launches the cleanup of the store.
     ///
     /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
-    pub async fn try_cleanup(&mut self) -> Result<CleanupStats> {
+    ///
+    /// If `shutdown_notifier` is cancelled while folders are being processed, the loop stops
+    /// early and the folders processed so far are logged as usual.
+    pub async fn try_cleanup(
+        &mut self,
+        shutdown_notifier: &CancellationToken,
+    ) -> Result<CleanupStats> {
         let mut stats = CleanupStats::default();
 
         let start_time = chrono::Utc::now();
@@ -244,6 +250,11 @@ impl Cleanup {
         let root_subfolders = self.store.list_subfolders("").await?;
 
         for folder in root_subfolders {
+            if shutdown_notifier.is_cancelled() {
+                info!("Shutdown received. Interrupting cleanup pass early.");
+                break;
+            }
+
             match self.analyze_folder(&folder, start_time).await {
                 Ok(action_performed) => match action_performed {
                     ActionPerformed::Deleted => {
@@ -528,7 +539,10 @@ mod tests {
         // This should simulate the internal time used by do_cleanup() to check against retention_duration.
         let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
-        let cleanup_stats = cleanup.try_cleanup().await.unwrap();
+        let cleanup_stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
 
         assert!(cleanup_stats.executed);
 
