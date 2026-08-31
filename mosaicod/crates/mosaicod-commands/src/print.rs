@@ -115,7 +115,7 @@ pub fn store_display_name(store: &store::StoreRef) -> String {
     }
 }
 
-fn format_uptime(delta: chrono::TimeDelta) -> String {
+fn format_duration_short(delta: chrono::TimeDelta) -> Option<String> {
     let total_secs = delta.num_seconds().max(0);
 
     let days = delta.num_days();
@@ -124,17 +124,31 @@ fn format_uptime(delta: chrono::TimeDelta) -> String {
     let secs = total_secs % 60;
 
     match (days, hours, mins, secs) {
-        (d, h, m, _) if d > 0 => format!("{d}d {h}h {m}m"),
-        (_, h, m, _) if h > 0 => format!("{h}h {m}m"),
-        (_, _, m, s) if m > 0 => format!("{m}m {s}s"),
-        (_, _, _, s) if s > 0 => format!("{s}s"),
-        _ => "-".to_owned(),
+        (d, h, m, _) if d > 0 => Some(format!("{d}d {h}h {m}m")),
+        (_, h, m, _) if h > 0 => Some(format!("{h}h {m}m")),
+        (_, _, m, s) if m > 0 => Some(format!("{m}m {s}s")),
+        (_, _, _, s) if s > 0 => Some(format!("{s}s")),
+        _ => None,
+    }
+}
+
+fn format_uptime(delta: chrono::TimeDelta) -> String {
+    format_duration_short(delta).unwrap_or_else(|| "-".to_owned())
+}
+
+/// Formats a duration elapsed since a past event, e.g. "3m 20s ago", "14h 12m ago".
+fn format_elapsed_since(delta: chrono::TimeDelta) -> String {
+    match format_duration_short(delta) {
+        Some(s) => format!("{s} ago"),
+        None => "just now".to_owned(),
     }
 }
 
 /// Prints the table of registered `mosaicod` instances (see `mosaicod ps`). Instances with a
-/// "dead" status are hidden unless `show_dead` is set. The STARTED and LAST HEARTBEAT columns
-/// are hidden unless `verbose` is set.
+/// "dead" status are hidden unless `show_dead` is set. The STARTED column is hidden unless
+/// `verbose` is set. The LAST HEARTBEAT column is always shown, as an exact timestamp when
+/// `verbose` is set, or otherwise as an elapsed time (e.g. "3m 20s ago"), except for dead
+/// instances, which show "-".
 pub fn print_instance_list(
     instances: &[db::InstanceRegistryRecord],
     show_dead: bool,
@@ -164,13 +178,16 @@ pub fn print_instance_list(
         );
     }
     header.push(format!("{:<W_UPTIME$}", "UPTIME").bold().to_string());
-    if verbose {
-        header.push(
-            format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT (UTC)")
-                .bold()
-                .to_string(),
-        );
-    }
+    let heartbeat_header = if verbose {
+        "LAST HEARTBEAT (UTC)"
+    } else {
+        "LAST HEARTBEAT"
+    };
+    header.push(
+        format!("{:<W_HEARTBEAT$}", heartbeat_header)
+            .bold()
+            .to_string(),
+    );
     header.push("STATUS".bold().to_string());
 
     println!("{}", header.join(" "));
@@ -229,12 +246,14 @@ pub fn print_instance_list(
             ));
         }
         row.push(format!("{:<W_UPTIME$}", format_uptime(uptime)));
-        if verbose {
-            row.push(format!(
-                "{:<W_HEARTBEAT$}",
-                last_heartbeat_datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-            ));
-        }
+        let heartbeat_str = if verbose {
+            last_heartbeat_datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        } else if matches!(status, db::InstanceStatus::Dead) {
+            "-".to_owned()
+        } else {
+            format_elapsed_since(chrono::Utc::now() - last_heartbeat_datetime)
+        };
+        row.push(format!("{:<W_HEARTBEAT$}", heartbeat_str));
         row.push(status_str.to_string());
 
         println!("{}", row.join(" "));
