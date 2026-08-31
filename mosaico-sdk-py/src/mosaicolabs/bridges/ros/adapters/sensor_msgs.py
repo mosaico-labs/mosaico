@@ -121,14 +121,14 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -137,7 +137,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> CameraInfo:
@@ -363,12 +363,12 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
     _SCHEMA_METADATA_KEYS_PREFIX = ("STATUS_", "SERVICE_")
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -377,7 +377,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> GPSStatus:
@@ -512,12 +512,12 @@ class GPSAdapter(ROSAdapterBase[GPS]):
     _SCHEMA_METADATA_KEYS_PREFIX = ("COVARIANCE_TYPE_",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -526,7 +526,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> GPS:
@@ -711,12 +711,12 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         return covariance_list[0] != -1
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -725,7 +725,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> IMU:
@@ -917,12 +917,12 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
     _REQUIRED_KEYS = ("sentence",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -931,7 +931,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> NMEASentence:
@@ -1070,14 +1070,14 @@ class ImageAdapter(ROSAdapterBase[Image]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -1086,7 +1086,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(
@@ -1251,14 +1251,14 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -1267,7 +1267,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(
@@ -1452,14 +1452,14 @@ class ROIAdapter(ROSAdapterBase[ROI]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -1468,7 +1468,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> ROI:
@@ -1640,12 +1640,12 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
     _SCHEMA_METADATA_KEYS_PREFIX = ("POWER_SUPPLY_",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -1654,7 +1654,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> BatteryState:
@@ -1866,14 +1866,14 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -1882,7 +1882,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> RobotJoint:
@@ -2370,12 +2370,12 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         raise NotImplementedError("PointCloudAdapter uses from_dict directly.")
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -2384,7 +2384,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> PointCloud2:
@@ -2556,12 +2556,12 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
     )
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -2570,7 +2570,7 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def schema_metadata(
@@ -2886,12 +2886,12 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
     _REQUIRED_KEYS = ("magnetic_field",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -2900,7 +2900,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Magnetometer:
@@ -3045,12 +3045,12 @@ class JoyAdapter(ROSAdapterBase[Joy]):
     )
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -3059,7 +3059,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Joy:
@@ -3189,12 +3189,12 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
     _REQUIRED_KEYS = ("temperature",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -3203,7 +3203,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Temperature:
@@ -3336,12 +3336,12 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
     _REQUIRED_KEYS = ("fluid_pressure",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -3350,7 +3350,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Pressure:

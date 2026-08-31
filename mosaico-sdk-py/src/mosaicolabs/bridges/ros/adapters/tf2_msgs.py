@@ -73,7 +73,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -85,7 +85,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> FrameTransform:
