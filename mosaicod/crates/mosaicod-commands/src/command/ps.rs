@@ -8,6 +8,10 @@ pub struct Ps {
     /// Also show instances with a "dead" status. By default these are hidden.
     #[arg(short, long, default_value_t = false)]
     all: bool,
+
+    /// Also show the STARTED and LAST HEARTBEAT columns. By default these are hidden.
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
 }
 
 /// Lists registered `mosaicod` instances (servers and cleanup routines) and summarizes the
@@ -36,7 +40,7 @@ pub fn ps(args: Ps) -> Result<()> {
         let instances = db::instance_registry_list(&mut cx).await?;
         let latest_cleanup = db::cleanup_log_latest(&mut cx).await?;
 
-        print::print_instance_list(&instances, args.all);
+        print::print_instance_list(&instances, args.all, args.verbose);
         println!();
         print::print_cleanup_status(latest_cleanup.as_ref(), &instances);
 

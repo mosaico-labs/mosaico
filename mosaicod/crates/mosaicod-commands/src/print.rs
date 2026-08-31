@@ -133,8 +133,13 @@ fn format_uptime(delta: chrono::TimeDelta) -> String {
 }
 
 /// Prints the table of registered `mosaicod` instances (see `mosaicod ps`). Instances with a
-/// "dead" status are hidden unless `show_dead` is set.
-pub fn print_instance_list(instances: &[db::InstanceRegistryRecord], show_dead: bool) {
+/// "dead" status are hidden unless `show_dead` is set. The STARTED and LAST HEARTBEAT columns
+/// are hidden unless `verbose` is set.
+pub fn print_instance_list(
+    instances: &[db::InstanceRegistryRecord],
+    show_dead: bool,
+    verbose: bool,
+) {
     const W_PROCESS: usize = 9;
     const W_MODE: usize = 11;
     const W_ID: usize = 5;
@@ -144,18 +149,31 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord], show_dead: 
     const W_UPTIME: usize = 11;
     const W_HEARTBEAT: usize = 22;
 
-    println!(
-        "{} {} {} {} {} {} {} {} {}",
-        format!("{:<W_PROCESS$}", "PROCESS").bold(),
-        format!("{:<W_MODE$}", "MODE").bold(),
-        format!("{:<W_ID$}", "ID").bold(),
-        format!("{:<W_HOST$}", "HOST").bold(),
-        format!("{:<W_PID$}", "PID").bold(),
-        format!("{:<W_STARTED$}", "STARTED (UTC)").bold(),
-        format!("{:<W_UPTIME$}", "UPTIME").bold(),
-        format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT (UTC)").bold(),
-        "STATUS".bold(),
-    );
+    let mut header = vec![
+        format!("{:<W_PROCESS$}", "PROCESS").bold().to_string(),
+        format!("{:<W_MODE$}", "MODE").bold().to_string(),
+        format!("{:<W_ID$}", "ID").bold().to_string(),
+        format!("{:<W_HOST$}", "HOST").bold().to_string(),
+        format!("{:<W_PID$}", "PID").bold().to_string(),
+    ];
+    if verbose {
+        header.push(
+            format!("{:<W_STARTED$}", "STARTED (UTC)")
+                .bold()
+                .to_string(),
+        );
+    }
+    header.push(format!("{:<W_UPTIME$}", "UPTIME").bold().to_string());
+    if verbose {
+        header.push(
+            format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT (UTC)")
+                .bold()
+                .to_string(),
+        );
+    }
+    header.push("STATUS".bold().to_string());
+
+    println!("{}", header.join(" "));
 
     let instances: Vec<&db::InstanceRegistryRecord> = instances
         .iter()
@@ -197,22 +215,29 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord], show_dead: 
             db::InstanceStatus::Dead => "dead".red(),
         };
 
-        println!(
-            "{:<W_PROCESS$} {:<W_MODE$} {:<W_ID$} {:<W_HOST$} {:<W_PID$} {:<W_STARTED$} {:<W_UPTIME$} {:<W_HEARTBEAT$} {}",
-            kind,
-            mode,
-            instance.instance_id,
-            instance.hostname,
-            instance.pid,
-            start_datetime
-                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-                .to_string(),
-            format_uptime(uptime),
-            last_heartbeat_datetime
-                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-                .to_string(),
-            status_str,
-        );
+        let mut row = vec![
+            format!("{:<W_PROCESS$}", kind),
+            format!("{:<W_MODE$}", mode),
+            format!("{:<W_ID$}", instance.instance_id),
+            format!("{:<W_HOST$}", instance.hostname),
+            format!("{:<W_PID$}", instance.pid),
+        ];
+        if verbose {
+            row.push(format!(
+                "{:<W_STARTED$}",
+                start_datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            ));
+        }
+        row.push(format!("{:<W_UPTIME$}", format_uptime(uptime)));
+        if verbose {
+            row.push(format!(
+                "{:<W_HEARTBEAT$}",
+                last_heartbeat_datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+            ));
+        }
+        row.push(status_str.to_string());
+
+        println!("{}", row.join(" "));
     }
 }
 
