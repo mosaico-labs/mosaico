@@ -4,11 +4,15 @@ use mosaicod_core::{self as core, error::PublicResult as Result, params};
 use mosaicod_db as db;
 
 #[derive(Args, Debug)]
-pub struct Ps {}
+pub struct Ps {
+    /// Also show instances with a "dead" status. By default these are hidden.
+    #[arg(short, long, default_value_t = false)]
+    all: bool,
+}
 
 /// Lists registered `mosaicod` instances (servers and cleanup routines) and summarizes the
 /// cleanup routine's current status.
-pub fn ps(_args: Ps) -> Result<()> {
+pub fn ps(args: Ps) -> Result<()> {
     let rt = common::init_runtime()?;
 
     let params = params::params();
@@ -32,7 +36,7 @@ pub fn ps(_args: Ps) -> Result<()> {
         let instances = db::instance_registry_list(&mut cx).await?;
         let latest_cleanup = db::cleanup_log_latest(&mut cx).await?;
 
-        print::print_instance_list(&instances);
+        print::print_instance_list(&instances, args.all);
         println!();
         print::print_cleanup_status(latest_cleanup.as_ref(), &instances);
 

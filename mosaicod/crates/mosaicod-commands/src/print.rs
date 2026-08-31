@@ -132,8 +132,9 @@ fn format_uptime(delta: chrono::TimeDelta) -> String {
     }
 }
 
-/// Prints the table of registered `mosaicod` instances (see `mosaicod ps`).
-pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
+/// Prints the table of registered `mosaicod` instances (see `mosaicod ps`). Instances with a
+/// "dead" status are hidden unless `show_dead` is set.
+pub fn print_instance_list(instances: &[db::InstanceRegistryRecord], show_dead: bool) {
     const W_PROCESS: usize = 9;
     const W_MODE: usize = 11;
     const W_ID: usize = 5;
@@ -155,6 +156,11 @@ pub fn print_instance_list(instances: &[db::InstanceRegistryRecord]) {
         format!("{:<W_HEARTBEAT$}", "LAST HEARTBEAT (UTC)").bold(),
         "STATUS".bold(),
     );
+
+    let instances: Vec<&db::InstanceRegistryRecord> = instances
+        .iter()
+        .filter(|i| show_dead || !matches!(i.status(), db::InstanceStatus::Dead))
+        .collect();
 
     if instances.is_empty() {
         println!("{}", "No registered instances found.".dimmed());
