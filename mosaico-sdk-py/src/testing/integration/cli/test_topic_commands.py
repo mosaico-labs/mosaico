@@ -225,7 +225,7 @@ class TestTopicMcat:
             env=cli_env,
         )
         assert result.exit_code == 0
-        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        lines = [line for line in result.stdout.strip().splitlines() if line.strip()]
         assert len(lines) <= 5
         for line in lines:
             payload = json.loads(line)
@@ -316,7 +316,7 @@ class TestTopicMcat:
             env=cli_env,
         )
         assert result.exit_code == 0
-        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        lines = [line for line in result.stdout.strip().splitlines() if line.strip()]
         assert len(lines) > 0
         for line in lines:
             payload = json.loads(line)
@@ -361,7 +361,7 @@ class TestTopicMcat:
             env=cli_env,
         )
         assert result.exit_code == 0
-        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        lines = [line for line in result.stdout.strip().splitlines() if line.strip()]
         assert len(lines) > 0
         topics_seen = set()
         for line in lines:

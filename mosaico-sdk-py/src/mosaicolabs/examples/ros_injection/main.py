@@ -25,7 +25,7 @@ from rich.panel import Panel
 
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient, Time
-from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
 
 # Example Imports
 from ..config import (

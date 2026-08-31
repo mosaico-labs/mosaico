@@ -3,6 +3,7 @@
 # ======================================================================
 import pytest
 
+from mosaicolabs.bridges.ros.data_ontology import FrameTransform
 from mosaicolabs.models.data import Inertia, RobotPath
 from mosaicolabs.models.sensors import (
     GPS,
@@ -27,7 +28,6 @@ from mosaicolabs.query.generation.mixins import (
     _QueryableNumeric,
     _QueryableString,
 )
-from mosaicolabs.ros_bridge.data_ontology import FrameTransform
 
 
 class TestQueryIMUAPI:

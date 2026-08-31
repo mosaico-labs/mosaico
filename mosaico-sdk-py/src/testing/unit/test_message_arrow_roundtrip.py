@@ -42,6 +42,7 @@ from mosaicolabs import (
     Vector4d,
     Velocity,
 )
+from mosaicolabs.bridges.ros import FrameTransform
 from mosaicolabs.models.futures.depth_camera import (
     RGBDCamera,
     StereoCamera,
@@ -51,7 +52,6 @@ from mosaicolabs.models.futures.depth_camera import (
 from mosaicolabs.models.futures.laser import LaserScan, MultiEchoLaserScan
 from mosaicolabs.models.futures.lidar import Lidar
 from mosaicolabs.models.futures.radar import Radar
-from mosaicolabs.ros_bridge import FrameTransform
 
 
 def assert_helper(expected, actual, rel=1e-4, abs_tol=None):
