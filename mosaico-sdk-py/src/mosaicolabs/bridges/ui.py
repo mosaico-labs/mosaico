@@ -10,7 +10,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from .loader import TopicStatus
+from .ros.loader import TopicStatus
 
 
 # --- Generic Protocol for ProgressManager LoaderUIAPI ---
