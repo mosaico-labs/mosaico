@@ -44,7 +44,7 @@ pub trait ParquetFormatProperties: FormatProperties {
 
     /// Returns DataFusion ListingOptions configured for reading files in this format.
     fn listing_options(&self) -> ListingOptions {
-        ListingOptions::new(Arc::new(ParquetFormat::default()))
+        ListingOptions::new(Arc::new(ParquetFormat::default().with_skip_metadata(false)))
             .with_collect_stat(true)
             .with_file_extension(format!(".{}", self.as_extension()))
             .with_file_sort_order(vec![vec![
