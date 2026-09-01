@@ -29,7 +29,7 @@ impl InstanceKind {
         match self {
             InstanceKind::Server => "server",
             InstanceKind::Cleanup => "cleanup",
-            InstanceKind::StoreOptimizer => "store_optimizer",
+            InstanceKind::StoreOptimizer => "store-optimizer",
         }
     }
 }
@@ -41,7 +41,7 @@ impl std::str::FromStr for InstanceKind {
         match value {
             "server" => Ok(Self::Server),
             "cleanup" => Ok(Self::Cleanup),
-            "store_optimizer" => Ok(Self::StoreOptimizer),
+            "store-optimizer" => Ok(Self::StoreOptimizer),
             _ => Err(InstanceKindError::unknown_kind(value)),
         }
     }

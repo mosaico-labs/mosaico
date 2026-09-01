@@ -154,7 +154,7 @@ pub fn print_instance_list(
     show_dead: bool,
     verbose: bool,
 ) {
-    const W_PROCESS: usize = 9;
+    const W_PROCESS: usize = 16;
     const W_MODE: usize = 11;
     const W_ID: usize = 5;
     const W_HOST: usize = 15;
