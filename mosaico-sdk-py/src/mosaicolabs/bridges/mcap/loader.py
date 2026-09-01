@@ -486,7 +486,7 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
 
 class MCAPLoaderProtobuf(_MCAPLoader):
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
+    SUPPORTED_CHANNEL_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
 
     def __init__(
         self,
@@ -551,6 +551,7 @@ class MCAPLoaderProtobuf(_MCAPLoader):
             end_time=None,
         ):
             channel_name = decoded_message.channel.topic
+            channel_encoding = decoded_message.channel.message_encoding
             log_time_ns = decoded_message.message.log_time
             publish_time = decoded_message.message.publish_time
 
@@ -562,10 +563,10 @@ class MCAPLoaderProtobuf(_MCAPLoader):
                 schema_name = decoded_message.schema.name
                 schema_encoding = decoded_message.schema.encoding
 
-                if schema_encoding not in self.SUPPORTED_ENCODINGS:
+                if channel_encoding not in self.SUPPORTED_CHANNEL_ENCODINGS:
                     raise ValueError(
-                        f"{MCAPLoaderProtobuf.__name__} cannot decode a message with `{schema_encoding}` encoding. \
-                          Supported encodings: {[enc for enc in self.SUPPORTED_ENCODINGS]}"
+                        f"{MCAPLoaderProtobuf.__name__} cannot decode a message with `{channel_encoding}` encoding. \
+                          Supported encodings: {[enc for enc in self.SUPPORTED_CHANNEL_ENCODINGS]}"
                     )
 
                 # Create dictionary from decoded message Python Object
@@ -581,6 +582,7 @@ class MCAPLoaderProtobuf(_MCAPLoader):
                 yield (
                     MCAPMessage(
                         channel_name=channel_name,
+                        channel_encoding=channel_encoding,
                         schema_name=schema_name,
                         schema_encoding=schema_encoding,
                         data=data_dict,
@@ -594,6 +596,7 @@ class MCAPLoaderProtobuf(_MCAPLoader):
                 yield (
                     MCAPMessage(
                         channel_name=channel_name,
+                        channel_encoding=channel_encoding,
                         schema_name=None,
                         schema_encoding=None,
                         data=None,
@@ -605,7 +608,7 @@ class MCAPLoaderProtobuf(_MCAPLoader):
 
 
 class MCAPLoaderJsonschema(_MCAPLoader):
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema", "json")
+    SUPPORTED_CHANNEL_ENCODINGS: ClassVar[Tuple[str, ...]] = ("json",)
 
     # --- Core Logic ---
 
@@ -613,7 +616,7 @@ class MCAPLoaderJsonschema(_MCAPLoader):
         self,
     ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
         """
-        The primary data streaming loop for jsonschema encoding.
+        The primary data streaming loop for json channel encoding.
 
         Yields:
             A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
@@ -639,10 +642,10 @@ class MCAPLoaderJsonschema(_MCAPLoader):
                 schema_name = schema.name
                 schema_encoding = schema.encoding
 
-                if schema_encoding not in self.SUPPORTED_ENCODINGS:
+                if channel.message_encoding not in self.SUPPORTED_CHANNEL_ENCODINGS:
                     raise ValueError(
-                        f"{MCAPLoaderJsonschema.__name__} cannot decode a message with `{schema_encoding}` encoding. \
-                          Supported encodings: {[enc for enc in self.SUPPORTED_ENCODINGS]}"
+                        f"{MCAPLoaderJsonschema.__name__} cannot decode a message with `{channel.message_encoding}` encoding. \
+                          Supported encodings: {[enc for enc in self.SUPPORTED_CHANNEL_ENCODINGS]}"
                     )
 
                 # Create dictionary from decoded message Python Object
@@ -652,6 +655,7 @@ class MCAPLoaderJsonschema(_MCAPLoader):
                 yield (
                     MCAPMessage(
                         channel_name=channel.topic,
+                        channel_encoding=channel.message_encoding,
                         schema_name=schema_name,
                         schema_encoding=schema_encoding,
                         data=data_dict,
@@ -665,6 +669,7 @@ class MCAPLoaderJsonschema(_MCAPLoader):
                 yield (
                     MCAPMessage(
                         channel_name=channel.topic,
+                        channel_encoding=channel.message_encoding,
                         schema_name=None,
                         schema_encoding=None,
                         data=None,

@@ -94,6 +94,7 @@ def test_protobufloader_streaming(mcap_protobuf_file):
 
     for mcap_msg, _ in mcap_loader:
         assert mcap_msg.channel_name in ALL_CHANNEL_NAMES
+        assert mcap_msg.channel_encoding == "protobuf"
         assert mcap_msg.data_field is not None
         assert mcap_msg.schema_encoding == "protobuf"
         assert mcap_msg.schema_name in ALL_PROTOBUF_MSGTYPES
@@ -105,6 +106,7 @@ def test_jsonschemaloader_streaming(mcap_jsonschema_file):
 
     for mcap_msg, _ in mcap_loader:
         assert mcap_msg.channel_name in ALL_CHANNEL_NAMES
+        assert mcap_msg.channel_encoding == "json"
         assert mcap_msg.data_field is not None
         assert mcap_msg.schema_encoding == "jsonschema"
         assert mcap_msg.schema_name in ALL_CHANNEL_NAMES

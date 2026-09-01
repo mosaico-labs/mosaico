@@ -49,6 +49,7 @@ class MCAPMessage:
     def __init__(
         self,
         channel_name: str,
+        channel_encoding: str,
         schema_name: Optional[str],
         schema_encoding: Optional[str],
         data: Optional[Dict[str, Any]],
@@ -60,13 +61,15 @@ class MCAPMessage:
 
         Args:
             channel_name (str): The channel name of the message source.
+            channel_encoding (str): The encoding of the message source.
             schema_name (Optional[str]): The schema name of the message source.
-            schema_encoding (Optional[str]): The encoding of the message source.
+            schema_encoding (Optional[str]): The encoding of the schema source.
             data (Optional[Dict[str, Any]]): The message payload, converted into a standard nested Python dictionary.
             log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
             publish_time_ns (Optional[int]): Timestamp (nanoseconds) at which the message was published. If not available, must be set to the log time.
         """
         self.channel_name = channel_name
+        self.channel_encoding = channel_encoding
         self.schema_name = schema_name
         self.schema_encoding = schema_encoding
         self.data_field = data
@@ -75,10 +78,12 @@ class MCAPMessage:
 
     channel_name: str
     """The channel name of the message source."""
+    channel_encoding: str
+    """The encoding of the message source."""
     schema_name: Optional[str]
     """The schema name of the message source."""
     schema_encoding: Optional[str]
-    """The encoding of the message source."""
+    """The encoding of the schema source."""
     data_field: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
     log_time_ns: int
