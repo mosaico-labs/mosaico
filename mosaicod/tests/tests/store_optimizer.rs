@@ -94,7 +94,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -285,7 +285,7 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -423,7 +423,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -614,7 +614,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -821,7 +821,7 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.

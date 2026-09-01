@@ -403,7 +403,7 @@ impl StoreOptimizer {
         )
     }
 
-    async fn optimize(&mut self) -> Result<()> {
+    async fn optimize(&mut self, shutdown_notifier: &CancellationToken) -> Result<()> {
         // Check for stale topics (if the optimization has started too long ago, then we can assume that something went wrong).
         // In this case remove the topic from the list (it will be re-added later (see below).
         let stale_deleted = db::topic_optimization_delete_stale(
@@ -420,11 +420,20 @@ impl StoreOptimizer {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
-        while let Some(acquired_topic) = self
-            .acquire_next_topic()
-            .await
-            .inspect_err(|_| error!("failed to acquire next topic to optimize"))?
-        {
+        loop {
+            if shutdown_notifier.is_cancelled() {
+                info!("Shutdown received. Interrupting store optimization run early.");
+                break;
+            }
+
+            let Some(acquired_topic) = self
+                .acquire_next_topic()
+                .await
+                .inspect_err(|_| error!("failed to acquire next topic to optimize"))?
+            else {
+                break;
+            };
+
             let topic_res = self.optimize_topic(&acquired_topic).await;
 
             match topic_res {
@@ -466,7 +475,7 @@ impl StoreOptimizer {
         loop {
             info!("Store optimization routine started");
 
-            match self.optimize().await {
+            match self.optimize(&shutdown_notifier).await {
                 Ok(_) => {
                     info!(
                         "Store optimization routine completed: {} topics successful, {} topics failed:",
