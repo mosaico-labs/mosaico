@@ -69,6 +69,8 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
+    let schema = actions::get_schema(&mut client, topic_name).await.unwrap();
+
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
@@ -87,4 +89,66 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
         doget_schema.metadata().get("client_key"),
         Some(&"client_value".to_owned())
     );
+
+    dbg!(&doget_schema);
+    dbg!(&schema);
+
+    // Check schema coherence
+    assert_eq!(doget_schema.fields(), schema.fields());
+}
+
+/// `get_schema` only supports Topic locators; a Sequence locator must be rejected.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_get_schema_wrong_locator_kind(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+
+    let res = actions::get_schema(&mut client, sequence_name).await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+}
+
+/// `get_schema` on a nonexistent topic must return NotFound.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_get_schema_nonexistent_topic(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let res = actions::get_schema(&mut client, "ghost_sequence/ghost_topic").await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
+}
+
+/// `get_schema` on a topic which exists but has no data uploaded yet must succeed
+/// and return an empty schema, instead of failing.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_get_schema_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    let schema = actions::get_schema(&mut client, topic_name).await.unwrap();
+
+    assert!(schema.fields().is_empty());
 }

@@ -3,14 +3,19 @@ use crate::types::TimestampRange;
 
 /// Message used to initiate the flight communication to upload a new datastream
 pub struct DoPutCmd {
-    pub resource_locator: String, //(cabba) TODO: replace this with a resource locator
+    pub resource_locator: String,
     pub key: String,
 }
 
 /// Request info on a mosaico resource (topic or sequence)
 pub struct GetFlightInfoCmd {
-    pub resource_locator: String, //(cabba) TODO: replace this with a resource locator
+    pub resource_locator: String,
     pub timestamp_range: Option<TimestampRange>,
+}
+
+/// Request the schema of a mosaico topic
+pub struct GetSchemaCmd {
+    pub resource_locator: String,
 }
 
 pub struct TicketTopic {
