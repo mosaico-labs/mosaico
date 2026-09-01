@@ -45,6 +45,9 @@ pre-commit = "^4.5.1"
 
 [tool.ruff]
 line-length = 88
+# protoc-generated code (own style, dynamic globals()-based class construction ruff
+# can't trace) -- not meant to be linted/formatted by project rules.
+exclude = ["**/utils/generated/*_pb2.py", "**/utils/generated/*_pb2.pyi"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

@@ -1,15 +1,11 @@
-from abc import ABC, abstractmethod
-from enum import Enum
 from pathlib import Path
 from typing import (
     Any,
     Dict,
     Generator,
-    Iterable,
     List,
     Optional,
     Tuple,
-    Type,
     Union,
 )
 
@@ -30,17 +26,16 @@ from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ...models.core.serializable import _compute_schema_fingerprint
+from ..helpers import _clip_timestamp, _filter_from_list, _validate_sequence
+from ..loader_base import BaseLoader, TopicStatus
 from ..protocols.mcap.converters.ros_converter import RosMsgSchemaConverter
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
 from .bridge import ROSBridge
 from .helpers import (
     _class_name_from_ros_msgtype,
-    _clip_timestamp,
     _extract_ros_metadata,
     _filter_topics_from_dict,
-    _filter_topics_from_list,
     _to_dict,
-    _validate_sequence,
 )
 from .ros_message import ROSMessage
 
@@ -48,193 +43,46 @@ from .ros_message import ROSMessage
 logger = get_logger(__name__)
 
 
-class TopicStatus(Enum):
-    """
-    Defines the possible topic status (ACCEPTED/REJECTED). In case of rejection, a more informative enum if provided.
+# class TopicStatus(Enum):
+#     """
+#     Defines the possible topic status (ACCEPTED/REJECTED). In case of rejection, a more informative enum if provided.
 
-    Attributes:
-        ACCEPTED: Enum specifying the Topic has been accepted.
-        FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
-        UNRESOLVED_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
-        NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
-        MALFORMED_METADATA: Enum specifying the Topic has been rejected since its ``_ros_`` metadata is malformed.
-    """
+#     Attributes:
+#         ACCEPTED: Enum specifying the Topic has been accepted.
+#         FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
+#         UNRESOLVED_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
+#         NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
+#         MALFORMED_METADATA: Enum specifying the Topic has been rejected since its ``_ros_`` metadata is malformed.
+#     """
 
-    ACCEPTED = "Accepted"
-    """ Status indicating an accepted Topic """
+#     ACCEPTED = "Accepted"
+#     """ Status indicating an accepted Topic """
 
-    FILTERED = "Filtered"
-    """ Status indicating topic has been rejected by user specified filter """
+#     FILTERED = "Filtered"
+#     """ Status indicating topic has been rejected by user specified filter """
 
-    UNRESOLVED_ADAPTED = "Unresolved adapted"
-    """ Status indicating the Topic has been rejected since no Mosaico adapter could be resolved """
+#     UNRESOLVED_ADAPTED = "Unresolved adapted"
+#     """ Status indicating the Topic has been rejected since no Mosaico adapter could be resolved """
 
-    NOT_IN_TYPESTORE = "Not in typestore"
-    """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
+#     NOT_IN_TYPESTORE = "Not in typestore"
+#     """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
 
-    MALFORMED_METADATA = "Malformed metadata"
-    """ Status indicating the Topic has been rejected since its '_ros_' metadata is malformed """
+#     MALFORMED_METADATA = "Malformed metadata"
+#     """ Status indicating the Topic has been rejected since its '_ros_' metadata is malformed """
 
-    def display_color(self) -> str:
-        """Returns the Rich color string used to render this status in the progress UI."""
-        _colors = {
-            TopicStatus.ACCEPTED: "bright_green",
-            TopicStatus.FILTERED: "bright_yellow",
-            TopicStatus.UNRESOLVED_ADAPTED: "dark_orange",
-            TopicStatus.NOT_IN_TYPESTORE: "orange1",
-            TopicStatus.MALFORMED_METADATA: "red1",
-        }
-        return _colors.get(self, "bright_red")
-
-
-# --- Shared Topic Resolution/Rejection Bookkeeping ---
+#     def display_color(self) -> str:
+#         """Returns the Rich color string used to render this status in the progress UI."""
+#         _colors = {
+#             TopicStatus.ACCEPTED: "bright_green",
+#             TopicStatus.FILTERED: "bright_yellow",
+#             TopicStatus.UNRESOLVED_ADAPTED: "dark_orange",
+#             TopicStatus.NOT_IN_TYPESTORE: "orange1",
+#             TopicStatus.MALFORMED_METADATA: "red1",
+#         }
+#         return _colors.get(self, "bright_red")
 
 
-class _BaseROSTopicResolver(ABC):
-    """
-    Shared topic classification and adapter-resolution logic for :class:`ROSLoader`
-    (bag file source) and :class:`MosaicoLoader` (Mosaico sequence source).
-
-    Both loaders classify every topic of their underlying data source into one of:
-    **accepted** (adapter resolved, passes the user's `topics` filter), **filtered**
-    (excluded by the user's `topics` filter), or **unresolved** (no Mosaico adapter
-    could be resolved) — plus any source-specific rejection reasons (see
-    :meth:`_extra_rejected_topics`). This base class implements the properties that
-    only need to read those buckets, so each subclass only has to populate them via
-    its own `_ensure_resolved()` (which performs the actual, source-specific
-    resolution: opening the bag file, or querying the Mosaico sequence).
-
-    Subclasses are expected to set, during `_ensure_resolved()`:
-
-    * `_resolved_topics`: **all** topic names in the source (dict or list; only
-      the keys/elements are read by this base class).
-    * `_accepted_topics`: topic names that passed filtering and adapter resolution.
-    * `_unresolved_adapter_topics`: topic names with no resolvable Mosaico adapter.
-    * `_filtered_topics`: topic names excluded by the user's `topics` filter.
-    * `_topic_cached_adapters`: `Dict[str, Type[ROSAdapterBase]]` mapping accepted
-      topic names to their resolved adapter.
-    """
-
-    _resolved_topics: Any
-    _accepted_topics: Any
-    _unresolved_adapter_topics: Any
-    _filtered_topics: Any
-    _topic_cached_adapters: Dict[str, Type[ROSAdapterBase]]
-
-    def __init__(self, container_type: Type[Iterable]):
-        self._resolved_topics = container_type()
-        """The full set of canonical topic names in the underlying source (dict or list; only the keys/elements are read by this base class)."""
-        self._accepted_topics = container_type()
-        """The set of topic names that passed filtering and adapter resolution (dict or list; only the keys/elements are read by this base class)."""
-        self._unresolved_adapter_topics = container_type()
-        """The set of topic names that have no resolvable Mosaico adapter (dict or list; only the keys/elements are read by this base class)."""
-        self._filtered_topics = container_type()
-        """The set of topic names that are excluded by the user's `topics` filter (dict or list; only the keys/elements are read by this base class)."""
-        self._topic_cached_adapters: dict[str, type[ROSAdapterBase]] = {}
-        """Dictionary mapping accepted topic names to their resolved Mosaico adapter class."""
-
-    @abstractmethod
-    def _ensure_resolved(self) -> None:
-        """Lazily triggers the source-specific resolution, populating the topic buckets."""
-
-    def _extra_rejected_topics(self) -> List[Tuple[str, "TopicStatus"]]:
-        """
-        Hook for source-specific rejection reasons beyond FILTERED/UNRESOLVED_ADAPTED
-        (e.g. :class:`MosaicoLoader`'s `NOT_IN_TYPESTORE`/`MALFORMED_METADATA`).
-
-        Returns:
-            List[Tuple[str, TopicStatus]]: Additional `(topic_name, status)` rejections.
-                Empty by default.
-        """
-        return []
-
-    @property
-    def topics(self) -> List[str]:
-        """
-        Retrieves the list of accepted topic names that will be processed.
-
-        Returns:
-            List[str]: A list of topic names currently matched and scheduled for loading.
-        """
-        self._ensure_resolved()
-        return list(self._accepted_topics)
-
-    @property
-    def resolved_topics(self) -> List[str]:
-        """
-        Retrieves the list of **all** the canonical topic names in the underlying source.
-        This property does not account for topics filtered out or not-adapted: it returns everything.
-
-        Returns:
-            List[str]: A list of all topic names contained within the source.
-        """
-        self._ensure_resolved()
-        return list(self._resolved_topics)
-
-    @property
-    def unresolved_adapted_topics(self) -> List[str]:
-        """
-        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
-
-        Returns:
-            List[str]: A list of topics with unresolved adapter to translate them into/from Mosaico Ontology.
-        """
-        self._ensure_resolved()
-        return list(self._unresolved_adapter_topics)
-
-    @property
-    def filtered_topics(self) -> List[str]:
-        """
-        Retrieves the list of topic names that are **skipped** due to the user filter.
-
-        Returns:
-            List[str]: The list of topics filtered by the user. Empty if no filter is provided.
-        """
-        self._ensure_resolved()
-        return list(self._filtered_topics)
-
-    @property
-    def rejected_topics(self) -> List[Tuple[str, "TopicStatus"]]:
-        """
-        Retrieves every rejected topic together with the reason it was rejected.
-
-        Returns:
-            List[Tuple[str, TopicStatus]]: `(topic_name, status)` pairs for every topic
-                excluded from `topics`, combining `filtered_topics`, `unresolved_adapted_topics`,
-                and any source-specific rejections from `_extra_rejected_topics()`.
-        """
-        self._ensure_resolved()
-
-        rejected: List[Tuple[str, TopicStatus]] = [
-            (t, TopicStatus.FILTERED) for t in self.filtered_topics
-        ]
-        rejected += [
-            (t, TopicStatus.UNRESOLVED_ADAPTED) for t in self.unresolved_adapted_topics
-        ]
-        rejected += self._extra_rejected_topics()
-        return rejected
-
-    def resolve_adapter(self, topic_name: str) -> Optional[type[ROSAdapterBase]]:
-        """
-        Returns the resolved adapter for an accepted topic.
-
-        Args:
-            topic_name (str): The topic name whose adapter should be resolved.
-                Must be one of the accepted topics produced by `_ensure_resolved()`.
-
-        Returns:
-            Optional[Type[ROSAdapterBase]]: The resolved adapter type, or `None` if the
-                topic is not among the accepted topics.
-        """
-        self._ensure_resolved()
-
-        if topic_name not in self._accepted_topics:
-            return None
-
-        return self._topic_cached_adapters.get(topic_name)
-
-
-class ROSLoader(_BaseROSTopicResolver):
+class ROSLoader(BaseLoader):
     """
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
 
@@ -641,7 +489,7 @@ class ROSLoader(_BaseROSTopicResolver):
         self.close()
 
 
-class MosaicoLoader(_BaseROSTopicResolver):
+class MosaicoLoader(BaseLoader):
     """
     Lazy data loader that streams messages from a Mosaico sequence.
 
@@ -921,7 +769,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
            and validates it exists.
         2. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
            logging a warning if clipping occurs.
-        3. Applies the topic filter via :func:`_filter_topics_from_list`.
+        3. Applies the topic filter via :func:`_filter_from_list`.
         4. For each matched topic, extracts its Mosaico adapter via
            :meth:`_get_or_create_adapter`. Adapter is first looked up using
            ``_ros_`` metadata, falling back to adapter associated to the ontology
@@ -965,7 +813,7 @@ class MosaicoLoader(_BaseROSTopicResolver):
             self._seq_handler.timestamp_ns_max,
         )
 
-        matched_topics = _filter_topics_from_list(
+        matched_topics = _filter_from_list(
             self._seq_handler.topics, self._topic_glob_pattern
         )
 
