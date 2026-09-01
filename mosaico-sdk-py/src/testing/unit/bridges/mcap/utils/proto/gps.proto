@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package mosaicolabs.testing.mcap;
+
+import "common.proto";
+
+message GeoPoint {
+  double latitude = 1;
+  double longitude = 2;
+  double altitude = 3;
+}
+
+enum FixType {
+  FIX_TYPE_NO_FIX = 0;
+  FIX_TYPE_FIX = 1;
+  FIX_TYPE_DIFFERENTIAL = 2;
+  FIX_TYPE_RTK = 3;
+}
+
+message Gps {
+  Header header = 1;
+  GeoPoint position = 2;
+  repeated double position_covariance = 3;
+  FixType fix_type = 4;
+  uint32 satellites_visible = 5;
+  int32 satellites_used = 6;
+  bool differential = 7;
+  float horizontal_accuracy = 8;
+  float vertical_accuracy = 9;
+  int64 utc_time_micros = 10;
+  string station_id = 11;
+  bytes raw_nmea = 12;
+  repeated string active_satellite_ids = 13;
+}

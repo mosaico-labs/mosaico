@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package mosaicolabs.testing.mcap;
+
+import "common.proto";
+
+enum ImuStatus {
+  IMU_STATUS_OK = 0;
+  IMU_STATUS_WARNING = 1;
+  IMU_STATUS_ERROR = 2;
+}
+
+message Imu {
+  Header header = 1;
+  Quaternion orientation = 2;
+  Vector3 angular_velocity = 3;
+  Vector3 linear_acceleration = 4;
+  repeated double linear_acceleration_covariance = 5;
+  ImuStatus status = 6;
+  bool calibrated = 7;
+  uint32 sequence = 8;
+  sint32 temperature_millideg = 9;
+  uint64 uptime_ns = 10;
+  float drift_estimate = 11;
+  bytes raw_diagnostic = 12;
+}

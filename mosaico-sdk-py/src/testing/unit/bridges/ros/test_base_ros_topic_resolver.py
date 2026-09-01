@@ -1,11 +1,11 @@
-from mosaicolabs.bridges.ros.loader import TopicStatus, _BaseROSTopicResolver
+from mosaicolabs.bridges.ros.loader import BaseLoader, TopicStatus
 
 
 class _FakeAdapter:
     """Stand-in for a resolved adapter type; identity is all that matters here."""
 
 
-class _FakeResolver(_BaseROSTopicResolver):
+class _FakeLoader(BaseLoader):
     """
     Minimal concrete subclass exercising the base class's bookkeeping without needing
     a real bag file or Mosaico sequence. Storage containers are passed in as either
@@ -39,7 +39,7 @@ class _FakeResolver(_BaseROSTopicResolver):
 
 def _dict_backed_resolver(**extra_rejections_kwargs):
     adapter = _FakeAdapter()
-    return _FakeResolver(
+    return _FakeLoader(
         resolved={"/imu": None, "/gps": None, "/debug": None},
         accepted={"/imu": None, "/gps": None},
         unresolved={"/debug": None},
@@ -51,7 +51,7 @@ def _dict_backed_resolver(**extra_rejections_kwargs):
 
 def _list_backed_resolver(**extra_rejections_kwargs):
     adapter = _FakeAdapter()
-    return _FakeResolver(
+    return _FakeLoader(
         resolved=["/imu", "/gps", "/debug"],
         accepted=["/imu", "/gps"],
         unresolved=["/debug"],
@@ -89,7 +89,7 @@ def test_filtered_topics_empty_when_no_filter_applied():
 
 
 def test_filtered_topics_reflects_excluded_topics():
-    resolver = _FakeResolver(
+    resolver = _FakeLoader(
         resolved={"/imu": None, "/cam": None},
         accepted={"/imu": None},
         unresolved={},

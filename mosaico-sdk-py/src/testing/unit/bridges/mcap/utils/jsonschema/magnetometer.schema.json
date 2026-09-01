@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Magnetometer",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "stamp": {
+          "type": "object",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nanosec": { "type": "integer" }
+          }
+        },
+        "frame_id": { "type": "string" }
+      }
+    },
+    "magnetic_field": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "magnetic_field_covariance": {
+      "type": "array",
+      "items": { "type": "number" }
+    },
+    "temperature_celsius": { "type": "number" },
+    "sensor_id": { "type": "integer" },
+    "saturated": { "type": "boolean" },
+    "calibration_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "readings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "axis": { "type": "string" },
+          "value": { "type": "number" },
+          "saturated": { "type": "boolean" }
+        }
+      }
+    },
+    "hardware_revision": { "type": "integer" },
+    "raw_counter": { "type": "integer" }
+  }
+}
