@@ -22,5 +22,5 @@ message Imu {
   sint32 temperature_millideg = 9;
   uint64 uptime_ns = 10;
   float drift_estimate = 11;
-  bytes raw_diagnostic = 12;
+  string diagnostic_note = 12;
 }

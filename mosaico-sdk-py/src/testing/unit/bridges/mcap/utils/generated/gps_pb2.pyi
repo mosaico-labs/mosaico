@@ -1,17 +1,9 @@
-from typing import (
-    ClassVar as _ClassVar,
-    Iterable as _Iterable,
-    Mapping as _Mapping,
-    Optional as _Optional,
-    Union as _Union,
-)
-
 import common_pb2 as _common_pb2
-from google.protobuf import descriptor as _descriptor, message as _message
-from google.protobuf.internal import (
-    containers as _containers,
-    enum_type_wrapper as _enum_type_wrapper,
-)
+from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 FIX_TYPE_DIFFERENTIAL: FixType
@@ -27,29 +19,10 @@ class GeoPoint(_message.Message):
     altitude: float
     latitude: float
     longitude: float
-    def __init__(
-        self,
-        latitude: _Optional[float] = ...,
-        longitude: _Optional[float] = ...,
-        altitude: _Optional[float] = ...,
-    ) -> None: ...
+    def __init__(self, latitude: _Optional[float] = ..., longitude: _Optional[float] = ..., altitude: _Optional[float] = ...) -> None: ...
 
 class Gps(_message.Message):
-    __slots__ = [
-        "active_satellite_ids",
-        "differential",
-        "fix_type",
-        "header",
-        "horizontal_accuracy",
-        "position",
-        "position_covariance",
-        "raw_nmea",
-        "satellites_used",
-        "satellites_visible",
-        "station_id",
-        "utc_time_micros",
-        "vertical_accuracy",
-    ]
+    __slots__ = ["active_satellite_ids", "differential", "fix_type", "header", "horizontal_accuracy", "position", "position_covariance", "raw_nmea", "satellites_used", "satellites_visible", "station_id", "utc_time_micros", "vertical_accuracy"]
     ACTIVE_SATELLITE_IDS_FIELD_NUMBER: _ClassVar[int]
     DIFFERENTIAL_FIELD_NUMBER: _ClassVar[int]
     FIX_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -76,22 +49,7 @@ class Gps(_message.Message):
     station_id: str
     utc_time_micros: int
     vertical_accuracy: float
-    def __init__(
-        self,
-        header: _Optional[_Union[_common_pb2.Header, _Mapping]] = ...,
-        position: _Optional[_Union[GeoPoint, _Mapping]] = ...,
-        position_covariance: _Optional[_Iterable[float]] = ...,
-        fix_type: _Optional[_Union[FixType, str]] = ...,
-        satellites_visible: _Optional[int] = ...,
-        satellites_used: _Optional[int] = ...,
-        differential: bool = ...,
-        horizontal_accuracy: _Optional[float] = ...,
-        vertical_accuracy: _Optional[float] = ...,
-        utc_time_micros: _Optional[int] = ...,
-        station_id: _Optional[str] = ...,
-        raw_nmea: _Optional[bytes] = ...,
-        active_satellite_ids: _Optional[_Iterable[str]] = ...,
-    ) -> None: ...
+    def __init__(self, header: _Optional[_Union[_common_pb2.Header, _Mapping]] = ..., position: _Optional[_Union[GeoPoint, _Mapping]] = ..., position_covariance: _Optional[_Iterable[float]] = ..., fix_type: _Optional[_Union[FixType, str]] = ..., satellites_visible: _Optional[int] = ..., satellites_used: _Optional[int] = ..., differential: bool = ..., horizontal_accuracy: _Optional[float] = ..., vertical_accuracy: _Optional[float] = ..., utc_time_micros: _Optional[int] = ..., station_id: _Optional[str] = ..., raw_nmea: _Optional[bytes] = ..., active_satellite_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class FixType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []

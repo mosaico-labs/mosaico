@@ -1,11 +1,6 @@
-from typing import (
-    ClassVar as _ClassVar,
-    Mapping as _Mapping,
-    Optional as _Optional,
-    Union as _Union,
-)
-
-from google.protobuf import descriptor as _descriptor, message as _message
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -15,11 +10,7 @@ class Header(_message.Message):
     STAMP_FIELD_NUMBER: _ClassVar[int]
     frame_id: str
     stamp: Stamp
-    def __init__(
-        self,
-        stamp: _Optional[_Union[Stamp, _Mapping]] = ...,
-        frame_id: _Optional[str] = ...,
-    ) -> None: ...
+    def __init__(self, stamp: _Optional[_Union[Stamp, _Mapping]] = ..., frame_id: _Optional[str] = ...) -> None: ...
 
 class Quaternion(_message.Message):
     __slots__ = ["w", "x", "y", "z"]
@@ -31,13 +22,7 @@ class Quaternion(_message.Message):
     x: float
     y: float
     z: float
-    def __init__(
-        self,
-        x: _Optional[float] = ...,
-        y: _Optional[float] = ...,
-        z: _Optional[float] = ...,
-        w: _Optional[float] = ...,
-    ) -> None: ...
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., z: _Optional[float] = ..., w: _Optional[float] = ...) -> None: ...
 
 class Stamp(_message.Message):
     __slots__ = ["nanosec", "sec"]
@@ -45,9 +30,7 @@ class Stamp(_message.Message):
     SEC_FIELD_NUMBER: _ClassVar[int]
     nanosec: int
     sec: int
-    def __init__(
-        self, sec: _Optional[int] = ..., nanosec: _Optional[int] = ...
-    ) -> None: ...
+    def __init__(self, sec: _Optional[int] = ..., nanosec: _Optional[int] = ...) -> None: ...
 
 class Vector3(_message.Message):
     __slots__ = ["x", "y", "z"]
@@ -57,9 +40,4 @@ class Vector3(_message.Message):
     x: float
     y: float
     z: float
-    def __init__(
-        self,
-        x: _Optional[float] = ...,
-        y: _Optional[float] = ...,
-        z: _Optional[float] = ...,
-    ) -> None: ...
+    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ..., z: _Optional[float] = ...) -> None: ...

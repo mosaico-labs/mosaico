@@ -57,6 +57,12 @@ IMU_PROTOBUF_MSGTYPE = "mosaicolabs.testing.mcap.Imu"
 GPS_PROTOBUF_MSGTYPE = "mosaicolabs.testing.mcap.Gps"
 MAGN_PROTOBUF_MSGTYPE = "mosaicolabs.testing.mcap.Magnetometer"
 
+ALL_PROTOBUF_MSGTYPES = [
+    IMU_PROTOBUF_MSGTYPE,
+    GPS_PROTOBUF_MSGTYPE,
+    MAGN_PROTOBUF_MSGTYPE,
+]
+
 
 def make_imu_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Message]:
     t = meas_time.to_float()
@@ -109,7 +115,7 @@ def make_imu_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Messa
             temperature_millideg=25000 + int(100 * math.sin(t)),
             uptime_ns=meas_time.to_nanoseconds(),
             drift_estimate=0.001 * math.sin(t),
-            raw_diagnostic=f"imu-sample-{meas_time.to_nanoseconds()}".encode(),
+            diagnostic_note=f"imu-sample-{meas_time.to_nanoseconds()}",
         )
         return msg
     else:

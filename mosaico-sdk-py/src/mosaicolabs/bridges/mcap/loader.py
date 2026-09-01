@@ -1,8 +1,13 @@
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import ClassVar, Dict, Generator, List, Optional, Tuple, Union
 
+from google.protobuf.descriptor_pb2 import (
+    FileDescriptorSet,
+)
+from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.json_format import MessageToDict
 from mcap.reader import McapReader
 from mcap.records import Channel, Schema
 from mcap.summary import Summary
@@ -62,11 +67,12 @@ class TopicStatus(Enum):
         return _colors.get(self, "bright_red")
 
 
-class MCAPLoader(BaseLoader[MCAPAdapterBase]):
+class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
     """
-    Unified loader for reading and deserializing MCAP files independendly from the contained message encoding data.
+    Base MCAP loader for reading and deserializing MCAP files.
+    TODO: instructions for the LLM: improved the docstring explaining that this middle class is necessary since the data encoding to MCAPMessage is different depending on the encoding of the MCAP Channels. Specify its subclasses are MCAPLoaderProtobuf and MCAPLoaderJsonschema. This is the equivalent of ROSLoader class
 
-    The `MCAPLoader` acts as a resource manager that abstracts the underlying `mcap` library.
+    The `_MCAPLoader` acts as a resource manager that abstracts the underlying `mcap` library.
     It provides a standardized Pythonic interface for filtering topics and streaming data
     into the Mosaico adaptation pipeline.
 
@@ -87,7 +93,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
-        Initializes the MCAPLoader.
+        Initializes the _MCAPLoader.
 
         # TODO: fix example with the current loader
         Example:
@@ -207,7 +213,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
         if not self._accepted_topics:
             raise RuntimeError(
-                "Unable to initialize MCAPLoader: No connections matched criteria. Try checking the channel filter, if any."
+                "Unable to initialize _MCAPLoader: No connections matched criteria. Try checking the channel filter, if any."
             )
 
         return self._reader
@@ -437,14 +443,71 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
     # --- Core Logic ---
 
+    def close(self):
+        """
+        Explicitly closes the mcap file and releases system resources.
+        """
+        if self._mcap_file:
+            self._mcap_file.close()
+            self._reader = None
+
+    def __enter__(self):
+        """Context manager support."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
+        self.close()
+
+
+class MCAPLoaderProtobuf(_MCAPLoader):
+    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
+
+    def __init__(
+        self,
+        file_path: Union[str, Path],
+        channels: Optional[Union[str, List[str]]] = None,
+        serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
+    ):
+        """#TODO: instructions for the LLM: create a short docstring where you specify that this subclass just requires the descriptor_pool populated during the _resolve_channels() function"""
+        super().__init__(file_path, channels, serialization_formats)
+        self.descriptor_pool: DescriptorPool = DescriptorPool()
+
+    def _resolve_channels(self):
+        """#TODO: instructions for the LLM: create a short docstring"""
+        super()._resolve_channels()
+
+        if (
+            self._mcap_file is None
+        ):  # Here _mcap_file cannot be None. Used just to silence IDE
+            raise RuntimeError(
+                f"MCAP at {self._file_path} has not been initialised! \
+                  Impossible to resolve channels through {MCAPLoaderProtobuf.__name__}"
+            )
+
+        mcap_summary = self._get_mcap_summary(self._mcap_file)
+
+        for schema in mcap_summary.schemas.values():
+            self.register_schemas_to_pool(schema)
+
+    def register_schemas_to_pool(self, schema: Schema):
+        """Registers MCAP file contained schemas to DescriptorPool used to turn Protobuf classes to Dictionaries"""
+        try:
+            msgtype = schema.name
+            self.descriptor_pool.FindMessageTypeByName(msgtype)
+        except KeyError:
+            fds_bytes = schema.data
+            file_proto = FileDescriptorSet.FromString(fds_bytes).file
+            for file_proto in FileDescriptorSet.FromString(fds_bytes).file:
+                self.descriptor_pool.Add(file_proto)
+
+    # --- Core Logic ---
+
     def __iter__(
         self,
     ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
         """
-        The primary data streaming loop.
-
-        This generator iterates through the mcap chronologically, deserializing raw binary
-        payloads into standard `MCAPMessage` containers.
+        The primary data streaming loop for protobuf messages.
 
         Yields:
             A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
@@ -461,7 +524,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             topics=[topic for topic in self._accepted_topics.keys()],
             start_time=None,
             end_time=None,
-        ):  # TODO: this should not work when messages in the mcap file have jsonschema encoding
+        ):
             channel_name = decoded_message.channel.topic
             log_time_ns = decoded_message.message.log_time
             publish_time = decoded_message.message.publish_time
@@ -474,13 +537,28 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 schema_name = decoded_message.schema.name
                 schema_encoding = decoded_message.schema.encoding
 
+                if schema_encoding not in self.SUPPORTED_ENCODINGS:
+                    raise ValueError(
+                        f"{MCAPLoaderProtobuf.__name__} cannot decode a message with `{schema_encoding}` encoding. \
+                          Supported encodings: {[enc for enc in self.SUPPORTED_ENCODINGS]}"
+                    )
+
+                # Create dictionary from decoded message Python Object
+                data_dict = MessageToDict(
+                    decoded_message.decoded_message,
+                    always_print_fields_with_no_presence=True,
+                    preserving_proto_field_name=True,
+                    use_integers_for_enums=True,
+                    descriptor_pool=self.descriptor_pool,
+                )
+
                 # Yield the standard SDK message
                 yield (
                     MCAPMessage(
                         channel_name=channel_name,
                         schema_name=schema_name,
                         schema_encoding=schema_encoding,
-                        data=json.loads(json.dumps(decoded_message.decoded_message)),
+                        data=data_dict,
                         log_time_ns=log_time_ns,
                         publish_time_ns=publish_time,
                     ),
@@ -500,18 +578,73 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     e,
                 )
 
-    def close(self):
-        """
-        Explicitly closes the mcap file and releases system resources.
-        """
-        if self._mcap_file:
-            self._mcap_file.close()
-            self._reader = None
 
-    def __enter__(self):
-        """Context manager support."""
-        return self
+class MCAPLoaderJsonschema(_MCAPLoader):
+    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema", "json")
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensures resources are released even if an error occurs in the `with` block."""
-        self.close()
+    # --- Core Logic ---
+
+    def __iter__(
+        self,
+    ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
+        """
+        The primary data streaming loop for jsonschema encoding.
+
+        Yields:
+            A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
+        """
+
+        self._resolve_channels()
+
+        if (
+            not self._accepted_topics or not self._reader
+        ):  # just for remove IDE errors on reader usage
+            return
+
+        for schema, channel, message in self._reader.iter_messages(
+            topics=[topic for topic in self._accepted_topics.keys()],
+            start_time=None,
+            end_time=None,
+        ):
+            try:
+                if schema is None:
+                    raise RuntimeError(
+                        f"Impossible to read schema from channel: {channel.topic} since it is not present"
+                    )
+                schema_name = schema.name
+                schema_encoding = schema.encoding
+
+                if schema_encoding not in self.SUPPORTED_ENCODINGS:
+                    raise ValueError(
+                        f"{MCAPLoaderJsonschema.__name__} cannot decode a message with `{schema_encoding}` encoding. \
+                          Supported encodings: {[enc for enc in self.SUPPORTED_ENCODINGS]}"
+                    )
+
+                # Create dictionary from decoded message Python Object
+                data_dict = json.loads(message.data)
+
+                # Yield the standard SDK message
+                yield (
+                    MCAPMessage(
+                        channel_name=channel.topic,
+                        schema_name=schema_name,
+                        schema_encoding=schema_encoding,
+                        data=data_dict,
+                        log_time_ns=message.log_time,
+                        publish_time_ns=message.publish_time,
+                    ),
+                    None,
+                )
+
+            except Exception as e:
+                yield (
+                    MCAPMessage(
+                        channel_name=channel.topic,
+                        schema_name=None,
+                        schema_encoding=None,
+                        data=None,
+                        log_time_ns=message.log_time,
+                        publish_time_ns=message.publish_time,
+                    ),
+                    e,
+                )
