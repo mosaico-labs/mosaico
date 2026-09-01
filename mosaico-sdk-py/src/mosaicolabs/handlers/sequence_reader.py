@@ -179,6 +179,7 @@ class SequenceDataStreamer:
                 client=client,
                 topic_name=topic_name,
                 ticket=ep.ticket,
+                resource_manifest=topic_manifest,
             )
             # Cache the topic reader instance
             topic_readers[treader.name] = treader

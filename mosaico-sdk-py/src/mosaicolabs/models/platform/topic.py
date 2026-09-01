@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional
 
 from typing_extensions import Self
 
-from mosaicolabs.platform.metadata import TopicMetadata
+from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.platform.resource_manifests import TopicResourceManifest
 
 
@@ -221,7 +221,7 @@ class Topic:
     The `chunks_number` attribute is not queryable.
     """
 
-    serialization_format: str
+    serialization_format: SerializationFormat
     """
     The format used to serialize the topic data (e.g., 'arrow', 'image').
 
@@ -255,7 +255,6 @@ class Topic:
         cls,
         name: str,
         sequence_name: str,
-        platform_metadata: TopicMetadata,
         resrc_manifest: TopicResourceManifest,
     ) -> Self:
         """
@@ -270,22 +269,14 @@ class Topic:
         Returns:
             Self: A Topic instance.
         """
-        if not isinstance(platform_metadata, TopicMetadata):
-            raise ValueError(
-                "Metadata must be an instance of `mosaicolabs.comm.TopicMetadata`."
-            )
-        user_metadata = getattr(platform_metadata, "user_metadata", None)
-        if user_metadata is None:
-            raise ValueError("Metadata must have a `user_metadata` attribute.")
-
         return cls(
-            user_metadata=user_metadata,
+            user_metadata=resrc_manifest.user_metadata,
             name=name,
             sequence_name=sequence_name,
             total_size_bytes=resrc_manifest.total_size_bytes,
             created_timestamp=resrc_manifest.created_timestamp,
-            ontology_tag=platform_metadata.properties.ontology_tag,
-            serialization_format=platform_metadata.properties.serialization_format.value,
-            chunks_number=resrc_manifest.chunks_number,
+            ontology_tag=resrc_manifest.ontology_tag,
+            serialization_format=resrc_manifest.serialization_format,
+            chunks_number=resrc_manifest.total_chunks_count,
             locked=resrc_manifest.locked,
         )

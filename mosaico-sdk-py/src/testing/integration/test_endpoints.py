@@ -1,3 +1,5 @@
+import bisect
+
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
@@ -195,6 +197,20 @@ def test_topic_streamer_manifest_timestamps(
     )
     timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
+    # find the index to start from (which corresponds to timestamp_ns_start)
+    msg_idx_start = bisect.bisect_left(
+        [it.msg.timestamp_ns for it in _cached_topic_data_stream],
+        timestamp_ns_start,
+    )
+
+    # find the index to which end (which corresponds to the one right before timestamp_ns_end)
+    msg_idx_stop = (
+        bisect.bisect_left(
+            [it.msg.timestamp_ns for it in _cached_topic_data_stream],
+            timestamp_ns_end,
+        )
+        - 1
+    )
     flight_info = TopicDataStreamer._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
@@ -205,14 +221,14 @@ def test_topic_streamer_manifest_timestamps(
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
     topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-    # The start/end timestamp must be equal to the first/last message timestamps of the topic data stream
-    # min and max are still the lowest and highest timestamp in the whole topic stream
+    # The start/end timestamp must be equal to the first/last message timestamps WITHIN THE TIME WINDOW of the topic data stream
     assert (
-        topic_manifest.timestamp_ns_min == _cached_topic_data_stream[0].msg.timestamp_ns
+        topic_manifest.timestamp_ns_min
+        == _cached_topic_data_stream[msg_idx_start].msg.timestamp_ns
     )
     assert (
         topic_manifest.timestamp_ns_max
-        == _cached_topic_data_stream[-1].msg.timestamp_ns
+        == _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
     )
 
     # free resources

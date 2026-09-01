@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from pyarrow.flight import FlightEndpoint
 
+from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
 from ..helpers.helpers import unpack_topic_full_path
@@ -28,6 +29,30 @@ class SessionManifestError(Exception):
     """Raised when SessionResourceManifest cannot be extracted from `app_metadata`."""
 
     pass
+
+
+def _get_metadata_value(
+    metadata: Dict[str, Any],
+    key: str,
+    is_mandatory: bool = True,
+    default: Optional[Any] = None,
+) -> Any:
+    """
+    Safely retrieves a value from the metadata dictionary.
+
+    Args:
+        metadata (Dict[str, Any]): The metadata dictionary.
+        key (str): The key to retrieve.
+        is_mandatory (bool): Whether the key is mandatory.
+        default (Optional[Any]): The default value to return if the key is not found.
+
+    Returns:
+        Any: The value associated with the key or the default value.
+    """
+    value = metadata.get(key, default)
+    if is_mandatory and value is None:
+        raise ValueError(f"Missing mandatory key '{key}' in metadata.")
+    return value
 
 
 @dataclass(frozen=True)
@@ -57,10 +82,14 @@ class TopicResourceManifest:
     created_timestamp: int
     locked: bool
     total_size_bytes: int
-    chunks_number: int
+    total_chunks_count: int
+    ontology_tag: str
+    serialization_format: SerializationFormat
+    user_metadata: dict
     completed_timestamp: Optional[int]
     timestamp_ns_min: Optional[int]
     timestamp_ns_max: Optional[int]
+    total_row_count: int
 
     @classmethod
     def _from_flight_endpoint(
@@ -83,33 +112,28 @@ class TopicResourceManifest:
         try:
             app_mdata = _decode_app_metadata(endpoint.app_metadata)
 
-            resrc_loc = app_mdata.get("resource_locator")
-            if resrc_loc is None:
-                raise TopicManifestError(
-                    "Expected `resource_locator` key in app_metadata."
+            created_timestamp = _get_metadata_value(app_mdata, "created_at_ns")
+            locked = _get_metadata_value(app_mdata, "locked")
+            resrc_loc = _get_metadata_value(app_mdata, "resource_locator")
+            ontology_tag = _get_metadata_value(app_mdata, "ontology_tag")
+            serialization_format = _get_metadata_value(
+                app_mdata, "serialization_format"
+            )
+            try:
+                serialization_format = SerializationFormat(serialization_format)
+            except Exception as e:
+                raise ValueError(
+                    f"Unable to convert to a valid 'SerializationFormat'.\nInner err: {e}"
                 )
-            info_mdata = app_mdata.get("info", {})
+            user_metadata = _get_metadata_value(app_mdata, "user_metadata")
+            info_mdata = _get_metadata_value(app_mdata, "data_info")
             if not isinstance(info_mdata, dict):
                 raise TopicManifestError(
-                    f"Unrecognized format for key 'info' in app_metadata: type {type(info_mdata).__name__}, expected a JSON."
+                    f"Unrecognized format for key 'data_info' in app_metadata: type {type(info_mdata).__name__}, expected a JSON."
                 )
 
-            chunks_number = info_mdata.get("chunks_number")
-            total_size_bytes = info_mdata.get("total_bytes")
-
-            if chunks_number is None or total_size_bytes is None:
-                raise TopicManifestError(
-                    "'info' data in app_metadata misses required fields."
-                )
-
-            tmin, tmax = cls._parse_timestamp_range(info_mdata.get("timestamp", {}))
-
-            created_timestamp = app_mdata.get("created_at_ns")
-            locked = app_mdata.get("locked")
-            if created_timestamp is None or locked is None:
-                raise TopicManifestError(
-                    "Invalid format for 'info' data in app_metadata: missing required fields. The related topic can be malformed."
-                )
+            total_size_bytes = _get_metadata_value(info_mdata, "total_bytes")
+            total_chunks_count = _get_metadata_value(info_mdata, "total_chunks_count")
 
             locator_tuple = unpack_topic_full_path(resrc_loc)
             if locator_tuple is None:
@@ -117,18 +141,47 @@ class TopicResourceManifest:
                     f"Invalid format for 'resource_locator': cannot deduce sequence and topic name from '{resrc_loc}'."
                 )
 
+            tmax = tmin = total_row_count = None
+            # Get timestamp and row counts from 'time_window_info' first: if not None, an inner range has been asked
+            time_window_info = _get_metadata_value(
+                app_mdata, "time_window_info", is_mandatory=False
+            )
+            if time_window_info is not None:
+                # If an inner range has nbeen asked, the fields are mandatory
+                tmin, tmax = cls._parse_timestamp_range(
+                    _get_metadata_value(
+                        time_window_info, "interval", is_mandatory=False, default={}
+                    )
+                )
+                total_row_count = _get_metadata_value(time_window_info, "row_count")
+            else:
+                # If no inner range has been asked, get the global timestamp range from 'data_info'
+                # The fiels are mandatory
+                tmin, tmax = cls._parse_timestamp_range(
+                    _get_metadata_value(
+                        info_mdata, "interval", is_mandatory=False, default={}
+                    )
+                )
+                total_row_count = _get_metadata_value(info_mdata, "total_row_count")
+
             seq_name, top_name = locator_tuple
 
             return cls(
                 name=top_name,
                 sequence_name=seq_name,
                 created_timestamp=created_timestamp,
-                completed_timestamp=app_mdata.get("completed_at_ns"),
+                completed_timestamp=_get_metadata_value(
+                    app_mdata, "completed_at_ns", is_mandatory=False
+                ),
                 locked=locked,
+                serialization_format=serialization_format,
+                ontology_tag=ontology_tag,
                 total_size_bytes=total_size_bytes,
-                chunks_number=chunks_number,
+                total_chunks_count=total_chunks_count,
+                user_metadata=user_metadata,
                 timestamp_ns_min=tmin,
                 timestamp_ns_max=tmax,
+                total_row_count=total_row_count,
             )
 
         except Exception as e:
@@ -156,8 +209,8 @@ class TopicResourceManifest:
         tmax = None
         # Can be null (i.e. "timestamp" present but empty)
         if isinstance(tstamp_mdata, dict):
-            tmin = tstamp_mdata.get("start_ns")
-            tmax = tstamp_mdata.get("end_ns")
+            tmin = _get_metadata_value(tstamp_mdata, "start_ns", is_mandatory=False)
+            tmax = _get_metadata_value(tstamp_mdata, "end_ns", is_mandatory=False)
             # Ensure both keys exist
             if (tmin is None) != (tmax is None):
                 logger.error(
@@ -210,28 +263,20 @@ class SessionResourceManifest:
             SessionManifestError: If the endpoint `app_metadata` misses required keys.
         """
 
-        # This should never happen. If it does, it's a malformed session.
-        if not isinstance(session_mdata, dict):
-            raise SessionManifestError(
-                f"Unrecognized type {type(session_mdata).__name__} for 'session' field in app_metadata."
-            )
-
-        locator = session_mdata.get("locator")
-        created_timestamp = session_mdata.get("created_at_ns")
-        locked = session_mdata.get("locked")
-
-        # This should never happen. If it does, it's a malformed session.
-        if locator is None or created_timestamp is None or locked is None:
-            raise SessionManifestError(
-                f"Missing required 'locator' or 'created_at' or 'locked' in session-related app_metadata: {session_mdata}."
-            )
+        locator = _get_metadata_value(session_mdata, "locator")
+        created_timestamp = _get_metadata_value(session_mdata, "created_at_ns")
+        locked = _get_metadata_value(session_mdata, "locked")
 
         return SessionResourceManifest(
             locator=locator,
             created_timestamp=created_timestamp,
-            completed_timestamp=session_mdata.get("completed_at_ns"),
+            completed_timestamp=_get_metadata_value(
+                session_mdata, "completed_at_ns", is_mandatory=False
+            ),
             locked=locked,
-            topics=session_mdata.get("topics", []),
+            topics=_get_metadata_value(
+                session_mdata, "topics", is_mandatory=False, default=[]
+            ),
         )
 
 
@@ -252,12 +297,13 @@ class SequenceResourceManifest:
 
     locator: str
     created_timestamp: int
+    user_metadata: dict
     sessions: List[SessionResourceManifest]
 
     @classmethod
-    def _from_app_metadata(
+    def _from_decoded_app_metadata(
         cls,
-        app_mdata: Union[bytes, str],
+        app_mdata: Dict[str, Any],
     ) -> "SequenceResourceManifest":
         """
         Factory method to create a SequenceResourceManifest from FlightInfo.app_metadata.
@@ -273,24 +319,18 @@ class SequenceResourceManifest:
         """
 
         try:
-            # Parse and return the app_metadata fields
-            mdata = _decode_app_metadata(app_mdata)
+            resource_locator = _get_metadata_value(app_mdata, "resource_locator")
+            created_timestamp = _get_metadata_value(app_mdata, "created_at_ns")
+            user_metadata = _get_metadata_value(app_mdata, "user_metadata")
 
-            resource_locator = mdata.get("resource_locator")
-            created_timestamp = mdata.get("created_at_ns")
-            if resource_locator is None or created_timestamp is None:
-                raise SequenceManifestError(
-                    "Unable to construct a 'SequenceResourceManifest': missing required fields in sequence app_metadata."
-                )
-
-            sessions = mdata.get("sessions", [])
-            # FIXME: maybe not necessary
-            if not isinstance(sessions, list):
-                sessions = []
+            sessions = _get_metadata_value(
+                app_mdata, "sessions", is_mandatory=False, default=[]
+            )
 
             return cls(
                 locator=resource_locator,
                 created_timestamp=created_timestamp,
+                user_metadata=user_metadata,
                 sessions=[
                     SessionResourceManifest._from_app_metadata(session)
                     for session in sessions

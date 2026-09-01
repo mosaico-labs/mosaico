@@ -19,7 +19,6 @@ from ..enum import SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
 from ..models.platform import Sequence, Session
-from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
 from ..platform.resource_manifests import (
     SequenceResourceManifest,
     TopicManifestError,
@@ -155,12 +154,9 @@ class SequenceHandler:
             return None
 
         # Retrieve the Sequence metadata
-        seq_metadata = SequenceMetadata._from_decoded_schema_metadata(
-            _decode_schema_metadata(flight_info.schema.metadata)
-        )
-
-        seq_manifest = SequenceResourceManifest._from_app_metadata(
-            flight_info.app_metadata
+        decoded_app_metadata = json.loads(flight_info.app_metadata)
+        seq_manifest = SequenceResourceManifest._from_decoded_app_metadata(
+            decoded_app_metadata
         )
 
         # Extract the Topics resource manifests data
@@ -185,7 +181,6 @@ class SequenceHandler:
 
         sequence_model = Sequence._from_resource_info(
             name=_stzd_sequence_name,
-            platform_metadata=seq_metadata,
             resrc_manifest=seq_manifest,
             total_size_bytes=total_size_bytes,
         )

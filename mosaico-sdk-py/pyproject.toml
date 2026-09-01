@@ -40,6 +40,7 @@ cli = ["typer", "tomli"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2"
+typer = ">=0.27.0"
 ruff = ">=0.15.8,<0.17.0"
 pre-commit = "^4.5.1"
 
