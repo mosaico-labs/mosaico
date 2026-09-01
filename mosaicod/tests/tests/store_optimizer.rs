@@ -276,10 +276,8 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // Run the store optimizer one-shot.
-    let time_interval = types::Duration::seconds(1);
     let max_file_size = 2_000;
     let store_optimizer_handle = store_optimizer::Builder::new(pool)
-        .with_time_interval(time_interval)
         .with_max_file_size(max_file_size)
         .build_with_store(&server.store)
         .await;
