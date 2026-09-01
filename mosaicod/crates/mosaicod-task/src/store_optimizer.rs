@@ -436,7 +436,34 @@ impl StoreOptimizer {
                 break;
             };
 
-            let topic_res = self.optimize_topic(&acquired_topic).await;
+            // Race the whole per-topic optimization against shutdown rather than only checking
+            // between topics: a single topic's DataFusion sort/encode/flush pass can take
+            // minutes, and none of its internal await points are guaranteed to yield control
+            // back promptly. Dropping the future mid-flight is safe: the topic's original data
+            // is untouched until the final DB transaction commits, and releasing the lease below
+            // leaves the partially-written opt_path_in_store unreferenced, so the cleanup routine
+            // reaps it on its own schedule instead of it sitting locked for MAX_LEASE_NS.
+            let topic_res = tokio::select! {
+                biased;
+                _ = shutdown_notifier.cancelled() => {
+                    info!(
+                        "Shutdown received. Interrupting optimization of topic {} early; it will be retried on the next run.",
+                        acquired_topic.topic_record.locator()
+                    );
+
+                    db::topic_optimization_delete(
+                            &mut self.db.connection(),
+                            acquired_topic.topic_record.topic_id,
+                            types::allow_data_loss(),
+                        )
+                        .await.unwrap_or_else(|_| {
+                            warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
+                        });
+
+                    break;
+                },
+                res = self.optimize_topic(&acquired_topic) => res,
+            };
 
             match topic_res {
                 Ok(_) => {
