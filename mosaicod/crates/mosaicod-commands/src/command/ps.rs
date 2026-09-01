@@ -14,8 +14,8 @@ pub struct Ps {
     verbose: bool,
 }
 
-/// Lists registered `mosaicod` instances (servers and cleanup routines) and summarizes the
-/// cleanup routine's current status.
+/// Lists registered `mosaicod` instances (servers, cleanup routines, and store optimizers) and
+/// summarizes the cleanup routine's current status.
 pub fn ps(args: Ps) -> Result<()> {
     let rt = common::init_runtime()?;
 

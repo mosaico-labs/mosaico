@@ -28,6 +28,7 @@
 //! left leased) so it gets picked up again on a future run; its original data is never modified,
 //! so a failure is always safe to retry.
 
+use crate::instance::{instance_heartbeat_loop, local_hostname};
 use datafusion as df;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::GreedyMemoryPool;
@@ -462,7 +463,35 @@ impl StoreOptimizer {
     }
 
     /// Starts the optimization routine every [`time_interval`].
-    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
+    ///
+    /// Before entering its loop, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
+    /// Registration failure is treated as fatal, consistent with how other DB-dependency
+    /// failures are handled at startup.
+    ///
+    /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
+    /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
+        let instance = db::instance_registry_create(
+            &mut self.db.connection(),
+            types::InstanceKind::StoreOptimizer,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            self.time_interval.is_zero(),
+        )
+        .await?;
+
+        // A dedicated child token lets us stop the heartbeat task once this routine's own loop
+        // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
+        // the caller may still be relying on for other purposes.
+        let heartbeat_shutdown = shutdown_notifier.child_token();
+        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
+            self.db.clone(),
+            instance.instance_id,
+            heartbeat_shutdown.clone(),
+        ));
+
         loop {
             info!("Store optimization routine started");
 
@@ -489,7 +518,7 @@ impl StoreOptimizer {
 
             // If time interval is set to 0, exit after the first run.
             if self.time_interval.is_zero() {
-                return;
+                break;
             }
 
             tokio::select! {
@@ -502,5 +531,19 @@ impl StoreOptimizer {
                 }
             }
         }
+
+        heartbeat_shutdown.cancel();
+        let _ = heartbeat_handle.await;
+
+        if let Err(e) =
+            db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+        {
+            warn!(
+                "failed to deregister instance {}: {}",
+                instance.instance_id, e
+            );
+        }
+
+        Ok(())
     }
 }
