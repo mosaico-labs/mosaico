@@ -70,7 +70,18 @@ class TopicStatus(Enum):
 class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
     """
     Base MCAP loader for reading and deserializing MCAP files.
-    TODO: instructions for the LLM: improved the docstring explaining that this middle class is necessary since the data encoding to MCAPMessage is different depending on the encoding of the MCAP Channels. Specify its subclasses are MCAPLoaderProtobuf and MCAPLoaderJsonschema. This is the equivalent of ROSLoader class
+
+    This is the MCAP equivalent of `ROSLoader`. It is declared as an internal, non-instantiable
+    middle class rather than a concrete loader because how a raw record is turned into an
+    `MCAPMessage.data_field` dictionary depends on the **encoding of the MCAP Channel** being
+    read, not just on the file itself: a single mcap file can (in principle) mix channels
+    encoded as `protobuf`, `jsonschema`, or other encodings, each requiring a different
+    decoding path (e.g. protobuf needs a populated `DescriptorPool` and `MessageToDict`,
+    while jsonschema only needs `json.loads`). `_MCAPLoader` therefore implements everything
+    that is encoding-agnostic (channel resolution/filtering, adapter resolution, message
+    counting, duration, resource lifecycle), while each concrete subclass —
+    `MCAPLoaderProtobuf` and `MCAPLoaderJsonschema` — only implements the encoding-specific
+    `__iter__` streaming loop (and, for protobuf, the extra descriptor-pool bookkeeping it needs).
 
     The `_MCAPLoader` acts as a resource manager that abstracts the underlying `mcap` library.
     It provides a standardized Pythonic interface for filtering topics and streaming data
@@ -95,27 +106,24 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         """
         Initializes the _MCAPLoader.
 
-        # TODO: fix example with the current loader
         Example:
             ```python
-            from rosbags.typesys import Stores
             from mosaicolabs.enum.serialization_format import SerializationFormat
-            from mosaicolabs.bridges.ros import ROSLoader
+            from mosaicolabs.bridges.mcap import MCAPLoaderProtobuf
 
             # Initialize to read only IMU and GPS data from an MCAP file
-            with ROSLoader(
+            with MCAPLoaderProtobuf(
                 file_path="mission_01.mcap",
-                topics=["/imu*", "/gps/fix"],
-                typestore_or_distro=Stores.ROS2_HUMBLE,
+                channels=["/imu*", "/gps/fix"],
                 # Non-adapted (Unmodeled) messages of this type will be
                 # serialized as Ragged instead of the Default format
                 serialization_formats={
-                    "sensor_msgs/msg/CustomPointCloud2": SerializationFormat.Ragged,
+                    "/sensors/custom_point_cloud": SerializationFormat.Ragged,
                 },
             ) as loader:
                 for msg, exc in loader:
                     if not exc:
-                        print(f"Read {msg.msg_type} from {msg.topic}")
+                        print(f"Read {msg.schema_name} from {msg.channel_name}")
             ```
 
         Args:
@@ -222,47 +230,53 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         self, schema: Schema, channel: Channel
     ) -> Optional[type[MCAPAdapterBase]]:
         """
-        TODO: FIX the documentation
-        Resolves the Mosaico adapter for a topic, creating an ad-hoc one if none exists.
+        Resolves the Mosaico adapter for a channel, creating an ad-hoc one if none exists.
 
-        This is what lets :class:`ROSLoader` accept **any** ROS message type, even
-        proprietary ones without a hand-written adapter, instead of rejecting them.
         It proceeds in three steps:
 
-        1. **Bail out early**: if the topic has no ``msgtype`` at all (empty connection
-           metadata), no adapter can be resolved, so ``None`` is returned immediately.
-        2. **Look up a known adapter**: :meth:`ROSBridge.get_default_adapter` is queried
-           for a hand-written adapter registered for this exact ``msgtype`` (e.g.
-           `sensor_msgs/msg/Imu` -> `IMUAdapter`). If one is found, it is returned as-is
-           and no further work is needed.
-        3. **Fall back to an [`UnmodeledAdapter`][mosaicolabs.bridges.ros.adapters.UnmodeledAdapter]**:
+        1. **Bail out early**: if ``channel.schema_id`` does not match ``schema.id``
+           (i.e. the caller passed a mismatched schema/channel pair), no adapter can
+           be safely resolved, so ``None`` is returned immediately.
+        2. **Look up a known adapter**: :meth:`MCAPBridge.get_default_adapter` is queried
+           for a hand-written adapter registered for this exact ``(schema.name, schema.encoding)``
+           pair (e.g. `sensor_msgs.Imu` + `protobuf` -> `IMUAdapter`). If one is found,
+           it is returned as-is and no further work is needed.
+        3. **Fall back to an [`UnmodeledAdapter`][mosaicolabs.bridges.mcap.adapters.unmodeled.UnmodeledAdapter]**:
            when no hand-written adapter exists, one is synthesized on the fly so the
-           topic can still be loaded generically, without a semantic ontology mapping:
+           channel can still be loaded generically, without a semantic ontology mapping:
 
-            a. The topic's raw ``.msg``/``.idl`` definition (``topic_info.msgdef.data``)
-               is converted into an equivalent PyArrow schema via
-               [`convert_rosmsg`][mosaicolabs.protocols.ros_converter.RosMsgConverter.convert_rosmsg].
-            b. An [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology
+            a. The encoding-specific converter is looked up via
+               [`McapSchemaRegistry.get_converter`][mosaicolabs.bridges.protocols.mcap.registry.McapSchemaRegistry.get_converter]
+               using ``schema.encoding``. ``None`` is returned if the encoding has no
+               registered converter (e.g. an encoding the SDK does not yet support).
+            b. The raw schema definition (``schema.data``) is converted into an
+               equivalent PyArrow schema via the converter's ``to_pyarrow``. ``None`` is
+               returned if no PyArrow schema could be derived (e.g. an empty/malformed
+               schema definition).
+            c. An [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology
                class is obtained/created for this schema via
                [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class],
-               tagged with an ontology tag derived from the ROS msgtype's last path
-               segment (e.g. `sensor_msgs/msg/Imu` -> `Imu`). The serialization format
-               used for this ontology is looked up in ``self._serialization_formats``
+               tagged with an ontology tag derived from the channel's topic (its last
+               `.`-separated segment, e.g. `sensors.imu` -> `imu`). The serialization
+               format used for this ontology is looked up in ``self._serialization_formats``
                by ``channel.topic``, falling back to ``SerializationFormat.Default``
                when the ``channel.topic`` has no entry there.
-            c. [`UnmodeledAdapter.get_or_create`][mosaicolabs.bridges.ros.adapters.UnmodeledAdapter.get_or_create]
+            d. [`UnmodeledAdapter.get_or_create`][mosaicolabs.bridges.mcap.adapters.unmodeled.UnmodeledAdapter.get_or_create]
                returns a cached adapter class for that ontology if one was already
-               synthesized for an equivalent topic, or builds and registers a new one
-               otherwise, so repeated topics of the same unmodeled type reuse a single
+               synthesized for an equivalent channel, or builds and registers a new one
+               otherwise, so repeated channels of the same unmodeled type reuse a single
                adapter class rather than creating a new one every time.
 
         Args:
-            topic_info (TopicInfo): The connection metadata (``msgtype``, ``msgdef``, ...)
-                of the topic for which an adapter must be resolved.
+            schema (Schema): The MCAP schema record (name, encoding, raw definition) for
+                the channel an adapter must be resolved for.
+            channel (Channel): The MCAP channel record (topic, schema_id, ...) for which
+                an adapter must be resolved.
 
         Returns:
-            Optional[Type[ROSAdapterBase]]: The resolved adapter class, or ``None`` if ``topic_info`` carries no
-                ``msgtype`` to key the lookup/creation on.
+            Optional[Type[MCAPAdapterBase]]: The resolved adapter class, or ``None`` if
+                ``channel.schema_id`` doesn't match ``schema.id``, the schema's encoding
+                has no registered converter, or no PyArrow schema could be derived from it.
         """
 
         if channel.schema_id != schema.id:
@@ -327,7 +341,18 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
     def _get_mcap_summary(self, mcap_file: MCAPFile) -> Summary:
         """
-        TODO
+        Reads and returns the mcap file's summary section (schemas, channels, statistics).
+
+        Args:
+            mcap_file (MCAPFile): The already-opened mcap file to read the summary from.
+
+        Returns:
+            Summary: The mcap file's summary, containing its `schemas`, `channels`, and
+                `statistics`.
+
+        Raises:
+            RuntimeError: If the mcap file has no summary section (e.g. it was written by
+                a non-seeking/streaming writer that omitted one).
         """
 
         mcap_summary = mcap_file.reader.get_summary()
@@ -469,12 +494,12 @@ class MCAPLoaderProtobuf(_MCAPLoader):
         channels: Optional[Union[str, List[str]]] = None,
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
-        """#TODO: instructions for the LLM: create a short docstring where you specify that this subclass just requires the descriptor_pool populated during the _resolve_channels() function"""
         super().__init__(file_path, channels, serialization_formats)
         self.descriptor_pool: DescriptorPool = DescriptorPool()
 
     def _resolve_channels(self):
-        """#TODO: instructions for the LLM: create a short docstring"""
+        """Resolves channels via the base class, then registers every schema's protobuf
+        `FileDescriptorSet` into `self.descriptor_pool` so messages can be decoded during iteration."""
         super()._resolve_channels()
 
         if (

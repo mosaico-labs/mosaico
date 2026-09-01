@@ -5,41 +5,45 @@ from typing import Any, Dict, Optional
 @dataclass
 class MCAPMessage:
     """
-    TODO: intructions for the LLM: update this documentation accordingly to the newly defined MCAPMessage. Try to mantain the same structure
-    The standardized container for a single ROS message record yielded by the loader.
+    The standardized container for a single MCAP message record yielded by the loader.
 
-    This object serves as the primary "unit of work" within the ROS Bridge pipeline.
-    It encapsulates the raw deserialized payload along with essential storage-level metadata
-    needed for accurate platform ingestion.
+    This object serves as the primary "unit of work" within the MCAP Bridge pipeline.
+    It encapsulates the raw deserialized payload along with essential channel/schema-level
+    metadata needed for accurate platform ingestion. Deserialization itself (protobuf via
+    `MessageToDict`, jsonschema via `json.loads`) is performed by the loader before this
+    container is built, so `data_field` is always a plain nested Python dictionary regardless
+    of the source encoding.
 
     ### Life Cycle
-    1. **Produced** by `ROSLoader` during bag iteration.
-    2. **Consumed** by `ROSBridge` to identify the correct adapter.
-    3. **Translated** by a `ROSAdapter` into a Mosaico `Message`.
-
+    1. **Produced** by `MCAPLoaderProtobuf`/`MCAPLoaderJsonschema` during mcap iteration.
+    2. **Consumed** by `MCAPBridge` to identify the correct adapter, based on `schema_name`
+       and `schema_encoding`.
+    3. **Translated** by an `MCAPAdapterBase` into a Mosaico `Message`.
 
     Example:
         ```python
         # Manual construction (usually handled by the loader)
-        msg = ROSMessage(
-            bag_timestamp_ns=1625000000000000000,
-            topic="/odom",
-            msg_type="nav_msgs/msg/Odometry",
-            data={"header": {...}, "pose": {...}}
+        msg = MCAPMessage(
+            channel_name="/imu",
+            schema_name="sensor_msgs.Imu",
+            schema_encoding="protobuf",
+            data={"header": {...}, "linear_acceleration": {...}},
+            log_time_ns=1625000000000000000,
         )
 
-        print(f"Processing {msg.msg_type} from {msg.topic}")
-        if msg.header:
-            print(f"Frame: {msg.header.frame_id}")
+        print(f"Processing {msg.schema_name} from {msg.channel_name}")
         ```
 
     Attributes:
         channel_name (str): The channel name of the message source.
-        schema_name (str): The schema name of the message source.
-        schema_encoding (str): The schema_encoding of the message source.
-        data: Dict[str, Any]: The message payload, converted into a standard nested Python dictionary.
+        schema_name (Optional[str]): The schema name of the message source. `None` if the
+            schema could not be resolved or decoding failed.
+        schema_encoding (Optional[str]): The schema encoding of the message source (e.g.
+            `protobuf`, `jsonschema`). `None` if the schema could not be resolved or decoding failed.
+        data_field (Optional[Dict[str, Any]]): The message payload, converted into a standard
+            nested Python dictionary. `None` if decoding failed.
         log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
-        publish_time_ns (Optional[int]): Timestamp (nanoseconds) at which the message was published. If not available, must be set to the log time.
+        publish_time_ns (int): Timestamp (nanoseconds) at which the message was published. If not available, it is set to the log time.
     """
 
     def __init__(

@@ -7,7 +7,11 @@ from mcap.reader import McapReader, make_reader
 
 class MCAPFile:
     """
-    TODO: write docstring
+    Thin resource wrapper around a single MCAP file on disk.
+
+    It owns the file handle and the underlying `mcap` library reader, lazily
+    opening the file (and validating its path/extension) on first access to
+    `.reader` rather than at construction time.
 
     Attributes:
         ACCEPTED_EXTENSIONS: Set of supported file extensions {'.mcap'}.
