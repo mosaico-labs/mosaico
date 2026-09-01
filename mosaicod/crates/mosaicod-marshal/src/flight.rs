@@ -45,6 +45,31 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
 }
 
 // ////////////////////////////////////////////////////////////////////////////
+// GET SCHEMA CMD
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Non-exported type for deserialize [`GetSchemaCmd`]
+#[derive(Deserialize)]
+struct GetSchemaCmd {
+    resource_locator: String,
+}
+
+impl From<GetSchemaCmd> for types::flight::GetSchemaCmd {
+    fn from(value: GetSchemaCmd) -> Self {
+        types::flight::GetSchemaCmd {
+            resource_locator: value.resource_locator,
+        }
+    }
+}
+
+/// Convert a raw flight command into a [`GetSchemaCmd`]
+pub fn get_schema_cmd(v: &[u8]) -> Result<types::flight::GetSchemaCmd, super::Error> {
+    serde_json::from_slice::<GetSchemaCmd>(v)
+        .map_err(|e| super::Error::DeserializationError(e.to_string()))
+        .map(|v| v.into())
+}
+
+// ////////////////////////////////////////////////////////////////////////////
 // DO PUT
 // ////////////////////////////////////////////////////////////////////////////
 #[derive(Deserialize)]
@@ -475,5 +500,19 @@ mod tests {
 
         assert_eq!(dest.resource_locator, name);
         assert!(dest.timestamp_range.is_none());
+    }
+
+    /// Check that the conversion between [`super::GetSchemaCmd`] and
+    /// [`types::flight::GetSchemaCmd`] is correct.
+    #[test]
+    fn get_schema_cmd_to_types() {
+        let src = super::GetSchemaCmd {
+            resource_locator: "test_sequence/topic/a".to_owned(),
+        };
+
+        let name = src.resource_locator.clone();
+        let dest: types::flight::GetSchemaCmd = src.into();
+
+        assert_eq!(dest.resource_locator, name);
     }
 }
