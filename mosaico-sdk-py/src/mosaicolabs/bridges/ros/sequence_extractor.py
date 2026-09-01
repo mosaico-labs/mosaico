@@ -32,7 +32,7 @@ from mosaicolabs.bridges.ros.adapter_base import ROSAdapterBase
 from mosaicolabs.bridges.ros.loader import MosaicoLoader
 from mosaicolabs.bridges.ros.qos import get_qos_for_topic
 from mosaicolabs.bridges.ros.registry import ROSTypeRegistry
-from mosaicolabs.bridges.ros.ui import ProgressManager
+from mosaicolabs.bridges.ui import ProgressManager
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 # Set the hierarchical logger
