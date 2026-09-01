@@ -198,7 +198,12 @@ pub fn print_instance_list(
         .collect();
 
     if instances.is_empty() {
-        println!("{}", "No registered instances found.".dimmed());
+        if show_dead {
+            println!("{}", "No instances.".dimmed());
+        } else {
+            println!("{}", "No instances. Try with --all to see more.".dimmed());
+        }
+
         return;
     }
 
