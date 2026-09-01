@@ -78,4 +78,15 @@ impl Handle {
     pub async fn is_shutdown(&self) -> bool {
         self.join_handle.is_finished()
     }
+
+    /// Waits for the current run to finish, without requesting shutdown.
+    ///
+    /// Unlike [`shutdown`](Self::shutdown), this does not cancel the routine's shutdown
+    /// token, so it's safe to use to wait for a one-shot (`time_interval == 0`) run to
+    /// complete.
+    pub async fn wait_until_finished(&self) {
+        while !self.join_handle.is_finished() {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
 }
