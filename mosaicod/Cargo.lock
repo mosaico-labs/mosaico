@@ -2662,12 +2662,13 @@ version = "0.7.0-dev"
 dependencies = [
  "arrow-flight",
  "chrono",
- "hostname",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
+ "mosaicod-instance-registry",
+ "mosaicod-os",
  "mosaicod-store",
  "sqlx",
  "tokio",
@@ -2731,6 +2732,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-instance-registry"
+version = "0.7.0-dev"
+dependencies = [
+ "chrono",
+ "mosaicod-core",
+ "mosaicod-db",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "mosaicod-marshal"
 version = "0.7.0-dev"
 dependencies = [
@@ -2742,6 +2755,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "mosaicod-os"
+version = "0.7.0-dev"
+dependencies = [
+ "hostname",
+ "tracing",
 ]
 
 [[package]]
@@ -2803,10 +2824,11 @@ dependencies = [
  "datafusion",
  "filetime",
  "futures",
- "hostname",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
+ "mosaicod-instance-registry",
+ "mosaicod-os",
  "mosaicod-rw",
  "mosaicod-store",
  "rand 0.10.2",

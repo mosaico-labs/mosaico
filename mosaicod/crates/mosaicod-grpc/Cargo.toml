@@ -14,6 +14,8 @@ mosaicod-grpc-common = { workspace = true }
 mosaicod-grpc-flight = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
+mosaicod-os = { workspace = true }
+mosaicod-instance-registry = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-ext = { workspace = true }
 
@@ -23,7 +25,6 @@ tower = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
-hostname = { workspace = true }
 
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"] }

@@ -3,68 +3,12 @@ use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
-
-/// Reads the local hostname, falling back to `"unknown"` if it can't be determined.
-fn local_hostname() -> String {
-    hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|e| {
-            warn!("unable to determine local hostname: {}", e);
-            "unknown".to_owned()
-        })
-}
-
-/// Periodically refreshes `instance_id`'s heartbeat in the instance registry, and opportunistically
-/// purges long-expired entries, until `shutdown` is notified.
-async fn instance_heartbeat_loop(
-    db: db::Database,
-    instance_id: i32,
-    shutdown: grpc_common::ShutdownNotifier,
-) {
-    let interval = std::time::Duration::from_secs(params::INSTANCE_HEARTBEAT_INTERVAL_SECS as u64);
-
-    loop {
-        tokio::select! {
-            _ = tokio::time::sleep(interval) => {}
-            _ = shutdown.wait_for_shutdown() => break,
-        }
-
-        let now = chrono::Utc::now().timestamp();
-
-        let updated = db::instance_registry_heartbeat(&mut db.connection(), instance_id, now)
-            .await
-            .inspect_err(|e| {
-                warn!(
-                    "failed to send heartbeat for instance {}: {}",
-                    instance_id, e
-                )
-            })
-            .unwrap_or(true);
-
-        if !updated {
-            warn!(
-                "instance {} heartbeat found no matching registry entry, it may have been purged as expired",
-                instance_id
-            );
-        }
-
-        let expiry_threshold = now - params::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS as i64;
-
-        if let Err(e) = db::instance_registry_delete_expired(
-            &mut db.connection(),
-            expiry_threshold,
-            types::allow_data_loss(),
-        )
-        .await
-        {
-            warn!("failed to purge expired instance registry entries: {}", e);
-        }
-    }
-}
 
 /// Mosaico server.
 /// Handles incoming requests and manages the database and store.
@@ -179,7 +123,7 @@ impl Server {
             let handle_heartbeat = rt.spawn(instance_heartbeat_loop(
                 server_db.clone(),
                 instance.instance_id,
-                shutdown.clone(),
+                shutdown.token(),
             ));
 
             // Create a thread in tokio runtime to handle flight requests

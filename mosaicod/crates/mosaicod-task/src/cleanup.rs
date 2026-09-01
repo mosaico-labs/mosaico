@@ -1,9 +1,10 @@
 //! This module provides the cleanup routine in charge of deleting obsolete files
 //! (not associated with any entry in the database) from the object storage.
 
-use crate::instance::{instance_heartbeat_loop, local_hostname};
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};

@@ -1,29 +1,23 @@
-//! Shared helpers for registering a background routine in the instance registry (see
-//! `mosaicod ps`), used by both [`crate::cleanup::Cleanup`] and
-//! [`crate::store_optimizer::StoreOptimizer`].
+//! Shared helper for registering a long-running `mosaicod` process (server, cleanup, store
+//! optimizer, ...) in the instance registry (see `mosaicod ps`).
+//!
+//! Callers are expected to register via [`mosaicod_db::instance_registry_create`], spawn
+//! [`instance_heartbeat_loop`] to keep that registration alive, and deregister via
+//! [`mosaicod_db::instance_registry_delete`] once done; this crate only provides the piece
+//! that would otherwise be duplicated across every process kind.
 
 use mosaicod_core::{params, types};
 use mosaicod_db as db;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
 
-/// Reads the local hostname, falling back to `"unknown"` if it can't be determined.
-pub(crate) fn local_hostname() -> String {
-    hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|e| {
-            warn!("unable to determine local hostname: {}", e);
-            "unknown".to_owned()
-        })
-}
-
 /// Periodically refreshes `instance_id`'s heartbeat in the instance registry, and opportunistically
-/// purges long-expired entries, until `shutdown` is cancelled.
+/// purges long-expired entries, until `shutdown` is canceled.
 ///
-/// This is intentionally its own small loop (rather than folded into the routine's own loop): a
-/// routine's own schedule is driven by its `time_interval` (which can be as sparse as once a
-/// day), while the heartbeat needs a much tighter, fixed cadence to be a useful liveness signal.
-pub(crate) async fn instance_heartbeat_loop(
+/// This is intentionally its own small loop (rather than folded into a process's own work loop):
+/// a process's own schedule may be driven by a `time_interval` as sparse as once a day, while the
+/// heartbeat needs a much tighter, fixed cadence to be a useful liveness signal.
+pub async fn instance_heartbeat_loop(
     db: db::Database,
     instance_id: i32,
     shutdown: CancellationToken,

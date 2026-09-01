@@ -52,3 +52,14 @@ impl std::fmt::Display for InstanceKind {
         write!(f, "{}", self.name())
     }
 }
+
+/// The derived liveness of a registered `mosaicod` process (see `mosaicod ps`), based on how
+/// long it's been since the process last sent a heartbeat.
+pub enum InstanceStatus {
+    /// Heartbeat received recently; the process is presumed running.
+    Alive,
+    /// No heartbeat for a while; the process may be down, or may just be slow to check in.
+    Stale,
+    /// No heartbeat for a long time; the process is presumed dead.
+    Dead,
+}

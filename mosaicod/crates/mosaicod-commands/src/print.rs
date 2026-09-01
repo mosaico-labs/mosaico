@@ -1,6 +1,6 @@
 use super::log;
 use colored::Colorize;
-use mosaicod_core::error::PublicError;
+use mosaicod_core::{error::PublicError, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::{net::IpAddr, time::Instant};
@@ -194,7 +194,7 @@ pub fn print_instance_list(
 
     let instances: Vec<&db::InstanceRegistryRecord> = instances
         .iter()
-        .filter(|i| show_dead || !matches!(i.status(), db::InstanceStatus::Dead))
+        .filter(|i| show_dead || !matches!(i.status(), types::InstanceStatus::Dead))
         .collect();
 
     if instances.is_empty() {
@@ -225,16 +225,16 @@ pub fn print_instance_list(
         };
 
         let uptime = match status {
-            db::InstanceStatus::Alive | db::InstanceStatus::Stale => {
+            types::InstanceStatus::Alive | types::InstanceStatus::Stale => {
                 chrono::Utc::now() - start_datetime
             }
-            db::InstanceStatus::Dead => chrono::Duration::seconds(0),
+            types::InstanceStatus::Dead => chrono::Duration::seconds(0),
         };
 
         let status_str = match status {
-            db::InstanceStatus::Alive => "alive".green(),
-            db::InstanceStatus::Stale => "stale".yellow(),
-            db::InstanceStatus::Dead => "dead".red(),
+            types::InstanceStatus::Alive => "alive".green(),
+            types::InstanceStatus::Stale => "stale".yellow(),
+            types::InstanceStatus::Dead => "dead".red(),
         };
 
         let mut row = vec![
@@ -253,7 +253,7 @@ pub fn print_instance_list(
         row.push(format!("{:<W_UPTIME$}", format_uptime(uptime)));
         let heartbeat_str = if verbose {
             last_heartbeat_datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
-        } else if matches!(status, db::InstanceStatus::Dead) {
+        } else if matches!(status, types::InstanceStatus::Dead) {
             "-".to_owned()
         } else {
             format_elapsed_since(chrono::Utc::now() - last_heartbeat_datetime)

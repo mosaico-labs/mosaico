@@ -28,7 +28,6 @@
 //! left leased) so it gets picked up again on a future run; its original data is never modified,
 //! so a failure is always safe to retry.
 
-use crate::instance::{instance_heartbeat_loop, local_hostname};
 use datafusion as df;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::GreedyMemoryPool;
@@ -39,6 +38,8 @@ use mosaicod_core::{
 };
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
 use std::cmp::max;

@@ -1,5 +1,4 @@
-use mosaicod_core::params;
-use mosaicod_core::types;
+use mosaicod_core::{params, types};
 use tracing::error;
 
 /// After this many seconds without a heartbeat, `mosaicod ps` considers an instance possibly
@@ -15,12 +14,6 @@ const INSTANCE_STALE_THRESHOLD_SECS: u32 = 3 * params::INSTANCE_HEARTBEAT_INTERV
 /// TODO: the 10x multiplier is an unvalidated guess, not derived from observed heartbeat
 /// jitter/latency. Revisit once we have real data.
 const INSTANCE_DEAD_THRESHOLD_SECS: u32 = 10 * params::INSTANCE_HEARTBEAT_INTERVAL_SECS;
-
-pub enum InstanceStatus {
-    Alive,
-    Stale,
-    Dead,
-}
 
 /// A registered `mosaicod` process (server, cleanup, ...). See `mosaicod ps`.
 #[derive(Debug, Clone, PartialEq)]
@@ -70,15 +63,15 @@ impl InstanceRegistryRecord {
     ///
     /// `last_heartbeat_unix_tstamp_secs` is stamped with the instance's own clock, and compared
     /// here against the caller's clock, so this assumes reasonably synced clocks across hosts.
-    pub fn status(&self) -> InstanceStatus {
+    pub fn status(&self) -> types::InstanceStatus {
         let delta =
             (chrono::Utc::now().timestamp() - self.last_heartbeat_unix_tstamp_secs).max(0) as u64;
         if delta < INSTANCE_STALE_THRESHOLD_SECS as u64 {
-            InstanceStatus::Alive
+            types::InstanceStatus::Alive
         } else if delta < INSTANCE_DEAD_THRESHOLD_SECS as u64 {
-            InstanceStatus::Stale
+            types::InstanceStatus::Stale
         } else {
-            InstanceStatus::Dead
+            types::InstanceStatus::Dead
         }
     }
 }

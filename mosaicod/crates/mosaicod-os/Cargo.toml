@@ -1,0 +1,14 @@
+[package]
+name = "mosaicod-os"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_os"
+
+[dependencies]
+hostname = { workspace = true }
+tracing = { workspace = true }
