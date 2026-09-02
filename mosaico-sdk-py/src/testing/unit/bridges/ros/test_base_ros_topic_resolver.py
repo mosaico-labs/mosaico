@@ -105,7 +105,7 @@ def test_rejected_topics_combines_filtered_and_unresolved():
 
     rejected = dict(resolver.rejected_topics)
 
-    assert rejected == {"/debug": TopicStatus.UNRESOLVED_ADAPTED}
+    assert rejected == {"/debug": TopicStatus.UNRESOLVED_ADAPTER}
 
 
 def test_rejected_topics_includes_source_specific_extra_rejections():
@@ -119,7 +119,7 @@ def test_rejected_topics_includes_source_specific_extra_rejections():
     rejected = dict(resolver.rejected_topics)
 
     assert rejected == {
-        "/debug": TopicStatus.UNRESOLVED_ADAPTED,
+        "/debug": TopicStatus.UNRESOLVED_ADAPTER,
         "/malformed": TopicStatus.MALFORMED_METADATA,
         "/missing_type": TopicStatus.NOT_IN_TYPESTORE,
     }

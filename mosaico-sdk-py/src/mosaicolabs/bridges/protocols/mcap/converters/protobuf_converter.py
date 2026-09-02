@@ -44,7 +44,7 @@ class ProtobufSchemaConverter(McapSchemaConverter):
         FieldDescriptor.TYPE_ENUM: pa.int32(),  # enum values are int32 on the wire
     }
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
 
     @classmethod
     def _base_type(cls, field: FieldDescriptor) -> pa.DataType | pa.StructType:
