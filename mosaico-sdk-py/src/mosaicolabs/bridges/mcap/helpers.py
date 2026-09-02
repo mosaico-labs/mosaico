@@ -1,8 +1,23 @@
 from typing import Dict, List, Optional
 
-from mcap.records import Channel
+from mcap.decoder import DecoderFactory
+from mcap.records import Channel, Schema
 
 from ..helpers import _filter_from_list
+
+
+class JsonDecoderFactory(DecoderFactory):
+    """Decodes `json`-message-encoded MCAP records.
+
+    Keys purely off `message_encoding`, matching `channel.message_encoding` (NOT
+    `schema.encoding`, which is `"jsonschema"` for this same channel kind). Passes the raw
+    bytes through unchanged; `MCAPJsonschemaMsgDecoder._to_dict` does the actual `json.loads`.
+    """
+
+    def decoder_for(self, message_encoding: str, schema: Optional[Schema]):
+        if message_encoding != "json":
+            return None
+        return lambda data: data
 
 
 def _filter_channels_from_dict(

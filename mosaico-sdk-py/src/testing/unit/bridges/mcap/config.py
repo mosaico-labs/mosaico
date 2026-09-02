@@ -63,11 +63,17 @@ ALL_PROTOBUF_MSGTYPES = [
     MAGN_PROTOBUF_MSGTYPE,
 ]
 
+IMU_PROTOBUF = _Imu
+GPS_PROTOBUF = _Gps
+MAGN_PROTOBUF = _Magnetometer
 
-def make_imu_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Message]:
+
+def make_imu_mcap(
+    meas_time: Time, channel_encoding: str
+) -> Union[Dict[str, Any], Message]:
     t = meas_time.to_float()
 
-    if encoding == "jsonschema":
+    if channel_encoding == "json":
         return {
             "header": {
                 "stamp": {"sec": meas_time.seconds, "nanosec": meas_time.nanoseconds},
@@ -95,7 +101,7 @@ def make_imu_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Messa
             "drift_estimate": 0.001 * math.sin(t),
             "diagnostic_note": f"imu-sample-{meas_time.to_nanoseconds()}",
         }
-    elif encoding == "protobuf":
+    elif channel_encoding == "protobuf":
         msg = _Imu(
             header=_Header(
                 stamp=_Stamp(sec=meas_time.seconds, nanosec=meas_time.nanoseconds),
@@ -119,13 +125,15 @@ def make_imu_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Messa
         )
         return msg
     else:
-        raise Exception(f"Unsupported encoding '{encoding}'")
+        raise Exception(f"Unsupported channel_encoding '{channel_encoding}'")
 
 
-def make_gps_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Message]:
+def make_gps_mcap(
+    meas_time: Time, channel_encoding: str
+) -> Union[Dict[str, Any], Message]:
     t = meas_time.to_float()
 
-    if encoding == "jsonschema":
+    if channel_encoding == "json":
         return {
             "header": {
                 "stamp": {"sec": meas_time.seconds, "nanosec": meas_time.nanoseconds},
@@ -147,7 +155,7 @@ def make_gps_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Messa
             "station_id": "BASE-01",
             "active_satellite_ids": ["G01", "G05", "E11"],
         }
-    elif encoding == "protobuf":
+    elif channel_encoding == "protobuf":
         msg = _Gps(
             header=_Header(
                 stamp=_Stamp(sec=meas_time.seconds, nanosec=meas_time.nanoseconds),
@@ -172,10 +180,12 @@ def make_gps_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Messa
         )
         return msg
     else:
-        raise Exception(f"Unsupported encoding '{encoding}'")
+        raise Exception(f"Unsupported channel_encoding '{channel_encoding}'")
 
 
-def make_magn_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Message]:
+def make_magn_mcap(
+    meas_time: Time, channel_encoding: str
+) -> Union[Dict[str, Any], Message]:
     t = meas_time.to_float()
 
     readings = [
@@ -184,7 +194,7 @@ def make_magn_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Mess
         {"axis": "z", "value": 42.0, "saturated": t > 2.5},
     ]
 
-    if encoding == "jsonschema":
+    if channel_encoding == "json":
         return {
             "header": {
                 "stamp": {"sec": meas_time.seconds, "nanosec": meas_time.nanoseconds},
@@ -206,7 +216,7 @@ def make_magn_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Mess
             "hardware_revision": 3,
             "raw_counter": meas_time.to_nanoseconds() % 1_000_000,
         }
-    elif encoding == "protobuf":
+    elif channel_encoding == "protobuf":
         msg = _Magnetometer(
             header=_Header(
                 stamp=_Stamp(sec=meas_time.seconds, nanosec=meas_time.nanoseconds),
@@ -224,7 +234,7 @@ def make_magn_mcap(meas_time: Time, encoding: str) -> Union[Dict[str, Any], Mess
         )
         return msg
     else:
-        raise Exception(f"Unsupported encoding '{encoding}'")
+        raise Exception(f"Unsupported channel_encoding '{channel_encoding}'")
 
 
 # ----- Time generator -----

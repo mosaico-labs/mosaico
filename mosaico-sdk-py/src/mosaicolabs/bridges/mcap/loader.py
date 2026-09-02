@@ -1,17 +1,10 @@
-import json
 from enum import Enum
 from pathlib import Path
-from typing import ClassVar, Dict, Generator, List, Optional, Tuple, Union
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
-from google.protobuf.descriptor_pb2 import (
-    FileDescriptorSet,
-)
-from google.protobuf.descriptor_pool import DescriptorPool
-from google.protobuf.json_format import MessageToDict
 from mcap.reader import McapReader
 from mcap.records import Channel, Schema
 from mcap.summary import Summary
-from mcap_protobuf.decoder import DecoderFactory as ProtobufDecoderFactory
 
 from mosaicolabs.bridges.mcap.adapters.unmodeled import UnmodeledAdapter
 from mosaicolabs.enum.serialization_format import SerializationFormat
@@ -22,9 +15,7 @@ from ..loader_base import BaseLoader
 from ..protocols.mcap.registry import McapSchemaRegistry
 from .adapter_base import MCAPAdapterBase
 from .bridge import MCAPBridge
-
-# from mcap_ros1.decoder import DecoderFactory as Ros1DecoderFactory
-# from mcap_ros2.decoder import DecoderFactory as Ros2DecoderFactory
+from .decoders import DecoderRegistry, MCAPMsgDecoder
 from .helpers import _class_name_from_mcap_channel, _filter_channels_from_dict
 from .mcap_file import MCAPFile
 from .mcap_message import MCAPMessage
@@ -67,28 +58,27 @@ class TopicStatus(Enum):
         return _colors.get(self, "bright_red")
 
 
-class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
+class MCAPLoader(BaseLoader[MCAPAdapterBase]):
     """
-    Base MCAP loader for reading and deserializing MCAP files.
+    MCAP loader for reading and deserializing MCAP files.
 
-    This is the MCAP equivalent of `ROSLoader`. It is declared as an internal, non-instantiable
-    middle class rather than a concrete loader because how a raw record is turned into an
-    `MCAPMessage.data_field` dictionary depends on the **encoding of the MCAP Channel** being
-    read, not just on the file itself: a single mcap file can (in principle) mix channels
-    encoded as `protobuf`, `jsonschema`, or other encodings, each requiring a different
-    decoding path (e.g. protobuf needs a populated `DescriptorPool` and `MessageToDict`,
-    while jsonschema only needs `json.loads`). `_MCAPLoader` therefore implements everything
-    that is encoding-agnostic (channel resolution/filtering, adapter resolution, message
-    counting, duration, resource lifecycle), while each concrete subclass —
-    `MCAPLoaderProtobuf` and `MCAPLoaderJsonschema` — only implements the encoding-specific
-    `__iter__` streaming loop (and, for protobuf, the extra descriptor-pool bookkeeping it needs).
+    This is the MCAP equivalent of `ROSLoader`. It acts as a resource manager that abstracts
+    the underlying `mcap` library, providing a standardized Pythonic interface for filtering
+    topics and streaming data into the Mosaico adaptation pipeline.
 
-    The `_MCAPLoader` acts as a resource manager that abstracts the underlying `mcap` library.
-    It provides a standardized Pythonic interface for filtering topics and streaming data
-    into the Mosaico adaptation pipeline.
+    A single mcap file can (in principle) mix channels encoded as `protobuf`, `json`, or other
+    encodings, each requiring a different decoding path (e.g. protobuf needs a populated
+    `DescriptorPool` and `MessageToDict`, while json only needs `json.loads`). This
+    encoding-specific behavior is delegated to `MCAPMsgDecoder` instances, looked up by
+    `channel.message_encoding` via `DecoderRegistry.get_decoder()`; `MCAPLoader` itself
+    implements everything that is encoding-agnostic (channel resolution/filtering, adapter
+    resolution, message counting, duration, resource lifecycle, and the single streaming loop
+    that dispatches each message to its decoder). Support for a new encoding is added entirely
+    within `decoders.py` (a new `MCAPMsgDecoder` subclass decorated with `@register_decoder`),
+    with no changes needed here.
 
     ### Key Features
-    * **Multi-Format Support**: Automatically detects and handles different encoded messages (protobuf, jsonschema, ...).
+    * **Multi-Format Support**: Automatically detects and handles different encoded messages (protobuf, json, ...).
     * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
         with `!`-prefixed patterns for exclusion (e.g., `!sensors.debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
     * **Configurable Serialization**: Non-adapted message types can be assigned a specific
@@ -104,15 +94,15 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
-        Initializes the _MCAPLoader.
+        Initializes the MCAPLoader.
 
         Example:
             ```python
             from mosaicolabs.enum.serialization_format import SerializationFormat
-            from mosaicolabs.bridges.mcap import MCAPLoaderProtobuf
+            from mosaicolabs.bridges.mcap import MCAPLoader
 
             # Initialize to read only IMU and GPS data from an MCAP file
-            with MCAPLoaderProtobuf(
+            with MCAPLoader(
                 file_path="mission_01.mcap",
                 channels=["/imu*", "/gps/fix"],
                 # Non-adapted (Unmodeled) messages of this type will be
@@ -157,6 +147,43 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         """The underlying `mcap` reader instance, lazily initialized."""
         self._mcap_file: Optional[MCAPFile] = None
 
+        self._decoder_cache: Dict[str, MCAPMsgDecoder] = {}
+        """`MCAPMsgDecoder` instances resolved so far, keyed by `channel.message_encoding` and
+        scoped to this loader/file. Lazily populated by `_get_decoder()`."""
+
+        # Additional rejection buckets for MCAP-specific reasons
+        self._unavailable_schema_topics: dict[str, Channel] = {}
+        """Channels where there are no information about their schema. They need to be rejected"""
+
+        self._unavailable_decoder_topics: dict[str, Channel] = {}
+        """Channels that cannot be decode since their MCAPMsgDecoder has not been implemented yet. They need to be rejected"""
+
+    def _get_decoder(self, encoding: str) -> Optional[MCAPMsgDecoder]:
+        """
+        Returns this loader's `MCAPMsgDecoder` for `encoding`, instantiating it from
+        `DecoderRegistry` and caching it on first use.
+
+        Caching matters because a decoder can be stateful across a whole file (e.g.
+        `MCAPProtobufMsgDecoder`'s `DescriptorPool`, accumulated across every protobuf schema
+        registered during `_resolve_channels()`): the same instance must still be the one
+        `__iter__()` later calls `decode()` on, or that accumulated state would be lost.
+
+        Args:
+            encoding (str): A `channel.message_encoding` value (e.g. `"protobuf"`).
+
+        Returns:
+            Optional[MCAPMsgDecoder]: This loader's decoder instance for `encoding`, or `None`
+                if no decoder is registered for it.
+        """
+        decoder = self._decoder_cache.get(encoding)
+        if decoder is None:
+            decoder_cls = DecoderRegistry.get_decoder(encoding)
+            if decoder_cls is None:
+                return None
+            decoder = decoder_cls()
+            self._decoder_cache[encoding] = decoder
+        return decoder
+
     def _resolve_channels(self):
         """
         Lazily opens the bag file and resolves requested channel patterns.
@@ -168,7 +195,13 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         if self._reader is not None:
             return None
 
-        self._mcap_file = MCAPFile(self._file_path, [ProtobufDecoderFactory()])
+        self._mcap_file = MCAPFile(
+            self._file_path,
+            [
+                decoder_cls().decoder_factory()
+                for decoder_cls in DecoderRegistry.all_decoders()
+            ],
+        )
         self._reader = self._mcap_file.reader
 
         mcap_summary = self._get_mcap_summary(self._mcap_file)
@@ -195,7 +228,7 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 self._filtered_topics.update({channel.topic: channel})
                 continue
 
-            # 2) Filter topics that cannot resolve neither a registered Mosaico-adapter nor an Unmodeled one because no PyArrow schema can be derived
+            # 2) Reject channels that do not hold schema information
             schema = mcap_summary.schemas.get(channel.schema_id)
 
             if schema is None:
@@ -203,25 +236,40 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"{channel.topic} channel with {channel.schema_id} schema_id cannot be found among all schema ids.\
                       Available schema ids are {[id for id in mcap_summary.schemas.keys()]}"
                 )
+                self._unavailable_schema_topics.update({channel.topic: channel})
                 continue
 
+            # 3) Filter topics whose message encoding has no registered decoder.
+            decoder = self._get_decoder(channel.message_encoding)
+            if decoder is None:
+                supported = [
+                    d.supported_encoding() for d in DecoderRegistry.all_decoders()
+                ]
+                logger.warning(
+                    f"Channel {channel.topic}: message encoding '{channel.message_encoding}' has no \
+                      registered decoder on {type(self).__name__}. Supported: {supported}"
+                )
+                self._unavailable_decoder_topics.update({channel.topic: channel})
+                continue
+            decoder.register_schema(schema)
+
+            # 4) Filter topics that cannot resolve neither a registered Mosaico-adapter nor an Unmodeled one because no PyArrow schema can be derived.
             adapter = self._get_or_create_adapter(schema, channel)
 
-            if adapter:
-                self._accepted_topics.update({channel.topic: channel})
-            else:
+            if adapter is None:
                 logger.warning(
                     f"Channel {channel.topic}: unresolved Adapted for mcap type {(schema.name, schema.encoding)}. Did you forget to register it?"
                 )
                 self._unresolved_adapter_topics.update({channel.topic: channel})
                 continue
 
-            # Adapter found, add it the the cache and add connection
+            # Adapter found, add it the the cache and add to accepted topics
+            self._accepted_topics.update({channel.topic: channel})
             self._topic_cached_adapters[channel.topic] = adapter
 
         if not self._accepted_topics:
             raise RuntimeError(
-                "Unable to initialize _MCAPLoader: No connections matched criteria. Try checking the channel filter, if any."
+                "Unable to initialize MCAPLoader: No connections matched criteria. Try checking the channel filter, if any."
             )
 
         return self._reader
@@ -338,6 +386,16 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
         )
 
         return adapter
+
+    # # TODO: fix this once you know how to handle TopicStatus
+    # def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
+    #     """Reports channels rejected by the `_resolve_channels()` decoder gate (their
+    #     `channel.message_encoding` has no registered `MCAPMsgDecoder`), on top of the
+    #     FILTERED/UNRESOLVED_ADAPTED buckets `BaseLoader.rejected_topics` already covers."""
+    #     return [
+    #         (topic, TopicStatus.UNRESOLVED_ADAPTER)
+    #         for topic in self._unavailable_decoder_topics
+    #     ]
 
     def _get_mcap_summary(self, mcap_file: MCAPFile) -> Summary:
         """
@@ -468,71 +526,12 @@ class _MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
     # --- Core Logic ---
 
-    def close(self):
-        """
-        Explicitly closes the mcap file and releases system resources.
-        """
-        if self._mcap_file:
-            self._mcap_file.close()
-            self._reader = None
-
-    def __enter__(self):
-        """Context manager support."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensures resources are released even if an error occurs in the `with` block."""
-        self.close()
-
-
-class MCAPLoaderProtobuf(_MCAPLoader):
-    SUPPORTED_CHANNEL_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
-
-    def __init__(
-        self,
-        file_path: Union[str, Path],
-        channels: Optional[Union[str, List[str]]] = None,
-        serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
-    ):
-        super().__init__(file_path, channels, serialization_formats)
-        self.descriptor_pool: DescriptorPool = DescriptorPool()
-
-    def _resolve_channels(self):
-        """Resolves channels via the base class, then registers every schema's protobuf
-        `FileDescriptorSet` into `self.descriptor_pool` so messages can be decoded during iteration."""
-        super()._resolve_channels()
-
-        if (
-            self._mcap_file is None
-        ):  # Here _mcap_file cannot be None. Used just to silence IDE
-            raise RuntimeError(
-                f"MCAP at {self._file_path} has not been initialised! \
-                  Impossible to resolve channels through {MCAPLoaderProtobuf.__name__}"
-            )
-
-        mcap_summary = self._get_mcap_summary(self._mcap_file)
-
-        for schema in mcap_summary.schemas.values():
-            self.register_schemas_to_pool(schema)
-
-    def register_schemas_to_pool(self, schema: Schema):
-        """Registers MCAP file contained schemas to DescriptorPool used to turn Protobuf classes to Dictionaries"""
-        try:
-            msgtype = schema.name
-            self.descriptor_pool.FindMessageTypeByName(msgtype)
-        except KeyError:
-            fds_bytes = schema.data
-            file_proto = FileDescriptorSet.FromString(fds_bytes).file
-            for file_proto in FileDescriptorSet.FromString(fds_bytes).file:
-                self.descriptor_pool.Add(file_proto)
-
-    # --- Core Logic ---
-
     def __iter__(
         self,
     ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
         """
-        The primary data streaming loop for protobuf messages.
+        The primary data streaming loop, dispatching each message to the `MCAPMsgDecoder`
+        registered for its channel's message encoding.
 
         Yields:
             A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
@@ -563,20 +562,18 @@ class MCAPLoaderProtobuf(_MCAPLoader):
                 schema_name = decoded_message.schema.name
                 schema_encoding = decoded_message.schema.encoding
 
-                if channel_encoding not in self.SUPPORTED_CHANNEL_ENCODINGS:
+                decoder = self._get_decoder(channel_encoding)
+                if decoder is None:
+                    supported = [
+                        d.supported_encoding() for d in DecoderRegistry.all_decoders()
+                    ]
                     raise ValueError(
-                        f"{MCAPLoaderProtobuf.__name__} cannot decode a message with `{channel_encoding}` encoding. \
-                          Supported encodings: {[enc for enc in self.SUPPORTED_CHANNEL_ENCODINGS]}"
+                        f"{type(self).__name__} cannot decode a message with `{channel_encoding}` encoding. \
+                          Supported encodings: {supported}"
                     )
 
                 # Create dictionary from decoded message Python Object
-                data_dict = MessageToDict(
-                    decoded_message.decoded_message,
-                    always_print_fields_with_no_presence=True,
-                    preserving_proto_field_name=True,
-                    use_integers_for_enums=True,
-                    descriptor_pool=self.descriptor_pool,
-                )
+                data_dict = decoder.decode(decoded_message)
 
                 # Yield the standard SDK message
                 yield (
@@ -606,75 +603,18 @@ class MCAPLoaderProtobuf(_MCAPLoader):
                     e,
                 )
 
-
-class MCAPLoaderJsonschema(_MCAPLoader):
-    SUPPORTED_CHANNEL_ENCODINGS: ClassVar[Tuple[str, ...]] = ("json",)
-
-    # --- Core Logic ---
-
-    def __iter__(
-        self,
-    ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
+    def close(self):
         """
-        The primary data streaming loop for json channel encoding.
-
-        Yields:
-            A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
+        Explicitly closes the mcap file and releases system resources.
         """
+        if self._mcap_file:
+            self._mcap_file.close()
+            self._reader = None
 
-        self._resolve_channels()
+    def __enter__(self):
+        """Context manager support."""
+        return self
 
-        if (
-            not self._accepted_topics or not self._reader
-        ):  # just for remove IDE errors on reader usage
-            return
-
-        for schema, channel, message in self._reader.iter_messages(
-            topics=[topic for topic in self._accepted_topics.keys()],
-            start_time=None,
-            end_time=None,
-        ):
-            try:
-                if schema is None:
-                    raise RuntimeError(
-                        f"Impossible to read schema from channel: {channel.topic} since it is not present"
-                    )
-                schema_name = schema.name
-                schema_encoding = schema.encoding
-
-                if channel.message_encoding not in self.SUPPORTED_CHANNEL_ENCODINGS:
-                    raise ValueError(
-                        f"{MCAPLoaderJsonschema.__name__} cannot decode a message with `{channel.message_encoding}` encoding. \
-                          Supported encodings: {[enc for enc in self.SUPPORTED_CHANNEL_ENCODINGS]}"
-                    )
-
-                # Create dictionary from decoded message Python Object
-                data_dict = json.loads(message.data)
-
-                # Yield the standard SDK message
-                yield (
-                    MCAPMessage(
-                        channel_name=channel.topic,
-                        channel_encoding=channel.message_encoding,
-                        schema_name=schema_name,
-                        schema_encoding=schema_encoding,
-                        data=data_dict,
-                        log_time_ns=message.log_time,
-                        publish_time_ns=message.publish_time,
-                    ),
-                    None,
-                )
-
-            except Exception as e:
-                yield (
-                    MCAPMessage(
-                        channel_name=channel.topic,
-                        channel_encoding=channel.message_encoding,
-                        schema_name=None,
-                        schema_encoding=None,
-                        data=None,
-                        log_time_ns=message.log_time,
-                        publish_time_ns=message.publish_time,
-                    ),
-                    e,
-                )
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
+        self.close()

@@ -67,7 +67,7 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
-        # Check that class encoding exists and is contained within MSCO_SUPPORTED_ENCODINGS
+        # Check that class encoding exists and is contained within __mosaico_supported_schema_encodings__
 
         if not cls.skip_encoding_check:
             if (
@@ -75,7 +75,7 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
                 or cls.schema_encoding not in cls.__mosaico_supported_schema_encodings__
             ):
                 raise TypeError(
-                    f"{cls.__name__} must defined a non-empty SUPPORTED_ENCODINGS"
+                    f"{cls.__name__} must defined a non-empty schema_encoding"
                 )
 
     # --- API to be compliant with BridgeAdapterBase

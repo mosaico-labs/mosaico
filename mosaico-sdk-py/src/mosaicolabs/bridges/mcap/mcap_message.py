@@ -15,7 +15,7 @@ class MCAPMessage:
     of the source encoding.
 
     ### Life Cycle
-    1. **Produced** by `MCAPLoaderProtobuf`/`MCAPLoaderJsonschema` during mcap iteration.
+    1. **Produced** by `MCAPLoader` during mcap iteration.
     2. **Consumed** by `MCAPBridge` to identify the correct adapter, based on `schema_name`
        and `schema_encoding`.
     3. **Translated** by an `MCAPAdapterBase` into a Mosaico `Message`.

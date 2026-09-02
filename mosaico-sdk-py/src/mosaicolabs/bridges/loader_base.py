@@ -23,7 +23,7 @@ class TopicStatus(Enum):
     FILTERED = "Filtered"
     """ Status indicating topic has been rejected by user specified filter """
 
-    UNRESOLVED_ADAPTED = "Unresolved adapted"
+    UNRESOLVED_ADAPTER = "Unresolved adapter"
     """ Status indicating the Topic has been rejected since no Mosaico adapter could be resolved """
 
     NOT_IN_TYPESTORE = (
@@ -41,7 +41,7 @@ class TopicStatus(Enum):
         _colors = {
             TopicStatus.ACCEPTED: "bright_green",
             TopicStatus.FILTERED: "bright_yellow",
-            TopicStatus.UNRESOLVED_ADAPTED: "dark_orange",
+            TopicStatus.UNRESOLVED_ADAPTER: "dark_orange",
             TopicStatus.NOT_IN_TYPESTORE: "orange1",
             TopicStatus.MALFORMED_METADATA: "red1",
         }
@@ -174,7 +174,7 @@ class BaseLoader(ABC, Generic[AdapterT]):
             (t, TopicStatus.FILTERED) for t in self.filtered_topics
         ]
         rejected += [
-            (t, TopicStatus.UNRESOLVED_ADAPTED) for t in self.unresolved_adapted_topics
+            (t, TopicStatus.UNRESOLVED_ADAPTER) for t in self.unresolved_adapted_topics
         ]
         rejected += self._extra_rejected_topics()
         return rejected

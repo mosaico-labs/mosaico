@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from time import time_ns
-from typing import Any, Dict, Optional
+from typing import Dict, Optional, Type
 
 import pytest
 from google.protobuf.message import Message
@@ -17,9 +17,12 @@ from .unit.bridges.mcap.config import (
     ALL_CHANNEL_NAMES,
     GPS_CHANNEL_NAME,
     GPS_JSONSCHEMA,
+    GPS_PROTOBUF,
     IMU_CHANNEL_NAME,
     IMU_JSONSCHEMA,
+    IMU_PROTOBUF,
     MAGN_JSONSCHEMA,
+    MAGN_PROTOBUF,
     MAGNETOMETER_CHANNEL_NAME,
     N_STEPS,
     START_TIME_NS,
@@ -196,10 +199,16 @@ channelname_to_maker = {
     MAGNETOMETER_CHANNEL_NAME: make_magn_mcap,
 }
 
-channelname_to_jsonschema: Dict[str, Any] = {
-    IMU_CHANNEL_NAME: IMU_JSONSCHEMA,
-    GPS_CHANNEL_NAME: GPS_JSONSCHEMA,
-    MAGNETOMETER_CHANNEL_NAME: MAGN_JSONSCHEMA,
+channelname_to_jsonschema: Dict[str, bytes] = {
+    IMU_CHANNEL_NAME: json.dumps(IMU_JSONSCHEMA).encode("utf8"),
+    GPS_CHANNEL_NAME: json.dumps(GPS_JSONSCHEMA).encode("utf8"),
+    MAGNETOMETER_CHANNEL_NAME: json.dumps(MAGN_JSONSCHEMA).encode("utf8"),
+}
+
+channelname_to_protobuf: Dict[str, Type[Message]] = {
+    IMU_CHANNEL_NAME: IMU_PROTOBUF,
+    GPS_CHANNEL_NAME: GPS_PROTOBUF,
+    MAGNETOMETER_CHANNEL_NAME: MAGN_PROTOBUF,
 }
 
 
@@ -220,7 +229,7 @@ def mcap_jsonschema_file(tmp_path_factory):
         schema_id = jsonschema_writer.register_schema(
             name=channel_name,
             encoding="jsonschema",
-            data=json.dumps(channelname_to_jsonschema[channel_name]).encode("utf-8"),
+            data=channelname_to_jsonschema[channel_name],
         )
 
         channelname_to_channel_id[channel_name] = jsonschema_writer.register_channel(
@@ -270,6 +279,78 @@ def mcap_protobuf_file(tmp_path_factory):
             )
 
     mcap_writer.finish()
+
+    return fn
+
+
+@pytest.fixture(scope="session")
+def mcap_mixed_file(tmp_path_factory):
+    """Creates an mcap file mixing protobuf- and json-encoded channels on a single writer.
+
+    Built through the low-level `mcap.writer.Writer` API directly (rather than
+    `mcap_protobuf.writer.Writer`/`mcap.writer.Writer` separately, as `mcap_protobuf_file`/
+    `mcap_jsonschema_file` do) since only one writer/file is involved here.
+    """
+    from mcap_protobuf.schema import register_schema as register_protobuf_schema
+
+    fn = tmp_path_factory.mktemp("data") / "example_mcap_mixed.mcap"
+
+    writer = JsonschemaWriter(str(fn))
+    writer.start()
+
+    mixed_channels_names = {
+        IMU_CHANNEL_NAME: ("protobuf", "protobuf"),
+        GPS_CHANNEL_NAME: ("jsonschema", "json"),
+        MAGNETOMETER_CHANNEL_NAME: ("jsonschema", "json"),
+    }
+
+    channelname_to_channel_id: Dict[str, int] = {}
+
+    # Registration
+    for channel_name, encodings in mixed_channels_names.items():
+        schema_encoding, channel_encoding = encodings
+
+        if schema_encoding == "protobuf":
+            schema_id = register_protobuf_schema(
+                writer, channelname_to_protobuf[channel_name]
+            )
+        elif schema_encoding == "jsonschema":
+            schema_id = writer.register_schema(
+                name=channel_name,
+                encoding=schema_encoding,
+                data=channelname_to_jsonschema[channel_name],
+            )
+        else:
+            raise Exception(f"Unsupported schema encoding: {schema_encoding}")
+
+        channelname_to_channel_id[channel_name] = writer.register_channel(
+            topic=channel_name,
+            message_encoding=channel_encoding,
+            schema_id=schema_id,
+        )
+
+    # Data writing
+    for timestamp in time_generator(START_TIME_S, START_TIME_NS, STEP_NS, N_STEPS):
+        for channel_name, encodings in mixed_channels_names.items():
+            _, channel_encoding = encodings
+
+            msg = channelname_to_maker[channel_name](timestamp, channel_encoding)
+
+            if isinstance(msg, Message):
+                data = msg.SerializeToString()
+            elif isinstance(msg, Dict):
+                data = json.dumps(msg).encode("utf-8")
+            else:
+                raise Exception(f"Unrecognised msg type: {type(msg).__name__}")
+
+            writer.add_message(
+                channel_id=channelname_to_channel_id[channel_name],
+                log_time=timestamp.to_nanoseconds(),
+                data=data,
+                publish_time=timestamp.to_nanoseconds(),
+            )
+
+    writer.finish()
 
     return fn
 
