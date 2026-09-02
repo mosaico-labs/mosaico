@@ -72,6 +72,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 "mosaicolabs.ros_injector" = "mosaicolabs.bridges.ros.injector:ros_injector"
+"mosaicolabs.mcap_injector" = "mosaicolabs.bridges.mcap.injector:mcap_injector"
 "mosaicolabs.examples" = "mosaicolabs.examples.cli:run_example_cli"
 "mosaicolabs.testing" = "testing.testing:mosaico_testing"
 "mosaico" = "mosaicolabs_cli.main:app"

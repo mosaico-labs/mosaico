@@ -8,8 +8,37 @@ from mcap.well_known import SchemaEncoding
 from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message as Message, Serializable
 
+from ..base_schema_metadata import BaseSchemaMetadata
 from ..bridge_adapter_base import BridgeAdapterBase
 from .mcap_message import MCAPMessage
+
+
+class MCAPSchemaMetadata(BaseSchemaMetadata):
+    """
+    Encapsulates Mosaico's reserved ``_mcap_`` topic-metadata namespace in a single place.
+
+    Every topic ingested by the MCAP bridge carries MCAP-specific bookkeeping (original
+    ``channel_name``, ``channel_encoding``, ``schema_name``, ``schema_encoding``, raw
+    ``schema_def``) plus bridge-internal fields (e.g. the source mcap file) under one reserved
+    key, so that:
+
+    * The literal string ``"_mcap_"`` exists in exactly one place (:attr:`KEY`), instead of
+      being duplicated across adapters, loaders, and the injector.
+    * Callers build up this namespace incrementally via :meth:`update` without ever touching
+      the wrapping dict shape by hand.
+
+    Example:
+        ```python
+        meta = MCAPSchemaMetadata(channel_name="sensor_msgs.Imu").update(source_file="a.mcap")
+        topic_metadata = meta.merge_into(user_supplied_metadata)
+        # topic_metadata == {..., "_mcap_": {"channel_name": "sensor_msgs.Imu", "source_file": "a.mcap"}}
+        ```
+    """
+
+    KEY: ClassVar[str] = "_mcap_"
+    """The reserved metadata key. Adapters/loaders/the injector should reference this
+    constant rather than the literal string, so the namespace can be renamed in one place."""
+
 
 T = TypeVar("T", bound=Serializable)
 
@@ -225,74 +254,20 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
             and encoding_to_validate == cls.schema_encoding
         )
 
-    # @classmethod
-    # def schema_metadata(
-    #     cls, typestore: Typestore, ros_msg_type: str, ros_version: int
-    # ) -> Optional[dict]:
-    #     """
-    #     Extract the ROS message specific schema metadata, if any.
+    @classmethod
+    def schema_metadata(cls) -> Optional[dict]:
+        """
+        Extract the MCAP message specific schema metadata, if any.
 
-    #     Args:
-    #         typestore (Typestore): The rosbags typestore for target type resolution.
-    #         ros_msg_type (str): The ROS message type to extract metadata for.
-    #         ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
 
-    #     Returns:
-    #         Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
+        mcap_meta = MCAPSchemaMetadata(
+            schema_name=cls.schema_name, schema_encoding=cls.schema_encoding
+        )
 
-    #     For the BatteryStateAdapter the expected output is
-    #     {
-    #         "_ros_":
-    #         {
-    #             "enums":
-    #             {
-    #                 "POWER_SUPPLY_STATUS_UNKNOWN": 0,
-    #                 "POWER_SUPPLY_STATUS_CHARGING": 1,
-    #                 "POWER_SUPPLY_STATUS_DISCHARGING": 2,
-    #                 "POWER_SUPPLY_STATUS_NOT_CHARGING": 3,
-    #                 "POWER_SUPPLY_STATUS_FULL": 4,
-    #                 "POWER_SUPPLY_HEALTH_UNKNOWN": 0,
-    #                 "POWER_SUPPLY_HEALTH_GOOD": 1,
-    #                 "POWER_SUPPLY_HEALTH_OVERHEAT": 2,
-    #                 "POWER_SUPPLY_HEALTH_DEAD": 3,
-    #                 "POWER_SUPPLY_HEALTH_OVERVOLTAGE": 4,
-    #                 "POWER_SUPPLY_HEALTH_UNSPEC_FAILURE": 5,
-    #                 "POWER_SUPPLY_HEALTH_COLD": 6,
-    #                 "POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE": 7,
-    #                 "POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE": 8,
-    #                 "POWER_SUPPLY_TECHNOLOGY_UNKNOWN": 0,
-    #                 "POWER_SUPPLY_TECHNOLOGY_NIMH": 1,
-    #                 "POWER_SUPPLY_TECHNOLOGY_LION": 2,
-    #                 "POWER_SUPPLY_TECHNOLOGY_LIPO": 3,
-    #                 "POWER_SUPPLY_TECHNOLOGY_LIFE": 4,
-    #                 "POWER_SUPPLY_TECHNOLOGY_NICD": 5,
-    #                 "POWER_SUPPLY_TECHNOLOGY_LIMN": 6,
-    #             },
-    #             "msgtype": "sensor_msgs/msg/BatteryState"
-    #             "msgdef": "..."
-    #         }
-    #     }
-
-    #     """
-    #     # Check that ros_msg_type is handled by adapter
-    #     if not cls.is_rosmsg_type_valid(ros_msg_type):
-    #         return None
-
-    #     ros_meta = RosSchemaMetadata(msgtype=ros_msg_type)
-
-    #     # Check that ros_msg_type exists in typestore
-    #     msg_def = typestore.fielddefs.get(ros_msg_type)
-
-    #     # Extract ENUM associated to ros_msg_type and adding it to the out dict (if available in typestore)
-    #     if msg_def:
-    #         enum_list, _ = msg_def
-    #         msgdef, _ = typestore.generate_msgdef(ros_msg_type, ros_version=ros_version)
-    #         ros_meta.update(
-    #             enums={name: val for name, _, val in enum_list},
-    #             msgdef=msgdef,
-    #         )
-
-    #     return ros_meta.to_dict()
+        return mcap_meta.to_dict()
 
     @classmethod
     def ontology_data_type(cls) -> Type[T]:
