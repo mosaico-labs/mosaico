@@ -641,7 +641,7 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`nav_msgs/msg/GridCells`](https://docs.ros2.org/foxy/api/nav_msgs/msg/GridCells.html) | [`GridCells`][mosaicolabs.models.futures.GridCells] (ROS-specific)| `GridCellsAdapter` |
   | [`nav_msgs/msg/MapMetaData`](https://docs.ros2.org/foxy/api/nav_msgs/msg/MapMetaData.html) | [`MapMetadata`][mosaicolabs.models.futures.MapMetadata] (ROS-specific)| `MapMetadataAdapter` |
   | [`nav_msgs/msg/Path`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Path.html) | [`Path`][mosaicolabs.models.data.geometry.RobotPath] (ROS-specific)| `PathAdapter` |
-  | [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
+  | [`nmea_msgs/msg/Sentence`](https://docs.ros.org/en/noetic/api/nmea_msgs/html/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
   | [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |
   | [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html) | [`IMU`][mosaicolabs.models.sensors.IMU] | `IMUAdapter` |
   | [`sensor_msgs/msg/MagneticField`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/MagneticField.html) | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | `MagneticFieldAdapter` |

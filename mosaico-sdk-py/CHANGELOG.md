@@ -1,6 +1,16 @@
 # Changelog
 
 
+## [0.6.1] - 2026-08-27
+
+### Bug Fixes
+
+- Changed the warning type emitted for deprecated import paths from `DeprecationWarning` to `FutureWarning`, so it is no longer silenced by default. ([#742](https://github.com/mosaico-labs/mosaico/pull/742))
+
+### Documentation
+
+- Reworked the SDK README: fixed broken links, added a Key Features overview, Quick Start examples for data ingestion and querying (previously only reading was covered), and direct links to the Client, Ontology, Data Handling, Query, and ROS Bridge documentation pages.
+
 ## [0.6.0] - 2026-07-30
 
 This release completes the **Mosaico ↔ ROS round-trip translation** (including support for **Unmodeled ontologies**), introduces **class-free queries via Queryable Fields**, expands the **query engine** with list queries, the `outside()` operator, and the new **clusterize/intersect** temporal-window actions, and includes several performance and bug fixes.
