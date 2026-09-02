@@ -452,13 +452,13 @@ impl StoreOptimizer {
                     // It will be re-added at the next execution.
                     // If even the deletion from the list fails, we can only wait until lease time expires.
                     db::topic_optimization_delete(
-                            &mut self.db.connection(),
-                            acquired_topic.topic_record.topic_id,
-                            types::allow_data_loss(),
-                        )
-                            .await.unwrap_or_else(|_| {
-                            warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
-                        });
+                        &mut self.db.connection(),
+                        acquired_topic.topic_record.topic_id,
+                        types::allow_data_loss(),
+                    )
+                        .await.unwrap_or_else(|_| {
+                        warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
+                    });
 
                     self.result
                         .failed
@@ -477,21 +477,39 @@ impl StoreOptimizer {
 
             match self.optimize(&shutdown_notifier).await {
                 Ok(_) => {
-                    info!(
-                        "Store optimization routine completed: {} topics successful, {} topics failed:",
-                        self.result.completed.len(),
-                        self.result.failed.len()
-                    );
-
                     let errors_list = self
                         .result
                         .failed
                         .iter()
-                        .map(|(locator, err)| format!("\t{}: {}", locator, err))
+                        .map(|(locator, err)| {
+                            format!("{{\n  topic_locator: {},\n  error: {}\n}}", locator, err)
+                        })
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    info!(errors_list);
+                    let mut result_msg = "Store optimization routine completed:".to_owned();
+
+                    if self.result.completed.len() == 1 {
+                        result_msg.push_str("1 topic successful");
+                    } else {
+                        result_msg.push_str(&format!(
+                            "{} topics successful",
+                            self.result.completed.len()
+                        ));
+                    }
+
+                    if self.result.failed.len() == 1 {
+                        result_msg.push_str(", 1 topic failed");
+                    } else {
+                        result_msg
+                            .push_str(&format!(", {} topics failed", self.result.failed.len()));
+                    }
+
+                    if !self.result.failed.is_empty() {
+                        result_msg.push_str(&format!("\n{errors_list}"));
+                    }
+
+                    info!("{result_msg}");
                 }
                 Err(e) => error!("Store optimization routine failed: {}", e),
             }
