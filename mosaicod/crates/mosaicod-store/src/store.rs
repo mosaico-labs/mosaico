@@ -547,4 +547,34 @@ mod test {
         dbg!(&res);
         assert!(res.is_ok());
     }
+
+    /// Checks that S3 object store works, writing and reading data to `mosaico` bucket.
+    #[tokio::test]
+    async fn test_s3_object_store() {
+        let bucket = "mosaico".to_owned();
+        let endpoint = "http://127.0.0.1:7070".parse().unwrap();
+
+        let store = Builder::new(endpoint, bucket)
+            .with_credentials("admin".to_owned(), "password".to_owned())
+            .build()
+            .unwrap();
+
+        let sample = r#"Some example text"#;
+        let buffer = sample.as_bytes();
+
+        let target = "write_text";
+        store.write_to_path(&target, buffer).await.unwrap();
+        let read_buffer = store.read_bytes(&target).await.unwrap();
+        assert_eq!(buffer, read_buffer);
+
+        let target = "test_dir/write_text";
+        store.write_to_path(&target, buffer).await.unwrap();
+        let read_buffer = store.read_bytes(&target).await.unwrap();
+        assert_eq!(buffer, read_buffer);
+
+        assert_eq!(store.list("", None).await.unwrap().len(), 2);
+
+        store.delete_recursive("test_dir").await.unwrap();
+        store.delete("write_text").await.unwrap();
+    }
 }
