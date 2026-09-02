@@ -84,3 +84,7 @@ def _filter_channels_from_dict(
 
 def _class_name_from_mcap_channel(channel: Channel):
     return channel.topic.split(".")[-1]
+
+
+def _sanitize_mcap_channel_name(channel_name: str):
+    return channel_name.replace(".", "/")

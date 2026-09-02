@@ -429,7 +429,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
     # --- Properties ---
 
-    def msg_count(self, channel_name: Optional[str] = None) -> int:
+    def msg_count(self, topic: Optional[str] = None) -> int:
         """
         Returns the total number of messages to be processed based on active filters.
 
@@ -458,7 +458,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             )
             return 0
 
-        if not channel_name:  # returns the sum of all accepted channels
+        if not topic:  # returns the sum of all accepted channels
             acccepted_channel_ids: List[int] = [
                 channel.id for channel in self._accepted_topics.values()
             ]
@@ -468,12 +468,12 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 for channel_id in acccepted_channel_ids
             )
 
-        channel: Optional[Channel] = self._resolved_topics.get(channel_name)
+        channel: Optional[Channel] = self._resolved_topics.get(topic)
 
         if channel is None:
             logger.error(
-                f"Channel '{channel_name}' not found. \
-                  Accepted channels are: {[channel_name for channel_name in self._accepted_topics.keys()]}."
+                f"Channel '{topic}' not found. \
+                  Accepted channels are: {[topic for topic in self._accepted_topics.keys()]}."
             )
             return 0
 

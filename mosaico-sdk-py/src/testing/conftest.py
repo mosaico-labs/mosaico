@@ -245,9 +245,7 @@ def mcap_jsonschema_file(tmp_path_factory):
             jsonschema_writer.add_message(
                 channel_id=channelname_to_channel_id[channel_name],
                 log_time=timestamp.to_nanoseconds(),
-                data=json.dumps(data_generator(timestamp, "jsonschema")).encode(
-                    "utf-8"
-                ),
+                data=json.dumps(data_generator(timestamp, "json")).encode("utf-8"),
                 publish_time=time_ns(),
             )
 
