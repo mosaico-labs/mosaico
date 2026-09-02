@@ -6,7 +6,7 @@ description: "Reference for the TopicAppMetadata JSON payload carried on a Fligh
 
 This page documents the JSON shape of `TopicAppMetadata`, the payload mosaicod attaches to a
 [`FlightEndpoint`](https://arrow.apache.org/docs/format/Flight.html)'s `app_metadata` field when
-responding to a `get_flight_info` call, as described in [Retrieval](../retrieval.md).
+responding to a `get_flight_info` call, as described in [Retrieval](daemon/retrieval.md).
 
 It appears in two places:
 
@@ -71,7 +71,7 @@ A malformed range (`start >= end`) is rejected outright with a gRPC `InvalidArgu
 
 ## Examples
 
-### 1. Unlocked topic, no data, no time window requested
+### Unlocked topic, no data, no time window requested
 
 Right after `topic_create`, before any `do_put` or session finalize:
 
@@ -94,7 +94,7 @@ Right after `topic_create`, before any `do_put` or session finalize:
 }
 ```
 
-### 2. Unlocked topic, no data, time window requested
+### Unlocked topic, no data, time window requested
 
 Same topic as above, but `get_flight_info` is called with `Some(timestamp_range)`. `time_window_info`
 is now present, but empty — there is nothing to report inside the window because there is no data
@@ -122,7 +122,7 @@ at all:
 }
 ```
 
-### 3. Locked topic, no data
+### Locked topic, no data
 
 A topic whose session was finalized without ever writing a non-empty batch (or where only
 zero-row batches were written — those don't produce a chunk):
@@ -146,7 +146,7 @@ zero-row batches were written — those don't produce a chunk):
 }
 ```
 
-### 4. Locked topic with data, no time window requested
+### Locked topic with data, no time window requested
 
 ```json
 {
@@ -167,7 +167,7 @@ zero-row batches were written — those don't produce a chunk):
 }
 ```
 
-### 5. Locked topic with data, time window covering a subset of rows
+### Locked topic with data, time window covering a subset of rows
 
 Same topic as above, `get_flight_info` called with a range covering only one of the 7 rows.
 Note `data_info` is unchanged — it always reports the whole topic — while `time_window_info`
@@ -195,7 +195,7 @@ reports only what falls inside `[10014, 10018)`:
 }
 ```
 
-### 6. Locked topic with data, time window matching no rows
+### Locked topic with data, time window matching no rows
 
 Same topic, but the requested range falls entirely outside the topic's data
 (e.g. `[10100, 10100)`). `time_window_info` is still present (a range was requested), but empty:
