@@ -375,36 +375,6 @@ impl TryFrom<bytes::Bytes> for TopicAppMetadata {
     }
 }
 
-// /// Topic app metadata sent when requesting data streaming (DO_GET action).
-// #[derive(Serialize, Deserialize, Clone, Debug)]
-// pub struct TopicDoGetAppMetadata {
-//     pub row_count: usize,
-//     pub interval: TopicAppMetadataTimestamp,
-// }
-
-// impl TopicDoGetAppMetadata {
-//     pub fn new(row_count: usize, interval: types::TimestampRange) -> Self {
-//         Self {
-//             row_count,
-//             interval: interval.into(),
-//         }
-//     }
-// }
-
-// impl From<TopicDoGetAppMetadata> for bytes::Bytes {
-//     fn from(value: TopicDoGetAppMetadata) -> Self {
-//         serde_json::to_vec(&value).unwrap_or_default().into()
-//     }
-// }
-
-// impl TryFrom<bytes::Bytes> for TopicDoGetAppMetadata {
-//     type Error = Error;
-//     fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
-//         serde_json::from_slice(value.as_ref())
-//             .map_err(|e| Error::DeserializationError(e.to_string()))
-//     }
-// }
-
 // ////////////////////////////////////////////////////////////////////////////
 // Filter
 // ////////////////////////////////////////////////////////////////////////////
