@@ -133,6 +133,7 @@ mosaicolabs.examples ros_injection
 **Available Examples:**
 
   * `ros_injection`: Demonstrates downloading a sample dataset and ingesting it. **Run this first** — the other examples query the data it ingests.
+  * `reconstruct_rosbags`: Reconstructs the ingested rosbag.
   * `data_inspection`: Shows how to list sequences and inspect topic metadata.
   * `query_catalogs`: Advanced querying based on ontology tags and sensor values.
   * `mujoco_vis`: Advanced querying and result visualization.
