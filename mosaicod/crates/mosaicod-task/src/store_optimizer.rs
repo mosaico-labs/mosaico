@@ -93,6 +93,11 @@ impl StoreOptimizer {
         }
     }
 
+    /// Resets internal data between runs.
+    fn reset(&mut self) {
+        self.result = OptimizationResult::default();
+    }
+
     pub fn with_time_interval(mut self, time_interval: types::Duration) -> Self {
         self.time_interval = time_interval;
         self
@@ -475,6 +480,8 @@ impl StoreOptimizer {
         loop {
             info!("Store optimization routine started");
 
+            self.reset();
+
             match self.optimize(&shutdown_notifier).await {
                 Ok(_) => {
                     let errors_list = self
@@ -487,7 +494,7 @@ impl StoreOptimizer {
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    let mut result_msg = "Store optimization routine completed:".to_owned();
+                    let mut result_msg = "Store optimization routine completed: ".to_owned();
 
                     if self.result.completed.len() == 1 {
                         result_msg.push_str("1 topic successful");
