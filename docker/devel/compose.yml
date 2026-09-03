@@ -13,35 +13,31 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   store:
-    image: minio/minio:latest
+    image: ghcr.io/versity/versitygw:latest
     container_name: store
-    environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: password
-    command: server /data --console-address ":9001"
     ports:
-      - "127.0.0.1:9000:9000"  # API
-      - "127.0.0.1:9001:9001"  # Web UI
+      - "127.0.0.1:7070:7070"  # S3 API
+      - "127.0.0.1:7071:7071"  # Admin API
+      - "127.0.0.1:8080:8080"  # Web UI
+    
+    environment:
+      ROOT_ACCESS_KEY: admin
+      ROOT_SECRET_KEY: password
+      VGW_PORT: ":7070"
+      VGW_ADMIN_PORT: ":7071"
+      VGW_WEBUI_PORT: ":8080"
+      VGW_WEBUI_GATEWAYS: "http://127.0.0.1:7070"
+      VGW_WEBUI_ADMIN_GATEWAYS: "http://127.0.0.1:7071"
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARGS: /data/s3
+      VGW_HEALTH: "/health"
     volumes:
-      - /tmp/minio:/data
+      - /tmp/versitygw/s3/mosaico:/data/s3/mosaico
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://store:9000/minio/health/live"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7070/health"]
       interval: 5s
       timeout: 5s
       retries: 5
-
-  # Mock services to create a bucket inside MinIO
-  init_store:
-    image: minio/mc
-    depends_on:
-      store:
-        condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      /usr/bin/mc alias set myminio http://store:9000 admin password &&
-      /usr/bin/mc mb -p myminio/mosaico || true;
-      exit 0;
-      "
 
 volumes:
   postgres_data:
