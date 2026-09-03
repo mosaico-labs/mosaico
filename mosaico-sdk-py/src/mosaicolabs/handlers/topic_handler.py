@@ -14,9 +14,9 @@ import pyarrow.flight as fl
 
 from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.models.core.message import Message
-from mosaicolabs.platform.resource_manifests import (
-    TopicManifestError,
-    TopicResourceManifest,
+from mosaicolabs.platform.app_metadata import (
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
 
 from ..helpers import (
@@ -128,31 +128,31 @@ class TopicHandler:
             )
             return None
 
-        # Extract the Topic resource manifest data and the ticket
+        # Extract the Topic app metadata and the ticket
         ticket: Optional[fl.Ticket] = None
-        topic_resrc_manifest: Optional[TopicResourceManifest] = None
+        topic_app_metadata: Optional[TopicAppMetadata] = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # here the topic name is sanitized
-            if topic_resrc_manifest.name == _stzd_topic_name:
+            if topic_app_metadata.name == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
-        if ticket is None or topic_resrc_manifest is None:
+        if ticket is None or topic_app_metadata is None:
             logger.error(
                 f"Unable to init handler for topic '{topic_name}' in sequence '{sequence_name}'"
             )
             return None
 
         # Build Model
-        topic_model = Topic._from_resource_info(
+        topic_model = Topic._from_app_metadata(
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
-            resrc_manifest=topic_resrc_manifest,
+            app_metadata=topic_app_metadata,
         )
         pyschema = cls._get_schema(
             client=client,
@@ -168,8 +168,8 @@ class TopicHandler:
             client=client,
             topic_model=topic_model,
             pyarrow_schema=pyarrow_schema,
-            timestamp_ns_min=topic_resrc_manifest.timestamp_ns_min,
-            timestamp_ns_max=topic_resrc_manifest.timestamp_ns_max,
+            timestamp_ns_min=topic_app_metadata.timestamp_ns_min,
+            timestamp_ns_max=topic_app_metadata.timestamp_ns_max,
         )
 
     # -------------------- Public methods --------------------

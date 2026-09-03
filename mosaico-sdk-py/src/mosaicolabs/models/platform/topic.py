@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional
 from typing_extensions import Self
 
 from mosaicolabs.enum.serialization_format import SerializationFormat
-from mosaicolabs.platform.resource_manifests import TopicResourceManifest
+from mosaicolabs.platform.app_metadata import TopicAppMetadata
 
 
 @dataclass(frozen=True)
@@ -251,11 +251,11 @@ class Topic:
     """
 
     @classmethod
-    def _from_resource_info(
+    def _from_app_metadata(
         cls,
         name: str,
         sequence_name: str,
-        resrc_manifest: TopicResourceManifest,
+        app_metadata: TopicAppMetadata,
     ) -> Self:
         """
         Factory method to create a Topic view from platform resource information.
@@ -263,20 +263,19 @@ class Topic:
         Args:
             name (str): The name of the platform resource.
             sequence_name (str): The name of the sequence the topic belongs to.
-            platform_metadata (TopicMetadata): The metadata of the platform resource.
-            resrc_manifest (TopicResourceManifest): The manifest of the platform resource.
+            app_metadata (TopicAppMetadata): The metadata of the platform resource.
 
         Returns:
             Self: A Topic instance.
         """
         return cls(
-            user_metadata=resrc_manifest.user_metadata,
+            user_metadata=app_metadata.user_metadata,
             name=name,
             sequence_name=sequence_name,
-            total_size_bytes=resrc_manifest.total_size_bytes,
-            created_timestamp=resrc_manifest.created_timestamp,
-            ontology_tag=resrc_manifest.ontology_tag,
-            serialization_format=resrc_manifest.serialization_format,
-            chunks_number=resrc_manifest.total_chunks_count,
-            locked=resrc_manifest.locked,
+            total_size_bytes=app_metadata.total_size_bytes,
+            created_timestamp=app_metadata.created_timestamp,
+            ontology_tag=app_metadata.ontology_tag,
+            serialization_format=app_metadata.serialization_format,
+            chunks_number=app_metadata.total_chunks_count,
+            locked=app_metadata.locked,
         )

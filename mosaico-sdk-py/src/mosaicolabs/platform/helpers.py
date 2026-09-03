@@ -23,26 +23,14 @@ def _decode_app_metadata(
     Raises:
         ParsingError: If JSON cannot be decoded or it is not a dictionary.
     """
-    # Decode input to string
     try:
-        raw_str = (
-            app_mdata.decode("utf-8") if isinstance(app_mdata, bytes) else app_mdata
+        decoded_app_metadata = json.loads(app_mdata)
+    except Exception as e:
+        raise ParsingError(f"Error decoding app metadata, err '{e}'")
+
+    if not isinstance(decoded_app_metadata, dict):
+        raise ParsingError(
+            f"Decoded app metadata is not a dictionary, got '{type(decoded_app_metadata)}'"
         )
-    except UnicodeDecodeError as e:
-        raise ParsingError(f"App metadata bytes are not UTF-8, err '{e}'")
 
-    # Check empty-string
-    if not raw_str:
-        raise ParsingError("Empty app_metadata")
-
-    # Safely load into JSON
-    try:
-        data = json.loads(raw_str)
-    except json.JSONDecodeError as e:
-        raise ParsingError(f"Invalid JSON in app_metadata, err: '{e}'")
-
-    # Validate format
-    if not isinstance(data, dict):
-        raise ParsingError(f"Expected JSON object, got {type(data).__name__}")
-
-    return data
+    return decoded_app_metadata

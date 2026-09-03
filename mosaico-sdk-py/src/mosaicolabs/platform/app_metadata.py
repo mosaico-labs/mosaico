@@ -13,20 +13,20 @@ from .helpers import _decode_app_metadata
 logger = get_logger(__name__)
 
 
-class TopicManifestError(Exception):
-    """Raised when TopicResourceManifest cannot be extracted from an endpoint."""
+class TopicAppMetadataError(Exception):
+    """Raised when TopicAppMetadata cannot be extracted from an endpoint."""
 
     pass
 
 
-class SequenceManifestError(Exception):
-    """Raised when SequenceResourceManifest cannot be extracted from `app_metadata`."""
+class SequenceAppMetadataError(Exception):
+    """Raised when SequenceAppMetadata cannot be extracted from `app_metadata`."""
 
     pass
 
 
-class SessionManifestError(Exception):
-    """Raised when SessionResourceManifest cannot be extracted from `app_metadata`."""
+class SessionAppMetadataError(Exception):
+    """Raised when SessionAppMetadata cannot be extracted from `app_metadata`."""
 
     pass
 
@@ -56,7 +56,7 @@ def _get_metadata_value(
 
 
 @dataclass(frozen=True)
-class TopicResourceManifest:
+class TopicAppMetadata:
     """
     Metadata container for a specific data topic resource.
 
@@ -70,11 +70,15 @@ class TopicResourceManifest:
         created_timestamp (int): The creation timestamp of the resource in nanoseconds.
         locked (bool): Whether the resource is locked.
         total_size_bytes (int): The aggregate size of all data chunks in bytes.
-        chunks_number (int): The total count of data partitions (chunks)
+        total_chunks_count (int): The total count of data partitions (chunks)
             stored on the server.
+        ontology_tag (str): The ontology tag associated with the resource.
+        serialization_format (SerializationFormat): The serialization format of the resource.
+        user_metadata (dict): User-defined metadata associated with the resource.
         completed_timestamp (Optional[int]): The completion timestamp of the resource in nanoseconds.
         timestamp_ns_min (Optional[int]): The minimum timestamp of the data in the topic.
         timestamp_ns_max (Optional[int]): The maximum timestamp of the data in the topic.
+        total_row_count (int): The total number of rows in the topic.
     """
 
     name: str
@@ -95,18 +99,18 @@ class TopicResourceManifest:
     def _from_flight_endpoint(
         cls,
         endpoint: FlightEndpoint,
-    ) -> "TopicResourceManifest":
+    ) -> "TopicAppMetadata":
         """
-        Factory method to create a manifest from an Arrow Flight app_metadata.
+        Factory method to create a TopicAppMetadata from an Arrow Flight endpoint.
 
         Args:
-            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
+            endpoint (FlightEndpoint): The FlightEndpoint carrying the app_metadata to parse.
 
         Returns:
-            TopicResourceMetadata: An immutable instance containing parsed data.
+            TopicAppMetadata: An immutable instance containing parsed data.
 
         Raises:
-            TopicManifestError: If the endpoint `app_metadata` misses required keys or it is not possible
+            TopicAppMetadataError: If the endpoint `app_metadata` misses required keys or it is not possible
                 to unpack topic and sequence names from the locator.
         """
         try:
@@ -128,7 +132,7 @@ class TopicResourceManifest:
             user_metadata = _get_metadata_value(app_mdata, "user_metadata")
             info_mdata = _get_metadata_value(app_mdata, "data_info")
             if not isinstance(info_mdata, dict):
-                raise TopicManifestError(
+                raise TopicAppMetadataError(
                     f"Unrecognized format for key 'data_info' in app_metadata: type {type(info_mdata).__name__}, expected a JSON."
                 )
 
@@ -137,7 +141,7 @@ class TopicResourceManifest:
 
             locator_tuple = unpack_topic_full_path(resrc_loc)
             if locator_tuple is None:
-                raise TopicManifestError(
+                raise TopicAppMetadataError(
                     f"Invalid format for 'resource_locator': cannot deduce sequence and topic name from '{resrc_loc}'."
                 )
 
@@ -187,8 +191,8 @@ class TopicResourceManifest:
         except Exception as e:
             # Wrap internal errors (like UnicodeDecode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
-            raise TopicManifestError(
-                f"Failed to parse topic manifest from endpoint: {e}"
+            raise TopicAppMetadataError(
+                f"Failed to parse topic metadata from endpoint: {e}"
             ) from e
 
     @staticmethod
@@ -204,7 +208,7 @@ class TopicResourceManifest:
         Returns:
             Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
         """
-        # (can be missing in manifest - i.e. degenerate Topics with no data stream)
+        # (can be missing in metadata - i.e. degenerate Topics with no data stream)
         tmin = None
         tmax = None
         # Can be null (i.e. "timestamp" present but empty)
@@ -221,7 +225,7 @@ class TopicResourceManifest:
 
 
 @dataclass
-class SessionResourceManifest:
+class SessionAppMetadata:
     """
     Metadata and structural information for a Mosaico Session resource.
 
@@ -249,25 +253,25 @@ class SessionResourceManifest:
     def _from_app_metadata(
         cls,
         session_mdata: Dict[str, Any],
-    ) -> "SessionResourceManifest":
+    ) -> "SessionAppMetadata":
         """
-        Internal static method to construct a SessionResourceManifest from app_metadata.
+        Internal static method to construct a SessionAppMetadata from app_metadata.
 
         Args:
             session_mdata (Dict[str, Any]): The app_metadata from the FlightInfo.
 
         Returns:
-            SessionResourceManifest: The SessionResourceManifest object.
+            SessionAppMetadata: The SessionAppMetadata object.
 
         Raises:
-            SessionManifestError: If the endpoint `app_metadata` misses required keys.
+            SessionAppMetadataError: If the endpoint `app_metadata` misses required keys.
         """
 
         locator = _get_metadata_value(session_mdata, "locator")
         created_timestamp = _get_metadata_value(session_mdata, "created_at_ns")
         locked = _get_metadata_value(session_mdata, "locked")
 
-        return SessionResourceManifest(
+        return SessionAppMetadata(
             locator=locator,
             created_timestamp=created_timestamp,
             completed_timestamp=_get_metadata_value(
@@ -281,7 +285,7 @@ class SessionResourceManifest:
 
 
 @dataclass(frozen=True)
-class SequenceResourceManifest:
+class SequenceAppMetadata:
     """
     Metadata container for a specific data sequence resource.
 
@@ -292,30 +296,31 @@ class SequenceResourceManifest:
     Attributes:
         locator (str): The standardized name of the sequence resource.
         created_timestamp (int): The creation timestamp of the sequence in nanoseconds.
-        sessions (List[SessionResourceManifest]): The list of sessions manifests composing the sequence.
+        user_metadata (dict): User-defined metadata associated with the sequence.
+        sessions (List[SessionAppMetadata]): The list of session metadata objects composing the sequence.
     """
 
     locator: str
     created_timestamp: int
     user_metadata: dict
-    sessions: List[SessionResourceManifest]
+    sessions: List[SessionAppMetadata]
 
     @classmethod
-    def _from_decoded_app_metadata(
+    def _from_app_metadata(
         cls,
         app_mdata: Dict[str, Any],
-    ) -> "SequenceResourceManifest":
+    ) -> "SequenceAppMetadata":
         """
-        Factory method to create a SequenceResourceManifest from FlightInfo.app_metadata.
+        Factory method to create a SequenceAppMetadata from FlightInfo.app_metadata.
 
         Args:
             app_mdata (Union[bytes, str]): The app_metadata object containing the sequence resource info.
 
         Returns:
-            SequenceResourceManifest: An immutable instance containing parsed data.
+            SequenceAppMetadata: An immutable instance containing parsed data.
 
         Raises:
-            SequenceManifestError: If the endpoint `app_metadata` misses required keys.
+            SequenceAppMetadataError: If the endpoint `app_metadata` misses required keys.
         """
 
         try:
@@ -332,7 +337,7 @@ class SequenceResourceManifest:
                 created_timestamp=created_timestamp,
                 user_metadata=user_metadata,
                 sessions=[
-                    SessionResourceManifest._from_app_metadata(session)
+                    SessionAppMetadata._from_app_metadata(session)
                     for session in sessions
                 ],
             )
@@ -340,6 +345,6 @@ class SequenceResourceManifest:
         except Exception as e:
             # Wrap internal errors (like UnicodeDecode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
-            raise SequenceManifestError(
+            raise SequenceAppMetadataError(
                 f"Failed to parse metadata from app_metadata: {e}"
             ) from e

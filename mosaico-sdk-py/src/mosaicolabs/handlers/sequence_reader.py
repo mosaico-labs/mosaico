@@ -12,9 +12,9 @@ import pyarrow.flight as fl
 
 from ..logging_config import get_logger
 from ..models.core import Message
-from ..platform.resource_manifests import (
-    TopicManifestError,
-    TopicResourceManifest,
+from ..platform.app_metadata import (
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
@@ -158,18 +158,18 @@ class SequenceDataStreamer:
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
 
-        # Extract the Topics resource manifests data and their tickets
+        # Extract the Topics app metadata and their tickets
         for ep in flight_info.endpoints:
             try:
-                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-                topic_name = topic_manifest.name
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+                topic_name = topic_app_metadata.name
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Skip topics with no data
             if (
-                topic_manifest.timestamp_ns_min is None
-                or topic_manifest.timestamp_ns_max is None
+                topic_app_metadata.timestamp_ns_min is None
+                or topic_app_metadata.timestamp_ns_max is None
             ):
                 continue
             # If not in the selected topics
@@ -179,7 +179,7 @@ class SequenceDataStreamer:
                 client=client,
                 topic_name=topic_name,
                 ticket=ep.ticket,
-                resource_manifest=topic_manifest,
+                app_metadata=topic_app_metadata,
             )
             # Cache the topic reader instance
             topic_readers[treader.name] = treader
