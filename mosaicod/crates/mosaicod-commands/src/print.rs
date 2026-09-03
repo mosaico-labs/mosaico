@@ -265,9 +265,9 @@ pub fn print_instance_list(
     }
 }
 
-/// Prints a one-line summary of the cleanup routine's current status (idle, running, or never
-/// run), and, when known, which instance last ran (or is currently running) it (see
-/// `mosaicod ps`).
+/// Prints a one-line summary of the cleanup routine's current status (idle, running,
+/// interrupted, or never run), and, when known, which instance last ran (or is currently
+/// running) it (see `mosaicod ps`).
 pub fn print_cleanup_status(
     latest: Option<&db::CleanupLogRecord>,
     instances: &[db::InstanceRegistryRecord],
@@ -279,21 +279,41 @@ pub fn print_cleanup_status(
         return;
     };
 
-    let by_instance = log
+    let owning_instance = log
         .instance_id
-        .and_then(|id| instances.iter().find(|i| i.instance_id == id))
+        .and_then(|id| instances.iter().find(|i| i.instance_id == id));
+
+    let by_instance = owning_instance
         .map(|i| format!(" by instance {} ({})", i.instance_id, i.hostname))
         .unwrap_or_default();
 
     match log.end_datetime() {
         None => {
-            println!(
-                "{} — started {}{}",
-                "RUNNING".yellow(),
-                log.start_datetime()
-                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                by_instance,
-            );
+            // An open log row (no end timestamp) normally just means the run is still in
+            // progress, but if the owning instance died mid-run the row is left open forever.
+            // In this case it is reported as INTERRUPTED.
+
+            let interrupted = log.instance_id.is_some_and(|_| {
+                owning_instance.is_none_or(|i| matches!(i.status(), types::InstanceStatus::Dead))
+            });
+
+            if interrupted {
+                println!(
+                    "{} — started {}{}, run never completed (instance no longer alive)",
+                    "INTERRUPTED".red(),
+                    log.start_datetime()
+                        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                    by_instance,
+                );
+            } else {
+                println!(
+                    "{} — started {}{}",
+                    "RUNNING".yellow(),
+                    log.start_datetime()
+                        .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                    by_instance,
+                );
+            }
         }
         Some(end) => {
             println!(
