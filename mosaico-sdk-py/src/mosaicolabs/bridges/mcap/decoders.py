@@ -141,13 +141,19 @@ class MCAPProtobufMsgDecoder(MCAPMsgDecoder):
                                  Provided message is of type {type(msg_data).__name__}"
             )
 
-        return MessageToDict(
+        # NOTE: This conversion is controlled for uint64 and int64 staying between [-2^53, +2^53].
+        # whatever is outside this range is not guaranteed to be converted to a Python int but will
+        # rather turn into a `string`, breaking the system.
+        out = MessageToDict(
             msg_data,
             always_print_fields_with_no_presence=True,
             preserving_proto_field_name=True,
             use_integers_for_enums=True,
             descriptor_pool=self._descriptor_pool,
+            unquote_int64_if_possible=True,
         )
+
+        return out
 
 
 @register_decoder
