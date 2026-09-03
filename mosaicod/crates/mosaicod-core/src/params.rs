@@ -48,7 +48,7 @@ pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 
 /// Interval, in seconds, between instance-registry heartbeats emitted by long-running
 /// `mosaicod` processes (server, cleanup).
-pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 60;
+pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 30;
 
 /// After this many seconds without a heartbeat, an instance's registry row is permanently
 /// deleted. Much larger than [`INSTANCE_STALE_THRESHOLD_SECS`] so a "stale" instance can still
