@@ -1,4 +1,3 @@
-use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
 };
@@ -15,9 +14,6 @@ use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::flight;
 use tracing::{info, trace};
-
-/// Message provided when an error occurs when building flight info data
-const UNABLE_TO_BUILD_FLIGHT_INFO: &str = "unable to build flight info data";
 
 /// Returns the [`FlightInfo`] for the requested resource (Sequence or Topic).
 pub async fn get_flight_info(
@@ -71,13 +67,6 @@ async fn sequence_flight_info(
     sequence_locator: types::SequenceLocator,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<FlightInfo> {
-    trace!("{} building empty schema", sequence_locator);
-
-    // Sequences have no data schema of their own; the schema is always empty and
-    // carries no mosaico-specific metadata. All descriptive metadata (including the
-    // sequence's own user metadata) travels on `FlightInfo::app_metadata` instead.
-    let schema = Schema::new(Vec::<Field>::new());
-
     let sequence_info = facade::sequence::info(ctx, &sequence_locator, timestamp_range).await?;
 
     trace!("{} generating endpoints", sequence_locator);
@@ -97,9 +86,7 @@ async fn sequence_flight_info(
 
     let mut flight_info = FlightInfo::new()
         .with_descriptor(desc)
-        .with_app_metadata(app_metadata)
-        .try_with_schema(&schema)
-        .map_err(|_| core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned())))?;
+        .with_app_metadata(app_metadata);
 
     for endpoint in endpoints {
         flight_info = flight_info.with_endpoint(endpoint);
