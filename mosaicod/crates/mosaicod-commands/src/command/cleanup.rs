@@ -41,6 +41,8 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         max_connections: params.max_db_connections.value,
     };
 

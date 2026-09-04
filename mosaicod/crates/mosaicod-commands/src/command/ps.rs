@@ -28,6 +28,8 @@ pub fn ps(args: Ps) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         // Here we are using only one connection since it's a CLI command
         max_connections: 1,
     };
