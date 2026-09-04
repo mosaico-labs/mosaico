@@ -1,4 +1,5 @@
 use super::Error;
+use super::JsonMetadataBlob;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
 use mosaicod_core::types::{SessionMetadata, TopicLocator};
@@ -103,20 +104,22 @@ pub struct SequenceAppMetadata {
     created_at_ns: i64,
     resource_locator: String,
     sessions: Vec<SessionAppMetadata>,
+    user_metadata: Option<JsonMetadataBlob>,
 }
 
-impl<M> From<types::SequenceMetadata<M>> for SequenceAppMetadata {
-    fn from(value: types::SequenceMetadata<M>) -> Self {
+impl From<types::SequenceMetadata<JsonMetadataBlob>> for SequenceAppMetadata {
+    fn from(value: types::SequenceMetadata<JsonMetadataBlob>) -> Self {
         Self {
             created_at_ns: value.created_at.as_i64(),
             resource_locator: value.resource_locator.to_string(),
             sessions: value.sessions.into_iter().map(Into::into).collect(),
+            user_metadata: value.user_metadata,
         }
     }
 }
 
 /// Used for testing.
-impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
+impl TryFrom<SequenceAppMetadata> for types::SequenceMetadata<JsonMetadataBlob> {
     type Error = super::Error;
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
@@ -131,7 +134,7 @@ impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
-            user_metadata: None,
+            user_metadata: value.user_metadata,
         };
 
         Ok(res)
@@ -265,12 +268,12 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 // TOPIC APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TopicAppMetadataTimestamp {
     /// First timestamp observed in the topic
-    start_ns: i64,
+    pub start_ns: i64,
     /// Last timestamp observed in the topic
-    end_ns: i64,
+    pub end_ns: i64,
 }
 
 impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
@@ -291,11 +294,21 @@ impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
     }
 }
 
+/// Topic information for the time window specified in the request.
 #[derive(Serialize, Deserialize)]
-pub struct TopicAppMetadataInfo {
-    pub chunks_number: u64,
+pub struct TopicAppMetadataTimeWindow {
+    // First and last timestamps. It's None if the topic has no data.
+    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub row_count: u64,
+}
+
+/// Topic information regarding the whole topic.
+#[derive(Serialize, Deserialize)]
+pub struct TopicAppMetadataDataInfo {
+    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub total_row_count: u64,
     pub total_bytes: u64,
-    pub timestamp: Option<TopicAppMetadataTimestamp>,
+    pub total_chunks_count: u64,
 }
 
 /// Topic app metadata sent when requesting flight info topics and sequences flights
@@ -305,31 +318,46 @@ pub struct TopicAppMetadata {
     pub completed_at_ns: Option<i64>,
     pub locked: bool,
     pub resource_locator: String,
-    pub info: Option<TopicAppMetadataInfo>,
+    pub ontology_tag: String,
+    pub serialization_format: super::Format,
+    pub user_metadata: Option<JsonMetadataBlob>,
+    pub data_info: TopicAppMetadataDataInfo,
+    pub time_window_info: Option<TopicAppMetadataTimeWindow>,
 }
 
 impl TopicAppMetadata {
-    pub fn new(metadata: types::TopicMetadataProperties) -> Self {
+    pub fn new(
+        metadata: types::TopicMetadata<JsonMetadataBlob>,
+        data_info: types::TopicDataInfo,
+        time_window_info: Option<types::TopicTimeWindowInfo>,
+    ) -> Self {
         Self {
-            created_at_ns: metadata.created_at.as_i64(),
-            completed_at_ns: metadata.completed_at.map(Into::into),
-            locked: metadata.completed_at.is_some(),
-            resource_locator: metadata.resource_locator.to_string(),
-            info: None,
-        }
-    }
-
-    pub fn with_info(mut self, info: types::TopicDataInfo) -> Self {
-        self.info = Some(TopicAppMetadataInfo {
-            chunks_number: info.chunks_number,
-            total_bytes: info.total_bytes,
-            timestamp: if info.timestamp_range.is_unbounded() {
-                None
-            } else {
-                Some(info.timestamp_range.into())
+            created_at_ns: metadata.properties.created_at.as_i64(),
+            completed_at_ns: metadata.properties.completed_at.map(Into::into),
+            locked: metadata.properties.completed_at.is_some(),
+            resource_locator: metadata.properties.resource_locator.to_string(),
+            ontology_tag: metadata.ontology_metadata.ontology_tag,
+            serialization_format: metadata.ontology_metadata.serialization_format.into(),
+            user_metadata: metadata.ontology_metadata.user_metadata,
+            data_info: TopicAppMetadataDataInfo {
+                interval: if data_info.timestamp_range.is_unbounded() {
+                    None
+                } else {
+                    Some(data_info.timestamp_range.into())
+                },
+                total_row_count: data_info.total_row_count,
+                total_bytes: data_info.total_bytes,
+                total_chunks_count: data_info.total_chunks,
             },
-        });
-        self
+            time_window_info: time_window_info.map(|tw_info| TopicAppMetadataTimeWindow {
+                interval: if tw_info.timestamp_range.is_unbounded() {
+                    None
+                } else {
+                    Some(tw_info.timestamp_range.into())
+                },
+                row_count: tw_info.row_count,
+            }),
+        }
     }
 }
 

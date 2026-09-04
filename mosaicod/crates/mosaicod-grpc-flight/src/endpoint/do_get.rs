@@ -6,7 +6,7 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use mosaicod_core::{self as core, params, types};
+use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
@@ -24,18 +24,11 @@ pub async fn do_get(
 
     trace!("{:?}", doget_params.metadata);
 
-    // TODO: since we are calling timestamp_range(), count() and stream() on query_result,
-    // in some cases it could increase I/O and computes. Maybe a better approach overall is possible?
-
     let mut query_result = ctx
         .timeseries_querier
         .read(
             &doget_params.data_folder_path,
-            doget_params
-                .metadata
-                .ontology_metadata
-                .properties
-                .serialization_format,
+            doget_params.metadata.ontology_metadata.serialization_format,
             Some(doget_params.optimal_batch_size),
         )
         .await?;
@@ -45,26 +38,7 @@ pub async fn do_get(
         query_result = query_result.filter_by_timestamp_range(ts_range)?;
     }
 
-    let mut metadata = doget_params.metadata;
-    let mut total_rows = None;
-
-    // Timestamp_range can be None only if there is no data uploaded for the topic yet.
-    // In that case the entire interval_props is left empty.
-    if let Some(timestamp_range) = query_result.clone().timestamp_range().await? {
-        let message_count = query_result.clone().count().await?;
-        total_rows = Some(message_count);
-
-        metadata = metadata.with_interval(types::TopicIntervalProperties {
-            message_count,
-            timestamp_range,
-        });
-    }
-
-    // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicMetadata::from(metadata);
-    let flatten_mdata = metadata.to_flat_hashmap()?;
-
-    let schema = query_result.schema_with_metadata(flatten_mdata);
+    let schema = query_result.schema();
     trace!("{:?}", schema);
 
     // Get data stream from query result
@@ -102,7 +76,6 @@ pub async fn do_get(
     debug!(
         target = "streaming topic",
         cols = schema.fields().len(),
-        total_rows = total_rows.unwrap_or(0),
         optimal_batch_size = doget_params.optimal_batch_size,
         max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );

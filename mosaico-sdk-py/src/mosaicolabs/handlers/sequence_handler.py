@@ -19,12 +19,12 @@ from ..enum import SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
 from ..models.platform import Sequence, Session
-from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
-from ..platform.resource_manifests import (
-    SequenceResourceManifest,
-    TopicManifestError,
-    TopicResourceManifest,
+from ..platform.app_metadata import (
+    SequenceAppMetadata,
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
+from ..platform.helpers import _decode_app_metadata
 from .config import SessionWriterConfig
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
@@ -155,38 +155,32 @@ class SequenceHandler:
             return None
 
         # Retrieve the Sequence metadata
-        seq_metadata = SequenceMetadata._from_decoded_schema_metadata(
-            _decode_schema_metadata(flight_info.schema.metadata)
-        )
+        decoded_app_metadata = _decode_app_metadata(flight_info.app_metadata)
+        seq_app_metadata = SequenceAppMetadata._from_app_metadata(decoded_app_metadata)
 
-        seq_manifest = SequenceResourceManifest._from_app_metadata(
-            flight_info.app_metadata
-        )
-
-        # Extract the Topics resource manifests data
+        # Extract the Topics app metadata
         tstamps_ns_min = []
         tstamps_ns_max = []
         total_size_bytes = 0
         for ep in flight_info.endpoints:
             try:
-                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Collect the 'min'/'max' timestamps, as we are at a sequence-level
             if (
-                topic_manifest.timestamp_ns_min is not None
-                and topic_manifest.timestamp_ns_max is not None
+                topic_app_metadata.timestamp_ns_min is not None
+                and topic_app_metadata.timestamp_ns_max is not None
             ):
-                tstamps_ns_min.append(topic_manifest.timestamp_ns_min)
-                tstamps_ns_max.append(topic_manifest.timestamp_ns_max)
+                tstamps_ns_min.append(topic_app_metadata.timestamp_ns_min)
+                tstamps_ns_max.append(topic_app_metadata.timestamp_ns_max)
 
-            total_size_bytes += topic_manifest.total_size_bytes
+            total_size_bytes += topic_app_metadata.total_size_bytes
 
-        sequence_model = Sequence._from_resource_info(
+        sequence_model = Sequence._from_app_metadata(
             name=_stzd_sequence_name,
-            platform_metadata=seq_metadata,
-            resrc_manifest=seq_manifest,
+            app_metadata=seq_app_metadata,
             total_size_bytes=total_size_bytes,
         )
 

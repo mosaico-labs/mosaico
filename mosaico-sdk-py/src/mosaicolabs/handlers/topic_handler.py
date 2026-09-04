@@ -12,11 +12,11 @@ from typing import Any, Dict, Optional, Tuple
 import pyarrow as pa
 import pyarrow.flight as fl
 
+from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.models.core.message import Message
-from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
-from mosaicolabs.platform.resource_manifests import (
-    TopicManifestError,
-    TopicResourceManifest,
+from mosaicolabs.platform.app_metadata import (
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
 
 from ..helpers import (
@@ -52,7 +52,6 @@ class TopicHandler:
         *,
         client: fl.FlightClient,
         topic_model: Topic,
-        ticket: fl.Ticket,
         pyarrow_schema: pa.StructType,
         timestamp_ns_min: Optional[int],
         timestamp_ns_max: Optional[int],
@@ -69,7 +68,6 @@ class TopicHandler:
         Args:
             client (fl.FlightClient): The active FlightClient for remote operations.
             topic_model (Topic): The underlying metadata and system info model for the topic.
-            ticket (fl.Ticket): The remote resource ticket used for data retrieval.
             pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
             timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this topic.
             timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this topic.
@@ -78,8 +76,6 @@ class TopicHandler:
         """The FlightClient used for remote operations."""
         self._topic: Topic = topic_model
         """The topic metadata model"""
-        self._fl_ticket: fl.Ticket = ticket
-        """The FlightTicket of the remote resource corresponding to this topic"""
         self._data_streamer_instance: Optional[TopicDataStreamer] = None
         """The instance of the spawned data streamer handler"""
         self._timestamp_ns_min: Optional[int] = timestamp_ns_min
@@ -132,49 +128,48 @@ class TopicHandler:
             )
             return None
 
-        topic_metadata = TopicMetadata._from_decoded_schema_metadata(
-            _decode_schema_metadata(flight_info.schema.metadata)
-        )
-
-        # Extract the Topic resource manifest data and the ticket
+        # Extract the Topic app metadata and the ticket
         ticket: Optional[fl.Ticket] = None
-        topic_resrc_manifest: Optional[TopicResourceManifest] = None
+        topic_app_metadata: Optional[TopicAppMetadata] = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # here the topic name is sanitized
-            if topic_resrc_manifest.name == _stzd_topic_name:
+            if topic_app_metadata.name == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
-        if ticket is None or topic_resrc_manifest is None:
+        if ticket is None or topic_app_metadata is None:
             logger.error(
                 f"Unable to init handler for topic '{topic_name}' in sequence '{sequence_name}'"
             )
             return None
 
         # Build Model
-        topic_model = Topic._from_resource_info(
+        topic_model = Topic._from_app_metadata(
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
-            platform_metadata=topic_metadata,
-            resrc_manifest=topic_resrc_manifest,
+            app_metadata=topic_app_metadata,
+        )
+        pyschema = cls._get_schema(
+            client=client,
+            sequence_name=sequence_name,
+            topic_name=topic_name,
         )
 
         # Retrieve the data ontology schema
-        pyarrow_schema = Message._extract_data_schema(flight_info.schema)
+        pyarrow_schema = Message._extract_data_schema(pyschema.schema)
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(
             client=client,
             topic_model=topic_model,
-            ticket=ticket,
             pyarrow_schema=pyarrow_schema,
-            timestamp_ns_min=topic_resrc_manifest.timestamp_ns_min,
-            timestamp_ns_max=topic_resrc_manifest.timestamp_ns_max,
+            timestamp_ns_min=topic_app_metadata.timestamp_ns_min,
+            timestamp_ns_max=topic_app_metadata.timestamp_ns_max,
         )
 
     # -------------------- Public methods --------------------
@@ -255,7 +250,7 @@ class TopicHandler:
         return self._topic.ontology_tag
 
     @property
-    def serialization_format(self) -> str:
+    def serialization_format(self) -> SerializationFormat:
         """
         The format used to serialize the topic data (e.g., 'arrow', 'image').
 
@@ -377,33 +372,20 @@ class TopicHandler:
                 ```
 
         """
-        if self._fl_ticket is None:
-            raise ValueError(
-                f"Unable to get a TopicDataStreamer for topic '{self._topic.name}': invalid TopicHandler!"
-            )
-
         self._validate_timestamps_info()
 
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
-        if start_timestamp_ns is not None or end_timestamp_ns is not None:
-            # Spawn via connection (calls get_flight_info)
-            self._data_streamer_instance = TopicDataStreamer._connect(
-                client=self._fl_client,
-                topic_name=self.name,
-                sequence_name=self._topic.sequence_name,
-                start_timestamp_ns=start_timestamp_ns,
-                end_timestamp_ns=end_timestamp_ns,
-            )
-        else:
-            # Spawn via ticket (calls do_get straight)
-            self._data_streamer_instance = TopicDataStreamer._connect_from_ticket(
-                client=self._fl_client,
-                topic_name=self.name,
-                ticket=self._fl_ticket,
-            )
+        # Spawn via connection (calls get_flight_info)
+        self._data_streamer_instance = TopicDataStreamer._connect(
+            client=self._fl_client,
+            topic_name=self.name,
+            sequence_name=self._topic.sequence_name,
+            start_timestamp_ns=start_timestamp_ns,
+            end_timestamp_ns=end_timestamp_ns,
+        )
 
         return self._data_streamer_instance
 
@@ -472,6 +454,30 @@ class TopicHandler:
 
         # Get FlightInfo (Metadata + Endpoints)
         return client.get_flight_info(descriptor), _stzd_sequence_name, _stzd_topic_name
+
+    @staticmethod
+    def _get_schema(
+        sequence_name: str,
+        topic_name: str,
+        client: fl.FlightClient,
+    ) -> fl.FlightInfo:
+        """Performs the get_schema call. Raises if flight function does"""
+        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
+        _stzd_topic_name = sanitize_topic_name(topic_name)
+
+        topic_resrc_name = pack_topic_resource_name(
+            _stzd_sequence_name, _stzd_topic_name
+        )
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": topic_resrc_name,
+                }
+            )
+        )
+
+        # Get Schema
+        return client.get_schema(descriptor)
 
     def _validate_timestamps_info(self):
         if self._timestamp_ns_min is None or self._timestamp_ns_max is None:

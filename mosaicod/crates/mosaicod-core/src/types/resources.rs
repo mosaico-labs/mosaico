@@ -208,79 +208,25 @@ impl std::fmt::Display for TopicPathInStore {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct TopicOntologyProperties {
-    pub serialization_format: Format,
-    pub ontology_tag: String,
-}
-
 /// Properties defining the data semantic and encoding for a topic.
 #[derive(Debug, Clone)]
 pub struct TopicOntologyMetadata<M> {
-    pub properties: TopicOntologyProperties,
+    pub serialization_format: Format,
+    pub ontology_tag: String,
     pub user_metadata: Option<M>,
 }
 
 impl<M> TopicOntologyMetadata<M> {
-    pub fn new(props: TopicOntologyProperties, user_metadata: Option<M>) -> Self
+    pub fn new(ontology_tag: String, serialization_format: Format, user_metadata: Option<M>) -> Self
     where
         M: super::MetadataBlob,
     {
         Self {
-            properties: props,
+            serialization_format,
+            ontology_tag,
             user_metadata,
         }
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct TopicIntervalProperties {
-    pub message_count: usize,
-    pub timestamp_range: types::TimestampRange,
-}
-
-#[derive(Debug, Clone)]
-pub struct TopicMetadata<M> {
-    pub properties: TopicMetadataProperties,
-    pub ontology_metadata: TopicOntologyMetadata<M>,
-    pub interval_props: Option<TopicIntervalProperties>,
-}
-
-impl<M> TopicMetadata<M> {
-    pub fn new(
-        properties: TopicMetadataProperties,
-        ontology_metadata: TopicOntologyMetadata<M>,
-    ) -> Self
-    where
-        M: super::MetadataBlob,
-    {
-        Self {
-            properties,
-            ontology_metadata,
-            interval_props: None,
-        }
-    }
-
-    pub fn with_interval(self, interval: TopicIntervalProperties) -> Self
-    where
-        M: super::MetadataBlob,
-    {
-        Self {
-            properties: self.properties,
-            ontology_metadata: self.ontology_metadata,
-            interval_props: Some(interval),
-        }
-    }
-}
-
-/// Aggregated statistics for a topic's chunks.
-#[derive(Debug, Clone, Default)]
-pub struct TopicChunksStats {
-    pub chunks_count: u64,
-    pub total_size_bytes: u64,
-    pub total_row_count: u64,
-    /// Average row footprint in uncompressed Arrow bytes
-    pub avg_bytes_per_row: u64,
 }
 
 /// Metadata properties associated to a topic.
@@ -311,19 +257,63 @@ impl TopicMetadataProperties {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TopicMetadata<M> {
+    pub properties: TopicMetadataProperties,
+    pub ontology_metadata: TopicOntologyMetadata<M>,
+}
+
+impl<M> TopicMetadata<M> {
+    pub fn new(
+        properties: TopicMetadataProperties,
+        ontology_metadata: TopicOntologyMetadata<M>,
+    ) -> Self
+    where
+        M: super::MetadataBlob,
+    {
+        Self {
+            properties,
+            ontology_metadata,
+        }
+    }
+}
+
+/// Aggregated statistics for a topic's chunks.
+#[derive(Debug, Clone, Default)]
+pub struct TopicChunksStats {
+    pub chunks_count: u64,
+    pub total_size_bytes: u64,
+    pub total_row_count: u64,
+    /// Average row footprint in uncompressed Arrow bytes
+    pub avg_bytes_per_row: u64,
+}
+
 /// Represents system-level metadata and statistical information for a specific topic.
 ///
 /// This struct provides a snapshot of the topic's physical state on disk, including
 /// its size, structure, and lifecycle status.
 #[derive(Debug, Clone)]
 pub struct TopicDataInfo {
-    /// Number of chunks in the topic
-    pub chunks_number: u64,
+    /// Number of chunks considering the whole topic.
+    pub total_chunks: u64,
     /// Total size in bytes of the data.
     /// Metadata and other system files are excluded in the count.
     pub total_bytes: u64,
     /// First and last timestamps present in the topic data.
+    /// If the topic has no data, or it's not yet finalized, the timestamp range is set to UNBOUNDED.
     pub timestamp_range: TimestampRange,
+    /// Total number of samples for the topic.
+    pub total_row_count: u64,
+}
+
+/// Topic info regarding the provided time window.
+#[derive(Debug, Clone)]
+pub struct TopicTimeWindowInfo {
+    /// First and last timestamps observed in the topic data (within the input time window).
+    /// If the topic has no data in the given time window, the timestamp range is set to UNBOUNDED.
+    pub timestamp_range: TimestampRange,
+    /// Number of samples within the input time window.
+    pub row_count: u64,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
