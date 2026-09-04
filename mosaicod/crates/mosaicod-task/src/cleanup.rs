@@ -109,7 +109,7 @@ impl Cleanup {
     ///
     /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
     ///
-    /// If `shutdown_notifier` is cancelled while folders are being processed, the loop stops
+    /// If `shutdown_notifier` is canceled while folders are being processed, the loop stops
     /// early and the folders processed so far are logged as usual.
     pub async fn try_cleanup(
         &mut self,
