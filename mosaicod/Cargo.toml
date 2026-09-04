@@ -25,6 +25,8 @@ mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-grpc = { path = "crates/mosaicod-grpc" }
 mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
 mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
+mosaicod-instance-registry = { path = "crates/mosaicod-instance-registry" }
+mosaicod-os = { path = "crates/mosaicod-os" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
 
@@ -46,6 +48,7 @@ clap = { version = "4.6.1", features = ["derive"] }
 colored = "3.1.1"
 dotenv = "0.15.0"
 futures = "0.3.32"
+hostname = "0.4.1"
 if-addrs = "0.15.0"
 mimalloc = { version = "0.1", default-features = false }
 rand = "0.10.2"

@@ -70,8 +70,8 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
             .with_time_interval(time_interval)
             .with_retention_duration(retention_duration);
 
-        cleanup.run(shutdown).await;
-    });
+        cleanup.run(shutdown).await
+    })?;
 
     Ok(())
 }

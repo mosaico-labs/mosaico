@@ -3,6 +3,8 @@
 
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -34,6 +36,9 @@ pub struct Cleanup {
     store: store::StoreRef,
     time_interval: types::Duration,
     retention_duration: types::Duration,
+    // The instance registry id this routine registered itself under, once `run()` has started.
+    // `None` if `try_cleanup()` is invoked directly, without going through `run()` (e.g. tests).
+    instance_id: Option<i32>,
 }
 
 impl Cleanup {
@@ -44,6 +49,7 @@ impl Cleanup {
             store,
             time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
             retention_duration: types::Duration::seconds(DEFAULT_RETENTION_DURATION),
+            instance_id: None,
         }
     }
 
@@ -59,11 +65,41 @@ impl Cleanup {
 
     /// Starts the cleanup routine.
     ///
+    /// Before entering its loop, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
+    /// Registration failure is treated as fatal, consistent with how other DB-dependency
+    /// failures are handled at startup.
+    ///
     /// When `time_interval` is `0` a single cleanup is performed and the routine returns
     /// (one-shot mode). Otherwise it loops, performing a cleanup every `time_interval` until
     /// `shutdown_notifier` is cancelled.
-    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
+    ///
+    /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
+    /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
         info!("Launching cleanup routine");
+
+        let instance = db::instance_registry_create(
+            &mut self.db.connection(),
+            types::InstanceKind::Cleanup,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            self.time_interval.is_zero(),
+        )
+        .await?;
+
+        self.instance_id = Some(instance.instance_id);
+
+        // A dedicated child token lets us stop the heartbeat task once this routine's own loop
+        // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
+        // the caller may still be relying on for other purposes.
+        let heartbeat_shutdown = shutdown_notifier.child_token();
+        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
+            self.db.clone(),
+            instance.instance_id,
+            heartbeat_shutdown.clone(),
+        ));
 
         loop {
             let cleanup_res = self.try_cleanup(&shutdown_notifier).await;
@@ -103,6 +139,20 @@ impl Cleanup {
                 }
             }
         }
+
+        heartbeat_shutdown.cancel();
+        let _ = heartbeat_handle.await;
+
+        if let Err(e) =
+            db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+        {
+            warn!(
+                "failed to deregister instance {}: {}",
+                instance.instance_id, e
+            );
+        }
+
+        Ok(())
     }
 
     /// Launches the cleanup of the store.
@@ -135,7 +185,8 @@ impl Cleanup {
             return Ok(stats);
         }
 
-        let cleanup_log = db::cleanup_log_create(&mut tx, start_time.timestamp()).await?;
+        let cleanup_log =
+            db::cleanup_log_create(&mut tx, start_time.timestamp(), self.instance_id).await?;
 
         tx.commit().await?;
 

@@ -47,7 +47,7 @@ impl Builder {
                     .with_time_interval(self.time_interval)
                     .with_max_file_size(self.max_file_size);
 
-                store_optimizer.run(shutdown.token()).await;
+                let _ = store_optimizer.run(shutdown.token()).await;
             }
         });
 

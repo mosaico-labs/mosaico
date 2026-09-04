@@ -69,8 +69,8 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
             .with_time_interval(time_interval)
             .with_max_file_size(args.max_chunk_size);
 
-        store_optimizer.run(shutdown).await;
-    });
+        store_optimizer.run(shutdown).await
+    })?;
 
     Ok(())
 }

@@ -43,6 +43,18 @@ pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 
+// Instance registry (see `mosaicod ps`). Not configurable: these are cheap, low-stakes
+// background-loop knobs not requiring a CLI flag or env var.
+
+/// Interval, in seconds, between instance-registry heartbeats emitted by long-running
+/// `mosaicod` processes (server, cleanup).
+pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 30;
+
+/// After this many seconds without a heartbeat, an instance's registry row is permanently
+/// deleted. Much larger than [`INSTANCE_STALE_THRESHOLD_SECS`] so a "stale" instance can still
+/// be inspected for a while before its row disappears.
+pub const INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS: u32 = 7 * 86400;
+
 /// Module containing several file extensions
 pub mod ext {
     /// Json file extension
