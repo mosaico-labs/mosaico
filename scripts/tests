@@ -10,7 +10,9 @@ DOCKER_DIR="docker/testing"
 
 # Environment variables (with defaults)
 export RUST_LOG="mosaico=trace"
-export MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
+export MOSAICOD_DB_URL="postgresql://localhost:6543/mosaico"
+export MOSAICOD_DB_USER=postgres
+export MOSAICOD_DB_PASSWORD=password
 export MOSAICOD_STORE_ENDPOINT="file:///tmp"
 export MOSAICOD_STORE_BUCKET="mosaico-auto-testing"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-1}"

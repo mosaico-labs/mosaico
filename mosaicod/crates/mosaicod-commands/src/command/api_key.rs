@@ -83,6 +83,8 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                     "unable to parse".to_string(),
                 )
             })?,
+            user: params::params().db_user.value.clone(),
+            password: params::params().db_password.value.clone(),
             // Here we are using only one connection since it's a CLI command
             max_connections: 1,
         },
