@@ -64,7 +64,7 @@ pub fn startup_info(
         " {} {:10} {}",
         "=".bold().purple(),
         "Database",
-        format_db_host(db_config).yellow()
+        db_config.db_url.to_string().yellow()
     );
     println!();
     println!("{}", "Press Ctrl+C to stop.".dimmed());
@@ -82,14 +82,6 @@ pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
     }
 }
 
-fn format_db_host(db_config: &db::Config) -> String {
-    let mut url = db_config.db_url.clone();
-
-    url.set_username("").unwrap();
-    url.set_password(None).unwrap();
-
-    url.to_string()
-}
 /// Returns the name to display on the console for the current in use store
 pub fn store_display_name(store: &store::StoreRef) -> String {
     match store.target() {
