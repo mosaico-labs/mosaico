@@ -1,11 +1,11 @@
-from mosaicolabs.bridges.ros.loader import BaseLoader, TopicStatus
+from mosaicolabs.bridges.ros.loader import TopicStatus, _BaseROSTopicResolver
 
 
 class _FakeAdapter:
     """Stand-in for a resolved adapter type; identity is all that matters here."""
 
 
-class _FakeLoader(BaseLoader):
+class _FakeLoader(_BaseROSTopicResolver):
     """
     Minimal concrete subclass exercising the base class's bookkeeping without needing
     a real bag file or Mosaico sequence. Storage containers are passed in as either
@@ -105,7 +105,7 @@ def test_rejected_topics_combines_filtered_and_unresolved():
 
     rejected = dict(resolver.rejected_topics)
 
-    assert rejected == {"/debug": TopicStatus.UNRESOLVED_ADAPTER}
+    assert rejected == {"/debug": TopicStatus.UNRESOLVED_ADAPTED}
 
 
 def test_rejected_topics_includes_source_specific_extra_rejections():
@@ -119,7 +119,7 @@ def test_rejected_topics_includes_source_specific_extra_rejections():
     rejected = dict(resolver.rejected_topics)
 
     assert rejected == {
-        "/debug": TopicStatus.UNRESOLVED_ADAPTER,
+        "/debug": TopicStatus.UNRESOLVED_ADAPTED,
         "/malformed": TopicStatus.MALFORMED_METADATA,
         "/missing_type": TopicStatus.NOT_IN_TYPESTORE,
     }

@@ -29,7 +29,7 @@ VARIANT_EXPECTED_STRUCT = pa.struct(
             "details",
             pa.struct(
                 [
-                    pa.field("@type", pa.string(), nullable=False),
+                    pa.field("type_url", pa.string(), nullable=False),
                     pa.field("value", pa.binary(), nullable=False),
                 ]
             ),
