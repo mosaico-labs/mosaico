@@ -31,4 +31,6 @@ message Gps {
   string station_id = 11;
   bytes raw_nmea = 12;
   repeated string active_satellite_ids = 13;
+  map<string, GeoPoint> target_positions = 14;
+  map<string, int32> satellite_snr = 15;
 }

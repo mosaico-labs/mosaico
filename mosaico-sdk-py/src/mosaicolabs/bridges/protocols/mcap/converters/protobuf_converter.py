@@ -66,18 +66,21 @@ class ProtobufSchemaConverter(McapSchemaConverter):
         """Turn one protobuf FieldDescriptor into a pa.field()."""
         field_name = field.name
 
-        if field.is_repeated:
-            arrow_type = pa.list_(cls._base_type(field))
-            nullable = False  # a repeated field is an empty list, never null
+        if field.is_repeated:  # lists and maps are `repeated`
+            if field.message_type and field.message_type.GetOptions().map_entry:  # Map
+                field_key = field.message_type.fields_by_name["key"]
+                field_value = field.message_type.fields_by_name["value"]
+
+                arrow_type = pa.map_(
+                    cls._base_type(field_key), cls._base_type(field_value)
+                )
+
+            else:  # List
+                arrow_type = pa.list_(cls._base_type(field))
+
+            nullable = False
         else:
             arrow_type = cls._base_type(field)
-
-            # if (
-            #     field.containing_type
-            #     and field.containing_type.name == "Any"
-            #     and field.name == "type_url"
-            # ):
-            #     field_name = "@type"  # special case for Any type: type_url field name needs to be remapped!
 
             # Only the field within OneOf and nested structs can be nullable
             nullable = bool(field.containing_oneof) or field.type in (

@@ -189,6 +189,24 @@ def make_gps_mcap(
             station_id="BASE-01",
             raw_nmea=f"$GPGGA,{meas_time.to_nanoseconds()}".encode(),
             active_satellite_ids=["G01", "G05", "E11"],
+            target_positions={
+                "home": _GeoPoint(
+                    latitude=40.0,
+                    longitude=8.0,
+                    altitude=100.0,
+                ),
+                "start_point": _GeoPoint(
+                    latitude=55.070,
+                    longitude=27.686,
+                    altitude=139.0,
+                ),
+                "moving_target": _GeoPoint(
+                    latitude=15.070 + 0.0001 * math.sin(t),
+                    longitude=27.686 + 0.0001 * math.cos(t),
+                    altitude=39.0 + math.sin(t),
+                ),
+            },
+            satellite_snr={"G01": 45, "G05": 38, "E11": 41},
         )
         return msg
     else:

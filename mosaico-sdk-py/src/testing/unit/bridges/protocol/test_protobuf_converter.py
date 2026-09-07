@@ -144,6 +144,12 @@ GPS_EXPECTED_STRUCT = pa.struct(
         pa.field("station_id", pa.string(), nullable=False),
         pa.field("raw_nmea", pa.binary(), nullable=False),
         pa.field("active_satellite_ids", pa.list_(pa.string()), nullable=False),
+        pa.field(
+            "target_positions",
+            pa.map_(pa.string(), GEO_POINT_EXPECTED_STRUCT),
+            nullable=False,
+        ),
+        pa.field("satellite_snr", pa.map_(pa.string(), pa.int32()), nullable=False),
     ]
 )
 
