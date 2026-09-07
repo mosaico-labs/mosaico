@@ -3,7 +3,7 @@ use clap::Args;
 use mosaicod_core::{self as core, error::PublicResult as Result, params};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
-use signal_hook::{consts::SIGINT, iterator::Signals};
+use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
 use std::net::IpAddr;
 use std::thread;
 use tracing::{debug, info};
@@ -61,6 +61,8 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         max_connections: params.max_db_connections.value,
     };
 
@@ -84,7 +86,7 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     }
 
     // (cabba) NOTE: maybe we need to return a more specific error ?
-    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+    let mut signals = Signals::new([SIGINT, SIGTERM]).map_err(|_| {
         core::Error::internal(Some("unable to create termination signal".to_owned()))
     })?;
 

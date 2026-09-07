@@ -3,7 +3,7 @@ use clap::Args;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
-use signal_hook::{consts::SIGINT, iterator::Signals};
+use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
 use std::thread;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
@@ -41,6 +41,8 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         max_connections: params.max_db_connections.value,
     };
 
@@ -50,7 +52,7 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
     let shutdown = CancellationToken::new();
 
     // Forward SIGINT to the cancellation token so a running loop can exit gracefully.
-    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+    let mut signals = Signals::new([SIGINT, SIGTERM]).map_err(|_| {
         core::Error::internal(Some("unable to create termination signal".to_owned()))
     })?;
 
@@ -69,8 +71,8 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
             .with_time_interval(time_interval)
             .with_max_file_size(args.max_chunk_size);
 
-        store_optimizer.run(shutdown).await;
-    });
+        store_optimizer.run(shutdown).await
+    })?;
 
     Ok(())
 }

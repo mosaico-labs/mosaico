@@ -80,8 +80,14 @@ impl<'a> AsExec for Cx<'a> {
 
 /// Configuration structure for initializing the [`Database`].
 pub struct Config {
-    /// Database URL
+    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
     pub db_url: Url,
+
+    /// Database user
+    pub user: String,
+
+    /// Database password
+    pub password: String,
 
     /// Maximum number of connections established with the DMBS
     pub max_connections: u32,
@@ -95,9 +101,14 @@ pub struct Database {
 impl Database {
     pub async fn try_new(config: &Config) -> Result<Self, Error> {
         debug!("creating database connection pool");
+        let connect_options: sqlx::postgres::PgConnectOptions = config.db_url.as_str().parse()?;
+        let connect_options = connect_options
+            .username(&config.user)
+            .password(&config.password);
+
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(config.max_connections)
-            .connect(config.db_url.as_str())
+            .connect_with(connect_options)
             .await?;
 
         debug!("running migrations");

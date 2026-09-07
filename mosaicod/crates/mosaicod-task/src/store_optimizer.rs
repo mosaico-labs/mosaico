@@ -38,6 +38,8 @@ use mosaicod_core::{
 };
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
 use std::cmp::max;
@@ -91,6 +93,11 @@ impl StoreOptimizer {
             max_file_size: DEFAULT_MAX_OUTPUT_FILE_SIZE,
             result: OptimizationResult::default(),
         }
+    }
+
+    /// Resets internal data between runs.
+    fn reset(&mut self) {
+        self.result = OptimizationResult::default();
     }
 
     pub fn with_time_interval(mut self, time_interval: types::Duration) -> Self {
@@ -403,7 +410,7 @@ impl StoreOptimizer {
         )
     }
 
-    async fn optimize(&mut self) -> Result<()> {
+    async fn optimize(&mut self, shutdown_notifier: &CancellationToken) -> Result<()> {
         // Check for stale topics (if the optimization has started too long ago, then we can assume that something went wrong).
         // In this case remove the topic from the list (it will be re-added later (see below).
         let stale_deleted = db::topic_optimization_delete_stale(
@@ -420,12 +427,48 @@ impl StoreOptimizer {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
-        while let Some(acquired_topic) = self
-            .acquire_next_topic()
-            .await
-            .inspect_err(|_| error!("failed to acquire next topic to optimize"))?
-        {
-            let topic_res = self.optimize_topic(&acquired_topic).await;
+        loop {
+            if shutdown_notifier.is_cancelled() {
+                info!("Shutdown received. Interrupting store optimization run early.");
+                break;
+            }
+
+            let Some(acquired_topic) = self
+                .acquire_next_topic()
+                .await
+                .inspect_err(|_| error!("failed to acquire next topic to optimize"))?
+            else {
+                break;
+            };
+
+            // Race the whole per-topic optimization against shutdown rather than only checking
+            // between topics: a single topic's DataFusion sort/encode/flush pass can take
+            // minutes, and none of its internal await points are guaranteed to yield control
+            // back promptly. Dropping the future mid-flight is safe: the topic's original data
+            // is untouched until the final DB transaction commits, and releasing the lease below
+            // leaves the partially-written opt_path_in_store unreferenced, so the cleanup routine
+            // reaps it on its own schedule instead of it sitting locked for MAX_LEASE_NS.
+            let topic_res = tokio::select! {
+                biased;
+                _ = shutdown_notifier.cancelled() => {
+                    info!(
+                        "Shutdown received. Interrupting optimization of topic {} early; it will be retried on the next run.",
+                        acquired_topic.topic_record.locator()
+                    );
+
+                    db::topic_optimization_delete(
+                            &mut self.db.connection(),
+                            acquired_topic.topic_record.topic_id,
+                            types::allow_data_loss(),
+                        )
+                        .await.unwrap_or_else(|_| {
+                            warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
+                        });
+
+                    break;
+                },
+                res = self.optimize_topic(&acquired_topic) => res,
+            };
 
             match topic_res {
                 Ok(_) => {
@@ -443,13 +486,13 @@ impl StoreOptimizer {
                     // It will be re-added at the next execution.
                     // If even the deletion from the list fails, we can only wait until lease time expires.
                     db::topic_optimization_delete(
-                            &mut self.db.connection(),
-                            acquired_topic.topic_record.topic_id,
-                            types::allow_data_loss(),
-                        )
-                            .await.unwrap_or_else(|_| {
-                            warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
-                        });
+                        &mut self.db.connection(),
+                        acquired_topic.topic_record.topic_id,
+                        types::allow_data_loss(),
+                    )
+                        .await.unwrap_or_else(|_| {
+                        warn!("failed to delete topic {} from optimization list. Let's wait until its lease time expires.", acquired_topic.topic_record.locator());
+                    });
 
                     self.result
                         .failed
@@ -462,34 +505,82 @@ impl StoreOptimizer {
     }
 
     /// Starts the optimization routine every [`time_interval`].
-    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
+    ///
+    /// Before entering its loop, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
+    /// Registration failure is treated as fatal, consistent with how other DB-dependency
+    /// failures are handled at startup.
+    ///
+    /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
+    /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
+        let instance = db::instance_registry_create(
+            &mut self.db.connection(),
+            types::InstanceKind::StoreOptimizer,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            self.time_interval.is_zero(),
+        )
+        .await?;
+
+        // A dedicated child token lets us stop the heartbeat task once this routine's own loop
+        // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
+        // the caller may still be relying on for other purposes.
+        let heartbeat_shutdown = shutdown_notifier.child_token();
+        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
+            self.db.clone(),
+            instance.instance_id,
+            heartbeat_shutdown.clone(),
+        ));
+
         loop {
             info!("Store optimization routine started");
 
-            match self.optimize().await {
-                Ok(_) => {
-                    info!(
-                        "Store optimization routine completed: {} topics successful, {} topics failed:",
-                        self.result.completed.len(),
-                        self.result.failed.len()
-                    );
+            self.reset();
 
+            match self.optimize(&shutdown_notifier).await {
+                Ok(_) => {
                     let errors_list = self
                         .result
                         .failed
                         .iter()
-                        .map(|(locator, err)| format!("\t{}: {}", locator, err))
+                        .map(|(locator, err)| {
+                            format!("{{\n  topic_locator: {},\n  error: {}\n}}", locator, err)
+                        })
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    info!(errors_list);
+                    let mut result_msg = "Store optimization routine completed: ".to_owned();
+
+                    if self.result.completed.len() == 1 {
+                        result_msg.push_str("1 topic successful");
+                    } else {
+                        result_msg.push_str(&format!(
+                            "{} topics successful",
+                            self.result.completed.len()
+                        ));
+                    }
+
+                    if self.result.failed.len() == 1 {
+                        result_msg.push_str(", 1 topic failed");
+                    } else {
+                        result_msg
+                            .push_str(&format!(", {} topics failed", self.result.failed.len()));
+                    }
+
+                    if !self.result.failed.is_empty() {
+                        result_msg.push_str(&format!("\n{errors_list}"));
+                    }
+
+                    info!("{result_msg}");
                 }
                 Err(e) => error!("Store optimization routine failed: {}", e),
             }
 
             // If time interval is set to 0, exit after the first run.
             if self.time_interval.is_zero() {
-                return;
+                break;
             }
 
             tokio::select! {
@@ -502,5 +593,19 @@ impl StoreOptimizer {
                 }
             }
         }
+
+        heartbeat_shutdown.cancel();
+        let _ = heartbeat_handle.await;
+
+        if let Err(e) =
+            db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+        {
+            warn!(
+                "failed to deregister instance {}: {}",
+                instance.instance_id, e
+            );
+        }
+
+        Ok(())
     }
 }

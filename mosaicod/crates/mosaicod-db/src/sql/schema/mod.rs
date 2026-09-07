@@ -23,3 +23,6 @@ pub use cleanup_log_record::*;
 
 mod topic_optimization_record;
 pub use topic_optimization_record::*;
+
+mod instance_registry_record;
+pub use instance_registry_record::*;

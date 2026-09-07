@@ -43,6 +43,18 @@ pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 
+// Instance registry (see `mosaicod ps`). Not configurable: these are cheap, low-stakes
+// background-loop knobs not requiring a CLI flag or env var.
+
+/// Interval, in seconds, between instance-registry heartbeats emitted by long-running
+/// `mosaicod` processes (server, cleanup).
+pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 30;
+
+/// After this many seconds without a heartbeat, an instance's registry row is permanently
+/// deleted. Much larger than [`INSTANCE_STALE_THRESHOLD_SECS`] so a "stale" instance can still
+/// be inspected for a while before its row disappears.
+pub const INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS: u32 = 7 * 86400;
+
 /// Module containing several file extensions
 pub mod ext {
     /// Json file extension
@@ -236,7 +248,10 @@ pub struct Params {
     /// Path of the `key.pem` file used as private key for TLS
     pub tls_private_key_file: Param<String>,
 
+    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
     pub db_url: Param<String>,
+    pub db_user: Param<String>,
+    pub db_password: Param<String, Hidden>,
 
     /// Maximum number of database connections in the pool
     pub max_db_connections: Param<u32>,
@@ -276,23 +291,27 @@ impl Params {
 
 /// Options for loading parameters from environment variables
 pub struct ParamsLoadOptions {
-    /// Avoid parsing `MOSICOD_DB_URL` env variable
-    pub skip_db_url: bool,
+    /// Avoid requiring the `MOSAICOD_DB_*` env variables
+    pub skip_db_config: bool,
 }
 
 #[allow(clippy::derivable_impls)]
 impl Default for ParamsLoadOptions {
     fn default() -> Self {
-        Self { skip_db_url: false }
+        Self {
+            skip_db_config: false,
+        }
     }
 }
 
 impl ParamsLoadOptions {
     /// Load parameters with options suitable for testing
     ///
-    /// This will skip the loading of database URL in the environment variables.
+    /// This will skip the loading of database connection settings from the environment variables.
     pub fn testing() -> Self {
-        Self { skip_db_url: true }
+        Self {
+            skip_db_config: true,
+        }
     }
 }
 
@@ -349,10 +368,22 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         ),
 
         // database
-        db_url: if config.skip_db_url {
+        db_url: if config.skip_db_config {
             Param::default()
         } else {
             Param::required("MOSAICOD_DB_URL")?
+        },
+        db_user: if config.skip_db_config {
+            Param::default()
+        } else {
+            // Some databases do not require to specify a user for the connection.
+            Param::optional("MOSAICOD_DB_USER", String::new())
+        },
+        db_password: if config.skip_db_config {
+            Param::default()
+        } else {
+            // Some databases do not require to specify a password for the connection.
+            Param::optional("MOSAICOD_DB_PASSWORD", String::new())
         },
 
         // store
@@ -438,6 +469,8 @@ mod tests {
             tls_certificate_file: param(DEFAULT_TLS_CERT_FILE.to_owned()),
             tls_private_key_file: param(DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned()),
             db_url: param("".to_owned()),
+            db_user: param("".to_owned()),
+            db_password: param_hidden("".to_owned()),
             max_db_connections: param(DEFAULT_MAX_DB_CONNECTIONS),
             store_endpoint: param(DEFAULT_STORE_ENDPOINT.to_owned()),
             store_bucket: param(DEFAULT_STORE_BUCKET.to_owned()),

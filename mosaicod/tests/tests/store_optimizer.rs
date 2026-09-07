@@ -94,7 +94,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -276,16 +276,14 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // Run the store optimizer one-shot.
-    let time_interval = types::Duration::seconds(1);
     let max_file_size = 2_000;
     let store_optimizer_handle = store_optimizer::Builder::new(pool)
-        .with_time_interval(time_interval)
         .with_max_file_size(max_file_size)
         .build_with_store(&server.store)
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -423,7 +421,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -614,7 +612,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -821,7 +819,7 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // Wait for the optimizer to run.
-    store_optimizer_handle.shutdown().await;
+    store_optimizer_handle.wait_until_finished().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
