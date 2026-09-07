@@ -48,7 +48,7 @@ class RosMsgSchemaConverter(McapSchemaConverter):
         "string": pa.string(),
     }
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("ros1msg", "ros2msg")
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]] = ("ros1msg", "ros2msg")
 
     @classmethod
     def _typesdict_to_schema(cls, typesdict: Typesdict, msgtype: str) -> pa.StructType:

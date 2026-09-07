@@ -1,11 +1,42 @@
+import json
 import logging
 from pathlib import Path
-from typing import Optional
+from time import time_ns
+from typing import Dict, Optional, Type
 
 import pytest
+from google.protobuf.message import Message
+from mcap.writer import Writer as JsonschemaWriter
+from mcap_protobuf.writer import Writer as ProtobufWriter
+from pytest import FixtureRequest
 
 from mosaicolabs.enum.grpc_compression import GRPCCompressionAlgorithm
 from mosaicolabs.logging_config import setup_sdk_logging
+
+from .unit.bridges.config import (
+    ALL_CHANNEL_NAMES,
+    GPS_CHANNEL_NAME,
+    GPS_JSONSCHEMA,
+    GPS_PROTOBUF,
+    IMU_CHANNEL_NAME,
+    IMU_JSONSCHEMA,
+    IMU_PROTOBUF,
+    MAGN_JSONSCHEMA,
+    MAGN_PROTOBUF,
+    MAGNETOMETER_CHANNEL_NAME,
+    N_STEPS,
+    START_TIME_NS,
+    START_TIME_S,
+    STEP_NS,
+    VARIANT_CHANNEL_NAME,
+    VARIANT_JSONSCHEMA,
+    VARIANT_PROTOBUF,
+    make_gps_mcap,
+    make_imu_mcap,
+    make_magn_mcap,
+    make_variant_mcap,
+    time_generator,
+)
 
 
 def pytest_configure(config):
@@ -162,3 +193,176 @@ def pristine_mosaico_logger():
     logger.handlers.clear()
     logger.addHandler(logging.NullHandler())
     logger.propagate = False
+
+
+# MCAP stuff
+
+channelname_to_maker = {
+    IMU_CHANNEL_NAME: make_imu_mcap,
+    GPS_CHANNEL_NAME: make_gps_mcap,
+    MAGNETOMETER_CHANNEL_NAME: make_magn_mcap,
+    VARIANT_CHANNEL_NAME: make_variant_mcap,
+}
+
+channelname_to_jsonschema: Dict[str, bytes] = {
+    IMU_CHANNEL_NAME: json.dumps(IMU_JSONSCHEMA).encode("utf8"),
+    GPS_CHANNEL_NAME: json.dumps(GPS_JSONSCHEMA).encode("utf8"),
+    MAGNETOMETER_CHANNEL_NAME: json.dumps(MAGN_JSONSCHEMA).encode("utf8"),
+    VARIANT_CHANNEL_NAME: json.dumps(VARIANT_JSONSCHEMA).encode("utf8"),
+}
+
+channelname_to_protobuf: Dict[str, Type[Message]] = {
+    IMU_CHANNEL_NAME: IMU_PROTOBUF,
+    GPS_CHANNEL_NAME: GPS_PROTOBUF,
+    MAGNETOMETER_CHANNEL_NAME: MAGN_PROTOBUF,
+    VARIANT_CHANNEL_NAME: VARIANT_PROTOBUF,
+}
+
+
+@pytest.fixture(scope="session")
+def mcap_jsonschema_file(tmp_path_factory):
+    """Creates and returns the path to an example mcap file with jsonschema encoding"""
+
+    fn = tmp_path_factory.mktemp("data") / "example_mcap_jsonschema.mcap"
+
+    jsonschema_writer = JsonschemaWriter(str(fn))
+
+    jsonschema_writer.start()
+
+    # Channels are registered once, up front: one schema + one channel per topic.
+    channelname_to_channel_id = {}
+
+    for channel_name in ALL_CHANNEL_NAMES:
+        schema_id = jsonschema_writer.register_schema(
+            name=channel_name,
+            encoding="jsonschema",
+            data=channelname_to_jsonschema[channel_name],
+        )
+
+        channelname_to_channel_id[channel_name] = jsonschema_writer.register_channel(
+            schema_id=schema_id,
+            topic=channel_name,
+            message_encoding="json",
+        )
+
+    for timestamp in time_generator(START_TIME_S, START_TIME_NS, STEP_NS, N_STEPS):
+        for channel_name in ALL_CHANNEL_NAMES:
+            data_generator = channelname_to_maker[channel_name]
+
+            jsonschema_writer.add_message(
+                channel_id=channelname_to_channel_id[channel_name],
+                log_time=timestamp.to_nanoseconds(),
+                data=json.dumps(data_generator(timestamp, "json")).encode("utf-8"),
+                publish_time=time_ns(),
+            )
+
+    jsonschema_writer.finish()
+
+    return fn
+
+
+@pytest.fixture(scope="session")
+def mcap_protobuf_file(tmp_path_factory):
+    """Creates and returns the path to an example mcap file with protobuf encoding"""
+
+    fn = tmp_path_factory.mktemp("data") / "example_mcap_protobuf.mcap"
+
+    mcap_writer = ProtobufWriter(str(fn))
+
+    for timestamp in time_generator(START_TIME_S, START_TIME_NS, STEP_NS, N_STEPS):
+        for channel_name in ALL_CHANNEL_NAMES:
+            msg_generator = channelname_to_maker[channel_name]
+
+            msg = msg_generator(timestamp, "protobuf")
+            assert isinstance(msg, Message)
+
+            mcap_writer.write_message(
+                topic=channel_name,
+                message=msg,
+                log_time=timestamp.to_nanoseconds(),
+                publish_time=timestamp.to_nanoseconds(),
+            )
+
+    mcap_writer.finish()
+
+    return fn
+
+
+@pytest.fixture(scope="session")
+def mcap_mixed_file(tmp_path_factory):
+    """Creates an mcap file mixing protobuf- and json-encoded channels on a single writer.
+
+    Built through the low-level `mcap.writer.Writer` API directly (rather than
+    `mcap_protobuf.writer.Writer`/`mcap.writer.Writer` separately, as `mcap_protobuf_file`/
+    `mcap_jsonschema_file` do) since only one writer/file is involved here.
+    """
+    from mcap_protobuf.schema import register_schema as register_protobuf_schema
+
+    fn = tmp_path_factory.mktemp("data") / "example_mcap_mixed.mcap"
+
+    writer = JsonschemaWriter(str(fn))
+    writer.start()
+
+    mixed_channels_names = {
+        IMU_CHANNEL_NAME: ("protobuf", "protobuf"),
+        GPS_CHANNEL_NAME: ("jsonschema", "json"),
+        MAGNETOMETER_CHANNEL_NAME: ("jsonschema", "json"),
+        VARIANT_CHANNEL_NAME: ("protobuf", "protobuf"),
+    }
+
+    channelname_to_channel_id: Dict[str, int] = {}
+
+    # Registration
+    for channel_name, encodings in mixed_channels_names.items():
+        schema_encoding, channel_encoding = encodings
+
+        if schema_encoding == "protobuf":
+            schema_id = register_protobuf_schema(
+                writer, channelname_to_protobuf[channel_name]
+            )
+        elif schema_encoding == "jsonschema":
+            schema_id = writer.register_schema(
+                name=channel_name,
+                encoding=schema_encoding,
+                data=channelname_to_jsonschema[channel_name],
+            )
+        else:
+            raise Exception(f"Unsupported schema encoding: {schema_encoding}")
+
+        channelname_to_channel_id[channel_name] = writer.register_channel(
+            topic=channel_name,
+            message_encoding=channel_encoding,
+            schema_id=schema_id,
+        )
+
+    # Data writing
+    for timestamp in time_generator(START_TIME_S, START_TIME_NS, STEP_NS, N_STEPS):
+        for channel_name, encodings in mixed_channels_names.items():
+            _, channel_encoding = encodings
+
+            msg = channelname_to_maker[channel_name](timestamp, channel_encoding)
+
+            if isinstance(msg, Message):
+                data = msg.SerializeToString()
+            elif isinstance(msg, Dict):
+                data = json.dumps(msg).encode("utf-8")
+            else:
+                raise Exception(f"Unrecognised msg type: {type(msg).__name__}")
+
+            writer.add_message(
+                channel_id=channelname_to_channel_id[channel_name],
+                log_time=timestamp.to_nanoseconds(),
+                data=data,
+                publish_time=timestamp.to_nanoseconds(),
+            )
+
+    writer.finish()
+
+    return fn
+
+
+@pytest.fixture
+def mcap_file(request: FixtureRequest):
+    """Resolves an indirect parametrize value (a fixture name) to that fixture's value"""
+
+    return request.getfixturevalue(request.param)

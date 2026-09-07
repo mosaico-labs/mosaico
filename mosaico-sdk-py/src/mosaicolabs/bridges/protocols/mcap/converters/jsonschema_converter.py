@@ -40,7 +40,7 @@ class JsonschemaSchemaConverter(McapSchemaConverter):
         "null": pa.null(),
     }
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema",)
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema",)
 
     T = TypeVar("T")
 

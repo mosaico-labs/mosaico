@@ -44,15 +44,17 @@ class ProtobufSchemaConverter(McapSchemaConverter):
         FieldDescriptor.TYPE_ENUM: pa.int32(),  # enum values are int32 on the wire
     }
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]] = ("protobuf",)
 
     @classmethod
     def _base_type(cls, field: FieldDescriptor) -> pa.DataType | pa.StructType:
         """Arrow type for a single (non-repeated) value of this field."""
         if field.type in (FieldDescriptor.TYPE_MESSAGE, FieldDescriptor.TYPE_GROUP):
-            assert (
-                field.message_type is not None
-            )  # FIXME: can this happen? What happens in this case?
+            if field.message_type is None:
+                raise RuntimeError(
+                    f"`{field.full_name}` of type {field.type} does not hold any information about its message type."
+                )
+
             return cls._message_to_struct(field.message_type)
         try:
             return cls._PROTOBUF_2_PYARROW_TYPE[field.type]
@@ -62,18 +64,37 @@ class ProtobufSchemaConverter(McapSchemaConverter):
     @classmethod
     def _field_to_arrow(cls, field: FieldDescriptor) -> pa.Field:
         """Turn one protobuf FieldDescriptor into a pa.field()."""
+        field_name = field.name
+
         if field.is_repeated:
             arrow_type = pa.list_(cls._base_type(field))
             nullable = False  # a repeated field is an empty list, never null
         else:
             arrow_type = cls._base_type(field)
-            nullable = True  # FIXME: should this be treted differently?
 
-        return pa.field(field.name, arrow_type, nullable=nullable)
+            # if (
+            #     field.containing_type
+            #     and field.containing_type.name == "Any"
+            #     and field.name == "type_url"
+            # ):
+            #     field_name = "@type"  # special case for Any type: type_url field name needs to be remapped!
+
+            # Only the field within OneOf and nested structs can be nullable
+            nullable = bool(field.containing_oneof) or field.type in (
+                FieldDescriptor.TYPE_MESSAGE,
+                FieldDescriptor.TYPE_GROUP,
+            )
+
+        return pa.field(field_name, arrow_type, nullable=nullable)
 
     @classmethod
     def _message_to_struct(cls, descriptor: Descriptor) -> pa.StructType:
-        """A top-level message Descriptor -> pa.schema() (one column per field)."""
+        """A top-level message Descriptor -> pa.schema() (one column per field).
+
+        NOTE: A ``oneof`` group's members are just regular entries in ``descriptor.fields``,
+        so they intentionally surface here as flat, independently-nullable sibling
+        fields rather than as a tagged Arrow union.
+        """
         return pa.struct([cls._field_to_arrow(f) for f in descriptor.fields])
 
     @classmethod
