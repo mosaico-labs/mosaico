@@ -3,20 +3,22 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
-use mosaicod_commands::{command, common, log, print};
+use mosaicod_commands::{command, common, print};
 use mosaicod_core::error::PublicResult as Result;
+use mosaicod_core::{params, types};
+use tracing::debug;
 
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
 /// mosaicod - Mosaico high-performance daemon
 struct Cli {
     /// Set the log output format
-    #[arg(long, global = true, default_value_t = log::LogFormat::Pretty)]
-    log_format: log::LogFormat,
+    #[arg(long, global = true, default_value_t = types::LogFormat::Pretty)]
+    log_format: types::LogFormat,
 
     /// Set the log level
-    #[arg(long, global = true, default_value_t = log::LogLevel::Warning)]
-    log_level: log::LogLevel,
+    #[arg(long, global = true, default_value_t = types::LogLevel::Warning)]
+    log_level: types::LogLevel,
 
     #[command(subcommand)]
     cmd: Commands,
@@ -62,12 +64,14 @@ fn start() -> Result<Option<String>> {
         }
     };
 
-    print::set_colors(args.log_format);
-    log::init_logger(args.log_format, args.log_level);
-
     common::load_env_variables()?;
 
-    let is_json_output = matches!(args.log_format, log::LogFormat::Json);
+    print::set_colors(args.log_format);
+    types::init_logger(args.log_format, args.log_level);
+
+    debug!("{:#?}", params::params());
+
+    let is_json_output = matches!(args.log_format, types::LogFormat::Json);
 
     match args.cmd {
         Commands::Server(sub_args) => command::server(sub_args, is_json_output)?,

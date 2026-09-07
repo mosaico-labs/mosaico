@@ -1,4 +1,3 @@
-use super::log;
 use colored::Colorize;
 use mosaicod_core::{error::PublicError, types};
 use mosaicod_db as db;
@@ -16,8 +15,8 @@ fn format_addr(is_loopback: bool, msg: String) {
 }
 
 /// Enable or disable colors based on the log format
-pub fn set_colors(format: log::LogFormat) {
-    if matches!(format, log::LogFormat::Plain) {
+pub fn set_colors(format: types::LogFormat) {
+    if matches!(format, types::LogFormat::Plain) {
         colored::control::set_override(false);
     }
 }
