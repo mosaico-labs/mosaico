@@ -140,6 +140,80 @@ where
             _visibility: PhantomData,
         })
     }
+
+    /// Like [`Param::optional`], but the value may instead be provided via a
+    /// `<NAME>_FILE` environment variable pointing at a file containing it.
+    /// At most one of `<NAME>` or `<NAME>_FILE` may be set; setting both is an error.
+    /// If neither is set, `default` is used.
+    pub fn optional_or_file(name: &str, default: T) -> error::PublicResult<Param<T, V>>
+    where
+        T: std::str::FromStr,
+        <T as FromStr>::Err: std::fmt::Debug,
+    {
+        let value = match resolve_plain_or_file(name)? {
+            Some(raw) => raw.parse().map_err(|_| {
+                error::Error::invalid_configuration(name.to_owned(), "unable to parse".to_owned())
+            })?,
+            None => default,
+        };
+
+        Ok(Self {
+            value,
+            env: name.to_owned(),
+            _visibility: PhantomData,
+        })
+    }
+
+    /// Like [`Param::required`], but the value may instead be provided via a
+    /// `<NAME>_FILE` environment variable pointing at a file containing it.
+    /// Exactly one of `<NAME>` or `<NAME>_FILE` must be set: setting both, or neither, is an error.
+    pub fn required_or_file(name: &str) -> error::PublicResult<Param<T, V>>
+    where
+        T: std::str::FromStr,
+        <T as FromStr>::Err: std::fmt::Debug,
+    {
+        let raw = resolve_plain_or_file(name)?.ok_or_else(|| {
+            error::Error::invalid_configuration(
+                name.to_owned(),
+                format!("missing: set `{name}` or `{name}_FILE`"),
+            )
+        })?;
+
+        let value = raw.parse().map_err(|_| {
+            error::Error::invalid_configuration(name.to_owned(), "unable to parse".to_owned())
+        })?;
+
+        Ok(Self {
+            value,
+            env: name.to_owned(),
+            _visibility: PhantomData,
+        })
+    }
+}
+
+/// Resolves a value that may be set either directly via `<NAME>` or indirectly via
+/// `<NAME>_FILE` (a path to a file containing it, read and trailing-newline-trimmed).
+/// Returns `Ok(None)` if neither is set. Setting both is an error.
+fn resolve_plain_or_file(name: &str) -> error::PublicResult<Option<String>> {
+    let file_env = format!("{name}_FILE");
+
+    let plain = env::var(name).ok();
+    let file_path = env::var(&file_env).ok();
+
+    match (plain, file_path) {
+        (Some(_), Some(_)) => Err(error::Error::invalid_configuration(
+            name.to_owned(),
+            format!("`{name}` and `{file_env}` are mutually exclusive, set only one"),
+        ))?,
+        (Some(value), None) => Ok(Some(value)),
+        (None, Some(path)) => Ok(Some(
+            std::fs::read_to_string(&path)
+                .map_err(|e| error::Error::invalid_configuration(file_env, e.to_string()))?
+                .trim()
+                .to_owned(),
+        )),
+        (None, None) => Ok(None),
+    }
 }
 
 impl<T> std::fmt::Debug for Param<T, Hidden>
@@ -250,7 +324,10 @@ pub struct Params {
 
     /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
     pub db_url: Param<String>,
+
     pub db_user: Param<String>,
+
+    /// May also be set via `MOSAICOD_DB_PASSWORD_FILE` (see [`Param::optional_or_file`])
     pub db_password: Param<String, Hidden>,
 
     /// Maximum number of database connections in the pool
@@ -258,7 +335,10 @@ pub struct Params {
 
     pub store_endpoint: Param<String>,
     pub store_bucket: Param<String>,
+
+    /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`])
     pub store_secret_key: Param<String, Hidden>,
+
     pub store_access_key: Param<String>,
 }
 
@@ -383,7 +463,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
             Param::default()
         } else {
             // Some databases do not require to specify a password for the connection.
-            Param::optional("MOSAICOD_DB_PASSWORD", String::new())
+            Param::optional_or_file("MOSAICOD_DB_PASSWORD", String::new())?
         },
 
         // store
@@ -392,10 +472,10 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
             DEFAULT_STORE_ENDPOINT.to_owned(),
         ),
         store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", DEFAULT_STORE_BUCKET.to_owned()),
-        store_secret_key: Param::optional(
+        store_secret_key: Param::optional_or_file(
             "MOSAICOD_STORE_SECRET_KEY",
             DEFAULT_STORE_SECRET_KEY.to_owned(),
-        ),
+        )?,
         store_access_key: Param::optional(
             "MOSAICOD_STORE_ACCESS_KEY",
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
@@ -529,5 +609,125 @@ mod tests {
 
         params.max_grpc_message_size = param(GRPC_MSG_MAX_SIZE_BYTES);
         assert!(params.validate().is_ok());
+    }
+
+    // SAFETY: each test below uses its own dedicated env var name, so concurrent
+    // test threads never observe or mutate each other's variables.
+
+    #[test]
+    fn optional_or_file_uses_plain_value_when_set() {
+        let name = "TEST_OPTIONAL_OR_FILE_PLAIN";
+        unsafe { env::set_var(name, "plain-value") };
+
+        let result = Param::<String>::optional_or_file(name, "default".to_owned());
+
+        unsafe { env::remove_var(name) };
+
+        assert_eq!(result.unwrap().value, "plain-value");
+    }
+
+    #[test]
+    fn optional_or_file_reads_and_trims_file_when_file_var_set() {
+        let name = "TEST_OPTIONAL_OR_FILE_FROM_FILE";
+        let file_env = format!("{name}_FILE");
+
+        let path = std::env::temp_dir().join("mosaicod_test_optional_or_file_secret");
+        std::fs::write(&path, " secret-from-file\n").unwrap();
+        unsafe { env::set_var(&file_env, path.to_str().unwrap()) };
+
+        let result = Param::<String>::optional_or_file(name, "default".to_owned());
+
+        unsafe { env::remove_var(&file_env) };
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(result.unwrap().value, "secret-from-file");
+    }
+
+    #[test]
+    fn optional_or_file_errors_when_both_set() {
+        let name = "TEST_OPTIONAL_OR_FILE_BOTH";
+        let file_env = format!("{name}_FILE");
+
+        unsafe { env::set_var(name, "plain-value") };
+        unsafe { env::set_var(&file_env, "/does/not/matter") };
+
+        let result = Param::<String>::optional_or_file(name, "default".to_owned());
+
+        unsafe { env::remove_var(name) };
+        unsafe { env::remove_var(&file_env) };
+
+        assert!(matches!(
+            result.unwrap_err().error().kind(),
+            ErrorKind::InvalidConfiguration(_)
+        ));
+    }
+
+    #[test]
+    fn optional_or_file_falls_back_to_default_when_neither_set() {
+        let name = "TEST_OPTIONAL_OR_FILE_NEITHER";
+
+        let result = Param::<String>::optional_or_file(name, "default".to_owned());
+
+        assert_eq!(result.unwrap().value, "default");
+    }
+
+    #[test]
+    fn required_or_file_uses_plain_value_when_set() {
+        let name = "TEST_REQUIRED_OR_FILE_PLAIN";
+        unsafe { env::set_var(name, "plain-value") };
+
+        let result = Param::<String>::required_or_file(name);
+
+        unsafe { env::remove_var(name) };
+
+        assert_eq!(result.unwrap().value, "plain-value");
+    }
+
+    #[test]
+    fn required_or_file_reads_and_trims_file_when_file_var_set() {
+        let name = "TEST_REQUIRED_OR_FILE_FROM_FILE";
+        let file_env = format!("{name}_FILE");
+
+        let path = std::env::temp_dir().join("mosaicod_test_required_or_file_secret");
+        std::fs::write(&path, "secret-from-file\n").unwrap();
+        unsafe { env::set_var(&file_env, path.to_str().unwrap()) };
+
+        let result = Param::<String>::required_or_file(name);
+
+        unsafe { env::remove_var(&file_env) };
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(result.unwrap().value, "secret-from-file");
+    }
+
+    #[test]
+    fn required_or_file_errors_when_both_set() {
+        let name = "TEST_REQUIRED_OR_FILE_BOTH";
+        let file_env = format!("{name}_FILE");
+
+        unsafe { env::set_var(name, "plain-value") };
+        unsafe { env::set_var(&file_env, "/does/not/matter") };
+
+        let result = Param::<String>::required_or_file(name);
+
+        unsafe { env::remove_var(name) };
+        unsafe { env::remove_var(&file_env) };
+
+        assert!(matches!(
+            result.unwrap_err().error().kind(),
+            ErrorKind::InvalidConfiguration(_)
+        ));
+    }
+
+    #[test]
+    fn required_or_file_errors_when_neither_set() {
+        let name = "TEST_REQUIRED_OR_FILE_NEITHER";
+
+        let result = Param::<String>::required_or_file(name);
+
+        assert!(matches!(
+            result.unwrap_err().error().kind(),
+            ErrorKind::InvalidConfiguration(_)
+        ));
     }
 }
