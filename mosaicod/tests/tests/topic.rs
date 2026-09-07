@@ -464,6 +464,165 @@ async fn test_topic_flight_info_time_window_no_data(pool: sqlx::Pool<db::Databas
     server.shutdown().await;
 }
 
+/// This test uploads two batches with disjoint timestamp ranges and requests a time window that
+/// falls entirely inside the *last* chunk, to make sure `time_window_info` accounts for data outside of chunk 0.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_flight_info_time_window_last_chunk(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let batches = vec![
+        ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1),
+        ext::arrow::testing::dummy_batch(7, 20000, 5, 1, 1),
+    ];
+
+    let response = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    // Sanity check: the upload did produce two chunks.
+    let info = actions::get_flight_info(&mut client, topic_name, None)
+        .await
+        .unwrap();
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+    assert_eq!(app_metadata.data_info.total_chunks_count, 2);
+
+    // Request a time window that falls entirely inside the last chunk (chunk 1) and does not
+    // overlap chunk 0 at all. The end bound is exclusive, so use 20031 to include the 20030
+    // sample.
+    let time_window = types::TimestampRange::between(20010.into(), 20031.into());
+    let info = actions::get_flight_info(&mut client, topic_name, Some(time_window))
+        .await
+        .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    let time_window_info = app_metadata.time_window_info.unwrap();
+    assert_eq!(time_window_info.row_count, 5);
+    let ts_range: types::TimestampRange = time_window_info.interval.unwrap().into();
+    assert_eq!(ts_range.start.as_i64(), 20010);
+    assert_eq!(ts_range.end.as_i64(), 20030);
+
+    server.shutdown().await;
+}
+
+/// This test uploads two batches with disjoint timestamp ranges and requests a time window that
+/// partially overlaps both chunks (without covering either one entirely).
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_flight_info_time_window_overlaps_two_chunks(
+    pool: sqlx::Pool<db::DatabaseType>,
+) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let batches = vec![
+        ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1),
+        ext::arrow::testing::dummy_batch(7, 20000, 5, 1, 1),
+    ];
+
+    let response = actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    // Sanity check: the upload did produce two chunks.
+    let info = actions::get_flight_info(&mut client, topic_name, None)
+        .await
+        .unwrap();
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+    assert_eq!(app_metadata.data_info.total_chunks_count, 2);
+
+    // Request a time window that starts in the tail of chunk 0 (10020, 10025, 10030) and ends in
+    // the head of chunk 1 (20000, 20005, 20010). The end bound is exclusive, so use 20011 to include the 20010 sample.
+    let time_window = types::TimestampRange::between(10020.into(), 20011.into());
+    let info = actions::get_flight_info(&mut client, topic_name, Some(time_window))
+        .await
+        .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    let time_window_info = app_metadata.time_window_info.unwrap();
+    assert_eq!(time_window_info.row_count, 6);
+    let ts_range: types::TimestampRange = time_window_info.interval.unwrap().into();
+    assert_eq!(ts_range.start.as_i64(), 10020);
+    assert_eq!(ts_range.end.as_i64(), 20010);
+
+    server.shutdown().await;
+}
+
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;

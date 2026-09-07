@@ -129,11 +129,7 @@ pub(super) mod internal {
             .serialization_format()
             .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
 
-        // Get chunk 0 since this chunk needs to exist always.
-        // Here we use a single file and not the directory path to improve performance.
-        // Timeseries engine backend (datafusion) needs to scan only a single file avoiding reading
-        // metadata about all files in the directory.
-        let path = path_in_store.path_data(0, format.to_properties().as_ref());
+        let path = path_in_store.data_folder_path();
 
         let mut query_result = ts_engine.read(&path, format, None).await?;
 
