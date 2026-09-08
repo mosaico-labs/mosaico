@@ -61,7 +61,7 @@ pub fn init_store() -> Result<store::StoreRef> {
 
 /// Load the defined env variables from the system.
 pub fn load_env_variables() -> Result<()> {
-    println!("loading environment variables");
+    eprintln!("loading environment variables");
     dotenv::dotenv().ok();
 
     params::load_params_from_env(params::ParamsLoadOptions::default())?;

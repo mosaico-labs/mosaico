@@ -163,38 +163,45 @@ run_sdk_python_tests() {
 #  run_full_stack_tests --title "title" --tls
 run_full_stack_tests() {
 
-    MOSAICOD_OPTS=""
     PYTEST_OPTS_K="integration and not test_tls_connection"
     PYTEST_OPTS=""
     GENERATE_API_KEY=false
     TITLE="N/A"
 
+    # Reset per-variant server toggles so they don't leak between successive
+    # run_full_stack_tests calls.
+    export MOSAICOD_TLS_ENABLED=false
+    export MOSAICOD_GZIP_ENABLED=false
+    export MOSAICOD_API_KEY_ENABLED=false
+
     while [ $# -gt 0 ]; do
         case "$1" in
             --tls)
-                MOSAICOD_OPTS="--tls"
                 PYTEST_OPTS_K="integration"
                 PYTEST_OPTS="--tls"
 
+                export MOSAICOD_TLS_ENABLED=true
                 export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
                 export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
                 export MOSAICO_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/ca.pem"
 
-                shift 
+                shift
                 ;;
             --gzip)
-                MOSAICOD_OPTS="--gzip"
                 PYTEST_OPTS_K="integration"
                 PYTEST_OPTS="--gzip"
 
-                shift 
+                export MOSAICOD_GZIP_ENABLED=true
+
+                shift
                 ;;
             --api-key)
-                MOSAICOD_OPTS="--api-key"
                 PYTEST_OPTS_K="integration"
                 GENERATE_API_KEY=true
 
-                shift 
+                export MOSAICOD_API_KEY_ENABLED=true
+
+                shift
                 ;;
             --title)
                 TITLE="$2"
@@ -232,7 +239,7 @@ run_full_stack_tests() {
 
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod server --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
+    ./target/debug/mosaicod server --port 6276 > "${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"

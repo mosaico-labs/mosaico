@@ -12,13 +12,13 @@ use tracing::debug;
 #[command(about, long_about = None)]
 /// mosaicod - Mosaico high-performance daemon
 struct Cli {
-    /// Set the log output format
-    #[arg(long, global = true, default_value_t = types::LogFormat::Pretty)]
-    log_format: types::LogFormat,
+    /// Set the log output format. Defaults to MOSAICOD_LOG_FORMAT, then `pretty`.
+    #[arg(long, global = true)]
+    log_format: Option<types::LogFormat>,
 
-    /// Set the log level
-    #[arg(long, global = true, default_value_t = types::LogLevel::Warning)]
-    log_level: types::LogLevel,
+    /// Set the log level. Defaults to MOSAICOD_LOG_LEVEL, then `warning`.
+    #[arg(long, global = true)]
+    log_level: Option<types::LogLevel>,
 
     #[command(subcommand)]
     cmd: Commands,
@@ -66,12 +66,16 @@ fn start() -> Result<Option<String>> {
 
     common::load_env_variables()?;
 
-    print::set_colors(args.log_format);
-    types::init_logger(args.log_format, args.log_level);
+    let params = params::params();
+    let log_format = args.log_format.unwrap_or(params.log_format.value);
+    let log_level = args.log_level.unwrap_or(params.log_level.value);
 
-    debug!("{:#?}", params::params());
+    print::set_colors(log_format);
+    types::init_logger(log_format, log_level);
 
-    let is_json_output = matches!(args.log_format, types::LogFormat::Json);
+    debug!("{:#?}", params);
+
+    let is_json_output = matches!(log_format, types::LogFormat::Json);
 
     match args.cmd {
         Commands::Server(sub_args) => command::server(sub_args, is_json_output)?,
