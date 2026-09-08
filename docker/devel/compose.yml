@@ -11,6 +11,12 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   store:
     image: ghcr.io/versity/versitygw:latest
@@ -29,15 +35,16 @@ services:
       VGW_WEBUI_GATEWAYS: "http://127.0.0.1:7070"
       VGW_WEBUI_ADMIN_GATEWAYS: "http://127.0.0.1:7071"
       VGW_BACKEND: posix
-      VGW_BACKEND_ARGS: /data/s3
-      VGW_HEALTH: "/health"
+      VGW_BACKEND_ARGS: /data/store
+      #VGW_HEALTH: "/health"
     volumes:
-      - /tmp/versitygw/s3/mosaico:/data/s3/mosaico
+      - /tmp/versitygw/store/mosaico:/data/store/mosaico
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7070/health"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 30s
 
 volumes:
   postgres_data:
