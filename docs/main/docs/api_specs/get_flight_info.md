@@ -26,7 +26,7 @@ The payload is plain JSON.
 | `locked` | `bool` | Shorthand for `completed_at_ns != null`. A locked topic's data is immutable and safe to read via `do_get`.                 |
 | `resource_locator` | `string` | The topic's locator, e.g. `"my_sequence/my_topic"`.                                                                        |
 | `ontology_tag` | `string` | Client-provided ontology tag for the topic (e.g. `"imu"`, `"Lidar"`).                                                      |
-| `serialization_format` | `string` | One of `"default"`, `"ragged"`, `"image"` — see [Retrieval](retrieval.md#metadata-context-headers).                        |
+| `serialization_format` | `string` | One of `"default"`, `"ragged"`, `"image"` — see [Retrieval](daemon/retrieval.md#metadata-context-headers).                        |
 | `user_metadata` | `object \| null` | Arbitrary client-provided JSON supplied at topic creation. `null` if none was given.                                       |
 | `data_info` | [`TopicAppMetadataDataInfo`](#topicappmetadatadatainfo) | Stats for the **whole topic**, regardless of any requested time window. Always present.                                    |
 | `time_window_info` | [`TopicAppMetadataTimeWindow`](#topicappmetadatatimewindow) `\| null` | Stats scoped to the timestamp range passed to `get_flight_info`. **`null` unless a time range was requested** — see below. |
