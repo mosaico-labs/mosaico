@@ -36,7 +36,7 @@ services:
       VGW_WEBUI_ADMIN_GATEWAYS: "http://127.0.0.1:7071"
       VGW_BACKEND: posix
       VGW_BACKEND_ARGS: /data/store
-      #VGW_HEALTH: "/health"
+      VGW_HEALTH: "/health"
     volumes:
       - /tmp/versitygw/store/mosaico:/data/store/mosaico
     healthcheck:
