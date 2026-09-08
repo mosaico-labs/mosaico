@@ -266,29 +266,31 @@ async fn test_api_key_invalid_token(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
+    const TTL: std::time::Duration = std::time::Duration::from_secs(1);
+
     let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
         .await;
 
+    let port = server.port();
+
+    let stable_key = server.create_api_key(Permission::Write.into(), None).await;
+    let mut client_stable = make_client(&stable_key.key, port).await;
+
     let expiring_key = server
         .create_api_key(
             Permission::Write.into(),
-            Some(types::Timestamp::now() + std::time::Duration::from_millis(200)),
+            Some(types::Timestamp::now() + TTL),
         )
         .await;
-
-    let stable_key = server.create_api_key(Permission::Write.into(), None).await;
-
-    let port = server.port();
     let mut client_expiring = make_client(&expiring_key.key, port).await;
-    let mut client_stable = make_client(&stable_key.key, port).await;
 
     let res = actions::sequence_create(&mut client_expiring, "test_before_expiry", None).await;
     assert!(res.is_ok());
 
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(TTL + std::time::Duration::from_millis(300)).await;
 
     let res = actions::sequence_create(&mut client_expiring, "test_after_expiry", None).await;
     dbg!(&res);

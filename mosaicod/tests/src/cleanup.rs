@@ -47,7 +47,7 @@ impl Builder {
                     .with_time_interval(self.time_interval)
                     .with_retention_duration(self.retention_period);
 
-                cleanup.run(shutdown.token()).await;
+                let _ = cleanup.run(shutdown.token()).await;
             }
         });
 
