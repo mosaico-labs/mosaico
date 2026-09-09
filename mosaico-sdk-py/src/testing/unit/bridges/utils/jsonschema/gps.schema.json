@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Gps",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "stamp": {
+          "type": "object",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nanosec": { "type": "integer" }
+          }
+        },
+        "frame_id": { "type": "string" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "altitude": { "type": "number" }
+      }
+    },
+    "position_covariance": {
+      "type": "array",
+      "items": { "type": "number" }
+    },
+    "fix_type": { "type": "integer", "enum": [0, 1, 2, 3] },
+    "satellites_visible": { "type": "integer" },
+    "satellites_used": { "type": "integer" },
+    "differential": { "type": "boolean" },
+    "horizontal_accuracy": { "type": "number" },
+    "vertical_accuracy": { "type": "number" },
+    "utc_time_micros": { "type": "integer" },
+    "station_id": { "type": "string" },
+    "active_satellite_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
