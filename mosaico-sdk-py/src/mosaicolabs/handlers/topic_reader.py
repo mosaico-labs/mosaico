@@ -24,6 +24,7 @@ from mosaicolabs.platform.resource_manifests import (
     TopicResourceManifest,
 )
 
+from ..comm.connection import ConnectionContext
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .internal.topic_read_state import _TopicReadState
@@ -58,7 +59,7 @@ class TopicDataStreamer:
     def __init__(
         self,
         *,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         state: _TopicReadState,
         pyarrow_schema: pa.StructType,
     ):
@@ -95,12 +96,12 @@ class TopicDataStreamer:
             ```
 
         Args:
-            client (fl.FlightClient): The active FlightClient used for remote operations.
+            connection (ConnectionContext): The active FlightClient, bundled with the server config, used for remote operations.
             state (_TopicReadState): The internal state object managing the Arrow reader and peek buffers.
             pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
         """
-        self._fl_client: fl.FlightClient = client
-        """The FlightClient used for remote operations."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for remote operations."""
         self._rdstate: _TopicReadState = state
         """The actual reader object"""
         self._pyarrow_schema: pa.StructType = pyarrow_schema
@@ -119,7 +120,7 @@ class TopicDataStreamer:
     @classmethod
     def _connect_from_ticket(
         cls,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         topic_name: str,
         ticket: fl.Ticket,
     ) -> "TopicDataStreamer":
@@ -135,7 +136,7 @@ class TopicDataStreamer:
             method to obtain a configured instance.
 
         Args:
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
             topic_name (str): The name of the topic to read.
             ticket (fl.Ticket): The opaque authorization ticket representing the specific data stream.
 
@@ -148,7 +149,7 @@ class TopicDataStreamer:
         """
         # Initialize the Flight stream (DoGet)
         try:
-            reader = client.do_get(ticket)
+            reader = connection.flight_client.do_get(ticket)
         except Exception as e:
             raise ConnectionError(
                 f"Server error (do_get) while asking for Topic data reader, '{e}'"
@@ -172,7 +173,7 @@ class TopicDataStreamer:
             timestamp_ns_max=topic_mdata.properties.timestamp_ns_max,
         )
         return cls(
-            client=client,
+            connection=connection,
             state=rdstate,
             pyarrow_schema=pyarrow_schema,
         )
@@ -182,7 +183,7 @@ class TopicDataStreamer:
         cls,
         topic_name: str,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         start_timestamp_ns: Optional[int],
         end_timestamp_ns: Optional[int],
     ) -> "TopicDataStreamer":
@@ -200,7 +201,7 @@ class TopicDataStreamer:
         Args:
             topic_name (str): The name of the topic to read.
             sequence_name (str): The name of the parent sequence.
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
             start_timestamp_ns (Optional[int]): The **inclusive** lower bound (t >= start) in nanoseconds.
             end_timestamp_ns (Optional[int]): The **exclusive** upper bound (t < end) in nanoseconds.
 
@@ -218,7 +219,7 @@ class TopicDataStreamer:
                 topic_name=topic_name,
                 start_timestamp_ns=start_timestamp_ns,
                 end_timestamp_ns=end_timestamp_ns,
-                client=client,
+                client=connection.flight_client,
             )
         except Exception as e:
             raise ConnectionError(
@@ -233,7 +234,7 @@ class TopicDataStreamer:
                 continue
             if tname == topic_name:
                 return cls._connect_from_ticket(
-                    client=client,
+                    connection=connection,
                     topic_name=topic_name,
                     ticket=ep.ticket,
                 )

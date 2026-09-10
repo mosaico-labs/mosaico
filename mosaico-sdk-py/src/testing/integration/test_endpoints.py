@@ -69,7 +69,7 @@ def test_topic_name_in_endpoint_from_topic_handler(
     flight_info, _, _ = TopicHandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=mosaico_client._control_client,
+        client=mosaico_client._connection.flight_client,
     )
     # Topic exists!
     assert len(flight_info.endpoints) == 1 and "Expected 1 endpoint"
@@ -100,7 +100,7 @@ def test_topic_names_in_endpoints_from_sequence_handler(
     # All other tests are made somewhere else..
     flight_info, _ = SequenceHandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
-        client=mosaico_client._control_client,
+        client=mosaico_client._connection.flight_client,
     )
     # Topic exists!
     assert (
@@ -150,7 +150,7 @@ def test_topics_manifest_timestamps(
     flight_info, _, _ = thandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=mosaico_client._control_client,
+        client=mosaico_client._connection.flight_client,
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
@@ -198,7 +198,7 @@ def test_topic_streamer_manifest_timestamps(
     flight_info = TopicDataStreamer._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=mosaico_client._control_client,
+        client=mosaico_client._connection.flight_client,
         start_timestamp_ns=timestamp_ns_start,
         end_timestamp_ns=timestamp_ns_end,
     )

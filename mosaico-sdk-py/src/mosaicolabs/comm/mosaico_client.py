@@ -27,17 +27,18 @@ from ..handlers.sequence_writer import SequenceWriter
 from ..handlers.topic_handler import TopicHandler
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from ..platform.server_config import ServerInfo
 from ..query import Query, QueryResponse
 from ..query.protocols import QueryableProtocol
 from .connection import (
-    DEFAULT_MAX_BATCH_BYTES,
-    DEFAULT_MAX_BATCH_SIZE_RECORDS,
+    ConnectionContext,
     GRPCCompression,
     _ConnectionStatus,
     _get_connection,
 )
 from .do_action import (
     _do_action,
+    _DoActionInfoResponse,
     _DoActionNotificationList,
     _DoActionQueryResponse,
 )
@@ -84,7 +85,7 @@ class MosaicoClient:
         host: str,
         port: int,
         timeout: int,
-        control_client: fl.FlightClient,
+        connection: ConnectionContext,
         sentinel: object,
         enable_tls: bool,
         compression: GRPCCompression,
@@ -106,7 +107,8 @@ class MosaicoClient:
             host (str): The remote server host.
             port (int): The remote server port.
             timeout (int): The connection timeout.
-            control_client (fl.FlightClient): The primary PyArrow Flight control client.
+            connection (ConnectionContext): The primary PyArrow Flight control client, bundled with the
+                server configuration resolved at connection time.
             sentinel (object): Private object used to verify factory-based instantiation.
             enable_tls (bool): Enable TLS communication.
             compression (GRPCCompression): The compression configuration for gRPC.
@@ -124,8 +126,8 @@ class MosaicoClient:
         """The remote server port"""
         self._timeout = timeout
         """The connection timeout"""
-        self._control_client: fl.FlightClient = control_client
-        """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
+        self._connection: ConnectionContext = connection
+        """The Flight client and server-resolved config used for SDK-Server operations (e.g., creating layers, querying)."""
         self._status: _ConnectionStatus = _ConnectionStatus.Open
         """Tracks the current connection status (Open/Closed)."""
         self._tls_cert: Optional[bytes] = tls_cert
@@ -226,7 +228,7 @@ class MosaicoClient:
         if isinstance(compression, GRPCCompressionAlgorithm):
             compression = GRPCCompression(algorithm=compression)
         try:
-            control_client: fl.FlightClient = _get_connection(
+            connection: ConnectionContext = _get_connection(
                 host=host,
                 port=port,
                 timeout=timeout,
@@ -245,7 +247,7 @@ class MosaicoClient:
             host=host,
             port=port,
             timeout=timeout,
-            control_client=control_client,
+            connection=connection,
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
             enable_tls=enable_tls,
@@ -411,7 +413,7 @@ class MosaicoClient:
         if sh is None:
             sh = SequenceHandler._connect(
                 sequence_name=sequence_name,
-                client=self._control_client,
+                connection=self._connection,
             )
             if not sh:
                 return None
@@ -442,7 +444,7 @@ class MosaicoClient:
         )
         # Get FlightInfo
         try:
-            self._control_client.get_flight_info(descriptor)
+            self._connection.flight_client.get_flight_info(descriptor)
         except Exception:
             return False
         return True
@@ -493,7 +495,7 @@ class MosaicoClient:
             th = TopicHandler._connect(
                 sequence_name=sequence_name,
                 topic_name=topic_name,
-                client=self._control_client,
+                connection=self._connection,
             )
             if not th:
                 return None
@@ -528,7 +530,7 @@ class MosaicoClient:
         )
         # Get FlightInfo
         try:
-            self._control_client.get_flight_info(descriptor)
+            self._connection.flight_client.get_flight_info(descriptor)
         except Exception:
             return False
         return True
@@ -540,8 +542,6 @@ class MosaicoClient:
         sequence_name: str,
         metadata: dict[str, Any],
         on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
     ) -> SequenceWriter:
         """
         Creates a new sequence on the platform and returns a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] for ingestion.
@@ -559,8 +559,6 @@ class MosaicoClient:
             metadata (dict[str, Any]): User-defined metadata to attach.
             on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-            max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
-            max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
         Returns:
             SequenceWriter: An initialized writer instance.
@@ -605,29 +603,15 @@ class MosaicoClient:
                 * [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
         """
-        # Use defaults if specific batch sizes aren't provided
-        max_batch_size_bytes = (
-            max_batch_size_bytes
-            if max_batch_size_bytes is not None
-            else DEFAULT_MAX_BATCH_BYTES
-        )
-        max_batch_size_records = (
-            max_batch_size_records
-            if max_batch_size_records is not None
-            else DEFAULT_MAX_BATCH_SIZE_RECORDS
-        )
-
         # Safely convert to the right type
         on_error = SessionLevelErrorPolicy(on_error.value)
 
         return SequenceWriter(
             sequence_name=sequence_name,
-            client=self._control_client,
+            connection=self._connection,
             metadata=metadata,
             config=SessionWriterConfig(
                 on_error=on_error,
-                max_batch_size_bytes=max_batch_size_bytes,
-                max_batch_size_records=max_batch_size_records,
             ),
         )
 
@@ -635,8 +619,6 @@ class MosaicoClient:
         self,
         sequence_name: str,
         on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
     ) -> SequenceUpdater:
         """
         Update the sequence on the platform and returns a [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] for ingestion.
@@ -654,8 +636,6 @@ class MosaicoClient:
                 on the server.
             on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-            max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
-            max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
         Returns:
             SequenceUpdater: An initialized updater instance.
@@ -684,25 +664,11 @@ class MosaicoClient:
                 * [`SequenceUpdater.topic_create()`][mosaicolabs.handlers.SequenceUpdater.topic_create]
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
         """
-        # Use defaults if specific batch sizes aren't provided
-        max_batch_size_bytes = (
-            max_batch_size_bytes
-            if max_batch_size_bytes is not None
-            else DEFAULT_MAX_BATCH_BYTES
-        )
-        max_batch_size_records = (
-            max_batch_size_records
-            if max_batch_size_records is not None
-            else DEFAULT_MAX_BATCH_SIZE_RECORDS
-        )
-
         return SequenceUpdater(
             sequence_name=sequence_name,
-            client=self._control_client,
+            connection=self._connection,
             config=SessionWriterConfig(
                 on_error=on_error,
-                max_batch_size_bytes=max_batch_size_bytes,
-                max_batch_size_records=max_batch_size_records,
             ),
         )
 
@@ -727,7 +693,7 @@ class MosaicoClient:
         """
         try:
             _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=FlightAction.SEQUENCE_DELETE,
                 payload={"locator": sequence_name},
                 expected_type=None,
@@ -768,7 +734,7 @@ class MosaicoClient:
         """
         try:
             _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=FlightAction.SESSION_DELETE,
                 payload={"locator": locator},
                 expected_type=None,
@@ -797,7 +763,7 @@ class MosaicoClient:
             ```
         """
         out_list = []
-        for finfo in self._control_client.list_flights():
+        for finfo in self._connection.flight_client.list_flights():
             if finfo.descriptor.path is None:
                 logger.debug("`None` path found in `list_flights` endpoint")
                 continue
@@ -837,7 +803,7 @@ class MosaicoClient:
 
         try:
             act_resp = _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={"locator": sequence_name},
                 expected_type=_DoActionNotificationList,
@@ -871,7 +837,7 @@ class MosaicoClient:
 
         try:
             _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={"locator": sequence_name},
                 expected_type=None,
@@ -917,7 +883,7 @@ class MosaicoClient:
 
         try:
             act_resp = _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={
                     "locator": pack_topic_resource_name(
@@ -957,7 +923,7 @@ class MosaicoClient:
 
         try:
             _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={
                     "locator": pack_topic_resource_name(
@@ -1071,7 +1037,7 @@ class MosaicoClient:
 
         try:
             act_resp = _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload=query_dict,
                 expected_type=_DoActionQueryResponse,
@@ -1082,7 +1048,7 @@ class MosaicoClient:
                 return None
 
             # inject flight client and user queries
-            act_resp.query_response._set_client(self._control_client)
+            act_resp.query_response._set_client(self._connection.flight_client)
             act_resp.query_response._set_queries(self._queries)
 
             return act_resp.query_response
@@ -1091,37 +1057,36 @@ class MosaicoClient:
             logger.error(f"Query returned an internal error: '{e}'")
             raise
 
-    def version(self) -> str:
+    def info(self) -> ServerInfo:
         """
-        Get the version of the Mosaico server.
+        Get the info of the Mosaico server.
 
         Note:
             If using the Authorization middleware (via an API-Key), this method requires the
             `read` permission.
 
         Returns:
-            str: The version of the Mosaico server.
+            ServerInfo: The info of the Mosaico server.
 
         Raises:
-            Exception: If any error occurs during version retrieval.
+            Exception: If any error occurs during info retrieval.
         """
-        ACTION = FlightAction.VERSION
+        ACTION = FlightAction.INFO
         try:
             act_resp = _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={},
-                expected_type=None,
+                expected_type=_DoActionInfoResponse,
             )
 
             if act_resp is None:
-                logger.error(f"Action '{ACTION}' returned no response.")
-                return ""
+                raise ConnectionError(f"Action '{ACTION}' returned no response.")
 
-            return act_resp
+            return act_resp.info
 
         except Exception as e:
-            logger.error(f"'Version' action returned an internal error: '{e}'")
+            logger.error(f"'Info' action returned an internal error: '{e}'")
             raise
 
     def clear_sequence_handlers_cache(self):
@@ -1175,6 +1140,6 @@ class MosaicoClient:
             self.clear_topic_handlers_cache()
 
             # Close main connection
-            self._control_client.close()
+            self._connection.flight_client.close()
 
         self._status = _ConnectionStatus.Closed

@@ -19,6 +19,7 @@ from mosaicolabs.platform.resource_manifests import (
     TopicResourceManifest,
 )
 
+from ..comm.connection import ConnectionContext
 from ..helpers import (
     pack_topic_resource_name,
     sanitize_sequence_name,
@@ -50,7 +51,7 @@ class TopicHandler:
     def __init__(
         self,
         *,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         topic_model: Topic,
         ticket: fl.Ticket,
         pyarrow_schema: pa.StructType,
@@ -67,15 +68,15 @@ class TopicHandler:
         Internal modules should use the `TopicHandler._connect()` factory.
 
         Args:
-            client (fl.FlightClient): The active FlightClient for remote operations.
+            connection (ConnectionContext): The active FlightClient, bundled with the server config, for remote operations.
             topic_model (Topic): The underlying metadata and system info model for the topic.
             ticket (fl.Ticket): The remote resource ticket used for data retrieval.
             pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
             timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this topic.
             timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this topic.
         """
-        self._fl_client: fl.FlightClient = client
-        """The FlightClient used for remote operations."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for remote operations."""
         self._topic: Topic = topic_model
         """The topic metadata model"""
         self._fl_ticket: fl.Ticket = ticket
@@ -93,7 +94,7 @@ class TopicHandler:
         cls,
         sequence_name: str,
         topic_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
     ) -> Optional["TopicHandler"]:
         """
         Internal factory method to initialize a TopicHandler from the server.
@@ -111,7 +112,7 @@ class TopicHandler:
         Args:
             sequence_name (str): Name of the parent sequence.
             topic_name (str): Name of the topic.
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
 
         Returns:
             TopicHandler: An initialized handler instance, or `None` if the
@@ -122,7 +123,7 @@ class TopicHandler:
             flight_info, _stzd_sequence_name, _stzd_topic_name = cls._get_flight_info(
                 sequence_name=sequence_name,
                 topic_name=topic_name,
-                client=client,
+                client=connection.flight_client,
             )
         except fl.FlightUnauthorizedError as e:
             raise e
@@ -169,7 +170,7 @@ class TopicHandler:
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(
-            client=client,
+            connection=connection,
             topic_model=topic_model,
             ticket=ticket,
             pyarrow_schema=pyarrow_schema,
@@ -391,7 +392,7 @@ class TopicHandler:
         if start_timestamp_ns is not None or end_timestamp_ns is not None:
             # Spawn via connection (calls get_flight_info)
             self._data_streamer_instance = TopicDataStreamer._connect(
-                client=self._fl_client,
+                connection=self._connection,
                 topic_name=self.name,
                 sequence_name=self._topic.sequence_name,
                 start_timestamp_ns=start_timestamp_ns,
@@ -400,7 +401,7 @@ class TopicHandler:
         else:
             # Spawn via ticket (calls do_get straight)
             self._data_streamer_instance = TopicDataStreamer._connect_from_ticket(
-                client=self._fl_client,
+                connection=self._connection,
                 topic_name=self.name,
                 ticket=self._fl_ticket,
             )

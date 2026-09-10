@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [0.7.0] - Unreleased
+
+This release adapts the SDK to the backend's new **`info` action** (replacing `version`), and uses the server's own reported configuration to drive write-side batching instead of a hardcoded constant - correctly isolated per-connection, so a script talking to multiple Mosaico servers at once gets the right limits for each.
+
+### Breaking Changes
+
+- **`sequence_create()`, `sequence_update()` and `SequenceHandler.update()` no longer accept `max_batch_size_bytes`/`max_batch_size_records`**: the write-batching size is now always derived from the server's own reported message-size limit instead of a user-supplied override. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+- **The backend `VERSION` action was replaced by `INFO`**, which additionally reports the server's writing configuration (`max_grpc_message_size`, `target_message_size`) alongside the version string. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+
+### Features
+
+- The SDK now discovers the server's message-size limit at connection time (via the new `info` action) and automatically derives its write-batching threshold from it, instead of a hardcoded constant. Each `MosaicoClient` connection carries its own resolved server configuration, so multiple concurrent connections to different servers each get correct, independent limits. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+- **`TopicWriter.push()` no longer silently drops an oversized record**: when a single record's size alone exceeds the transport limit, the writer reports it to the server as a topic-level notification (visible via `list_topic_notifications()`) and reflects it locally through the new `TopicWriterStatus.RecordTooLarge` status, `TopicWriter.last_error`, and the new `TopicWriter.dropped_record_count` property - the writer keeps accepting subsequent records instead of failing the whole upload. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+
+### Refactoring & Performance
+
+- Introduced `ConnectionContext`, bundling the Flight client together with the server configuration resolved at connection time, threaded through every internal handler/writer/reader factory in place of a bare `FlightClient`. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+- Removed the unused record-count buffering mode from the internal topic write buffer: batching is byte-size-only, matching actual runtime behavior. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+- Replaced a unit test that validated PyArrow IPC schema overhead against a hardcoded, disconnected 16MB constant with integration tests exercising real batch-splitting and the oversized-record path against a live server. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+
+
 ## [0.6.0] - 2026-07-30
 
 This release completes the **Mosaico ↔ ROS round-trip translation** (including support for **Unmodeled ontologies**), introduces **class-free queries via Queryable Fields**, expands the **query engine** with list queries, the `outside()` operator, and the new **clusterize/intersect** temporal-window actions, and includes several performance and bug fixes.
