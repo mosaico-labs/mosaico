@@ -6,7 +6,9 @@
 //! see the [`load_configurables_from_env`] function and the [`configurables`] accessor.
 
 use super::error;
+use crate::types::{LogFormat, LogLevel};
 use std::marker::PhantomData;
+use std::net::{IpAddr, Ipv4Addr};
 
 /// Header name for client requests
 pub const MOSAICO_API_KEY_HEADER: &str = "mosaico-api-key-token";
@@ -42,6 +44,17 @@ pub const DEFAULT_STORE_BUCKET: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
+pub const DEFAULT_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+pub const DEFAULT_PORT: u16 = 6726;
+pub const DEFAULT_TLS_ENABLED: bool = false;
+pub const DEFAULT_GZIP: bool = false;
+pub const DEFAULT_API_KEY_ENABLED: bool = false;
+pub const DEFAULT_CLEANUP_TIME_INTERVAL: u32 = 0;
+pub const DEFAULT_CLEANUP_RETENTION_DURATION: u32 = 86400;
+pub const DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL: u32 = 0;
+pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: usize = 256_000_000;
+pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warning;
+pub const DEFAULT_LOG_FORMAT: LogFormat = LogFormat::Pretty;
 
 // Instance registry (see `mosaicod ps`). Not configurable: these are cheap, low-stakes
 // background-loop knobs not requiring a CLI flag or env var.
@@ -311,16 +324,51 @@ pub struct Params {
     /// Defaults to 0 (no limit).
     pub store_optimizer_memory_pool_size: Param<usize>,
 
+    /// Minimum interval, in seconds, between store optimization runs. `0` runs once.
+    pub store_optimizer_time_interval: Param<u32>,
+
+    /// Maximum size (in bytes) for an output chunk after optimization.
+    pub store_optimizer_max_chunk_size: Param<usize>,
+
+    /// Minimum interval, in seconds, between cleanup runs. `0` runs once.
+    pub cleanup_time_interval: Param<u32>,
+
+    /// Maximum period, in seconds, an obsolete file is kept in the store before deletion.
+    pub cleanup_retention_duration: Param<u32>,
+
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
     /// Defaults to 75 MB
     pub parquet_in_memory_encoding_buffer_size: Param<usize>,
+
+    /// Log verbosity level. Note: if `RUST_LOG` is set, it takes priority over this
+    /// (see [`crate::types::init_logger`]).
+    pub log_level: Param<LogLevel>,
+
+    /// Log output format
+    pub log_format: Param<LogFormat>,
+
+    /// Host address the server listens on
+    pub host: Param<IpAddr>,
+
+    /// Port the server listens on
+    pub port: Param<u16>,
+
+    /// Whether TLS is enabled for the server. Requires [`Params::tls_certificate_file`]
+    /// and [`Params::tls_private_key_file`] to be set.
+    pub tls_enabled: Param<bool>,
 
     /// Path of the `cert.pem` file used as TLS certificate
     pub tls_certificate_file: Param<String>,
 
     /// Path of the `key.pem` file used as private key for TLS
     pub tls_private_key_file: Param<String>,
+
+    /// Whether gzip compression is enabled for gRPC requests and responses
+    pub gzip_enabled: Param<bool>,
+
+    /// Whether API key enforcement is enabled. See command `mosaicod api-key`.
+    pub api_key_enabled: Param<bool>,
 
     /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
     pub db_url: Param<String>,
@@ -437,6 +485,17 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
             DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE,
         ),
 
+        // logging
+        log_level: Param::optional("MOSAICOD_LOG_LEVEL", DEFAULT_LOG_LEVEL),
+        log_format: Param::optional("MOSAICOD_LOG_FORMAT", DEFAULT_LOG_FORMAT),
+
+        // server
+        host: Param::optional("MOSAICOD_HOST", DEFAULT_HOST),
+        port: Param::optional("MOSAICOD_PORT", DEFAULT_PORT),
+        tls_enabled: Param::optional("MOSAICOD_TLS_ENABLED", DEFAULT_TLS_ENABLED),
+        gzip_enabled: Param::optional("MOSAICOD_GZIP_ENABLED", DEFAULT_GZIP),
+        api_key_enabled: Param::optional("MOSAICOD_API_KEY_ENABLED", DEFAULT_API_KEY_ENABLED),
+
         // tls
         tls_certificate_file: Param::optional(
             "MOSAICOD_TLS_CERT_FILE",
@@ -485,6 +544,24 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         store_optimizer_memory_pool_size: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_MEMORY_POOL_SIZE",
             DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE,
+        ),
+        store_optimizer_time_interval: Param::optional(
+            "MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL",
+            DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL,
+        ),
+        store_optimizer_max_chunk_size: Param::optional(
+            "MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE",
+            DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE,
+        ),
+
+        // cleanup
+        cleanup_time_interval: Param::optional(
+            "MOSAICOD_CLEANUP_TIME_INTERVAL",
+            DEFAULT_CLEANUP_TIME_INTERVAL,
+        ),
+        cleanup_retention_duration: Param::optional(
+            "MOSAICOD_CLEANUP_RETENTION_DURATION",
+            DEFAULT_CLEANUP_RETENTION_DURATION,
         ),
     };
 
@@ -546,8 +623,15 @@ mod tests {
             parquet_in_memory_encoding_buffer_size: param(
                 DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
             ),
+            log_level: param(DEFAULT_LOG_LEVEL),
+            log_format: param(DEFAULT_LOG_FORMAT),
+            host: param(DEFAULT_HOST),
+            port: param(DEFAULT_PORT),
+            tls_enabled: param(DEFAULT_TLS_ENABLED),
             tls_certificate_file: param(DEFAULT_TLS_CERT_FILE.to_owned()),
             tls_private_key_file: param(DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned()),
+            gzip_enabled: param(DEFAULT_GZIP),
+            api_key_enabled: param(DEFAULT_API_KEY_ENABLED),
             db_url: param("".to_owned()),
             db_user: param("".to_owned()),
             db_password: param_hidden("".to_owned()),
@@ -557,6 +641,10 @@ mod tests {
             store_secret_key: param_hidden(DEFAULT_STORE_SECRET_KEY.to_owned()),
             store_access_key: param(DEFAULT_STORE_ACCESS_KEY.to_owned()),
             store_optimizer_memory_pool_size: param(DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE),
+            store_optimizer_time_interval: param(DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL),
+            store_optimizer_max_chunk_size: param(DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE),
+            cleanup_time_interval: param(DEFAULT_CLEANUP_TIME_INTERVAL),
+            cleanup_retention_duration: param(DEFAULT_CLEANUP_RETENTION_DURATION),
         }
     }
 

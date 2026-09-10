@@ -2556,6 +2556,7 @@ dependencies = [
  "mosaicod-build",
  "mosaicod-commands",
  "mosaicod-core",
+ "tracing",
 ]
 
 [[package]]
@@ -2586,7 +2587,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
- "tracing-subscriber",
  "url",
 ]
 
@@ -2596,9 +2596,12 @@ version = "0.7.0-dev"
 dependencies = [
  "bytes",
  "chrono",
+ "clap",
  "crc32fast",
  "rand 0.10.2",
  "thiserror",
+ "tracing",
+ "tracing-subscriber",
  "ulid",
  "url",
  "uuid",

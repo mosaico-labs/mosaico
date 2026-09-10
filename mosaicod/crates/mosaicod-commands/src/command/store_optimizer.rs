@@ -12,16 +12,17 @@ use tracing::{debug, info};
 pub struct StoreOptimizer {
     /// Minimum interval, in seconds, that must pass between an optimization run and the next one.
     ///
-    /// When set to `0` (the default) a single run is performed and then the process
-    /// terminates. Any value greater than `0` runs the routine in a loop, sleeping
-    /// `time_interval` seconds between each.
-    #[arg(long, default_value_t = 0)]
-    pub time_interval: u32,
+    /// When set to `0` a single run is performed and then the process terminates. Any value
+    /// greater than `0` runs the routine in a loop, sleeping `time_interval` seconds between
+    /// each. Defaults to MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL, then `0`.
+    #[arg(long)]
+    pub time_interval: Option<u32>,
 
     /// Maximum size (in bytes) for an output chunk after optimization.
     /// This is a soft limit, actual files on store may exceed this value slightly.
-    #[arg(long, default_value_t = 256_000_000)]
-    pub max_chunk_size: usize,
+    /// Defaults to MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE, then `256_000_000`.
+    #[arg(long)]
+    pub max_chunk_size: Option<usize>,
 }
 
 /// Run the store optimization routine.
@@ -64,12 +65,18 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
         }
     });
 
-    let time_interval = types::Duration::seconds(args.time_interval);
+    let time_interval = types::Duration::seconds(
+        args.time_interval
+            .unwrap_or(params.store_optimizer_time_interval.value),
+    );
+    let max_chunk_size = args
+        .max_chunk_size
+        .unwrap_or(params.store_optimizer_max_chunk_size.value);
 
     rt.block_on(async {
         let store_optimizer = task::StoreOptimizer::new(db, store)
             .with_time_interval(time_interval)
-            .with_max_file_size(args.max_chunk_size);
+            .with_max_file_size(max_chunk_size);
 
         store_optimizer.run(shutdown).await
     })?;

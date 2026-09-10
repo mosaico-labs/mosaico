@@ -29,6 +29,14 @@ impl std::fmt::Display for LogLevel {
     }
 }
 
+impl std::str::FromStr for LogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <Self as ValueEnum>::from_str(s, true)
+    }
+}
+
 #[derive(Debug, Copy, Clone, ValueEnum)]
 pub enum LogFormat {
     Json,
@@ -43,6 +51,14 @@ impl std::fmt::Display for LogFormat {
             Self::Plain => write!(f, "plain"),
             Self::Pretty => write!(f, "pretty"),
         }
+    }
+}
+
+impl std::str::FromStr for LogFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        <Self as ValueEnum>::from_str(s, true)
     }
 }
 
