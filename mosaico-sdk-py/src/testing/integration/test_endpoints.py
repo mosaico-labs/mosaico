@@ -1,3 +1,5 @@
+import bisect
+
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
@@ -6,7 +8,7 @@ from mosaicolabs.handlers import (
     TopicDataStreamer,
     TopicHandler,
 )
-from mosaicolabs.platform.resource_manifests import TopicResourceManifest
+from mosaicolabs.platform.app_metadata import TopicAppMetadata
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_NAME,
@@ -18,7 +20,7 @@ from .helpers import (
 )
 
 
-def test_manifest_in_data_sequence(
+def test_app_metadata_in_data_sequence(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
     synthetic_sequence_data_stream: SequenceDataStream,
@@ -37,7 +39,7 @@ def test_manifest_in_data_sequence(
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
-def test_manifest_in_dataless_sequence(
+def test_app_metadata_in_dataless_sequence(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences,  # Ensure the data are available on the data platform
     sequence: str,
@@ -74,15 +76,15 @@ def test_topic_name_in_endpoint_from_topic_handler(
     # Topic exists!
     assert len(flight_info.endpoints) == 1 and "Expected 1 endpoint"
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
+    topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
     # Topic exists!
     assert (
-        topic_manifest.name == topic
-        and f"Expected matching topic name {topic} != {topic_manifest.name}"
+        topic_app_metadata.name == topic
+        and f"Expected matching topic name {topic} != {topic_app_metadata.name}"
     )
     assert (
-        topic_manifest.sequence_name == UPLOADED_SEQUENCE_NAME
-        and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_manifest.sequence_name}"
+        topic_app_metadata.sequence_name == UPLOADED_SEQUENCE_NAME
+        and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_app_metadata.sequence_name}"
     )
 
     # free resources
@@ -108,15 +110,15 @@ def test_topic_names_in_endpoints_from_sequence_handler(
         and f"Expected {len(topic_list)} endpoints, got {len(flight_info.endpoints)}"
     )
     for ep in flight_info.endpoints:
-        topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
+        topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
         # Topic exists!
         assert (
-            topic_manifest.name in topic_list
-            and f"Expected matching topic name {topic_manifest.name} in topics list {topic_list}"
+            topic_app_metadata.name in topic_list
+            and f"Expected matching topic name {topic_app_metadata.name} in topics list {topic_list}"
         )
         assert (
-            topic_manifest.sequence_name == UPLOADED_SEQUENCE_NAME
-            and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_manifest.sequence_name}"
+            topic_app_metadata.sequence_name == UPLOADED_SEQUENCE_NAME
+            and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_app_metadata.sequence_name}"
         )
 
     # free resources
@@ -124,14 +126,14 @@ def test_topic_names_in_endpoints_from_sequence_handler(
 
 
 @pytest.mark.parametrize("topic", topic_list)
-def test_topics_manifest_timestamps(
+def test_topics_app_metadata_timestamps(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
     synthetic_sequence_data_stream: SequenceDataStream,
     topic: str,
 ):
     """
-    Test that the topic manifest is coherent wrt the timestamps received.
+    Test that the topic app_metadata is coherent wrt the timestamps received.
     This is a low level test: private members and methods are called
     """
     # generate for easier inspection and debug (than using next)
@@ -154,14 +156,15 @@ def test_topics_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
+    topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
     # Not asked for time-windowed stream: the min/max timestamps must be equal to start/end
     assert (
-        _cached_topic_data_stream[0].msg.timestamp_ns == topic_manifest.timestamp_ns_min
+        _cached_topic_data_stream[0].msg.timestamp_ns
+        == topic_app_metadata.timestamp_ns_min
     )
     assert (
         _cached_topic_data_stream[-1].msg.timestamp_ns
-        == topic_manifest.timestamp_ns_max
+        == topic_app_metadata.timestamp_ns_max
     )
 
     # free resources
@@ -169,14 +172,14 @@ def test_topics_manifest_timestamps(
 
 
 @pytest.mark.parametrize("topic", topic_list)
-def test_topic_streamer_manifest_timestamps(
+def test_topic_streamer_app_metadata_timestamps(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
     synthetic_sequence_data_stream: SequenceDataStream,
     topic: str,
 ):
     """
-    Test that the topic manifest is coherent wrt the timestamps received, when in time-windowed stream.
+    Test that the topic app_metadata is coherent wrt the timestamps received, when in time-windowed stream.
     This is a low level test: private members and methods are called
     """
     # generate for easier inspection and debug (than using next)
@@ -195,6 +198,20 @@ def test_topic_streamer_manifest_timestamps(
     )
     timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
+    # find the index to start from (which corresponds to timestamp_ns_start)
+    msg_idx_start = bisect.bisect_left(
+        [it.msg.timestamp_ns for it in _cached_topic_data_stream],
+        timestamp_ns_start,
+    )
+
+    # find the index to which end (which corresponds to the one right before timestamp_ns_end)
+    msg_idx_stop = (
+        bisect.bisect_left(
+            [it.msg.timestamp_ns for it in _cached_topic_data_stream],
+            timestamp_ns_end,
+        )
+        - 1
+    )
     flight_info = TopicDataStreamer._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
@@ -204,15 +221,15 @@ def test_topic_streamer_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-    # The start/end timestamp must be equal to the first/last message timestamps of the topic data stream
-    # min and max are still the lowest and highest timestamp in the whole topic stream
+    topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+    # The start/end timestamp must be equal to the first/last message timestamps WITHIN THE TIME WINDOW of the topic data stream
     assert (
-        topic_manifest.timestamp_ns_min == _cached_topic_data_stream[0].msg.timestamp_ns
+        topic_app_metadata.timestamp_ns_min
+        == _cached_topic_data_stream[msg_idx_start].msg.timestamp_ns
     )
     assert (
-        topic_manifest.timestamp_ns_max
-        == _cached_topic_data_stream[-1].msg.timestamp_ns
+        topic_app_metadata.timestamp_ns_max
+        == _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
     )
 
     # free resources

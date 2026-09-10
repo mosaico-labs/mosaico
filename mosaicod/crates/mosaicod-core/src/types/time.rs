@@ -1,9 +1,9 @@
 use std::ops::Deref;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// SEntinel value to represent the positive unbounded timestamp
+/// Sentinel value to represent the positive unbounded timestamp
 const TIMESTAMP_UB_POS_SENTINEL: i64 = i64::MAX;
-/// SEntinel value to represent the negative unbounded timestamp
+/// Sentinel value to represent the negative unbounded timestamp
 const TIMESTAMP_UB_NEG_SENTINEL: i64 = i64::MIN;
 
 /// Timestamp format used by mosaico, currently this timestamp represent nanoseconds
@@ -100,7 +100,7 @@ impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
 ///
 /// This struct defines a range $[start, end]$. A timestamp is considered
 /// contained within this range if $start \le t \l end$.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct TimestampRange {
     pub start: Timestamp,
     pub end: Timestamp,

@@ -1,8 +1,10 @@
-use mosaicod_core::{error::PublicResult as Result, params, types::auth::Permissions};
+use mosaicod_core::{error::PublicResult as Result, params, types, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
@@ -88,6 +90,12 @@ impl Server {
     ///
     /// The `on_start` callback is called once the server has started.
     ///
+    /// Before serving requests, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to the server's shutdown
+    /// notifier. Registration failure is treated as fatal, consistent with how other
+    /// DB-dependency failures are handled at startup. Once the server has stopped, the instance
+    /// deregisters itself rather than leaving its row to be reaped later as stale.
+    ///
     /// This method startup a Tokio runtime to handle async operations.
     pub fn start_and_wait<F>(&mut self, rt: tokio::runtime::Runtime, on_start: F) -> Result<()>
     where
@@ -97,9 +105,26 @@ impl Server {
 
         let opts = self.options.clone();
 
-        rt.block_on(async {
+        let res: Result<()> = rt.block_on(async {
             let server_store = self.store.clone();
             let server_db = self.db.clone();
+
+            let instance = db::instance_registry_create(
+                &mut server_db.connection(),
+                types::InstanceKind::Server,
+                &local_hostname(),
+                std::process::id() as i32,
+                chrono::Utc::now().timestamp(),
+                // The server has no one-shot mode: it always runs until shut down.
+                false,
+            )
+            .await?;
+
+            let handle_heartbeat = rt.spawn(instance_heartbeat_loop(
+                server_db.clone(),
+                instance.instance_id,
+                shutdown.token(),
+            ));
 
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
@@ -115,7 +140,21 @@ impl Server {
             on_start();
 
             let _ = handle_flight.await;
+            let _ = handle_heartbeat.await;
+
+            if let Err(e) =
+                db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+            {
+                warn!(
+                    "failed to deregister instance {}: {}",
+                    instance.instance_id, e
+                );
+            }
+
+            Ok(())
         });
+
+        res?;
 
         debug!("grpc server stopped");
 
@@ -229,20 +268,35 @@ mod tests {
             .build()
             .expect("failed to build tokio runtime");
 
-        let test_db = db::testing::Database::new(pool);
-
-        // "123.123.123.123" is a valid IP address, but no interface has this IP associated.
-        // So `serve()` fails immediately while parsing the bind address.
-        let mut server = Server::new(
-            "123.123.123.123".parse().unwrap(),
-            0,
-            (*test_store).clone(),
-            (*test_db).clone(),
-        );
+        // `start_and_wait` now runs a DB query (instance registration) as soon as it starts, on
+        // `rt`. `pool`, however, was established under the ambient `#[sqlx::test]` runtime: a
+        // `sqlx::Pool`'s already-open connections are tied to the reactor of whichever runtime
+        // was driving them when they were opened, and can't be safely reused from a different
+        // runtime. So a fresh pool, opened from within `rt` itself (from the dedicated thread
+        // below, since `rt.block_on` can't be called from within the ambient test runtime), is
+        // required here.
+        let connect_options = pool.connect_options();
 
         let (tx, rx) = mpsc::channel();
 
         let handle = thread::spawn(move || {
+            let test_db = rt.block_on(async {
+                let fresh_pool = sqlx::postgres::PgPoolOptions::new()
+                    .connect_with((*connect_options).clone())
+                    .await
+                    .expect("failed to open a fresh pool on `rt`");
+                db::testing::Database::new(fresh_pool)
+            });
+
+            // "123.123.123.123" is a valid IP address, but no interface has this IP associated.
+            // So `serve()` fails immediately while parsing the bind address.
+            let mut server = Server::new(
+                "123.123.123.123".parse().unwrap(),
+                0,
+                (*test_store).clone(),
+                (*test_db).clone(),
+            );
+
             let result = server.start_and_wait(rt, || {});
             // The receiver may already be gone if the test failed on the timeout below.
             let _ = tx.send(result.is_ok());

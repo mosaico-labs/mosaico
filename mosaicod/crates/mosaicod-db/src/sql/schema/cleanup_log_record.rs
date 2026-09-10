@@ -12,6 +12,10 @@ pub struct CleanupLogRecord {
     pub(crate) marked_folders: serde_json::Value,
     pub(crate) deleted_folders: serde_json::Value,
     pub(crate) failed_folders: serde_json::Value,
+
+    /// The instance (see `instance_registry_t`) that performed this run, or `None` if the
+    /// originating instance has been garbage collected from the registry.
+    pub instance_id: Option<i32>,
 }
 
 impl CleanupLogRecord {

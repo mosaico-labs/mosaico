@@ -21,6 +21,15 @@ This release adapts the SDK to the backend's new **`info` action** (replacing `v
 - Removed the unused record-count buffering mode from the internal topic write buffer: batching is byte-size-only, matching actual runtime behavior. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
 - Replaced a unit test that validated PyArrow IPC schema overhead against a hardcoded, disconnected 16MB constant with integration tests exercising real batch-splitting and the oversized-record path against a live server. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
 
+## [0.6.1] - 2026-08-27
+
+### Bug Fixes
+
+- Changed the warning type emitted for deprecated import paths from `DeprecationWarning` to `FutureWarning`, so it is no longer silenced by default. ([#742](https://github.com/mosaico-labs/mosaico/pull/742))
+
+### Documentation
+
+- Reworked the SDK README: fixed broken links, added a Key Features overview, Quick Start examples for data ingestion and querying (previously only reading was covered), and direct links to the Client, Ontology, Data Handling, Query, and ROS Bridge documentation pages.
 
 ## [0.6.0] - 2026-07-30
 

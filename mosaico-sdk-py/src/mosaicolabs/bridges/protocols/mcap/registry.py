@@ -30,20 +30,20 @@ class McapSchemaRegistry:
             converter_cls: The ``McapSchemaConverter`` subclass to register.
 
         Raises:
-            ValueError: If any of ``converter_cls.SUPPORTED_ENCODINGS`` is already
+            ValueError: If any of ``converter_cls.SUPPORTED_SCHEMA_ENCODINGS`` is already
                 registered to another converter.
         """
 
         # Check that all the encoding of converter_cls are not already present within registry
         # before adding them within the registry
-        for converter_encoding in converter_cls.SUPPORTED_ENCODINGS:
+        for converter_encoding in converter_cls.SUPPORTED_SCHEMA_ENCODINGS:
             if converter_encoding in cls._registry:
                 raise ValueError(
                     f"Converter {converter_cls.__name__} is already registered"
                 )
 
         # Add all the converter encodings within McapSchemaRegistry registry
-        for converter_encoding in converter_cls.SUPPORTED_ENCODINGS:
+        for converter_encoding in converter_cls.SUPPORTED_SCHEMA_ENCODINGS:
             cls._registry[converter_encoding] = converter_cls
 
     # --- Main Bridge API ---

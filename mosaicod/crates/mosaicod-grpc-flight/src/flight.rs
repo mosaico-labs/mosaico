@@ -99,6 +99,23 @@ impl Service {
         Ok(Response::new(info))
     }
 
+    async fn impl_get_schema(
+        &self,
+        request: Request<FlightDescriptor>,
+    ) -> grpc_common::Result<Response<SchemaResult>> {
+        let auth_ctx = middleware::auth_context(&request)?;
+
+        if !auth_ctx.permissions().can_read() {
+            Err(core::Error::unauthorized(
+                "provided API key does not have READ permissions.".to_string(),
+            ))?;
+        }
+
+        let desc = request.into_inner();
+        let schema_result = endpoint::get_schema(&self.context(), desc).await?;
+        Ok(Response::new(schema_result))
+    }
+
     async fn impl_list_flights(
         &self,
         request: Request<Criteria>,
@@ -228,11 +245,10 @@ impl FlightService for Service {
 
     async fn get_schema(
         &self,
-        _request: Request<FlightDescriptor>,
+        request: Request<FlightDescriptor>,
     ) -> std::result::Result<Response<SchemaResult>, Status> {
-        Err(core::Error::unimplemented()
-            .to_public_error()
-            .log_to_status())
+        let resp = self.impl_get_schema(request).await.log_to_status()?;
+        Ok(resp)
     }
 
     async fn do_get(

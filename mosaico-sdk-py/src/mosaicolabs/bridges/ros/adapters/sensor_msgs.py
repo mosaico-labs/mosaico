@@ -893,7 +893,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
     **Supported ROS Types:**
 
-    - [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html)
+    - [`nmea_msgs/msg/Sentence`](https://docs.ros.org/en/noetic/api/nmea_msgs/html/msg/Sentence.html)
 
     Example:
         ```python

@@ -16,11 +16,13 @@ mosaicod server [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--host <HOST>` | `127.0.0.1` |  Specify a host address. |
+| `--host <HOST>` | `127.0.0.1` |  IP address to bind to. Must be a valid IP address, e.g. `0.0.0.0` to listen on every network interface. |
 | `--port <PORT>` | `6726` | Port to listen on. |
 | `--tls` | `false` | Enable TLS. When enabled, the following envirnoment variables needs to be set `MOSAICOD_TLS_CERT_FILE` and `MOSAICOD_TLS_PRIVATE_KEY_FILE` | 
 | `--gzip` | `false` | Enable gzip compression for both incoming and outgoing messages. |
 | `--api-key` | `false` | Require API keys to operate. When enabled the system will require API keys to perform any actions. |
+
+Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
 
 ## mosaicod cleanup
 
@@ -61,6 +63,74 @@ Perform a single cleanup that deletes obsolete files immediately, without any re
 
 ```bash
 mosaicod cleanup --retention-duration 0
+```
+
+Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
+
+## mosaicod store-optimizer
+
+Run the [store optimization routine](store_optimizer.md), which rewrites a topic's small chunks into fewer, larger ones.
+
+```bash
+mosaicod store-optimizer [OPTIONS]
+```
+
+### Options
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `--time-interval <TIME_INTERVAL>` | `0` | Minimum interval, in seconds, between an optimization run and the next one. When set to `0` a single run is performed and then the process terminates. Any value greater than `0` runs the routine in a loop, sleeping `time_interval` seconds between runs. |
+| `--max-chunk-size <MAX_CHUNK_SIZE>` | `256000000` | Maximum size (in bytes) for an output chunk after optimization. This is a soft limit; actual files on store may exceed this value slightly. |
+
+#### Examples
+
+Perform a single optimization pass and exit (one-shot):
+
+```bash
+mosaicod store-optimizer
+```
+
+Run the routine continuously, once a day:
+
+```bash
+mosaicod store-optimizer --time-interval 86400
+```
+
+Cap rewritten chunks to 128 MB:
+
+```bash
+mosaicod store-optimizer --max-chunk-size 134217728
+```
+
+Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
+
+## mosaicod ps
+
+List registered `mosaicod` instances (`server`, `cleanup`, and `store-optimizer` processes) and summarize the cleanup routine's current status.
+
+```bash
+mosaicod ps [OPTIONS]
+```
+
+### Options
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `-a`, `--all` | `false` | Also show instances with a "dead" status (no heartbeat for a long time). By default these are hidden. |
+| `-v`, `--verbose` | `false` | Also show the `STARTED` and `LAST HEARTBEAT` columns as full UTC timestamps. By default only a relative `UPTIME`/`LAST HEARTBEAT` is shown. |
+
+Each instance is listed with its process kind (`server`, `cleanup`, `store-optimizer`), instance ID, hostname, PID, uptime, time since its last heartbeat, and derived status (`alive`, `stale`, or `dead`, the latter only shown with `--all`). Underneath the instance table, a `Cleanup:` line reports the outcome of the most recent cleanup run: `no run recorded yet`, `RUNNING`, `INTERRUPTED` (the owning instance died before the run completed), or `IDLE` with the start/end timestamps of the last completed run.
+
+#### Examples
+
+```bash
+mosaicod ps
+```
+
+Include dead instances and full timestamps:
+
+```bash
+mosaicod ps --all --verbose
 ```
 
 ## mosaicod api-key
