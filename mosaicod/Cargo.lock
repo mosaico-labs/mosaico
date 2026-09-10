@@ -2555,6 +2555,7 @@ dependencies = [
  "mimalloc",
  "mosaicod-build",
  "mosaicod-commands",
+ "mosaicod-config",
  "mosaicod-core",
  "tracing",
 ]
@@ -2576,6 +2577,7 @@ dependencies = [
  "dotenv",
  "if-addrs",
  "iso8601",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
@@ -2588,6 +2590,15 @@ dependencies = [
  "tokio-util",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "mosaicod-config"
+version = "0.7.0-dev"
+dependencies = [
+ "mosaicod-core",
+ "serde",
+ "toml",
 ]
 
 [[package]]
@@ -2645,6 +2656,7 @@ version = "0.7.0-dev"
 dependencies = [
  "arrow",
  "futures",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -2665,6 +2677,7 @@ version = "0.7.0-dev"
 dependencies = [
  "arrow-flight",
  "chrono",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -2717,6 +2730,7 @@ dependencies = [
  "arrow-flight",
  "datafusion",
  "futures",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -2774,6 +2788,7 @@ version = "0.7.0-dev"
 dependencies = [
  "arrow",
  "datafusion",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-ext",
  "mosaicod-rw",
@@ -2794,6 +2809,7 @@ dependencies = [
  "arrow-schema",
  "bytes",
  "datafusion",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-ext",
  "parquet",
@@ -2827,6 +2843,7 @@ dependencies = [
  "datafusion",
  "filetime",
  "futures",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
@@ -3747,6 +3764,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4212,6 +4238,7 @@ dependencies = [
  "arrow-flight",
  "chrono",
  "futures",
+ "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -4372,6 +4399,45 @@ dependencies = [
  "pin-project-lite",
  "tokio",
 ]
+
+[[package]]
+name = "toml"
+version = "1.1.5+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12c0ba9680044b4ce98d391a62094047eada0d64860b80166c39f4a6b5640785"
+dependencies = [
+ "indexmap",
+ "serde_core",
+ "serde_spanned",
+ "toml_datetime",
+ "toml_parser",
+ "toml_writer",
+ "winnow",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "1.1.1+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3165f65f62e28e0115a00b2ebdd37eb6f3b641855f9d636d3cd4103767159ad7"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_parser"
+version = "1.1.3+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d38ac1cf9b95face32296c0a3ede1fdc270627c9d9c02a7274dd6d960dc4d56"
+dependencies = [
+ "winnow",
+]
+
+[[package]]
+name = "toml_writer"
+version = "1.1.2+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d56353a2a665ad0f41a421187180aab746c8c325620617ad883a99a1cbe66d2"
 
 [[package]]
 name = "tonic"
@@ -5030,6 +5096,12 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "winnow"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 
 [[package]]
 name = "wit-bindgen"

@@ -3,7 +3,7 @@
 //! Schema related testing functions
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
-use mosaicod_core::params;
+use mosaicod_core::constants;
 use mosaicod_db as db;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -37,7 +37,7 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
     // A schema carrying both schema-level and field-level metadata, mirroring what a
     // pyarrow client can attach via `Schema.with_metadata`/`Field.with_metadata`.
     let ts_field = Field::new(
-        params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+        constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
         DataType::Int64,
         false,
     );

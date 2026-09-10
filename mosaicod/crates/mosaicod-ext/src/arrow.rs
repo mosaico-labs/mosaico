@@ -2,7 +2,7 @@ use arrow::array::{
     ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
 };
 use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
-use mosaicod_core::{self as core, params, types};
+use mosaicod_core::{self as core, constants, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
 use std::collections::VecDeque;
@@ -65,7 +65,7 @@ impl std::error::Error for Error {
 ///
 /// Returns [`SchemaError`] if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
-    let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+    let field = schema.field_with_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
     if let Ok(field) = field {
         if DataType::Int64 != *field.data_type() {
             return Err(SchemaError::WrongTimestampType);
@@ -481,7 +481,7 @@ pub mod testing {
     pub fn dummy_empty_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),
@@ -509,7 +509,7 @@ pub mod testing {
     ) -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),
@@ -545,7 +545,7 @@ pub mod testing {
     ) -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),
@@ -590,7 +590,7 @@ pub mod testing {
     pub fn dummy_list_string_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),
@@ -626,7 +626,7 @@ pub mod testing {
 
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),

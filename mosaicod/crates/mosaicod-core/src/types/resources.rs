@@ -1,5 +1,5 @@
 use super::{Format, SessionMetadata, TimestampRange};
-use crate::{Error, params, traits, types};
+use crate::{Error, constants, traits, types};
 use std::cmp::PartialEq;
 use std::ops::Deref;
 use std::path;
@@ -472,7 +472,7 @@ impl SequencePathInStore {
     /// The metadata file may or may not exist, no check performed by this function.
     pub fn path_metadata(&self) -> path::PathBuf {
         let mut path = self.root().join("metadata");
-        path.set_extension(params::ext::JSON);
+        path.set_extension(constants::ext::JSON);
         path
     }
 
@@ -772,7 +772,7 @@ mod tests {
         assert!(!pis.root().has_root());
         let metadata = pis.path_metadata();
         assert!(metadata.starts_with(pis.root()));
-        assert_eq!(metadata.extension().unwrap(), params::ext::JSON);
+        assert_eq!(metadata.extension().unwrap(), constants::ext::JSON);
         assert!(metadata.ends_with("metadata.json"));
     }
 
@@ -786,7 +786,7 @@ mod tests {
         assert!(!pis.root().has_root());
         let metadata = pis.path_metadata();
         assert!(metadata.starts_with(pis.root()));
-        assert_eq!(metadata.extension().unwrap(), params::ext::JSON);
+        assert_eq!(metadata.extension().unwrap(), constants::ext::JSON);
         assert!(metadata.ends_with("metadata.json"));
 
         let data_folder = pis.data_folder_path();

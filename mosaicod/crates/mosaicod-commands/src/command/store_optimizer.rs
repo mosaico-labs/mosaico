@@ -1,6 +1,7 @@
 use crate::common;
 use clap::Args;
-use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
+use mosaicod_config::params;
+use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};

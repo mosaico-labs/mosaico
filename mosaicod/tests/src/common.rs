@@ -1,5 +1,6 @@
 use arrow_flight::flight_service_client::FlightServiceClient;
-use mosaicod_core::{params, types};
+use mosaicod_config::params;
+use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc as grpc;
@@ -85,7 +86,7 @@ impl ServerBuilder {
 
     pub async fn build_with_store(self, store: store::testing::Store) -> Server {
         // Ensure that params are loaded
-        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+        params::load_params(params::ParamsLoadOptions::testing()).unwrap();
 
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(

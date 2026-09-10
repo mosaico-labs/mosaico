@@ -7,6 +7,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-store = { workspace = true }

@@ -1,7 +1,8 @@
 use crate::common;
 use clap::{ArgGroup, Subcommand};
 use colored::Colorize;
-use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
+use mosaicod_config::params;
+use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
@@ -63,7 +64,7 @@ pub enum ApiKey {
 }
 
 pub fn auth(auth: ApiKey) -> Result<()> {
-    common::load_env_variables()?;
+    common::load_env_variables(None)?;
 
     let rt = common::init_runtime()?;
 
