@@ -2,7 +2,7 @@
 
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
-use mosaicod_core::params;
+use mosaicod_core::constants;
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use rand::{random, random_range};
@@ -12,7 +12,7 @@ use tests::{self, actions, common};
 fn dummy_batch(batch_size: u32, sorted_ts: bool, min_ts: u32) -> RecordBatch {
     let schema = Arc::new(Schema::new(vec![
         Field::new(
-            params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+            constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
             DataType::Int64,
             false,
         ),

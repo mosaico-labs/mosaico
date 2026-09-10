@@ -10,6 +10,7 @@ license.workspace = true
 name = "mosaicod_task"
 
 [dependencies]
+mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-os = { workspace = true }

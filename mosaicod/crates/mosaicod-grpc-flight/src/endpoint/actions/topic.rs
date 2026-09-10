@@ -223,7 +223,7 @@ async fn spawn_cluster_stream(
 
     // Setup query
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let timestamp_column = core::params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
+    let timestamp_column = core::constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
     let ontology_filter = ontology.try_into()?;
 
     // RecordBatch stram filtered by timestamp if any and ontology

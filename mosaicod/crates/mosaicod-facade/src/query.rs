@@ -1,6 +1,7 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
-use mosaicod_core::{error::PublicResult as Result, params, types};
+use mosaicod_config::params;
+use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
 use std::collections::{HashMap, HashSet};

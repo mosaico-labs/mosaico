@@ -6,7 +6,7 @@
 //! [`mosaicod_db::instance_registry_delete`] once done; this crate only provides the piece
 //! that would otherwise be duplicated across every process kind.
 
-use mosaicod_core::{params, types};
+use mosaicod_core::types;
 use mosaicod_db as db;
 use tokio_util::sync::CancellationToken;
 use tracing::warn;
@@ -22,7 +22,7 @@ pub async fn instance_heartbeat_loop(
     instance_id: i32,
     shutdown: CancellationToken,
 ) {
-    let interval = std::time::Duration::from_secs(params::INSTANCE_HEARTBEAT_INTERVAL_SECS as u64);
+    let interval = std::time::Duration::from_secs(types::INSTANCE_HEARTBEAT_INTERVAL_SECS as u64);
 
     loop {
         tokio::select! {
@@ -49,7 +49,7 @@ pub async fn instance_heartbeat_loop(
             );
         }
 
-        let expiry_threshold = now - params::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS as i64;
+        let expiry_threshold = now - types::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS as i64;
 
         if let Err(e) = db::instance_registry_delete_expired(
             &mut db.connection(),

@@ -1,4 +1,5 @@
-use mosaicod_core::{error::PublicResult as Result, params, types, types::auth::Permissions};
+use mosaicod_config::params;
+use mosaicod_core::{error::PublicResult as Result, types, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
@@ -244,7 +245,6 @@ pub async fn serve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mosaicod_core::params;
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration as StdDuration;
@@ -258,7 +258,7 @@ mod tests {
         pool: sqlx::Pool<db::DatabaseType>,
     ) {
         // `start_and_wait` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params_from_env(params::ParamsLoadOptions::testing());
+        let _ = params::load_params(params::ParamsLoadOptions::testing());
 
         let test_store =
             store::testing::Store::new_random_on_tmp().expect("failed to create test store");

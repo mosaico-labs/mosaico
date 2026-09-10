@@ -4,7 +4,7 @@
 
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
 use futures::stream::{StreamExt, TryStreamExt};
-use mosaicod_core::params;
+use mosaicod_core::constants;
 use mosaicod_core::traits;
 use object_store::{
     ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
@@ -358,7 +358,7 @@ impl Store {
         self.driver
             .list(Some(&to_object_path(&path)))
             .map(|meta| async move { self.driver.delete(&meta?.location).await })
-            .buffer_unordered(params::MAX_BUFFERED_FUTURES)
+            .buffer_unordered(constants::MAX_BUFFERED_FUTURES)
             .try_collect::<()>()
             .await?;
 
