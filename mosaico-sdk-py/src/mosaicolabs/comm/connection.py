@@ -140,7 +140,7 @@ def _get_connection(
         middlewares (Optional[dict[str, fl.ClientMiddlewareFactory]]): The middlewares to be used for the connection.
 
     Returns:
-        fl.FlightClient: An active Flight client instance connected to the specified address.
+        ConnectionContext: The current connection context with active Flight client instance.
     """
 
     protocol = "grpc+tls" if enable_tls else "grpc"
