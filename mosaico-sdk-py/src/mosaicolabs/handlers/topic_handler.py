@@ -156,7 +156,7 @@ class TopicHandler:
             app_metadata=topic_app_metadata,
         )
         pyschema = cls._get_schema(
-            client=client,
+            client=connection.flight_client,
             sequence_name=sequence_name,
             topic_name=topic_name,
         )
@@ -387,7 +387,7 @@ class TopicHandler:
             start_timestamp_ns=start_timestamp_ns,
             end_timestamp_ns=end_timestamp_ns,
         )
-        
+
         return self._data_streamer_instance
 
     def close(self):
