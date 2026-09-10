@@ -1,7 +1,7 @@
 import pyarrow as pa
 import pytest
 
-from mosaicolabs.protocols import convert_ros2msg
+from mosaicolabs.bridges.protocols.mcap.converters import RosMsgSchemaConverter
 
 # -----------------------------------------------------------------------------
 # Message definitions
@@ -233,25 +233,25 @@ custom_type_lists_pyarrow_struct = pa.struct(
 
 
 def test_flat_message_with_scalar_fields():
-    assert vector3_pyarrow_struct == convert_ros2msg(
+    assert vector3_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         geometry_msg_vector3_msgdef, "geometry_msgs/msg/Vector3"
     )
 
 
 def test_scalar_fields_with_default_values():
-    assert quaternion_pyarrow_struct == convert_ros2msg(
+    assert quaternion_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         geometry_msg_quaternion_msgdef, "geometry_msgs/msg/Quaternion"
     )
 
 
 def test_nested_types():
-    assert pose_pyarrow_struct == convert_ros2msg(
+    assert pose_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         geometry_msg_pose_msgdef, "geometry_msgs/msg/Pose"
     )
 
 
 def test_all_primitive_type_mappings():
-    assert primitives_pyarrow_struct == convert_ros2msg(
+    assert primitives_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         primitives_msgdef, "test_msgs/msg/Primitives"
     )
 
@@ -262,24 +262,26 @@ def test_all_primitive_type_mappings():
 
 
 def test_lists_of_primitive_types():
-    struct = convert_ros2msg(primitive_lists_msgdef, "test_msgs/msg/PrimitiveLists")
+    struct = RosMsgSchemaConverter.convert_rosmsg(
+        primitive_lists_msgdef, "test_msgs/msg/PrimitiveLists"
+    )
     assert primitive_lists_pyarrow_struct == struct
 
 
 def test_list_of_custom_types():
-    assert polygon_pyarrow_struct == convert_ros2msg(
+    assert polygon_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         geometry_msg_polygon_msgdef, "geometry_msgs/msg/Polygon"
     )
 
 
 def test_lists_of_custom_types_fixed_and_variable():
-    assert custom_type_lists_pyarrow_struct == convert_ros2msg(
+    assert custom_type_lists_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         custom_type_lists_msgdef, "test_msgs/msg/CustomTypeLists"
     )
 
 
 def test_nested_custom_type_with_fixed_size_list():
-    assert pose_with_covariance_pyarrow_struct == convert_ros2msg(
+    assert pose_with_covariance_pyarrow_struct == RosMsgSchemaConverter.convert_rosmsg(
         geometry_msg_pose_with_covariance_msgdef,
         "geometry_msgs/msg/PoseWithCovariance",
     )
@@ -291,10 +293,14 @@ def test_nested_custom_type_with_fixed_size_list():
 
 
 def test_constants_do_not_become_fields():
-    struct = convert_ros2msg(constants_msgdef, "test_msgs/msg/Status")
+    struct = RosMsgSchemaConverter.convert_rosmsg(
+        constants_msgdef, "test_msgs/msg/Status"
+    )
     assert struct == pa.struct([pa.field("status", pa.uint8())])
 
 
 def test_missing_nested_type_raises():
     with pytest.raises(KeyError, match="test_msgs/msg/UndefinedType"):
-        convert_ros2msg(missing_nested_type_msgdef, "test_msgs/msg/Broken")
+        RosMsgSchemaConverter.convert_rosmsg(
+            missing_nested_type_msgdef, "test_msgs/msg/Broken"
+        )

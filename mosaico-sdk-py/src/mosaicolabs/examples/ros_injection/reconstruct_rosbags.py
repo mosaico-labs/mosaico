@@ -3,6 +3,7 @@ from pathlib import Path
 from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores
 
+from mosaicolabs.bridges.ros import ROSExtractorConfig, ROSSequenceExtractor
 from mosaicolabs.examples.config import (
     API_KEY,
     ASSET_DIR,
@@ -11,7 +12,6 @@ from mosaicolabs.examples.config import (
     MOSAICO_HOST,
     MOSAICO_PORT,
 )
-from mosaicolabs.ros_bridge import ROSExtractorConfig, ROSSequenceExtractor
 
 BAG_FILE_PATH = Path(ASSET_DIR) / "reconstructed"
 

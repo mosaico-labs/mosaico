@@ -1,9 +1,9 @@
 use crate::common;
 use clap::Args;
-use mosaicod_core::{self as core, error::PublicResult as Result, params};
+use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
-use signal_hook::{consts::SIGINT, iterator::Signals};
+use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
 use std::thread;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
@@ -41,6 +41,8 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         max_connections: params.max_db_connections.value,
     };
 
@@ -50,7 +52,7 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
     let shutdown = CancellationToken::new();
 
     // Forward SIGINT to the cancellation token so a running loop can exit gracefully.
-    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+    let mut signals = Signals::new([SIGINT, SIGTERM]).map_err(|_| {
         core::Error::internal(Some("unable to create termination signal".to_owned()))
     })?;
 
@@ -62,16 +64,16 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
         }
     });
 
-    let time_interval = task::cleanup::Duration::seconds(args.time_interval);
-    let retention_duration = task::cleanup::Duration::seconds(args.retention_duration);
+    let time_interval = types::Duration::seconds(args.time_interval);
+    let retention_duration = types::Duration::seconds(args.retention_duration);
 
     rt.block_on(async {
         let cleanup = task::Cleanup::new(db, store)
             .with_time_interval(time_interval)
             .with_retention_duration(retention_duration);
 
-        cleanup.run(shutdown).await;
-    });
+        cleanup.run(shutdown).await
+    })?;
 
     Ok(())
 }

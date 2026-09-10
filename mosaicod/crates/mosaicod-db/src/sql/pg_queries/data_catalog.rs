@@ -2,7 +2,7 @@ use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
-use tracing::trace;
+use tracing::{trace, warn};
 
 pub async fn column_get_or_create(
     exec: &mut impl AsExec,
@@ -48,6 +48,23 @@ pub async fn chunk_create(
     .fetch_one(exec.as_exec())
     .await?;
     Ok(res)
+}
+
+pub async fn chunk_delete_by_topic_id(
+    exec: &mut impl AsExec,
+    topic_id: i32,
+    _: types::DataLossToken,
+) -> Result<(), Error> {
+    warn!(
+        "(data loss) deleting chunk stats for topic with id {}",
+        topic_id
+    );
+
+    sqlx::query!(r#"DELETE FROM chunk_t WHERE topic_id = $1"#, topic_id)
+        .execute(exec.as_exec())
+        .await?;
+
+    Ok(())
 }
 
 pub async fn column_chunk_textual_create(
@@ -208,6 +225,25 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
         arrow_size_bytes: row.try_get("arrow_size_bytes")?,
         row_count: row.try_get("row_count")?,
     })
+}
+
+/// Returns the largest `size_bytes / row_count` ratio across all chunks belonging to a topic,
+/// i.e. the size of the biggest row observed for that topic.
+/// Returns `None` if the topic has no chunks (or none with a non-zero row count).
+pub async fn topic_chunk_max_avg_row_size(
+    exec: &mut impl AsExec,
+    topic_id: i32,
+) -> Result<Option<i64>, Error> {
+    let res = sqlx::query!(
+        r#"SELECT MAX(size_bytes / NULLIF(row_count, 0)) as max_row_size
+        FROM chunk_t
+        WHERE topic_id = $1"#,
+        topic_id
+    )
+    .fetch_one(exec.as_exec())
+    .await?;
+
+    Ok(res.max_row_size)
 }
 
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.

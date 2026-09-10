@@ -44,7 +44,7 @@ class _MovedPackageFinder(MetaPathFinder):
         warnings.warn(
             f"'{fullname}' is deprecated and will be removed in a future release; "
             f"import from '{new_name}' instead.",
-            DeprecationWarning,
+            FutureWarning,
             stacklevel=3,
         )
 

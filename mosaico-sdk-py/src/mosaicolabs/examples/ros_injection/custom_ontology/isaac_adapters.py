@@ -5,9 +5,13 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message
-from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage, register_default_adapter
-from mosaicolabs.ros_bridge.adapters import HeaderAdapter
-from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
+from mosaicolabs.bridges.ros import (
+    ROSAdapterBase,
+    ROSMessage,
+    register_default_adapter,
+)
+from mosaicolabs.bridges.ros.adapters import HeaderAdapter
+from mosaicolabs.bridges.ros.adapters.helpers import _validate_msgdata
 
 from .isaac import EncoderTicks
 

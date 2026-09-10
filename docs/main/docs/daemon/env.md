@@ -8,9 +8,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## General
 
-- `MOSAICOD_MAX_GRPC_MESSAGE_SIZE`: The maximum allowed [gRPC](https://grpc.io/) message size in bytes. If a message exceeds this size, a protocol error will be returned. Default is `50 MB`. If you need to update this value be aware that this value is tipically smaller than `MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE`.
-
-- `MOSAICOD_TARGET_MESSAGE_SIZE`: Target message size in bytes used during data streaming. The daemon will try to aggregate a number of [`RecordBatches`](https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html) to create a sufficiently large message. If the resulting batch size exceeds the limit, it will be capped by `MOSAICOD_MAX_BATCH_SIZE`. Defaults to `25MB`.
+- `MOSAICOD_MAX_GRPC_MESSAGE_SIZE`: The maximum allowed [gRPC](https://grpc.io/) message size in bytes. If a message exceeds this size, a protocol error will be returned. Default is `50 MB`. If you need to update this value be aware that this value is tipically smaller than `MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE`. The target message size used during data streaming (the daemon aggregates [`RecordBatches`](https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html) to build a sufficiently large message, capped by `MOSAICOD_MAX_BATCH_SIZE`) is not independently configurable: it is always derived as half of this value.
 
 - `MOSAICOD_MAX_CONCURRENT_WRITES`: The maximum number of concurrent encoding and serialization operations. This setting controls how many data batches can be processed and sent to the object store simultaneously. It is important to note that this does not limit the number of topics the server can handle; rather, it constrains the parallel execution of the encoding/serialization pipeline. Each operation runs in a dedicated thread to handle CPU-bound compression and I/O-bound storage tasks. This value should be tuned based on available RAM and CPU. Excessive parallelism may lead to scheduler thrashing or memory exhaustion. Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
 
@@ -32,8 +30,9 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## DBMS
 
-- `MOSAICOD_DB_URL`: Database connection URL. This should be in the format expected by the database driver being used. **Required**.
-
+- `MOSAICOD_DB_URL`: Database connection URL, without credentials (e.g. `postgresql://host:port/dbname`). **Required**.
+- `MOSAICOD_DB_USER`: Database user. Default is an empty string, since some databases don't require one.
+- `MOSAICOD_DB_PASSWORD`: Database password. Default is an empty string, since some databases don't require one. May also be provided via `MOSAICOD_DB_PASSWORD_FILE` (see [Secrets from a file](#secrets-from-a-file) below); at most one of the two may be set.
 - `MOSAICOD_MAX_DB_CONNECTIONS`: Maximum number of database connections that can be established. Default is `10`.
 
 ## Store
@@ -41,4 +40,12 @@ Here we provide a complete list of environment variables that can be used to con
 - `MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Use `file:///some/absolute/path` to set up a local storage directory. **Required**.
 - `MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. **Required**.
 - `MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Default is an empty string.
-- `MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string.
+- `MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE` (see below); at most one of the two may be set.
+
+## Store Optimizer
+
+- `MOSAICOD_STORE_OPTIMIZER_MEMORY_POOL_SIZE`: Defines the amount of memory (in bytes) used by the [store optimizer](store_optimizer.md) routine. Set this value to a number greater than 0 to enforce a hard limit on the memory it allocates. Use this setting if `mosaicod store-optimizer` encounters OOM (Out Of Memory) errors or you plan to run it in a memory constrained environment. Defaults to `0` (no limit).
+
+## Secrets from a file
+
+Any environment variable documented above as accepting a `_FILE` counterpart (currently `MOSAICOD_DB_PASSWORD` and `MOSAICOD_STORE_SECRET_KEY`) can be set indirectly by pointing the corresponding `<NAME>_FILE` variable at a file containing the value instead, e.g. `MOSAICOD_DB_PASSWORD_FILE=/run/secrets/db_password`. The file's content is read and trimmed of surrounding whitespace. Setting both `<NAME>` and `<NAME>_FILE` at the same time is a configuration error. This is convenient when injecting secrets via Docker/Kubernetes secret mounts instead of plain environment variables.

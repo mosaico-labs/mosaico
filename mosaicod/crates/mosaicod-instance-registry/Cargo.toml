@@ -1,0 +1,18 @@
+[package]
+name = "mosaicod-instance-registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_instance_registry"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-db = { workspace = true, features = ["postgres"] }
+chrono = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }

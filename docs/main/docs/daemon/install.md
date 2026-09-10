@@ -12,7 +12,7 @@ Precompiled binaries for `mosaicod` are available for several platforms and can 
 
 For rapid prototyping, we provide a standard compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
 
-```yaml title="compose.yml", {24,34-37,50}
+```yaml title="compose.yml", {26,36-39,52}
 name: "mosaico"
 
 # Shared configuration for every `mosaicod` service. The server and the
@@ -31,7 +31,9 @@ x-mosaicod-common: &mosaicod-common
   # Additional environment variables can be set here to configure the daemon's
   # behavior.
   environment:
-    MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
+    MOSAICOD_DB_URL: postgresql://db:5432/mosaico
+    MOSAICOD_DB_USER: postgres
+    MOSAICOD_DB_PASSWORD: password
     MOSAICOD_STORE_ENDPOINT: file:///
     MOSAICOD_STORE_BUCKET: data
   volumes:
@@ -89,6 +91,17 @@ services:
     #   before being permanently deleted (default: 86400, i.e. one day).
     command: |
       cleanup --time-interval 3600 --retention-duration 86400
+
+  # Background maintenance: periodically rewrites small chunks into larger
+  # ones to keep query and retrieval performance up. It shares the same
+  # image and configuration as the server (via `x-mosaicod-common`) but runs
+  # the `store-optimizer` subcommand instead of `server`.
+  mosaicod-store-optimizer:
+    <<: *mosaicod-common
+    container_name: mosaicod-store-optimizer
+    # Here we run the routine once a day (86400s).
+    command: |
+      store-optimizer --time-interval 86400
 
 volumes:
   pg-data:
@@ -176,7 +189,7 @@ The server supports S3-compatible object storage by default but can be configure
 
 ### Database
 
-Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICOD_DB_URL` environment variable.
+Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICOD_DB_URL`, `MOSAICOD_DB_USER`, and `MOSAICOD_DB_PASSWORD` [environment variables](env.md#dbms).
 
 ### Remote Storage Configuration
 

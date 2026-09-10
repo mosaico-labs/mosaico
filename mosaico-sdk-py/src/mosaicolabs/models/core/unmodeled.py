@@ -9,8 +9,8 @@ dynamically-generated [`Serializable`][mosaicolabs.models.core.Serializable]
 subclass at runtime.
 
 This is what makes it possible, for example, to ingest ROS bags via the
-`ros_bridge` even when a given ROS message type has not been explicitly adapted
-into an SDK class (see [`sensor_msgs.py`][mosaicolabs.ros_bridge.adapters]
+`bridges.ros` even when a given ROS message type has not been explicitly adapted
+into an SDK class (see [`sensor_msgs.py`][mosaicolabs.bridges.ros.adapters]
 for an example of an *adapted* type): the message's ROS schema is translated
 into a pyarrow schema, which is then handed to
 [`make_unmodeled_ontology_class`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class]

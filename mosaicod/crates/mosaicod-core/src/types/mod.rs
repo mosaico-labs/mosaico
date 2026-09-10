@@ -27,6 +27,9 @@ pub use uuid::*;
 mod session;
 pub use session::*;
 
+mod instance;
+pub use instance::*;
+
 pub mod auth;
 pub use auth::ApiKey;
 pub use auth::ApiKeyError;

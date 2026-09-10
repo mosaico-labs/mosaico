@@ -3,15 +3,16 @@ use clap::Args;
 use mosaicod_core::{self as core, error::PublicResult as Result, params};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
-use signal_hook::{consts::SIGINT, iterator::Signals};
+use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
+use std::net::IpAddr;
 use std::thread;
 use tracing::{debug, info};
 
 #[derive(Args, Debug)]
 pub struct Server {
     /// Specify a host address. It defaults to the loopback address `127.0.0.1`.
-    #[arg(long)]
-    pub host: Option<String>,
+    #[arg(long, default_value = "127.0.0.1")]
+    pub host: IpAddr,
 
     /// Defines the default port value.
     #[arg(long, default_value_t = 6726)]
@@ -60,6 +61,8 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
                 "unable to parse".to_owned(),
             )
         })?,
+        user: params.db_user.value.clone(),
+        password: params.db_password.value.clone(),
         max_connections: params.max_db_connections.value,
     };
 
@@ -67,10 +70,8 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     let db = common::init_db(&rt, &db_config)?;
 
     // If not specified by the user use the default loopback address
-    let host_is_specified = args.host.is_some();
-    let host = args.host.unwrap_or("127.0.0.1".to_owned());
 
-    let mut server = grpc::Server::new(host, args.port, store, db);
+    let mut server = grpc::Server::new(args.host, args.port, store, db);
 
     if args.api_key {
         server.options.enable_api_key_management();
@@ -85,7 +86,7 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     }
 
     // (cabba) NOTE: maybe we need to return a more specific error ?
-    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+    let mut signals = Signals::new([SIGINT, SIGTERM]).map_err(|_| {
         core::Error::internal(Some("unable to create termination signal".to_owned()))
     })?;
 
@@ -100,7 +101,7 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     server.start_and_wait(rt, || {
         if !json_format {
             print::startup_info(
-                host_is_specified,
+                &args.host,
                 args.port,
                 &store_display_name,
                 &db_config,

@@ -45,6 +45,11 @@ from mosaicolabs import (
     Vector4d,
     Velocity,
 )
+from mosaicolabs.bridges.ros.data_ontology import (
+    BatteryState,
+    FrameTransform,
+    PointCloud2,
+)
 from mosaicolabs.models.futures import (
     LaserScan,
     Lidar,
@@ -53,11 +58,6 @@ from mosaicolabs.models.futures import (
     RGBDCamera,
     StereoCamera,
     ToFCamera,
-)
-from mosaicolabs.ros_bridge.data_ontology import (
-    BatteryState,
-    FrameTransform,
-    PointCloud2,
 )
 
 # =============================================================================

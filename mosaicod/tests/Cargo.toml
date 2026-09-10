@@ -19,6 +19,7 @@ mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true}
 mosaicod-task = { workspace = true}
+mosaicod-rw = { workspace = true}
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
@@ -29,7 +30,7 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
 futures = { workspace = true }
-arrow = { workspace = true }
+arrow = { workspace = true, features = ["prettyprint"] }
 url = { workspace = true }
 tower = { workspace = true }
 ulid = { workspace = true }

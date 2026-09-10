@@ -3,44 +3,15 @@
 
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
+use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_os::local_hostname;
 use mosaicod_store as store;
-use std::ops::Deref;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 const DEFAULT_RETENTION_DURATION: u32 = 86400;
-
-/// Utility type to accept only non-negative durations (u32).
-#[derive(Debug, Clone, Copy)]
-pub struct Duration(chrono::Duration);
-
-impl Duration {
-    pub fn seconds(secs: u32) -> Self {
-        Self(chrono::Duration::seconds(secs as i64))
-    }
-
-    pub fn minutes(mins: u32) -> Self {
-        Self(chrono::Duration::minutes(mins as i64))
-    }
-
-    pub fn hours(hours: u32) -> Self {
-        Self(chrono::Duration::hours(hours as i64))
-    }
-
-    pub fn days(days: u32) -> Self {
-        Self(chrono::Duration::days(days as i64))
-    }
-}
-
-impl Deref for Duration {
-    type Target = chrono::Duration;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 /// Statistics resulting from a performed cleaning operation.
 #[derive(Debug, Default)]
@@ -63,8 +34,11 @@ enum ActionPerformed {
 pub struct Cleanup {
     db: db::Database,
     store: store::StoreRef,
-    time_interval: Duration,
-    retention_duration: Duration,
+    time_interval: types::Duration,
+    retention_duration: types::Duration,
+    // The instance registry id this routine registered itself under, once `run()` has started.
+    // `None` if `try_cleanup()` is invoked directly, without going through `run()` (e.g. tests).
+    instance_id: Option<i32>,
 }
 
 impl Cleanup {
@@ -73,31 +47,62 @@ impl Cleanup {
         Self {
             db,
             store,
-            time_interval: Duration::seconds(DEFAULT_TIME_INTERVAL),
-            retention_duration: Duration::seconds(DEFAULT_RETENTION_DURATION),
+            time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
+            retention_duration: types::Duration::seconds(DEFAULT_RETENTION_DURATION),
+            instance_id: None,
         }
     }
 
-    pub fn with_time_interval(mut self, time_interval: Duration) -> Self {
+    pub fn with_time_interval(mut self, time_interval: types::Duration) -> Self {
         self.time_interval = time_interval;
         self
     }
 
-    pub fn with_retention_duration(mut self, retention_duration: Duration) -> Self {
+    pub fn with_retention_duration(mut self, retention_duration: types::Duration) -> Self {
         self.retention_duration = retention_duration;
         self
     }
 
     /// Starts the cleanup routine.
     ///
+    /// Before entering its loop, this registers the process in the instance registry (see
+    /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
+    /// Registration failure is treated as fatal, consistent with how other DB-dependency
+    /// failures are handled at startup.
+    ///
     /// When `time_interval` is `0` a single cleanup is performed and the routine returns
     /// (one-shot mode). Otherwise it loops, performing a cleanup every `time_interval` until
     /// `shutdown_notifier` is cancelled.
-    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
+    ///
+    /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
+    /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
         info!("Launching cleanup routine");
 
+        let instance = db::instance_registry_create(
+            &mut self.db.connection(),
+            types::InstanceKind::Cleanup,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            self.time_interval.is_zero(),
+        )
+        .await?;
+
+        self.instance_id = Some(instance.instance_id);
+
+        // A dedicated child token lets us stop the heartbeat task once this routine's own loop
+        // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
+        // the caller may still be relying on for other purposes.
+        let heartbeat_shutdown = shutdown_notifier.child_token();
+        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
+            self.db.clone(),
+            instance.instance_id,
+            heartbeat_shutdown.clone(),
+        ));
+
         loop {
-            let cleanup_res = self.try_cleanup().await;
+            let cleanup_res = self.try_cleanup(&shutdown_notifier).await;
 
             match cleanup_res {
                 Ok(stats) => {
@@ -134,12 +139,32 @@ impl Cleanup {
                 }
             }
         }
+
+        heartbeat_shutdown.cancel();
+        let _ = heartbeat_handle.await;
+
+        if let Err(e) =
+            db::instance_registry_delete(&mut self.db.connection(), instance.instance_id).await
+        {
+            warn!(
+                "failed to deregister instance {}: {}",
+                instance.instance_id, e
+            );
+        }
+
+        Ok(())
     }
 
     /// Launches the cleanup of the store.
     ///
     /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
-    pub async fn try_cleanup(&mut self) -> Result<CleanupStats> {
+    ///
+    /// If `shutdown_notifier` is canceled while folders are being processed, the loop stops
+    /// early and the folders processed so far are logged as usual.
+    pub async fn try_cleanup(
+        &mut self,
+        shutdown_notifier: &CancellationToken,
+    ) -> Result<CleanupStats> {
         let mut stats = CleanupStats::default();
 
         let start_time = chrono::Utc::now();
@@ -160,13 +185,19 @@ impl Cleanup {
             return Ok(stats);
         }
 
-        let cleanup_log = db::cleanup_log_create(&mut tx, start_time.timestamp()).await?;
+        let cleanup_log =
+            db::cleanup_log_create(&mut tx, start_time.timestamp(), self.instance_id).await?;
 
         tx.commit().await?;
 
         let root_subfolders = self.store.list_subfolders("").await?;
 
         for folder in root_subfolders {
+            if shutdown_notifier.is_cancelled() {
+                info!("Shutdown received. Interrupting cleanup pass early.");
+                break;
+            }
+
             match self.analyze_folder(&folder, start_time).await {
                 Ok(action_performed) => match action_performed {
                     ActionPerformed::Deleted => {
@@ -238,7 +269,8 @@ impl Cleanup {
         if path_in_store.starts_with(types::SEQUENCE_FOLDER_PREFIX) {
             return Ok(db::sequence_find_path_in_store(&mut cx, path_in_store).await?);
         } else if path_in_store.starts_with(types::TOPIC_FOLDER_PREFIX) {
-            return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?);
+            return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?
+                || db::topic_optimization_find_path_in_store(&mut cx, path_in_store).await?);
         } else {
             warn!(
                 "Found unexpected file in store: {}. Was it added manually?",
@@ -276,7 +308,7 @@ mod tests {
         context: &TestContext,
         num_seqs: u16,
         num_topics: u16,
-        retention_duration: Duration,
+        retention_duration: types::Duration,
     ) -> (
         Vec<(
             types::SequencePathInStore,
@@ -440,7 +472,7 @@ mod tests {
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(1..=50);
 
-        let retention_duration = Duration::days(rand::random_range(0..=1));
+        let retention_duration = types::Duration::days(rand::random_range(0..=1));
 
         let stats = populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
 
@@ -450,7 +482,10 @@ mod tests {
         // This should simulate the internal time used by do_cleanup() to check against retention_duration.
         let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
-        let cleanup_stats = cleanup.try_cleanup().await.unwrap();
+        let cleanup_stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
 
         assert!(cleanup_stats.executed);
 
@@ -578,8 +613,8 @@ mod tests {
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(0..=50);
 
-        let time_interval = Duration::seconds(3);
-        let retention_duration = Duration::seconds(1);
+        let time_interval = types::Duration::seconds(3);
+        let retention_duration = types::Duration::seconds(1);
 
         let test_stats =
             populate_random_store(&context, num_seqs, num_topics, retention_duration).await;

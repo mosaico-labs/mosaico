@@ -143,7 +143,8 @@ from .query import (
     QueryTopic as QueryTopic,
     TimestampRange as TimestampRange,
 )
-from .ros_bridge import data_ontology  # noqa: F401
+
+from .bridges.ros import data_ontology  # noqa: F401  # isort: skip
 
 __all__ = [
     # Client
@@ -259,4 +260,5 @@ logging_config = get_logger()
 logging_config.addHandler(NullHandler())
 
 _alias_moved_package("mosaicolabs.models.query", "mosaicolabs.query")
+_alias_moved_package("mosaicolabs.ros_bridge", "mosaicolabs.bridges.ros")
 del _alias_moved_package

@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from mosaicolabs.helpers.helpers import unpack_topic_full_path
-from mosaicolabs.platform.resource_manifests import (
-    SessionResourceManifest,
+from mosaicolabs.platform.app_metadata import (
+    SessionAppMetadata,
 )
 
 
@@ -53,18 +53,18 @@ class Session:
     """The list of topics recorded during this writing session"""
 
     @classmethod
-    def _from_resource_manifest(cls, resrc_manifest: SessionResourceManifest):
+    def _from_app_metadata(cls, app_metadata: SessionAppMetadata):
         """
-        Factory method to create a Session from a SessionResourceManifest.
+        Factory method to create a Session from a SessionAppMetadata.
 
         Args:
-            resrc_manifest (SessionResourceManifest): The resource manifest for the session.
+            app_metadata (SessionAppMetadata): The app metadata for the session.
 
         Returns:
             Self: An initialized instance of this class.
         """
         topics = []
-        for t_resrc_path in resrc_manifest.topics:
+        for t_resrc_path in app_metadata.topics:
             seq_topic_tuple = unpack_topic_full_path(t_resrc_path)
             if not seq_topic_tuple:
                 raise ValueError(f"Invalid topic name in response '{t_resrc_path}'")
@@ -72,9 +72,9 @@ class Session:
             topics.append(tname)
 
         return cls(
-            locator=resrc_manifest.locator,
-            completed_timestamp=resrc_manifest.completed_timestamp,
-            created_timestamp=resrc_manifest.created_timestamp,
+            locator=app_metadata.locator,
+            completed_timestamp=app_metadata.completed_timestamp,
+            created_timestamp=app_metadata.created_timestamp,
             topics=topics,
-            locked=resrc_manifest.locked,
+            locked=app_metadata.locked,
         )

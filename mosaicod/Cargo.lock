@@ -1942,6 +1942,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617aaa3557aef3810a6369d0a99fac8a080891b68bd9f9812a1eeda0c0730cbd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link",
+]
+
+[[package]]
 name = "http"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2601,6 +2612,7 @@ dependencies = [
  "arrow",
  "arrow-cast",
  "arrow-schema",
+ "fastrand",
  "futures",
  "mosaicod-core",
  "parquet",
@@ -2634,11 +2646,14 @@ name = "mosaicod-grpc"
 version = "0.7.0-dev"
 dependencies = [
  "arrow-flight",
+ "chrono",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
+ "mosaicod-instance-registry",
+ "mosaicod-os",
  "mosaicod-store",
  "sqlx",
  "tokio",
@@ -2702,6 +2717,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-instance-registry"
+version = "0.7.0-dev"
+dependencies = [
+ "chrono",
+ "mosaicod-core",
+ "mosaicod-db",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "mosaicod-marshal"
 version = "0.7.0-dev"
 dependencies = [
@@ -2713,6 +2740,14 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "mosaicod-os"
+version = "0.7.0-dev"
+dependencies = [
+ "hostname",
+ "tracing",
 ]
 
 [[package]]
@@ -2771,9 +2806,15 @@ name = "mosaicod-task"
 version = "0.7.0-dev"
 dependencies = [
  "chrono",
+ "datafusion",
  "filetime",
+ "futures",
  "mosaicod-core",
  "mosaicod-db",
+ "mosaicod-facade",
+ "mosaicod-instance-registry",
+ "mosaicod-os",
+ "mosaicod-rw",
  "mosaicod-store",
  "rand 0.10.2",
  "sqlx",
@@ -4162,6 +4203,7 @@ dependencies = [
  "mosaicod-grpc-flight",
  "mosaicod-marshal",
  "mosaicod-query",
+ "mosaicod-rw",
  "mosaicod-store",
  "mosaicod-task",
  "rand 0.10.2",

@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO cleanup_log_t (start_unix_tstamp_secs, marked_folders, deleted_folders, failed_folders, instance_id)\n            VALUES ($1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $2)\n            RETURNING *\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleanup_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "start_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "end_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "marked_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "deleted_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "failed_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "instance_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "0e74d030dfacb8804162e11fd7301e1bdc5aac60cfd82d3dd9e6cd88d31c69f9"
+}

@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Imu",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "object",
+      "properties": {
+        "stamp": {
+          "type": "object",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nanosec": { "type": "integer" }
+          }
+        },
+        "frame_id": { "type": "string" }
+      }
+    },
+    "orientation": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" },
+        "w": { "type": "number" }
+      }
+    },
+    "angular_velocity": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "linear_acceleration": {
+      "type": "object",
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "z": { "type": "number" }
+      }
+    },
+    "linear_acceleration_covariance": {
+      "type": "array",
+      "items": { "type": "number" }
+    },
+    "status": { "type": "integer", "enum": [0, 1, 2] },
+    "calibrated": { "type": "boolean" },
+    "sequence": { "type": "integer" },
+    "temperature_millideg": { "type": "integer" },
+    "uptime_ns": { "type": "integer" },
+    "drift_estimate": { "type": "number" },
+    "diagnostic_note": { "type": "string" }
+  }
+}

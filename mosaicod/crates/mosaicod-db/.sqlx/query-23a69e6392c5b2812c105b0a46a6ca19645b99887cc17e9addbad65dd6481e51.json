@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT topic_optimization_t.*\n           FROM topic_optimization_t\n           WHERE start_unix_tstamp IS NULL\n           ORDER BY topic_id ASC\n           LIMIT 1\n           FOR UPDATE SKIP LOCKED\n           ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "topic_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "opt_path_in_store",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "start_unix_tstamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "23a69e6392c5b2812c105b0a46a6ca19645b99887cc17e9addbad65dd6481e51"
+}

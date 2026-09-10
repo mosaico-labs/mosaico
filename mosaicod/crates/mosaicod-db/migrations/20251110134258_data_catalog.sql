@@ -14,7 +14,7 @@ CREATE TABLE chunk_t(
 
 
   -- This constraint will cause the deletion of all 
-  -- reports of a topic if the related topic 
+  -- chunks of a topic if the related topic
   -- entry is deleted.
   CONSTRAINT fk_topic
     FOREIGN KEY (topic_id)

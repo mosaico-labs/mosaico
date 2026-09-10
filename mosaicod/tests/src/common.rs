@@ -1,17 +1,15 @@
-use crate::common::task::Duration;
 use arrow_flight::flight_service_client::FlightServiceClient;
-use mosaicod_core::params;
-use mosaicod_core::types;
+use mosaicod_core::{params, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use mosaicod_task as task;
 use serde::Deserialize;
+use std::convert::Into;
 use std::fs;
-use std::net::TcpListener;
+use std::net::{IpAddr, Ipv4Addr, TcpListener};
 use std::sync::Arc;
 use std::sync::Mutex;
 use tonic::service::interceptor;
@@ -22,7 +20,7 @@ use tonic::service::interceptor;
 static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// The local loopback address for testing.
-pub const HOST: &str = "127.0.0.1";
+pub const HOST: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
 pub const TLS_CERT_FILE: &str = "./data/cert.pem";
 pub const TLS_CA_FILE: &str = "./data/ca.pem";
@@ -40,27 +38,20 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     format!("http://{host}:{port}")
 }
 
-pub struct CleanupIntervalConfig {
-    pub time_interval: Duration,
-    pub retention_duration: Duration,
-}
-
 pub struct ServerBuilder {
-    host: String,
+    host: IpAddr,
     tls: Option<grpc::TlsConfig>,
-    cleanup_config: Option<CleanupIntervalConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
 }
 
 impl ServerBuilder {
-    pub fn new(host: &str, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+    pub fn new(host: IpAddr, pool: sqlx::Pool<db::DatabaseType>) -> Self {
         let db = db::testing::Database::new(pool.clone());
 
         Self {
-            host: host.to_owned(),
+            host,
             tls: None,
-            cleanup_config: None,
             db,
             enable_api_key: false,
         }
@@ -68,14 +59,6 @@ impl ServerBuilder {
 
     pub fn enable_api_key(mut self) -> Self {
         self.enable_api_key = true;
-        self
-    }
-
-    pub fn with_cleanup(mut self, time_interval: Duration, retention_duration: Duration) -> Self {
-        self.cleanup_config = Some(CleanupIntervalConfig {
-            time_interval,
-            retention_duration,
-        });
         self
     }
 
@@ -122,7 +105,7 @@ impl ServerBuilder {
             tcp_listner.local_addr().unwrap().port()
         };
 
-        let mut opts = grpc::Options::new(self.host.to_owned(), port);
+        let mut opts = grpc::Options::new(self.host, port);
 
         if let Some(tls) = self.tls {
             opts.tls(tls);
@@ -134,35 +117,6 @@ impl ServerBuilder {
 
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
-
-        let cleanup_time_interval = self
-            .cleanup_config
-            .as_ref()
-            .map_or(task::cleanup::Duration::seconds(86400), |c| c.time_interval);
-
-        let cleanup_retention_duration = self
-            .cleanup_config
-            .as_ref()
-            .map_or(task::cleanup::Duration::seconds(86400), |c| {
-                c.retention_duration
-            });
-
-        // Start cleanup background task.
-        let cleanup_task_handle = tokio::task::spawn({
-            let cleanup_store = (*store).clone();
-            let cleanup_db = db.clone();
-            let cleanup_shutdown = shutdown.clone();
-
-            async move {
-                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
-                    .with_time_interval(cleanup_time_interval)
-                    .with_retention_duration(cleanup_retention_duration);
-
-                cleanup.run(cleanup_shutdown.token()).await;
-
-                cleanup_shutdown.shutdown();
-            }
-        });
 
         let flight_server_handle = tokio::task::spawn({
             let shutdown = shutdown.clone();
@@ -183,7 +137,7 @@ impl ServerBuilder {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Server {
-            server_join_handle: (flight_server_handle, cleanup_task_handle),
+            server_join_handle: flight_server_handle,
             shutdown,
             port,
             db,
@@ -193,7 +147,7 @@ impl ServerBuilder {
     }
 }
 
-/// A wrapper around a MosaicoD Flight server instance.
+/// A wrapper around a mosaicod Flight server instance.
 ///
 /// ### Usage:
 /// ```no_run
@@ -208,7 +162,7 @@ impl ServerBuilder {
 /// ```
 pub struct Server {
     shutdown: grpc_common::ShutdownNotifier,
-    server_join_handle: (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>),
+    server_join_handle: tokio::task::JoinHandle<()>,
     port: u16,
     pub db: db::testing::Database,
     pub store: store::testing::Store,
@@ -219,17 +173,15 @@ impl Server {
     /// Signals the server to stop and waits for the background task to complete.
     pub async fn shutdown(self) {
         self.shutdown.shutdown();
-        let _ = tokio::join!(self.server_join_handle.0, self.server_join_handle.1);
+
+        if let Err(e) = self.server_join_handle.await {
+            println!("Flight server failed: {}", e)
+        }
     }
 
     /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
-        self.server_join_handle.0.is_finished() && self.server_join_handle.1.is_finished()
-    }
-
-    /// Check if the flight server is terminated.
-    pub async fn is_flight_server_shutdown(&self) -> bool {
-        self.server_join_handle.0.is_finished()
+        self.server_join_handle.is_finished()
     }
 
     pub fn port(&self) -> u16 {
@@ -279,9 +231,9 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    pub fn new(host: &str, port: u16) -> Self {
+    pub fn new(host: IpAddr, port: u16) -> Self {
         Self {
-            url: format_endpoint(host, port, false)
+            url: format_endpoint(&host.to_string(), port, false)
                 .parse()
                 .expect("unable to convert host"),
             tls: None,

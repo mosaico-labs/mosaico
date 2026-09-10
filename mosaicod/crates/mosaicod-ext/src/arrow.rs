@@ -475,8 +475,7 @@ pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyMo
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
-
-    use arrow::array::{Int64Array, ListBuilder, RecordBatch, StringBuilder};
+    use arrow::array::{Int64Array, LargeBinaryBuilder, ListBuilder, RecordBatch, StringBuilder};
     use arrow::datatypes::{DataType, Field, Schema};
 
     pub fn dummy_empty_batch() -> RecordBatch {
@@ -501,7 +500,13 @@ pub mod testing {
         .unwrap()
     }
 
-    pub fn dummy_batch() -> RecordBatch {
+    pub fn dummy_batch(
+        samples: usize,
+        start_ts: i64,
+        step_ts: i64,
+        start_value: i64,
+        step_value: i64,
+    ) -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
                 params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
@@ -511,13 +516,71 @@ pub mod testing {
             Field::new("value", DataType::Int64, false),
         ]));
 
+        let ts_vec: Vec<i64> = (0..samples)
+            .map(|i| start_ts + (i as i64) * step_ts)
+            .collect();
+
+        let value_vec: Vec<i64> = (0..samples)
+            .map(|i| start_value + (i as i64) * step_value)
+            .collect();
+
+        assert_eq!(ts_vec.len(), value_vec.len());
+
         RecordBatch::try_new(
             schema.clone(),
             vec![
-                Arc::new(Int64Array::from(vec![
-                    10000, 10005, 10010, 10015, 10020, 10025, 10030,
-                ])),
-                Arc::new(Int64Array::from(vec![1, 2, 3, 4, 5, 6, 7])),
+                Arc::new(Int64Array::from(ts_vec)),
+                Arc::new(Int64Array::from(value_vec)),
+            ],
+        )
+        .unwrap()
+    }
+
+    pub fn dummy_binary_batch(
+        samples: usize,
+        start_ts: i64,
+        step_ts: i64,
+        binary_min_size: usize,
+        binary_max_size: usize,
+    ) -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("value", DataType::LargeBinary, false),
+        ]));
+
+        let ts_vec: Vec<i64> = (0..samples)
+            .map(|i| start_ts + (i as i64) * step_ts)
+            .collect();
+
+        let mut value_vec: Vec<Vec<u8>> = vec![];
+
+        let mut data_capacity = 0;
+
+        for _ in 0..samples {
+            let size = fastrand::usize(binary_min_size..=binary_max_size);
+            let mut v = vec![0u8; size];
+            fastrand::fill(&mut v);
+            value_vec.push(v);
+            data_capacity += size;
+        }
+
+        let mut builder = LargeBinaryBuilder::with_capacity(samples, data_capacity);
+
+        for vec in &value_vec {
+            builder.append_value(vec);
+        }
+
+        assert_eq!(ts_vec.len(), value_vec.len());
+
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(ts_vec)),
+                Arc::new(builder.finish()),
             ],
         )
         .unwrap()

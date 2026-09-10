@@ -26,7 +26,7 @@ cd mosaicod
 cp env.devel .env
 ```
 
-This configuration exports the `MOSAICOD_DB_URL`, storage backend variables, and the `DATABASE_URL` required for compile-time query verification by [sqlx](https://github.com/launchbadge/sqlx).
+This configuration exports the `MOSAICOD_DB_URL`, database credentials, storage backend variables, and the `DATABASE_URL` required for compile-time query verification by [sqlx](https://github.com/launchbadge/sqlx).
 
 ### Update sqlx Queries Cache
 
