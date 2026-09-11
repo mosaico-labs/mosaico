@@ -1504,4 +1504,4 @@ cli = ["tomli", "typer"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "67ba628ec4cd5b14d4ed5bf3f323df22ccec5c841df06f4c3dd0d854282eff62"
+content-hash = "cf020f72ee222b640d044532c431d1c61ba33a22987c1309d0de93361b3b523c"
