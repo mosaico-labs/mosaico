@@ -56,20 +56,20 @@ class TimeAdapter(ROSAdapterBase[Time]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs (Any): Additional context for the translation.
 
         Returns:
             Message: A Mosaico `Message` containing the normalized `Time` payload.
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Time:
@@ -194,20 +194,20 @@ class DurationAdapter(ROSAdapterBase[Duration]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs (Any): Additional context for the translation.
 
         Returns:
             Message: A Mosaico `Message` containing the normalized `Duration` payload.
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Duration:

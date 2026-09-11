@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
-    Generic,
     Optional,
     Tuple,
     Type,
@@ -18,15 +17,17 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
+from collections.abc import Hashable
+
 from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message, Serializable
 
+from ..base_schema_metadata import BaseSchemaMetadata
+from ..bridge_adapter_base import BridgeAdapterBase
 from .ros_message import ROSMessage
 
-T = TypeVar("T", bound=Serializable)
 
-
-class RosSchemaMetadata:
+class RosSchemaMetadata(BaseSchemaMetadata):
     """
     Encapsulates Mosaico's reserved ``_ros_`` topic-metadata namespace in a single place.
 
@@ -52,76 +53,11 @@ class RosSchemaMetadata:
     """The reserved metadata key. Adapters/loaders/the injector should reference this
     constant rather than the literal string, so the namespace can be renamed in one place."""
 
-    def __init__(self, **fields: Any):
-        self.fields: dict = dict(fields)
 
-    def update(self, **fields: Any) -> "RosSchemaMetadata":
-        """
-        Merges additional fields into this block, in place. Returns `self` for chaining.
-
-        Args:
-            **fields (Any): Additional fields to merge.
-
-        Returns:
-            RosSchemaMetadata: The updated metadata instance.
-        """
-        self.fields.update(fields)
-        return self
-
-    def to_dict(self) -> dict:
-        """
-        Wraps the current fields under the reserved key, e.g. `{"_ros_": {...}}`.
-
-        Returns:
-            dict: A dictionary containing the `_ros_` block with the current fields.
-        """
-        return {self.KEY: dict(self.fields)}
-
-    def merge_into(self, metadata: dict) -> dict:
-        """
-        Merges this block into an existing metadata dict's `_ros_` namespace, creating it
-        if absent. Mutates and returns `metadata`.
-
-        Args:
-            metadata (dict): The existing metadata dict to merge into.
-
-        Returns:
-            dict: The updated metadata dict with the `_ros_` block merged in.
-        """
-        metadata.setdefault(self.KEY, {}).update(self.fields)
-        return metadata
-
-    @classmethod
-    def extract(cls, metadata: Optional[dict]) -> dict:
-        """
-        Reads the `_ros_` block out of a metadata dict (e.g. a topic's `user_metadata`),
-        or `{}` if absent.
-
-        Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
-
-        Returns:
-            dict: The extracted `_ros_` block, or an empty dict if not present.
-        """
-        return dict((metadata or {}).get(cls.KEY) or {})
-
-    @classmethod
-    def from_dict(cls, metadata: Optional[dict]) -> "RosSchemaMetadata":
-        """
-        Creates a `RosSchemaMetadata` from a plain metadata dict, e.g. the return value of
-        `ROSAdapterBase.schema_metadata()`. Any keys outside the `_ros_` namespace are ignored.
-
-        Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
-
-        Returns:
-            RosSchemaMetadata: A new instance seeded with the extracted `_ros_` fields
-                (empty if `metadata` is `None` or carries no `_ros_` block).
-        """
-        return cls(**cls.extract(metadata))
+T = TypeVar("T", bound=Serializable)
 
 
-class ROSAdapterBase(ABC, Generic[T]):
+class ROSAdapterBase(BridgeAdapterBase[T, "MsgType"]):
     """
     Abstract Base Class for converting ROS messages to Mosaico Ontology types.
 
@@ -142,6 +78,62 @@ class ROSAdapterBase(ABC, Generic[T]):
     __mosaico_ontology_type__: Type[T]
     _REQUIRED_KEYS: Tuple[str, ...]
     _REQUIRED_KEYS_CASE_INSENSITIVE: Tuple[str, ...] = ()
+
+    # --- API to be compliant with BridgeAdapterBase
+
+    @classmethod
+    def adapter_key(cls) -> Hashable:
+        """
+        Returns:
+            Hashable: A unique key identifying this adapter, derived from its
+            ``ros_msg_type()``.
+        """
+        return hash(cls.ros_msg_type())
+
+    @classmethod
+    @abstractmethod
+    def to_native(cls, mosaico_data: Union[Message, T], **kwargs) -> MsgType:
+        """
+        Args:
+            mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable``
+                ontology instance to convert.
+            **kwargs (Any): Extra arguments forwarded to :meth:`to_ros`.
+
+        Returns:
+            MsgType: The native ROS message obtained from ``mosaico_data``.
+        """
+        cls.to_ros(mosaico_data, **kwargs)
+
+    @classmethod
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message instance into a Mosaico Message.
+
+        Implementation should handle recursive unwrapping, unit conversion, and
+        validation.
+
+        Args:
+            msg (ROSMessage): The source container yielded by the ROSLoader.
+            **kwargs (Any): Contextual data such as calibration parameters or frame overrides.
+
+        Returns:
+            Message: A Mosaico Message object containing the instantiated ontology data.
+
+        Raises:
+            Exception: If translation fails due to missing fields, type mismatches, or other errors.
+        """
+        if msg.data_field is None:
+            raise Exception(f"'data' payload is `None` for topic {msg.topic}.")
+
+        try:
+            return Message(
+                timestamp_ns=msg.bag_timestamp_ns,
+                data=cls.from_dict(msg.data_field),
+            )
+        except Exception as e:
+            raise Exception(f"Translation failed for {msg.topic}: {e}")
+
+    # --- Custom API specific for ROS adapter
 
     @classmethod
     @abstractmethod
@@ -165,35 +157,6 @@ class ROSAdapterBase(ABC, Generic[T]):
         raise Exception(
             f"Adapter {cls.__name__} has ros_msgtype that is neither a {str.__name__} nor a {tuple.__name__} "
         )
-
-    @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
-        """
-        Translates a ROS message instance into a Mosaico Message.
-
-        Implementation should handle recursive unwrapping, unit conversion, and
-        validation.
-
-        Args:
-            ros_msg (ROSMessage): The source container yielded by the ROSLoader.
-            **kwargs (Any): Contextual data such as calibration parameters or frame overrides.
-
-        Returns:
-            Message: A Mosaico Message object containing the instantiated ontology data.
-
-        Raises:
-            Exception: If translation fails due to missing fields, type mismatches, or other errors.
-        """
-        if ros_msg.data_field is None:
-            raise Exception(f"'data' payload is `None` for topic {ros_msg.topic}.")
-
-        try:
-            return Message(
-                timestamp_ns=ros_msg.bag_timestamp_ns,
-                data=cls.from_dict(ros_msg.data_field),
-            )
-        except Exception as e:
-            raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
 
     @classmethod
     @abstractmethod
