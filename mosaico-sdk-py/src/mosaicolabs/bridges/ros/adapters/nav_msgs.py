@@ -67,7 +67,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -79,7 +79,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> MotionState:
@@ -251,7 +251,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -263,7 +263,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> RobotPath:
@@ -444,7 +444,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -456,7 +456,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> GridCells:
@@ -611,7 +611,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -623,7 +623,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> MapMetadata:
@@ -768,7 +768,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -780,7 +780,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> OccupancyGrid:
