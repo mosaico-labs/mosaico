@@ -48,7 +48,7 @@ class LidarAdapter(PointCloudAdapterBase[Lidar]):
         )
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
@@ -58,7 +58,7 @@ class LidarAdapter(PointCloudAdapterBase[Lidar]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Lidar:
@@ -126,7 +126,7 @@ class RadarAdapter(PointCloudAdapterBase[Radar]):
     ]
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
@@ -136,7 +136,7 @@ class RadarAdapter(PointCloudAdapterBase[Radar]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def _build(cls, decoded_fields: dict[str, list]) -> Radar:
@@ -223,7 +223,7 @@ class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
     ]
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
@@ -233,7 +233,7 @@ class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def _build(cls, decoded_fields: dict[str, list]) -> RGBDCamera:
@@ -310,7 +310,7 @@ class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
     ]
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
@@ -320,7 +320,7 @@ class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def _build(cls, decoded_fields: dict[str, list]) -> ToFCamera:
@@ -400,7 +400,7 @@ class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
     ]
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
 
@@ -410,7 +410,7 @@ class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def _build(cls, decoded_fields: dict[str, list]) -> StereoCamera:
