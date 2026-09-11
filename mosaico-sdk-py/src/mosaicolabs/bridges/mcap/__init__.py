@@ -5,3 +5,4 @@ from .bridge import (
     compute_mcap_msg_type as compute_mcap_msg_type,
     register_default_adapter as register_default_adapter,
 )
+from .mcap_message import MCAPMessage as MCAPMessage
