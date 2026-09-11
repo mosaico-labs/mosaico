@@ -2,8 +2,10 @@ from mcap.reader import DecodedMessageTuple
 from mcap.records import Channel, Message, Schema
 from mcap_protobuf.schema import build_file_descriptor_set
 
-from mosaicolabs import IMU, Time, Vector3d
-from mosaicolabs.bridges.mcap import MCAPAdapterBase, MCAPMessage
+# TODO: uncomment when Adapter PR will be merged
+# from mosaicolabs import IMU, Time, Vector3d
+# from mosaicolabs.bridges.mcap import MCAPAdapterBase, MCAPMessage
+from mosaicolabs import Time
 from mosaicolabs.bridges.mcap.decoders.protobuf.decoder import MCAPProtobufMsgDecoder
 
 from ...config import (
@@ -71,56 +73,57 @@ def test_oneof_absent_members():
     assert sum(value is not None for value in members.values()) == 1
 
 
-class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):
-    """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
+# TODO: uncomment when Adapter PR will be merged
+# class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):
+#     """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
 
-    schema_name = "Mosaico.Imu"
-    schema_encoding = "protobuf"
-    __mosaico_ontology_type__ = IMU
+#     schema_name = "Mosaico.Imu"
+#     schema_encoding = "protobuf"
+#     __mosaico_ontology_type__ = IMU
 
-    @classmethod
-    def from_dict(cls, mcap_data: dict) -> IMU:
+#     @classmethod
+#     def from_dict(cls, mcap_data: dict) -> IMU:
 
-        mcap_acceleration = mcap_data["linear_acceleration"]
-        mcap_angular_velocity = mcap_data["angular_velocity"]
+#         mcap_acceleration = mcap_data["linear_acceleration"]
+#         mcap_angular_velocity = mcap_data["angular_velocity"]
 
-        return IMU(
-            acceleration=Vector3d(
-                x=mcap_acceleration["x"],
-                y=mcap_acceleration["y"],
-                z=mcap_acceleration["z"],
-            ),
-            angular_velocity=Vector3d(
-                x=mcap_angular_velocity["x"],
-                y=mcap_angular_velocity["y"],
-                z=mcap_angular_velocity["z"],
-            ),
-        )
+#         return IMU(
+#             acceleration=Vector3d(
+#                 x=mcap_acceleration["x"],
+#                 y=mcap_acceleration["y"],
+#                 z=mcap_acceleration["z"],
+#             ),
+#             angular_velocity=Vector3d(
+#                 x=mcap_angular_velocity["x"],
+#                 y=mcap_angular_velocity["y"],
+#                 z=mcap_angular_velocity["z"],
+#             ),
+#         )
 
+# TODO: uncomment when Adapter PR will be merged
+# def test_custom_adapter():
+#     """Test that MyImuProtobufAdapter custom adapter create correctly a Mosaico IMU message"""
 
-def test_custom_adapter():
-    """Test that MyImuProtobufAdapter custom adapter create correctly a Mosaico IMU message"""
+#     msg = make_imu_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
 
-    msg = make_imu_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
+#     mcap_data = _decode(msg, IMU_PROTOBUF_MSGTYPE)
 
-    mcap_data = _decode(msg, IMU_PROTOBUF_MSGTYPE)
+#     mcap_message = MCAPMessage(
+#         channel_name="front_car/imu",
+#         channel_encoding="protobuf",
+#         schema_name=MyImuProtobufAdapter.schema_name,
+#         schema_encoding=MyImuProtobufAdapter.schema_encoding,
+#         data=mcap_data,
+#         log_time_ns=1,
+#         publish_time_ns=1,
+#     )
 
-    mcap_message = MCAPMessage(
-        channel_name="front_car/imu",
-        channel_encoding="protobuf",
-        schema_name=MyImuProtobufAdapter.schema_name,
-        schema_encoding=MyImuProtobufAdapter.schema_encoding,
-        data=mcap_data,
-        log_time_ns=1,
-        publish_time_ns=1,
-    )
+#     msco_imu = MyImuProtobufAdapter.translate(mcap_message).get_data(IMU)
 
-    msco_imu = MyImuProtobufAdapter.translate(mcap_message).get_data(IMU)
-
-    assert msco_imu is not None
-    assert msco_imu.acceleration.x == mcap_data["linear_acceleration"]["x"]
-    assert msco_imu.acceleration.y == mcap_data["linear_acceleration"]["y"]
-    assert msco_imu.acceleration.z == mcap_data["linear_acceleration"]["z"]
-    assert msco_imu.angular_velocity.x == mcap_data["angular_velocity"]["x"]
-    assert msco_imu.angular_velocity.y == mcap_data["angular_velocity"]["y"]
-    assert msco_imu.angular_velocity.z == mcap_data["angular_velocity"]["z"]
+#     assert msco_imu is not None
+#     assert msco_imu.acceleration.x == mcap_data["linear_acceleration"]["x"]
+#     assert msco_imu.acceleration.y == mcap_data["linear_acceleration"]["y"]
+#     assert msco_imu.acceleration.z == mcap_data["linear_acceleration"]["z"]
+#     assert msco_imu.angular_velocity.x == mcap_data["angular_velocity"]["x"]
+#     assert msco_imu.angular_velocity.y == mcap_data["angular_velocity"]["y"]
+#     assert msco_imu.angular_velocity.z == mcap_data["angular_velocity"]["z"]
