@@ -92,20 +92,20 @@ class PoseAdapter(ROSAdapterBase[Pose]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs (Any): Additional context for the translation.
 
         Returns:
             Message: A Mosaico `Message` containing the normalized `Pose` payload.
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Pose:
@@ -338,7 +338,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -350,7 +350,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Velocity:
@@ -583,7 +583,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -595,7 +595,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Acceleration:
@@ -818,7 +818,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -830,7 +830,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Vector3d:
@@ -1015,7 +1015,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -1027,7 +1027,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Point3d:
@@ -1209,7 +1209,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -1221,7 +1221,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Quaternion:
@@ -1409,7 +1409,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -1421,7 +1421,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Transform:
@@ -1615,7 +1615,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
@@ -1627,7 +1627,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> ForceTorque:
@@ -1805,7 +1805,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -1817,7 +1817,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Polygon:
@@ -2002,7 +2002,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,
+        msg: ROSMessage,
         **kwargs: Any,
     ) -> Message:
         """
@@ -2014,7 +2014,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Inertia:
