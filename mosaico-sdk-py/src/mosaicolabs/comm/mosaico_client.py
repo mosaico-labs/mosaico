@@ -38,7 +38,6 @@ from .connection import (
 )
 from .do_action import (
     _do_action,
-    _DoActionInfoResponse,
     _DoActionNotificationList,
     _DoActionQueryResponse,
 )
@@ -1071,23 +1070,8 @@ class MosaicoClient:
         Raises:
             Exception: If any error occurs during info retrieval.
         """
-        ACTION = FlightAction.INFO
-        try:
-            act_resp = _do_action(
-                client=self._connection.flight_client,
-                action=ACTION,
-                payload={},
-                expected_type=_DoActionInfoResponse,
-            )
 
-            if act_resp is None:
-                raise ConnectionError(f"Action '{ACTION}' returned no response.")
-
-            return act_resp.info
-
-        except Exception as e:
-            logger.error(f"'Info' action returned an internal error: '{e}'")
-            raise
+        return self._connection.server_info
 
     def clear_sequence_handlers_cache(self):
         """

@@ -146,7 +146,7 @@ class _TopicWriteState:
         """
         Adds a record to the buffer.
 
-        Automatically delegates to `_push_by_bytes_size` or `_push_by_count`
+        Automatically delegates to `_push_by_bytes_size`
         based on the ontology type defined in the message.
 
         Args:

@@ -141,6 +141,9 @@ def _get_connection(
 
     Returns:
         ConnectionContext: The current connection context with active Flight client instance.
+
+    Raises:
+        ConnectioError: If the connection cannot be established
     """
 
     protocol = "grpc+tls" if enable_tls else "grpc"
