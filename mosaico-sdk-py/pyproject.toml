@@ -34,6 +34,7 @@ click = "^8.3.1"
 typer = { version = ">=0.25.1,<0.28.0", optional = true }
 tomli = { version = "^2.0.0", python = "<3.11", optional = true }
 mcap-protobuf-support = "^0.5.4"
+mcap = "^1.4.0"
 
 [tool.poetry.extras]
 cli = ["typer", "tomli"]
