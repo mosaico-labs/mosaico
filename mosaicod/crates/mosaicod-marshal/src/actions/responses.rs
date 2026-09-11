@@ -4,7 +4,6 @@
 use mosaicod_core::types::{self, Locator};
 use semver;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 
 /// Generic response message used to provide to clients the a unique key
 /// of a resource
@@ -146,30 +145,39 @@ pub struct SemVerItem {
     pub pre: String,
 }
 
+/// Server-configured limits that clients should respect (e.g. when sizing requests).
 #[derive(Serialize, Debug)]
-pub struct ServerVersion {
-    pub version: String,
-    pub semver: SemVerItem,
+pub struct ServerConfig {
+    /// Maximum message size (in bytes) accepted/emitted by the gRPC protocol.
+    pub max_grpc_message_size: usize,
+    /// Target message size (in bytes) the server aims for when streaming data.
+    pub target_message_size: usize,
 }
 
-impl FromStr for ServerVersion {
-    type Err = semver::Error;
+#[derive(Serialize, Debug)]
+pub struct ServerInfo {
+    pub version: String,
+    pub semver: SemVerItem,
+    pub config: ServerConfig,
+}
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let version = semver::Version::parse(s)?;
+impl ServerInfo {
+    pub fn new(version: &str, config: ServerConfig) -> Result<Self, semver::Error> {
+        let parsed = semver::Version::parse(version)?;
 
         Ok(Self {
-            version: s.to_owned(),
+            version: version.to_owned(),
             semver: SemVerItem {
-                major: version.major,
-                minor: version.minor,
-                patch: version.patch,
-                pre: if !version.pre.is_empty() {
-                    version.pre.to_string()
+                major: parsed.major,
+                minor: parsed.minor,
+                patch: parsed.patch,
+                pre: if !parsed.pre.is_empty() {
+                    parsed.pre.to_string()
                 } else {
                     String::new()
                 },
             },
+            config,
         })
     }
 }

@@ -8,8 +8,7 @@ and distributes client resources to individual Topics.
 
 from typing import Any, Optional, Type
 
-import pyarrow.flight as fl
-
+from ..comm.connection import ConnectionContext
 from ..comm.do_action import _do_action
 from ..enum import (
     FlightAction,
@@ -52,7 +51,7 @@ class SequenceWriter(_BaseSessionWriter):
         self,
         *,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         metadata: dict[str, Any],
         config: SessionWriterConfig,
     ):
@@ -104,7 +103,7 @@ class SequenceWriter(_BaseSessionWriter):
 
         Args:
             sequence_name (str): Unique name for the new sequence.
-            client (fl.FlightClient): The primary control FlightClient.
+            connection (ConnectionContext): The primary control FlightClient, bundled with the server config.
             metadata (dict[str, Any]): User-defined metadata dictionary.
             config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
         """
@@ -116,7 +115,7 @@ class SequenceWriter(_BaseSessionWriter):
         # Initialize base class
         super().__init__(
             sequence_name=sequence_name,
-            client=client,
+            connection=connection,
             config=config,
             logger=logger,
         )
@@ -134,7 +133,7 @@ class SequenceWriter(_BaseSessionWriter):
         """
         # 1. Send the `SEQUENCE_CREATE` command, to create the remote resource. This returns no response
         _do_action(
-            client=self._control_client,
+            client=self._connection.flight_client,
             action=FlightAction.SEQUENCE_CREATE,
             payload={
                 "locator": self._name,
@@ -184,7 +183,7 @@ class SequenceWriter(_BaseSessionWriter):
         if self._status != SequenceStatus.Finalized:
             try:
                 _do_action(
-                    client=self._control_client,
+                    client=self._connection.flight_client,
                     action=FlightAction.SEQUENCE_DELETE,
                     payload={
                         "locator": self._name,

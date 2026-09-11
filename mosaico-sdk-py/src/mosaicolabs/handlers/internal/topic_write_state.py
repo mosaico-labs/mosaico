@@ -8,36 +8,17 @@ while optimizing the throughput and preventing memory exhaustion.
 
 import time
 from collections import defaultdict
-from enum import Enum
 from typing import List, Optional
 
 import pyarrow as pa
 import pyarrow.flight as fl
 import pyarrow.ipc as pa_ipc
 
-from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core import Message
 
-from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
-
 # Set the hierarchical logger
 logger = get_logger(__name__)
-
-
-class _UploadMode(Enum):
-    """Determines the buffering strategy: by accumulated byte size or by record count."""
-
-    Bytes = "bytes"
-    Count = "count"
-
-
-# Map ontology format types to their optimal upload strategy
-_SERIALIZATION_FORMAT_TO_UPLOAD_MODE = {
-    SerializationFormat.Image: _UploadMode.Bytes,  # Heavy data -> Limit by bytes
-    SerializationFormat.Default: _UploadMode.Bytes,  # Limit by bytes
-    SerializationFormat.Ragged: _UploadMode.Bytes,  # Limit by bytes
-}
 
 
 def _encode_messages(objs: list[Message]):
@@ -54,9 +35,10 @@ class _TopicWriteState:
     Manages the write buffer and async dispatch for a single topic.
 
     **Architecture:**
-    1.  **Buffering**: Accumulates `Message` objects in `_current_data_batch`.
-        -   Uses **Bytes Mode** for heavy data (Images) to respect Flight chunk limits.
-        -   Uses **Count Mode** for light data (IMU, Odometry) for efficiency.
+    1.  **Buffering**: Accumulates `Message` objects in `_current_data_batch`,
+        flushing whenever adding the next record would exceed `max_batch_size_bytes`.
+        A single record that alone exceeds `max_batch_size_bytes` cannot be split
+        any further, so it is dropped instead - see `_push_by_bytes_size()`.
     2.  **Sync Dispatch**.
     """
 
@@ -65,8 +47,7 @@ class _TopicWriteState:
         topic_name: str,
         data_schema: pa.StructType,
         writer: Optional[fl.FlightStreamWriter],
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
+        max_batch_size_bytes: int,
     ):
         """
         Initializes the write state.
@@ -78,30 +59,14 @@ class _TopicWriteState:
                 schema for each flushed `RecordBatch`.
             writer (Optional[fl.FlightStreamWriter]): Active Flight stream writer.
             max_batch_size_bytes (Optional[int]): flush threshold for byte mode.
-            max_batch_size_records (Optional[int]): flush threshold for count mode.
         """
         if writer is None:
             raise ValueError("Cannot initialize _TopicState: 'writer' is None.")
-
-        # Safety Check: Ensure configured limit is within PyArrow's hard limit (4MB usually)
-        if (
-            max_batch_size_bytes is not None
-            and max_batch_size_bytes > PYARROW_OUT_OF_RANGE_BYTES * 0.9
-        ):
-            raise ValueError(
-                f"'max_batch_size_bytes' must be strictly less than 90% of max allowable limit {PYARROW_OUT_OF_RANGE_BYTES}."
-            )
 
         self.topic_name: str = topic_name
         self.writer: Optional[fl.FlightStreamWriter] = writer
         self.data_schema: pa.StructType = data_schema
         self.max_batch_size_bytes = max_batch_size_bytes
-        self.max_batch_size_records = max_batch_size_records
-
-        if self.max_batch_size_bytes is None or self.max_batch_size_records is None:
-            raise RuntimeError(
-                "'max_batch_size_bytes' AND 'max_batch_size_records' must be provided."
-            )
 
         # --- Buffering State ---
         self._current_data_batch: List[Message] = []
@@ -109,6 +74,7 @@ class _TopicWriteState:
 
         self._written_records = 0
         self._pushed_records = 0
+        self._oversized_records = 0
 
     def _get_record_batch(self, msgs: List[Message]) -> pa.RecordBatch:
         """
@@ -134,7 +100,7 @@ class _TopicWriteState:
         """
         return pa_ipc.get_record_batch_size(batch)
 
-    def _push_by_bytes_size(self, msg: Message):
+    def _push_by_bytes_size(self, msg: Message) -> bool:
         """
         Buffer logic for Byte-Mode topics (e.g., Images).
 
@@ -143,59 +109,53 @@ class _TopicWriteState:
         3. Adds record to new buffer.
         """
         assert self.writer is not None
-        assert self.max_batch_size_bytes is not None
 
         # Measure size of the new message
         single_record_batch = self._get_record_batch([msg])
         single_record_size = self._get_serialized_size(single_record_batch)
 
-        # TODO: Try finding solutions for the case in which the single record
-        # is beyond pyarrow transmission limits! Log for now.
-        if single_record_size > PYARROW_OUT_OF_RANGE_BYTES:
+        # The record cannot be split any further: it is dropped, and the caller
+        # (TopicWriter.push()) is responsible for surfacing this to the user
+        # (status/last_error) and reporting it to the server as a notification.
+        if single_record_size > self.max_batch_size_bytes:
             logger.error(
-                f"Single record size ({single_record_size} bytes) exceeds PyArrow limit "
-                f"({PYARROW_OUT_OF_RANGE_BYTES} bytes) for topic '{self.topic_name}'. "
+                f"Single record size ({single_record_size} bytes) exceeds gRPC limit "
+                f"({self.max_batch_size_bytes} bytes) for topic '{self.topic_name}'. "
                 "Record will be skipped."
             )
-            return
+            return False
 
         # Check Buffer Threshold
         projected_size = self._current_batch_size_bytes + single_record_size
 
         if projected_size > self.max_batch_size_bytes:
-            # Flush existing data
+            # Flush existing data, without the last message
             if self._current_data_batch:
                 self._write_current_batch()
-
-            # Handle edge case: Single record > Preferred batch size
-            # It will be added as a batch of 1.
-
+            # Now reset the buffer and add the last message
             self._current_data_batch = [msg]
             self._current_batch_size_bytes = single_record_size
         else:
+            # Keep appending until limit is reached
             self._current_data_batch.append(msg)
             self._current_batch_size_bytes += single_record_size
 
-    def _push_by_count(self, msg: Message):
-        """
-        Buffer logic for Count-Mode topics.
+        return True
 
-        Simply counts records and flushes when `max_batch_size_records` is reached.
-        """
-        assert self.writer is not None
-        assert self.max_batch_size_records is not None
-
-        self._current_data_batch.append(msg)
-
-        if len(self._current_data_batch) >= self.max_batch_size_records:
-            self._write_current_batch()
-
-    def push_record(self, msg: Message):
+    def push_record(self, msg: Message) -> bool:
         """
         Adds a record to the buffer.
 
-        Automatically delegates to `_push_by_bytes_size` or `_push_by_count`
+        Automatically delegates to `_push_by_bytes_size`
         based on the ontology type defined in the message.
+
+        Args:
+            msg (Message): The message to push in the buffer for later sending.
+
+        Returns:
+            bool: True if the record was buffered for transmission. False if it
+                was rejected because, on its own, it exceeds `max_batch_size_bytes`
+                and therefore cannot be split any further.
 
         Raises:
             ValueError: If the writer is None.
@@ -203,16 +163,14 @@ class _TopicWriteState:
         if self.writer is None:
             raise ValueError("write() called on uninitialized state.")
 
-        mode = _SERIALIZATION_FORMAT_TO_UPLOAD_MODE.get(
-            msg.data.__serialization_format__
-        )
+        pushed = self._push_by_bytes_size(msg)
 
-        if mode == _UploadMode.Bytes:
-            self._push_by_bytes_size(msg)
+        if pushed:
+            self._pushed_records += 1
         else:
-            self._push_by_count(msg)
+            self._oversized_records += 1
 
-        self._pushed_records += 1
+        return pushed
 
     def _submit_write_task(self, msgs_to_write: List[Message]):
         """
@@ -270,7 +228,8 @@ class _TopicWriteState:
                 self.writer.done_writing()
                 logger.info(
                     f"Topic '{self.topic_name}' finished. "
-                    f"Pushed: {self._pushed_records}, Written: {self._written_records}"
+                    f"Pushed: {self._pushed_records}, Written: {self._written_records}, "
+                    f"Dropped (oversized): {self._oversized_records}"
                 )
             finally:
                 self.writer.close()

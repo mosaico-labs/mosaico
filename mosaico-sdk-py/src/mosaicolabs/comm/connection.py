@@ -4,7 +4,6 @@ Connection Management Module.
 This module handles the creation and management of PyArrow Flight network connections.
 """
 
-import json
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -12,35 +11,40 @@ from typing import Any, Optional
 
 import pyarrow.flight as fl
 
+from ..enum.flight_action import FlightAction
 from ..enum.grpc_compression import GRPCCompressionAlgorithm, GRPCCompressionLevel
 from ..logging_config import get_logger
-
-# Constants defining batch size limits for Flight transmission
-PYARROW_OUT_OF_RANGE_BYTES = 16 * 1024 * 1024  # 16 MB
-DEFAULT_MAX_BATCH_BYTES = 10 * 1024 * 1024  # 10 MB
-DEFAULT_MAX_BATCH_SIZE_RECORDS = 5_000
+from ..platform.server_config import ServerInfo
+from .do_action import _do_action, _DoActionInfoResponse
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
 
-def _wait_for_available(client: fl.FlightClient, timeout: int) -> None:
+def _wait_for_available(client: fl.FlightClient, timeout: int) -> ServerInfo:
     """
-    Probe the server with a VERSION action until it responds or the timeout expires.
+    Probe the server with a INFO action until it responds or the timeout expires.
     """
     deadline = time.monotonic() + timeout
     last_exc: Optional[Exception] = None
     while True:
         try:
-            body = json.dumps({}).encode("utf-8")
-            for _ in client.do_action(fl.Action("version", body)):
-                pass
-            return
+            act_resp = _do_action(
+                client=client,
+                action=FlightAction.INFO,
+                payload={},
+                expected_type=_DoActionInfoResponse,
+            )
+            if act_resp is None:
+                raise ConnectionError(
+                    f"Action '{FlightAction.INFO}' returned no response."
+                )
+            return act_resp.info
         except Exception as e:
             last_exc = e
             if time.monotonic() >= deadline:
                 raise ConnectionError(
-                    f"Server did not become available within {timeout}s"
+                    f"Server did not become available within {timeout}s (\nLast error: {last_exc})"
                 ) from last_exc
             time.sleep(0.025)
 
@@ -50,6 +54,41 @@ class _ConnectionStatus(Enum):
 
     Open = "open"
     Closed = "closed"
+
+
+@dataclass(frozen=True)
+class ConnectionContext:
+    """
+    Bundles a live Flight client together with the server configuration resolved
+    at connection time (via the 'info' DoAction).
+
+    Every internal factory that used to receive a bare `fl.FlightClient` now receives
+    this object instead, so any class holding a connection for its lifetime (handlers,
+    writers, readers) can derive its own defaults from the specific server it is talking
+    to, and new server-driven settings can be threaded through without touching every
+    call site again. Being per-connection (not global), it also keeps configuration
+    correctly isolated when a single script talks to multiple Mosaico servers at once.
+
+    Args:
+        flight_client (fl.FlightClient): The active PyArrow Flight client.
+        server_info (ServerInfo): The server metadata/config resolved via the 'info' DoAction.
+    """
+
+    flight_client: fl.FlightClient
+    server_info: ServerInfo
+
+    def default_max_batch_size_bytes(self, size_reduction_ratio: float = 0.9) -> int:
+        """
+        Returns the default maximum batch size (in bytes) based on the server configuration.
+
+        Args:
+            size_reduction_ratio (float): A multiplier to reduce the server's max message size.
+                Defaults to 0.9 (90% of the server's max message size).
+
+        Returns:
+            int: The calculated maximum batch size in bytes.
+        """
+        return int(self.server_info.config.max_grpc_message_size * size_reduction_ratio)
 
 
 @dataclass
@@ -87,7 +126,7 @@ def _get_connection(
     compression: GRPCCompression,
     tls_cert: Optional[bytes],
     middlewares: Optional[dict[str, fl.ClientMiddlewareFactory]],
-) -> fl.FlightClient:
+) -> ConnectionContext:
     """
     Factory function to establish a single PyArrow Flight client connection.
 
@@ -101,7 +140,10 @@ def _get_connection(
         middlewares (Optional[dict[str, fl.ClientMiddlewareFactory]]): The middlewares to be used for the connection.
 
     Returns:
-        fl.FlightClient: An active Flight client instance connected to the specified address.
+        ConnectionContext: The current connection context with active Flight client instance.
+
+    Raises:
+        ConnectioError: If the connection cannot be established
     """
 
     protocol = "grpc+tls" if enable_tls else "grpc"
@@ -131,5 +173,7 @@ def _get_connection(
             ) from e
         raise ConnectionError(f"Error to connect to {host}:{port}") from e
 
-    _wait_for_available(client, timeout)
-    return client
+    return ConnectionContext(
+        flight_client=client,
+        server_info=_wait_for_available(client, timeout),
+    )
