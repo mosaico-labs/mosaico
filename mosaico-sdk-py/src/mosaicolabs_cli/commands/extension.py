@@ -10,7 +10,12 @@ import typer
 from rich.table import Table
 from typer.core import TyperGroup
 
-from mosaicolabs_cli.utils.config import OutputFormat, console, error_console
+from mosaicolabs_cli.utils.config import (
+    OutputFormat,
+    console,
+    emit_structured_records,
+    error_console,
+)
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -105,6 +110,11 @@ def list_extensions(
     extensions = discover_extensions()
 
     if not extensions:
+        if output in (OutputFormat.JSON, OutputFormat.JSONL):
+            emit_structured_records([], output, "extensions")
+            return
+        if output == OutputFormat.CSV:
+            return
         console.print(
             "[yellow]No external extensions discovered in your $PATH.[/yellow]"
         )
@@ -137,3 +147,14 @@ def list_extensions(
     elif output == OutputFormat.CSV:
         for name, binary_path in extensions.items():
             print(f"{name},mosaico-{name},{binary_path}")
+
+    elif output in (OutputFormat.JSON, OutputFormat.JSONL):
+        records = [
+            {
+                "name": name,
+                "binary": f"mosaico-{name}",
+                "path": binary_path,
+            }
+            for name, binary_path in extensions.items()
+        ]
+        emit_structured_records(records, output, "extensions")

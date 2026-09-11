@@ -11,6 +11,7 @@ from mosaicolabs_cli.utils.config import (
     OutputFormat,
     _flatten_metadata,
     console,
+    emit_structured_records,
     error_console,
 )
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -133,9 +134,20 @@ def list_topics(
 
         console.print(table)
 
-    else:
+    elif output == OutputFormat.CSV:
         for locator_str, ts_min, ts_max in rows:
             print(f"{locator_str},{ts_min},{ts_max}")
+
+    else:
+        records = [
+            {
+                "locator": locator,
+                "timestamp_ns_min": ts_min,
+                "timestamp_ns_max": ts_max,
+            }
+            for locator, ts_min, ts_max in rows
+        ]
+        emit_structured_records(records, output, "topics")
 
 
 @app.command(name="stat")

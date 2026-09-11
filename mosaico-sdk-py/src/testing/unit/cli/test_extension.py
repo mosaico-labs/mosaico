@@ -1,3 +1,4 @@
+import json
 import stat
 from pathlib import Path
 
@@ -92,6 +93,14 @@ class TestExtensionLsCommand:
         result = runner.invoke(app, ["extension", "ls"])
         assert result.exit_code == 0
         assert "No external extensions" in result.output
+
+    def test_ls_no_extensions_json(self, fake_path, monkeypatch, tmp_path):
+        config = tmp_path / "cfg.toml"
+        config.write_text('[dev]\nhost = "localhost"\ndefault = true\n')
+        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config))
+        result = runner.invoke(app, ["extension", "ls", "--output", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.output) == {"schema_version": 1, "extensions": []}
 
     def test_ls_with_extensions(self, fake_path, monkeypatch, tmp_path):
         config = tmp_path / "cfg.toml"

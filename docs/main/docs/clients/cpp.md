@@ -1,6 +1,6 @@
 ---
 title: C++
-sidebar_position: 11
+sidebar_position: 4
 description: "Status page for the Mosaico C++ SDK, currently in active design. Contact the team directly if you have a specific application or integration requirement that depends on a C++ client."
 ---
 

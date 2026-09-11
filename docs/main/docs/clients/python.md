@@ -1,6 +1,6 @@
 ---
 title: Python
-sidebar_position: 1
+sidebar_position: 2
 description: "Entry point for the Mosaico Python SDK (mosaicolabs package). Links to the full API reference including class documentation, method signatures, and type definitions."
 
 ---

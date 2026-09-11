@@ -7,10 +7,11 @@ from rich.table import Table
 from mosaicolabs_cli.utils.config import (
     OutputFormat,
     console,
+    emit_structured_records,
     error_console,
     get_config_path,
     load_config,
-    serialize_to_toml,
+    write_config,
 )
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -126,10 +127,7 @@ def add_profile(
     }
 
     try:
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}"
@@ -186,8 +184,7 @@ def remove_profile(
             auto_promoted_profile = first_remaining_name
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
@@ -219,6 +216,11 @@ def list_profiles(
     config_data = load_config(config_path)
 
     if not config_data:
+        if output in (OutputFormat.JSON, OutputFormat.JSONL):
+            emit_structured_records([], output, "profiles")
+            return
+        if output == OutputFormat.CSV:
+            return
         console.print(
             "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
         )
@@ -259,9 +261,28 @@ def list_profiles(
                 )
                 console.print(p.to_csv())
 
+    elif output in (OutputFormat.JSON, OutputFormat.JSONL):
+        records = []
+        for name, content in config_data.items():
+            if isinstance(content, dict):
+                p = MosaicoProfile.from_dict(
+                    content, name=name, is_default=content.get("default", False)
+                )
+                records.append(
+                    {
+                        "name": p.name,
+                        "host": p.host,
+                        "port": p.port,
+                        "default": p.is_default,
+                        "tls": p.enable_tls,
+                        "api_key_configured": bool(p.api_key),
+                    }
+                )
+        emit_structured_records(records, output, "profiles")
+
     else:
         error_console.print(
-            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'. Use 'table' or 'csv'."
+            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'."
         )
         raise typer.Exit(code=1)
 
@@ -299,8 +320,7 @@ def set_default_profile(
                 profile_content["default"] = False
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
         console.print(
             f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
         )
