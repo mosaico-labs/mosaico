@@ -46,8 +46,6 @@ def test_mcap_injection_succeds(
     mcap_injection_config_protojson = create_mcap_injection_config(
         Path(mcap_mixed_file),
         sequence_name_mixed,
-        host=mosaico_client._host,
-        port=mosaico_client._port,
     )
     MCAPInjector(mcap_injection_config_protojson).run()
 
