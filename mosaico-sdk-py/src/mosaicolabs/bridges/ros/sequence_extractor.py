@@ -32,8 +32,10 @@ from mosaicolabs.bridges.ros.adapter_base import ROSAdapterBase
 from mosaicolabs.bridges.ros.loader import MosaicoLoader
 from mosaicolabs.bridges.ros.qos import get_qos_for_topic
 from mosaicolabs.bridges.ros.registry import ROSTypeRegistry
-from mosaicolabs.bridges.ros.ui import ProgressManager
+from mosaicolabs.bridges.ui import ProgressManager
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
+
+from ..topic_status import to_color
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -539,7 +541,7 @@ class ROSSequenceExtractor:
                 for topic, status in ms_loader.rejected_topics:
                     table.add_row(
                         topic,
-                        f"[{status.display_color()}]{status.value}",
+                        f"[{to_color(status)}]{status.value}",
                         "-",
                         "-",
                     )
