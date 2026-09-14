@@ -1,5 +1,6 @@
 use super::common::{ActionResponse, Client};
 use arrow::array::RecordBatch;
+use arrow_flight::decode::DecodedPayload;
 use arrow_flight::decode::FlightRecordBatchStream;
 use arrow_flight::encode::FlightDataEncoderBuilder;
 use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
@@ -7,7 +8,6 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
-use std::collections::HashMap;
 
 use arrow_flight::Ticket;
 use mosaicod_marshal::flight::FilterTimestampRange;
@@ -324,33 +324,35 @@ pub async fn do_get(
             .into(),
     };
 
-    Ok(do_get_with_ticket(client, ticket).await?.1)
+    do_get_with_ticket(client, ticket).await
 }
-
-pub type DoGetMetadata = Option<HashMap<String, String>>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
     ticket: arrow_flight::Ticket,
-) -> Result<(DoGetMetadata, Vec<RecordBatch>), tonic::Status> {
+) -> Result<Vec<RecordBatch>, tonic::Status> {
     let stream = client.do_get(ticket).await?.into_inner();
 
     let record_batch_stream =
         FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
 
-    let batches = record_batch_stream
-        .try_collect::<Vec<_>>()
-        .await
-        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))?;
+    let mut decoder = record_batch_stream.into_inner();
 
-    let metadata = batches.first().map(|b| b.schema().metadata().clone());
+    let mut batches: Vec<RecordBatch> = vec![];
 
-    Ok((metadata, batches))
+    while let Some(result) = decoder.next().await {
+        let decoded = result?;
+        if let DecodedPayload::RecordBatch(batch) = decoded.payload {
+            batches.push(batch);
+        }
+    }
+
+    Ok(batches)
 }
 
-pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
+pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
     let action = Action {
-        r#type: "version".to_owned(),
+        r#type: "info".to_owned(),
         body: r#"{}"#.to_string().into(),
     };
 
@@ -361,7 +363,7 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
     while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "version");
+        assert_eq!(r.action, "info");
 
         assert!(r.response.as_object().unwrap().contains_key("version"));
         let semver = r.response.as_object().unwrap().get("semver").unwrap();
@@ -380,6 +382,20 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
         if let Some(pre) = semver.as_object().unwrap().get("pre") {
             assert!(pre.is_string());
         }
+
+        let config = r
+            .response
+            .as_object()
+            .unwrap()
+            .get("config")
+            .unwrap()
+            .as_object()
+            .unwrap();
+
+        let max_grpc_message_size = config.get("max_grpc_message_size").unwrap();
+        assert!(max_grpc_message_size.is_u64());
+        let target_message_size = config.get("target_message_size").unwrap();
+        assert!(target_message_size.is_u64());
     }
 
     Ok(())
@@ -400,9 +416,7 @@ pub async fn get_flight_info(
         }}
         "#,
         topic_name,
-        interval
-            .clone()
-            .map_or("null".to_owned(), |range| range.start.to_string()),
+        interval.map_or("null".to_owned(), |range| range.start.to_string()),
         interval.map_or("null".to_owned(), |range| range.end.to_string()),
     );
 

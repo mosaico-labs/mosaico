@@ -11,20 +11,42 @@ services:
     volumes:
       - mosaico-testing-pg-data:/var/lib/postgresql/data
     networks:
-      - mosaico-testing
+      - mosaico-pg-testing-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
-      interval: 30s
-      timeout: 60s
-      retries: 5
-      start_period: 80s
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
+  mosaico-store-testing:
+    image: ghcr.io/versity/versitygw:latest
+    ports:
+      - "127.0.0.1:7070:7070"  # S3 API
+      - "127.0.0.1:7071:7071"  # Admin API  
+    environment:
+      ROOT_ACCESS_KEY: admin
+      ROOT_SECRET_KEY: password
+      VGW_PORT: ":7070"
+      VGW_ADMIN_PORT: ":7071"
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARGS: /data/store
+      VGW_HEALTH: "/health"
+    volumes:
+      - mosaico-testing-store-data:/data/store/mosaico
+    networks:
+      - mosaico-store-testing-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7070/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   mosaico-testing-pg-data:
+  mosaico-testing-store-data:
 
 networks:
-  mosaico-testing:
-    name: mosaico-testing
-
-
+  mosaico-pg-testing-net:
+  mosaico-store-testing-net:

@@ -126,6 +126,7 @@ from .models.sensors import (
     RobotJoint as RobotJoint,
     Temperature as Temperature,
 )
+from .platform import ServerInfo as ServerInfo
 
 # --- Main Query classes ---
 # --- Query Responses ---
@@ -150,6 +151,7 @@ __all__ = [
     # Client
     "MosaicoClient",
     "GRPCCompression",
+    "ServerInfo",
     # Logging
     "get_logger",
     "setup_sdk_logging",

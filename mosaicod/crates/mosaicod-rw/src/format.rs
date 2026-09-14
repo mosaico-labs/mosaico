@@ -44,7 +44,11 @@ pub trait ParquetFormatProperties: FormatProperties {
 
     /// Returns DataFusion ListingOptions configured for reading files in this format.
     fn listing_options(&self) -> ListingOptions {
-        ListingOptions::new(Arc::new(ParquetFormat::default().with_skip_metadata(false)))
+        // Keep schema/field-level metadata (e.g. client-supplied metadata written at
+        // `do_put` time) instead of having DataFusion strip it during schema inference.
+        let parquet_format = ParquetFormat::default().with_skip_metadata(false);
+
+        ListingOptions::new(Arc::new(parquet_format))
             .with_collect_stat(true)
             .with_file_extension(format!(".{}", self.as_extension()))
             .with_file_sort_order(vec![vec![

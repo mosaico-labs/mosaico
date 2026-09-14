@@ -25,24 +25,8 @@ class WriterConfig:
     [`TopicWriter`][mosaicolabs.handlers.TopicWriter].
     """
 
-    max_batch_size_bytes: int
-    """
-    The memory threshold in bytes before a data batch is flushed to the server.
-    
-    When the internal buffer of a [`TopicWriter`][mosaicolabs.handlers.TopicWriter] 
-    exceeds this value, it triggers a serialization and transmission event. 
-    Larger values increase throughput by reducing network overhead but require more 
-    client-side memory.
-    """
-
-    max_batch_size_records: int
-    """
-    The threshold in row (record) count before a data batch is flushed to the server.
-    
-    A flush is triggered whenever **either** this record limit or the 
-    `max_batch_size_bytes` limit is reached, ensuring that data is transmitted 
-    regularly even for topics with very small individual records.
-    """
+    # TODO: Check the necessity of these classes
+    pass
 
 
 @dataclass

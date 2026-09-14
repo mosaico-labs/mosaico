@@ -10,11 +10,12 @@ from typing import Any, Dict, List, Optional
 
 import pyarrow.flight as fl
 
+from ..comm.connection import ConnectionContext
 from ..logging_config import get_logger
 from ..models.core import Message
-from ..platform.resource_manifests import (
-    TopicManifestError,
-    TopicResourceManifest,
+from ..platform.app_metadata import (
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
@@ -57,7 +58,7 @@ class SequenceDataStreamer:
         self,
         *,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         topic_readers: Dict[str, TopicDataStreamer],
     ):
         """
@@ -92,14 +93,14 @@ class SequenceDataStreamer:
 
         Args:
             sequence_name (str): The name of the sequence being streamed.
-            client (fl.FlightClient): The active FlightClient for remote operations.
+            connection (ConnectionContext): The active FlightClient, bundled with the server config, for remote operations.
             topic_readers (Dict[str, TopicDataStreamer]): A dictionary mapping topic names to their respective
                 [`TopicDataStreamer`][mosaicolabs.handlers.TopicDataStreamer] instances.
         """
         self._name: str = sequence_name
         """The name of the handled sequence data stream"""
-        self._fl_client: fl.FlightClient = client
-        "The client for remote operations"
+        self._connection: ConnectionContext = connection
+        "The connection (FlightClient + server config) for remote operations"
         self._topic_readers: Dict[str, TopicDataStreamer] = topic_readers
         """The spawned topic data stream readers"""
         self._winning_rdstate: Optional[_TopicReadState] = None
@@ -116,7 +117,7 @@ class SequenceDataStreamer:
         topics: List[str],
         start_timestamp_ns: Optional[int],
         end_timestamp_ns: Optional[int],
-        client: fl.FlightClient,
+        connection: ConnectionContext,
     ) -> "SequenceDataStreamer":
         """
         Internal factory method to initialize the Sequence reader merger.
@@ -135,7 +136,7 @@ class SequenceDataStreamer:
                 Other topics in the sequence will be ignored.
             start_timestamp_ns (Optional[int]): Optional inclusive lower bound for temporal slicing.
             end_timestamp_ns (Optional[int]): Optional exclusive upper bound for temporal slicing.
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
 
         Returns:
             SequenceDataStreamer: An initialized merger ready for iteration.
@@ -149,7 +150,7 @@ class SequenceDataStreamer:
                 sequence_name=sequence_name,
                 start_timestamp_ns=start_timestamp_ns,
                 end_timestamp_ns=end_timestamp_ns,
-                client=client,
+                client=connection.flight_client,
             )
         except Exception as e:
             raise ConnectionError(
@@ -158,27 +159,28 @@ class SequenceDataStreamer:
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
 
-        # Extract the Topics resource manifests data and their tickets
+        # Extract the Topics app metadata and their tickets
         for ep in flight_info.endpoints:
             try:
-                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-                topic_name = topic_manifest.name
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+                topic_name = topic_app_metadata.name
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Skip topics with no data
             if (
-                topic_manifest.timestamp_ns_min is None
-                or topic_manifest.timestamp_ns_max is None
+                topic_app_metadata.timestamp_ns_min is None
+                or topic_app_metadata.timestamp_ns_max is None
             ):
                 continue
             # If not in the selected topics
             if topics and topic_name not in topics:
                 continue
             treader = TopicDataStreamer._connect_from_ticket(
-                client=client,
+                connection=connection,
                 topic_name=topic_name,
                 ticket=ep.ticket,
+                app_metadata=topic_app_metadata,
             )
             # Cache the topic reader instance
             topic_readers[treader.name] = treader
@@ -190,7 +192,7 @@ class SequenceDataStreamer:
 
         return cls(
             sequence_name=sequence_name,
-            client=client,
+            connection=connection,
             topic_readers=topic_readers,
         )
 

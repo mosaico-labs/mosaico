@@ -178,7 +178,11 @@ pub async fn notification_purge(context: &Context, locator: &types::SequenceLoca
 }
 
 /// Retrieves info regarding the given sequence and its topics [`locator`]
-pub async fn info(context: &Context, locator: &types::SequenceLocator) -> Result<SequenceInfo> {
+pub async fn info(
+    context: &Context,
+    locator: &types::SequenceLocator,
+    time_window: Option<types::TimestampRange>,
+) -> Result<SequenceInfo> {
     let mut cx = context.db.connection();
 
     let sequence_record = db::sequence_find_by_locator(&mut cx, locator)
@@ -197,8 +201,13 @@ pub async fn info(context: &Context, locator: &types::SequenceLocator) -> Result
 
     for topic_record in topics {
         res.topics.push(
-            topic::internal::info(&mut cx, context.timeseries_querier.clone(), &topic_record)
-                .await?,
+            topic::internal::info(
+                &mut cx,
+                &context.timeseries_querier,
+                &topic_record,
+                time_window,
+            )
+            .await?,
         );
     }
 

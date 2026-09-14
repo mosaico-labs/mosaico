@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "text_value": { "type": "string" },
+    "int_value": { "type": "integer" },
+    "bool_value": { "type": "boolean" }
+  },
+  "oneOf": [
+    { "required": ["text_value"] },
+    { "required": ["int_value"] },
+    { "required": ["bool_value"] }
+  ]
+}

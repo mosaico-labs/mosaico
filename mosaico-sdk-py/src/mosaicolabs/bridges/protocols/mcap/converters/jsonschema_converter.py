@@ -40,7 +40,7 @@ class JsonschemaSchemaConverter(McapSchemaConverter):
         "null": pa.null(),
     }
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema",)
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]] = ("jsonschema",)
 
     T = TypeVar("T")
 
@@ -131,7 +131,7 @@ class JsonschemaSchemaConverter(McapSchemaConverter):
                 ``_JSONSCHEMA_2_PYARROW_TYPE``.
         """
 
-        return pa.field(field_name, cls._base_type(field_value), nullable=True)
+        return pa.field(field_name, cls._base_type(field_value), nullable=False)
 
     @classmethod
     def _object_to_struct(cls, properties: dict[str, Any]) -> pa.StructType:

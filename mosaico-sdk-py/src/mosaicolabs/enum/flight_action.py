@@ -16,6 +16,10 @@ class FlightAction(Enum):
         [`TopicWriter`][mosaicolabs.handlers.TopicWriter].
     """
 
+    # --- Arch related ---
+    INFO = "info"
+    """Get the backend configurations"""
+
     # --- Sequences related ---
     SEQUENCE_CREATE = "sequence_create"
     """Initiates the registration of a new sequence on the server."""
@@ -63,23 +67,6 @@ class FlightAction(Enum):
     TOPIC_FILTER_INTERSECT = "topic_filter_intersect"
     """Requests the cluster intersection between distinct topics from the platform."""
 
-    # # --- Layers related ---
-    # LAYER_LIST = "layer_list"
-    # """Retrieves the list of available abstraction layers."""
-
-    # LAYER_CREATE = "layer_create"
-    # """Defines a new logical layer on the server."""
-
-    # LAYER_UPDATE = "layer_update"
-    # """Modifies metadata or configuration for an existing layer."""
-
-    # LAYER_DELETE = "layer_delete"
-    # """Deletes a logical layer definition."""
-
     # --- Queries related ---
     QUERY = "query"
     """Commands a multi-layer search query against the platform."""
-
-    # --- Arch related ---
-    VERSION = "version"
-    """Requests the backend version"""

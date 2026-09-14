@@ -10,23 +10,23 @@ class McapSchemaConverter(ABC):
     """Base class all MCAP schema converters (jsonschema, protobuf, ...) inherit from
     to convert their schema content into PyArrow types.
 
-    Each subclass must declare a non-empty ``SUPPORTED_ENCODINGS`` (enforced by
+    Each subclass must declare a non-empty ``SUPPORTED_SCHEMA_ENCODINGS`` (enforced by
     ``__init_subclass__``) and override ``_convert()``, which is invoked by
     ``to_pyarrow()`` to produce the resulting PyArrow struct.
     """
 
-    SUPPORTED_ENCODINGS: ClassVar[Tuple[str, ...]]
+    SUPPORTED_SCHEMA_ENCODINGS: ClassVar[Tuple[str, ...]]
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
-        # Check that SUPPORTED_ENCODINGS exists and is not empty
+        # Check that SUPPORTED_SCHEMA_ENCODINGS exists and is not empty
         if (
-            not getattr(cls, "SUPPORTED_ENCODINGS", None)
-            and not cls.SUPPORTED_ENCODINGS
+            not getattr(cls, "SUPPORTED_SCHEMA_ENCODINGS", None)
+            and not cls.SUPPORTED_SCHEMA_ENCODINGS
         ):
             raise TypeError(
-                f"{cls.__name__} must defined a non-empty SUPPORTED_ENCODINGS"
+                f"{cls.__name__} must defined a non-empty SUPPORTED_SCHEMA_ENCODINGS"
             )
 
     @classmethod
@@ -37,7 +37,7 @@ class McapSchemaConverter(ABC):
 
     @classmethod
     def is_encoding_supported(cls, encoding: str):
-        """Checks whether ``encoding`` is one of this converter's ``SUPPORTED_ENCODINGS``.
+        """Checks whether ``encoding`` is one of this converter's ``SUPPORTED_SCHEMA_ENCODINGS``.
 
         Args:
             encoding: The MCAP schema encoding string to check (e.g. ``"protobuf"``).
@@ -46,7 +46,7 @@ class McapSchemaConverter(ABC):
             ``True`` if ``encoding`` is supported by this converter, ``False`` otherwise.
         """
 
-        return encoding in cls.SUPPORTED_ENCODINGS
+        return encoding in cls.SUPPORTED_SCHEMA_ENCODINGS
 
     @classmethod
     def to_pyarrow(cls, mcap_schema: Schema) -> pa.StructType:
@@ -59,13 +59,13 @@ class McapSchemaConverter(ABC):
             A ``pa.StructType`` mirroring the schema's fields, as produced by ``_convert()``.
 
         Raises:
-            ValueError: If ``mcap_schema.encoding`` is not in ``cls.SUPPORTED_ENCODINGS``.
+            ValueError: If ``mcap_schema.encoding`` is not in ``cls.SUPPORTED_SCHEMA_ENCODINGS``.
         """
 
         if not cls.is_encoding_supported(mcap_schema.encoding):
             raise ValueError(
                 f"{cls.__name__} does not support {mcap_schema.encoding} encoding. "
-                f"Supported encodings are {cls.SUPPORTED_ENCODINGS}"
+                f"Supported encodings are {cls.SUPPORTED_SCHEMA_ENCODINGS}"
             )
 
         return cls._convert(mcap_schema)

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package mosaicolabs.testing.mcap;
+
+import "google/protobuf/any.proto";
+
+message Variant {
+  oneof payload {
+    string text_value = 1;
+    int32 int_value = 2;
+    bool bool_value = 3;
+  }
+  google.protobuf.Any details = 4;
+}

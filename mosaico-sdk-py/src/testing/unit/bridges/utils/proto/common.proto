@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package mosaicolabs.testing.mcap;
+
+// Timestamp split into seconds/nanoseconds, mirroring mosaicolabs.Time.
+message Stamp {
+  int32 sec = 1;
+  uint32 nanosec = 2;
+}
+
+message Header {
+  Stamp stamp = 1;
+  string frame_id = 2;
+}
+
+message Vector3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+message Quaternion {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+  double w = 4;
+}

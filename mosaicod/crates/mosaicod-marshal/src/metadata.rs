@@ -1,7 +1,6 @@
 use super::Format;
 use mosaicod_core::types::{self, MetadataBlob, MetadataError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 type Error = MetadataError;
 
@@ -89,40 +88,10 @@ impl TryInto<Vec<u8>> for JsonSequenceMetadata {
     }
 }
 
-impl JsonSequenceMetadata {
-    /// Converts the metadata into a flattened [`HashMap`] representation.
-    pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
-        Ok(HashMap::from([
-            (
-                "mosaico:context".to_owned(), //
-                "sequence".into(),
-            ),
-            (
-                "mosaico:user_metadata".to_owned(),
-                self.user_metadata.try_to_string()?,
-            ),
-        ]))
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicOntologyProperties {
-    pub serialization_format: Format,
-    pub ontology_tag: String,
-}
-
-impl From<types::TopicOntologyProperties> for JsonTopicOntologyProperties {
-    fn from(value: types::TopicOntologyProperties) -> Self {
-        Self {
-            ontology_tag: value.ontology_tag,
-            serialization_format: value.serialization_format.into(),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JsonTopicOntologyMetadata {
-    pub properties: JsonTopicOntologyProperties,
+    pub serialization_format: Format,
+    pub ontology_tag: String,
     pub user_metadata: JsonMetadataBlob,
 }
 
@@ -132,24 +101,8 @@ impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyM
             user_metadata: value
                 .user_metadata
                 .unwrap_or(JsonMetadataBlob(serde_json::Value::Null)),
-            properties: JsonTopicOntologyProperties::from(value.properties),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicIntervalProperties {
-    pub message_count: usize,
-    pub timestamp_ns_min: i64,
-    pub timestamp_ns_max: i64,
-}
-
-impl From<types::TopicIntervalProperties> for JsonTopicIntervalProperties {
-    fn from(value: types::TopicIntervalProperties) -> Self {
-        Self {
-            message_count: value.message_count,
-            timestamp_ns_min: value.timestamp_range.start.as_i64(),
-            timestamp_ns_max: value.timestamp_range.end.as_i64(),
+            ontology_tag: value.ontology_tag,
+            serialization_format: value.serialization_format.into(),
         }
     }
 }
@@ -158,36 +111,6 @@ impl From<types::TopicIntervalProperties> for JsonTopicIntervalProperties {
 pub struct JsonTopicMetadata {
     pub properties: JsonTopicProperties,
     pub ontology_metadata: JsonTopicOntologyMetadata,
-    pub interval_props: Option<JsonTopicIntervalProperties>,
-}
-
-impl JsonTopicMetadata {
-    pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
-        let mut json_props = serde_json::to_value(&self.ontology_metadata.properties)
-            .map_err(|e| Error::SerializationError(e.to_string()))?;
-
-        if let Some(interval_props) = &self.interval_props {
-            let json_interval_props = serde_json::to_value(interval_props)
-                .map_err(|e| Error::SerializationError(e.to_string()))?;
-
-            // Ensure both are actually JSON objects before merging
-            if let (Some(obj1), Some(obj2)) =
-                (json_props.as_object_mut(), json_interval_props.as_object())
-            {
-                // Extend the first object with the keys and values of the second
-                obj1.extend(obj2.clone());
-            }
-        }
-
-        Ok(HashMap::from([
-            ("mosaico:context".to_owned(), "topic".to_owned()),
-            ("mosaico:properties".to_owned(), json_props.to_string()),
-            (
-                "mosaico:user_metadata".to_owned(),
-                self.ontology_metadata.user_metadata.try_to_string()?,
-            ),
-        ]))
-    }
 }
 
 impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
@@ -195,7 +118,6 @@ impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
         Self {
             ontology_metadata: value.ontology_metadata.into(),
             properties: value.properties.into(),
-            interval_props: value.interval_props.map(Into::into),
         }
     }
 }

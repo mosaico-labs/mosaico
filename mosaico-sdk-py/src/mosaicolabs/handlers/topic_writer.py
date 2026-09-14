@@ -14,6 +14,7 @@ import pyarrow.flight as fl
 from mosaicolabs.enum.topic_level_error_policy import TopicLevelErrorPolicy
 from mosaicolabs.models.core import Message, Serializable
 
+from ..comm.connection import ConnectionContext
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, TopicWriterStatus
 from ..helpers import pack_topic_resource_name
@@ -32,8 +33,13 @@ class TopicWriter:
 
     The `TopicWriter` abstracts the complexity of the PyArrow Flight `DoPut` protocol,
     handling internal buffering, serialization, and network transmission.
-    It accumulates records in memory and automatically flushes them to the server when
-    configured batch limits—defined by either byte size or record count—are exceeded.
+    It accumulates records in memory and automatically flushes them to the server
+    once the buffered size approaches the server's message-size limit.
+
+    Note:
+        A single record whose size alone exceeds that limit cannot be split any
+        further: it is dropped rather than failing the whole upload. See
+        [`push()`][mosaicolabs.handlers.TopicWriter.push] for details.
 
     Important: Obtaining a Writer
         End-users should not instantiate this class directly. Use the
@@ -46,7 +52,7 @@ class TopicWriter:
         *,
         topic_name: str,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         state: _TopicWriteState,
         config: TopicWriterConfig,
     ):
@@ -93,12 +99,12 @@ class TopicWriter:
         Args:
             topic_name (str): The name of the specific topic.
             sequence_name (str): The name of the parent sequence.
-            client (fl.FlightClient): The FlightClient used for data transmission.
+            connection (ConnectionContext): The FlightClient, bundled with the server config, used for data transmission.
             state (_TopicWriteState): The internal state object managing buffers and streams.
             config (TopicWriterConfig): Operational configuration for batching and error handling.
         """
-        self._fl_client: fl.FlightClient = client
-        """The FlightClient used for writing operations."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for writing operations."""
         self._sequence_name: str = sequence_name
         """The name of the created sequence"""
         self._name: str = topic_name
@@ -118,7 +124,7 @@ class TopicWriter:
         sequence_name: str,
         topic_name: str,
         topic_uuid: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         ontology_type: Type[Serializable],
         config: TopicWriterConfig,
     ) -> "TopicWriter":
@@ -138,7 +144,7 @@ class TopicWriter:
             sequence_name (str): Name of the parent sequence.
             topic_name (str): Unique name for this topic stream.
             topic_uuid (str): authorization key provided by the server during creation.
-            client (fl.FlightClient): The connection to use for the data stream.
+            connection (ConnectionContext): The connection to use for the data stream, bundled with the server config.
             ontology_type (Type[Serializable]): The data model class defining the record schema.
             config (TopicWriterConfig): Batching limits and error policies.
 
@@ -166,7 +172,9 @@ class TopicWriter:
 
         # Open Flight Stream (DoPut)
         try:
-            writer, _ = client.do_put(descriptor, Message._get_schema(ontology_type))
+            writer, _ = connection.flight_client.do_put(
+                descriptor, Message._get_schema(ontology_type)
+            )
         except Exception as e:
             raise _make_exception(
                 f"Failed to open Flight stream for topic '{topic_name}'", e
@@ -177,14 +185,13 @@ class TopicWriter:
             topic_name=topic_name,
             data_schema=ontology_type.__msco_pyarrow_struct__,
             writer=writer,
-            max_batch_size_bytes=config.max_batch_size_bytes,
-            max_batch_size_records=config.max_batch_size_records,
+            max_batch_size_bytes=connection.default_max_batch_size_bytes(),
         )
 
         return cls(
             topic_name=topic_name,
             sequence_name=sequence_name,
-            client=client,
+            connection=connection,
             state=wrstate,
             config=config,
         )
@@ -254,7 +261,7 @@ class TopicWriter:
         ACTION = FlightAction.TOPIC_NOTIFICATION_CREATE
         try:
             _do_action(
-                client=self._fl_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={
                     "locator": pack_topic_resource_name(
@@ -284,6 +291,16 @@ class TopicWriter:
 
         Records are accumulated in memory. If a push triggers a batch limit,
         the buffer is automatically serialized and transmitted to the server.
+
+        Note: Oversized Single Records
+            If a single record's serialized size alone exceeds the transport's
+            message-size limit, it cannot be split any further and is dropped.
+            This does **not** raise: the writer stays active and keeps accepting
+            further records. The drop is reported as a topic-level notification
+            (see [`MosaicoClient.list_topic_notifications()`][mosaicolabs.comm.MosaicoClient.list_topic_notifications])
+            and reflected locally via [`status`][mosaicolabs.handlers.TopicWriter.status]
+            (`TopicWriterStatus.RecordTooLarge`) and
+            [`last_error`][mosaicolabs.handlers.TopicWriter.last_error].
 
         Args:
             message (Message): A pre-constructed Message object.
@@ -336,16 +353,28 @@ class TopicWriter:
             2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
         """
         try:
-            self._wrstate.push_record(message)
-            # If everything ok, reset any previous status
-            # (if not active, this function would raise)
-            self._status = TopicWriterStatus.Active
-            self._last_err = None
+            pushed = self._wrstate.push_record(message)
         except Exception as e:
             logger.error(f"Error during TopicWriter.push: '{e}'")
             self._status = TopicWriterStatus.RaisedException
             self._last_err = str(e)
             raise e
+
+        if pushed:
+            # If everything ok, reset any previous status
+            self._status = TopicWriterStatus.Active
+            self._last_err = None
+        else:
+            # The record couldn't be split any further and was dropped: this is
+            # non-fatal (the writer keeps accepting further records), but must
+            # not go unnoticed - report it to the server and reflect it locally.
+            err = (
+                f"Record dropped for topic '{self._name}': its size alone exceeds "
+                "the transport's message-size limit and it cannot be split further."
+            )
+            self._status = TopicWriterStatus.RecordTooLarge
+            self._last_err = err
+            self._error_report(err)
 
     @property
     def name(self) -> str:
@@ -390,6 +419,18 @@ class TopicWriter:
             bool: `True` if the writer is active, `False` if it has been finalized or closed due to an error.
         """
         return self._wrstate.writer is not None
+
+    @property
+    def dropped_record_count(self) -> int:
+        """
+        The number of records rejected so far because a single record's size alone
+        exceeded the transport's message-size limit (see
+        [`push()`][mosaicolabs.handlers.TopicWriter.push]).
+
+        Returns:
+            int: The number of dropped records.
+        """
+        return self._wrstate._oversized_records
 
     @property
     def status(self) -> TopicWriterStatus:

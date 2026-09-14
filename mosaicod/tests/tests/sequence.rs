@@ -194,12 +194,70 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(ep_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(ep_metadata.resource_locator, topic_name);
 
-    let ep_metadata_info = ep_metadata.info.unwrap();
-    assert_eq!(ep_metadata_info.chunks_number, 1);
-    assert_eq!(ep_metadata_info.total_bytes, 895);
-    let ts_range: types::TimestampRange = ep_metadata_info.timestamp.unwrap().into();
+    assert_eq!(ep_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(ep_metadata.data_info.total_bytes, 895);
+    let ts_range: types::TimestampRange = ep_metadata.data_info.interval.unwrap().into();
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
+
+    server.shutdown().await;
+}
+
+/// Requesting a sequence's flight info with a timestamp range must forward that range down to
+/// every topic endpoint's `time_window_info`, scoped to the given window, while the endpoint's
+/// whole-topic `data_info` stays unaffected.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_sequence_flight_info_time_window(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = "test_sequence/my_topic";
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    // Request a window covering only a subset of the topic's data.
+    let info = actions::get_flight_info(
+        &mut client,
+        sequence_name,
+        Some(types::TimestampRange::between(10014.into(), 10018.into())),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(info.endpoint.len(), 1);
+    let ep_metadata: marshal::flight::TopicAppMetadata =
+        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+
+    // Whole-topic stats must still reflect all 7 rows.
+    assert_eq!(ep_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(ep_metadata.data_info.total_row_count, 7);
+
+    // But the time-window-scoped info must reflect only the requested window (a single row).
+    let time_window_info = ep_metadata.time_window_info.unwrap();
+    assert_eq!(time_window_info.row_count, 1);
+    let interval = time_window_info.interval.unwrap();
+    assert_eq!(interval.start_ns, 10015);
+    assert_eq!(interval.end_ns, 10015);
 
     server.shutdown().await;
 }

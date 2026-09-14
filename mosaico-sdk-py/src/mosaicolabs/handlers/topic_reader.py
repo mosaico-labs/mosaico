@@ -11,19 +11,19 @@ from typing import Any, Optional, Type
 import pyarrow as pa
 import pyarrow.flight as fl
 
-from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.models.core import Message
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.serializable import (
     Serializable,
     _compute_schema_fingerprint,
 )
-from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
-from mosaicolabs.platform.resource_manifests import (
-    TopicManifestError,
-    TopicResourceManifest,
+from mosaicolabs.models.core.unmodeled import SerializationFormat
+from mosaicolabs.platform.app_metadata import (
+    TopicAppMetadata,
+    TopicAppMetadataError,
 )
 
+from ..comm.connection import ConnectionContext
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .internal.topic_read_state import _TopicReadState
@@ -58,9 +58,10 @@ class TopicDataStreamer:
     def __init__(
         self,
         *,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         state: _TopicReadState,
         pyarrow_schema: pa.StructType,
+        app_metadata: TopicAppMetadata,
     ):
         """
         Internal constructor for TopicDataStreamer.
@@ -95,32 +96,36 @@ class TopicDataStreamer:
             ```
 
         Args:
-            client (fl.FlightClient): The active FlightClient used for remote operations.
+            connection (ConnectionContext): The active FlightClient, bundled with the server config, used for remote operations.
             state (_TopicReadState): The internal state object managing the Arrow reader and peek buffers.
             pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
+            app_metadata (TopicAppMetadata): The app metadata for the topic.
         """
-        self._fl_client: fl.FlightClient = client
-        """The FlightClient used for remote operations."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for remote operations."""
         self._rdstate: _TopicReadState = state
         """The actual reader object"""
         self._pyarrow_schema: pa.StructType = pyarrow_schema
         """The Arrow Schema of the data ontology handled by the topic"""
-        self._schema_fingerprint: str = _compute_schema_fingerprint(pyarrow_schema)
+
         self._ontology_type: Type[Serializable] = resolve_ontology_class(
-            ontology_tag=self._rdstate.ontology_tag,
+            ontology_tag=app_metadata.ontology_tag,
             schema=pyarrow_schema,
-            schema_fingerprint=self._schema_fingerprint,
-            serialization_format=self._rdstate.serialization_format,
+            schema_fingerprint=_compute_schema_fingerprint(pyarrow_schema),
+            serialization_format=app_metadata.serialization_format,
         )
-        """Fingerprint of `_pyarrow_schema`, computed once"""
+        """The ontology type of the data stored in this topic"""
+        self._app_metadata: TopicAppMetadata = app_metadata
+        """The app metadata of this topic"""
         self._is_open: bool = True
         """Tag for assessing the internal streamer status"""
 
     @classmethod
     def _connect_from_ticket(
         cls,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         topic_name: str,
+        app_metadata: TopicAppMetadata,
         ticket: fl.Ticket,
     ) -> "TopicDataStreamer":
         """
@@ -135,8 +140,9 @@ class TopicDataStreamer:
             method to obtain a configured instance.
 
         Args:
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
             topic_name (str): The name of the topic to read.
+            app_metadata (TopicAppMetadata): The app metadata for the topic.
             ticket (fl.Ticket): The opaque authorization ticket representing the specific data stream.
 
         Returns:
@@ -148,16 +154,11 @@ class TopicDataStreamer:
         """
         # Initialize the Flight stream (DoGet)
         try:
-            reader = client.do_get(ticket)
+            reader = connection.flight_client.do_get(ticket)
         except Exception as e:
             raise ConnectionError(
                 f"Server error (do_get) while asking for Topic data reader, '{e}'"
             )
-
-        # Decode metadata to determine how to deserialize the data
-        topic_mdata = TopicMetadata._from_decoded_schema_metadata(
-            _decode_schema_metadata(reader.schema.metadata)
-        )
 
         # Retrieve the data ontology schema
         pyarrow_schema = Message._extract_data_schema(reader.schema)
@@ -165,16 +166,12 @@ class TopicDataStreamer:
         rdstate = _TopicReadState(
             topic_name=topic_name,
             reader=reader,
-            ontology_tag=topic_mdata.properties.ontology_tag,
-            serialization_format=topic_mdata.properties.serialization_format,
-            msg_count=topic_mdata.properties.msg_count,
-            timestamp_ns_min=topic_mdata.properties.timestamp_ns_min,
-            timestamp_ns_max=topic_mdata.properties.timestamp_ns_max,
         )
         return cls(
-            client=client,
+            connection=connection,
             state=rdstate,
             pyarrow_schema=pyarrow_schema,
+            app_metadata=app_metadata,
         )
 
     @classmethod
@@ -182,7 +179,7 @@ class TopicDataStreamer:
         cls,
         topic_name: str,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         start_timestamp_ns: Optional[int],
         end_timestamp_ns: Optional[int],
     ) -> "TopicDataStreamer":
@@ -200,7 +197,7 @@ class TopicDataStreamer:
         Args:
             topic_name (str): The name of the topic to read.
             sequence_name (str): The name of the parent sequence.
-            client (fl.FlightClient): An established PyArrow Flight connection.
+            connection (ConnectionContext): An established PyArrow Flight connection, bundled with the server config.
             start_timestamp_ns (Optional[int]): The **inclusive** lower bound (t >= start) in nanoseconds.
             end_timestamp_ns (Optional[int]): The **exclusive** upper bound (t < end) in nanoseconds.
 
@@ -218,7 +215,7 @@ class TopicDataStreamer:
                 topic_name=topic_name,
                 start_timestamp_ns=start_timestamp_ns,
                 end_timestamp_ns=end_timestamp_ns,
-                client=client,
+                client=connection.flight_client,
             )
         except Exception as e:
             raise ConnectionError(
@@ -226,16 +223,17 @@ class TopicDataStreamer:
             )
         for ep in flight_info.endpoints:
             try:
-                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
-                tname = topic_manifest.name
-            except TopicManifestError as e:
+                topic_app_metadata = TopicAppMetadata._from_flight_endpoint(ep)
+                tname = topic_app_metadata.name
+            except TopicAppMetadataError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             if tname == topic_name:
                 return cls._connect_from_ticket(
-                    client=client,
+                    connection=connection,
                     topic_name=topic_name,
                     ticket=ep.ticket,
+                    app_metadata=topic_app_metadata,
                 )
 
         raise ValueError("Unable to init TopicDataStreamer")
@@ -308,7 +306,7 @@ class TopicDataStreamer:
         Returns:
             SerializationFormat: The ontology `SerializationFormat`.
         """
-        return self._rdstate.serialization_format
+        return self._app_metadata.serialization_format
 
     @property
     def ontology_tag(self) -> str:
@@ -318,7 +316,7 @@ class TopicDataStreamer:
         Returns:
             str: The ontology tag.
         """
-        return self._rdstate.ontology_tag
+        return self._app_metadata.ontology_tag
 
     @property
     def msg_count(self) -> Optional[int]:
@@ -328,7 +326,7 @@ class TopicDataStreamer:
         Returns:
             Optional[int]: The number of messages. None if an error occurred during message count retrieval
         """
-        return self._rdstate.msg_count
+        return self._app_metadata.total_row_count
 
     @property
     def timestamp_ns_min(self) -> Optional[int]:
@@ -338,7 +336,7 @@ class TopicDataStreamer:
         Returns:
             Optional[int]: The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
-        return self._rdstate.timestamp_ns_min
+        return self._app_metadata.timestamp_ns_min
 
     @property
     def timestamp_ns_max(self) -> Optional[int]:
@@ -348,7 +346,7 @@ class TopicDataStreamer:
         Returns:
             Optional[int]: The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
-        return self._rdstate.timestamp_ns_max
+        return self._app_metadata.timestamp_ns_max
 
     def __iter__(self) -> "TopicDataStreamer":
         """Returns self as iterator."""

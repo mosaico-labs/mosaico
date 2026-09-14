@@ -53,10 +53,11 @@ services:
   mosaicod:
     image: ghcr.io/mosaico-labs/mosaicod:latest
     environment:
-      MOSAICOD_DB_URL: postgresql://postgres@db:5432/postgres
+      MOSAICOD_DB_URL: postgresql://db:5432/postgres
+      MOSAICOD_DB_USER: postgres
       MOSAICOD_STORE_ENDPOINT: file:///tmp
       MOSAICOD_STORE_BUCKET: mosaico
-    command: run --host 0.0.0.0
+    command: server --host 0.0.0.0
     depends_on:
       - db
     ports:

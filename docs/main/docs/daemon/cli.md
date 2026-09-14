@@ -16,7 +16,7 @@ mosaicod server [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--host <HOST>` | `MOSAICOD_HOST`, then `127.0.0.1` |  Specify a host address. |
+| `--host <HOST>` | `MOSAICOD_HOST`, then `127.0.0.1` |  IP address to bind to. Must be a valid IP address, e.g. `0.0.0.0` to listen on every network interface. |
 | `--port <PORT>` | `MOSAICOD_PORT`, then `6726` | Port to listen on. |
 
 
@@ -63,7 +63,7 @@ mosaicod cleanup --retention-duration 0
 
 ## mosaicod store-optimizer
 
-Run the store optimization routine, which compacts small files in the object store into larger chunks.
+Run the [store optimization routine](store_optimizer.md), which rewrites a topic's small chunks into fewer, larger ones.
 
 ```bash
 mosaicod store-optimizer [OPTIONS]
@@ -94,6 +94,35 @@ Run the optimization routine every hour, capping output chunks at 128 MiB:
 
 ```bash
 mosaicod store-optimizer --time-interval 3600 --max-chunk-size 134217728
+```
+
+## mosaicod ps
+
+List registered `mosaicod` instances (`server`, `cleanup`, and `store-optimizer` processes) and summarize the cleanup routine's current status.
+
+```bash
+mosaicod ps [OPTIONS]
+```
+
+### Options
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `-a`, `--all` | `false` | Also show instances with a "dead" status (no heartbeat for a long time). By default these are hidden. |
+| `-v`, `--verbose` | `false` | Also show the `STARTED` and `LAST HEARTBEAT` columns as full UTC timestamps. By default only a relative `UPTIME`/`LAST HEARTBEAT` is shown. |
+
+Each instance is listed with its process kind (`server`, `cleanup`, `store-optimizer`), instance ID, hostname, PID, uptime, time since its last heartbeat, and derived status (`alive`, `stale`, or `dead`, the latter only shown with `--all`). Underneath the instance table, a `Cleanup:` line reports the outcome of the most recent cleanup run: `no run recorded yet`, `RUNNING`, `INTERRUPTED` (the owning instance died before the run completed), or `IDLE` with the start/end timestamps of the last completed run.
+
+#### Examples
+
+```bash
+mosaicod ps
+```
+
+Include dead instances and full timestamps:
+
+```bash
+mosaicod ps --all --verbose
 ```
 
 ## mosaicod api-key

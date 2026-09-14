@@ -10,9 +10,8 @@ from typing import Any, Dict, List
 
 from typing_extensions import Self
 
-from mosaicolabs.platform.metadata import SequenceMetadata
-from mosaicolabs.platform.resource_manifests import (
-    SequenceResourceManifest,
+from mosaicolabs.platform.app_metadata import (
+    SequenceAppMetadata,
 )
 
 from .session import Session
@@ -174,12 +173,11 @@ class Sequence:
     """
 
     @classmethod
-    def _from_resource_info(
+    def _from_app_metadata(
         cls,
         name: str,
         total_size_bytes: int,
-        platform_metadata: SequenceMetadata,
-        resrc_manifest: SequenceResourceManifest,
+        app_metadata: SequenceAppMetadata,
     ) -> Self:
         """
         Factory method to create a Sequence view from platform resource information.
@@ -187,28 +185,17 @@ class Sequence:
         Args:
             name (str): The name of the platform resource.
             total_size_bytes (int): The total size of the sequence in bytes.
-            platform_metadata (SequenceMetadata): The metadata of the platform resource.
-            resrc_manifest (SequenceResourceManifest): The manifest of the platform resource.
+            app_metadata (SequenceAppMetadata): The metadata of the platform resource.
 
         Returns:
             Self: A Sequence instance.
         """
-        if not isinstance(platform_metadata, SequenceMetadata):
-            raise ValueError(
-                "Metadata must be an instance of `mosaicolabs.comm.SequenceMetadata`."
-            )
-        user_metadata = getattr(platform_metadata, "user_metadata", None)
-        if user_metadata is None:
-            raise ValueError("Metadata must have a `user_metadata` attribute.")
-
         return cls(
-            user_metadata=user_metadata,
+            user_metadata=app_metadata.user_metadata,
             name=name,
             total_size_bytes=total_size_bytes,
-            created_timestamp=resrc_manifest.created_timestamp,
-            sessions=[
-                Session._from_resource_manifest(s) for s in resrc_manifest.sessions
-            ],
+            created_timestamp=app_metadata.created_timestamp,
+            sessions=[Session._from_app_metadata(s) for s in app_metadata.sessions],
         )
 
     # --- Properties ---

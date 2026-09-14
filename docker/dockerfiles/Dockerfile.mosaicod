@@ -1,4 +1,4 @@
-FROM rust:1.92-slim-bullseye AS builder
+FROM rust:1.92-slim-bookworm AS builder
 
 ARG GIT_HASH=undefined
 
@@ -18,7 +18,7 @@ COPY bin ./bin
 
 RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 
-FROM gcr.io/distroless/cc-debian11
+FROM gcr.io/distroless/cc-debian12
 
 WORKDIR /mosaicod
 
