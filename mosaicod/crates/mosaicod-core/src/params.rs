@@ -25,16 +25,16 @@ pub const EPSILON: f64 = 1.0e-06;
 pub const MAX_BUFFERED_FUTURES: usize = 8;
 
 // MIN/MAX values admissible for grpc message size.
-pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MB. Default grpc message size.
-pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 128 * 1024 * 1024; // 128MB
+pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
+pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 128 * 1024 * 1024; // 128MiB
 
 // Default values for Params.
-pub const DEFAULT_MAX_GRPC_MESSAGE_SIZE: usize = 50 * 1_000_000; // 50MB
-pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = DEFAULT_MAX_GRPC_MESSAGE_SIZE / 2; // 25MB
+pub const DEFAULT_MAX_GRPC_MESSAGE_SIZE: usize = 50 * 1024 * 1024; // 50MiB
+pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = DEFAULT_MAX_GRPC_MESSAGE_SIZE / 2; // 25MiB
 pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: usize = 4;
 pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: usize = 1024;
 pub const DEFAULT_MAX_DB_CONNECTIONS: u32 = 19;
-pub const DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE: usize = 70 * 1_000_000;
+pub const DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE: usize = 70 * 1024 * 1024; // 70MiB
 pub const DEFAULT_MAX_BATCH_SIZE: usize = 8192;
 pub const DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE: usize = 0; // No memory restriction.
 pub const DEFAULT_TLS_CERT_FILE: &str = "";
@@ -52,7 +52,7 @@ pub const DEFAULT_API_KEY_ENABLED: bool = false;
 pub const DEFAULT_CLEANUP_TIME_INTERVAL: u32 = 0;
 pub const DEFAULT_CLEANUP_RETENTION_DURATION: u32 = 86400;
 pub const DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL: u32 = 0;
-pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: usize = 256_000_000;
+pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: usize = 256 * 1024 * 1024; // 256 MiB
 pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warning;
 pub const DEFAULT_LOG_FORMAT: LogFormat = LogFormat::Pretty;
 
