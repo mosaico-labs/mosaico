@@ -164,6 +164,7 @@ def _get_connection(
 
     try:
         client = fl.FlightClient(f"{protocol}://{host}:{port}", **kwargs)
+        client.wait_for_available(timeout)
     except fl.FlightUnavailableError as e:
         raise ConnectionError(f"Failed to connect to {host}:{port}") from e
     except fl.FlightInternalError as e:
