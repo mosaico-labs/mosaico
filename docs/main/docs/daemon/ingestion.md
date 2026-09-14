@@ -175,8 +175,4 @@ sequence_delete()
 The backend automatically manages *chunking* to efficiently handle intra-sequence queries and prevent memory overload from ingesting large data streams. 
 As data streams in, the server buffers the incoming data until a full chunk is accumulated, then writes it to disk as an optimal storage unit called a *chunk*. 
 
-:::tip
-    The chunk size is configurable via the `MOSAICOD_MAX_CHUNK_SIZE_IN_BYTES` environment variable. Setting this value to `0` disables automatic chunking, allowing for unlimited chunk sizes. However, it is generally recommended to set a reasonable chunk size to balance memory usage and query performance. See the [environment variables](env.md#general) section for more details.
-:::
-
 For each chunk written to disk, the server calculates and stores *skip indices* in the metadata database. These indices include ontology-specific statistics, such as type-specific metadata (e.g., coordinate bounding boxes for GPS data or value ranges for sensors). This allows the query engine to perform content-based filtering without needing to read the entire bulk data.

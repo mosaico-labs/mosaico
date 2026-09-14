@@ -5,7 +5,6 @@ use mosaicod_db as db;
 use mosaicod_store as store;
 use std::sync::Arc;
 use std::sync::OnceLock;
-use tracing::{debug, info};
 
 /// Stores startup time
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
@@ -62,12 +61,10 @@ pub fn init_store() -> Result<store::StoreRef> {
 
 /// Load the defined env variables from the system.
 pub fn load_env_variables() -> Result<()> {
-    info!("loading environment variables");
+    eprintln!("loading environment variables");
     dotenv::dotenv().ok();
 
     params::load_params_from_env(params::ParamsLoadOptions::default())?;
-
-    debug!("{:#?}", params::params());
 
     Ok(())
 }

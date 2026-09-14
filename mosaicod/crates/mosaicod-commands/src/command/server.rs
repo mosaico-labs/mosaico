@@ -10,27 +10,14 @@ use tracing::{debug, info};
 
 #[derive(Args, Debug)]
 pub struct Server {
-    /// Specify a host address. It defaults to the loopback address `127.0.0.1`.
-    #[arg(long, default_value = "127.0.0.1")]
-    pub host: IpAddr,
+    /// Specify a host address. Defaults to MOSAICOD_HOST, then the loopback address
+    /// `127.0.0.1`.
+    #[arg(long)]
+    pub host: Option<IpAddr>,
 
-    /// Defines the default port value.
-    #[arg(long, default_value_t = 6726)]
-    pub port: u16,
-
-    /// Enable TLS. When enabled, the following envirnoment variables needs to be set
-    /// MOSAICOD_TLS_CERT_FILE, MOSAICOD_TLS_PRIVATE_KEY_FILE.
-    #[arg(long, default_value_t = false)]
-    pub tls: bool,
-
-    /// Enable gzip compression for both incoming and outgoing messages
-    #[arg(long, default_value_t = false)]
-    pub gzip: bool,
-
-    /// Require API keys to operate. When enabled the system will require API keys to
-    /// perform any actions. See command `mosaicod api-key` for more info.
-    #[arg(long, default_value_t = false)]
-    pub api_key: bool,
+    /// Defines the port to listen on. Defaults to MOSAICOD_PORT, then `6726`.
+    #[arg(long)]
+    pub port: Option<u16>,
 }
 
 fn tls_config() -> grpc::TlsConfig {
@@ -69,19 +56,20 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     info!("startup database connection");
     let db = common::init_db(&rt, &db_config)?;
 
-    // If not specified by the user use the default loopback address
+    let host = args.host.unwrap_or(params.host.value);
+    let port = args.port.unwrap_or(params.port.value);
 
-    let mut server = grpc::Server::new(args.host, args.port, store, db);
+    let mut server = grpc::Server::new(host, port, store, db);
 
-    if args.api_key {
+    if params.api_key_enabled.value {
         server.options.enable_api_key_management();
     }
 
-    if args.tls {
+    if params.tls_enabled.value {
         server.options.tls(tls_config());
     }
 
-    if args.gzip {
+    if params.gzip_enabled.value {
         server.options.gzip(true);
     }
 
@@ -101,8 +89,8 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
     server.start_and_wait(rt, || {
         if !json_format {
             print::startup_info(
-                &args.host,
-                args.port,
+                &host,
+                port,
                 &store_display_name,
                 &db_config,
                 &params::version(),

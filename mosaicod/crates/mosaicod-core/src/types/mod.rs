@@ -30,6 +30,9 @@ pub use session::*;
 mod instance;
 pub use instance::*;
 
+mod log;
+pub use log::*;
+
 pub mod auth;
 pub use auth::ApiKey;
 pub use auth::ApiKeyError;

@@ -16,13 +16,9 @@ mosaicod server [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--host <HOST>` | `127.0.0.1` |  IP address to bind to. Must be a valid IP address, e.g. `0.0.0.0` to listen on every network interface. |
-| `--port <PORT>` | `6726` | Port to listen on. |
-| `--tls` | `false` | Enable TLS. When enabled, the following envirnoment variables needs to be set `MOSAICOD_TLS_CERT_FILE` and `MOSAICOD_TLS_PRIVATE_KEY_FILE` | 
-| `--gzip` | `false` | Enable gzip compression for both incoming and outgoing messages. |
-| `--api-key` | `false` | Require API keys to operate. When enabled the system will require API keys to perform any actions. |
+| `--host <HOST>` | `MOSAICOD_HOST`, then `127.0.0.1` |  IP address to bind to. Must be a valid IP address, e.g. `0.0.0.0` to listen on every network interface. |
+| `--port <PORT>` | `MOSAICOD_PORT`, then `6726` | Port to listen on. |
 
-Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
 
 ## mosaicod cleanup
 
@@ -36,8 +32,8 @@ mosaicod cleanup [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--time-interval <TIME_INTERVAL>` | `0` | Minimum interval, in seconds, between a cleanup run and the next one. When set to `0` a single cleanup is performed and then the process terminates. Any value greater than `0` runs the cleanup routine in a loop, sleeping `time_interval` seconds between runs. |
-| `--retention-duration <RETENTION_DURATION>` | `86400` | Maximum period, in seconds, an obsolete file is kept in the store before being permanently deleted. Set it to `0` to delete obsolete files right away. |
+| `--time-interval <TIME_INTERVAL>` | `MOSAICOD_CLEANUP_TIME_INTERVAL`, then `0` | Minimum interval, in seconds, between a cleanup run and the next one. When set to `0` a single cleanup is performed and then the process terminates. Any value greater than `0` runs the cleanup routine in a loop, sleeping `time_interval` seconds between runs. |
+| `--retention-duration <RETENTION_DURATION>` | `MOSAICOD_CLEANUP_RETENTION_DURATION`, then `86400` | Maximum period, in seconds, an obsolete file is kept in the store before being permanently deleted. Set it to `0` to delete obsolete files right away. |
 
 #### Examples
 
@@ -65,8 +61,6 @@ Perform a single cleanup that deletes obsolete files immediately, without any re
 mosaicod cleanup --retention-duration 0
 ```
 
-Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
-
 ## mosaicod store-optimizer
 
 Run the [store optimization routine](store_optimizer.md), which rewrites a topic's small chunks into fewer, larger ones.
@@ -79,30 +73,28 @@ mosaicod store-optimizer [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--time-interval <TIME_INTERVAL>` | `0` | Minimum interval, in seconds, between an optimization run and the next one. When set to `0` a single run is performed and then the process terminates. Any value greater than `0` runs the routine in a loop, sleeping `time_interval` seconds between runs. |
-| `--max-chunk-size <MAX_CHUNK_SIZE>` | `256000000` | Maximum size (in bytes) for an output chunk after optimization. This is a soft limit; actual files on store may exceed this value slightly. |
+| `--time-interval <TIME_INTERVAL>` | `MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL`, then `0` | Minimum interval, in seconds, between an optimization run and the next one. When set to `0` a single run is performed and then the process terminates. Any value greater than `0` runs the routine in a loop, sleeping `time_interval` seconds between each. |
+| `--max-chunk-size <MAX_CHUNK_SIZE>` | `MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE`, then `256 MiB` | Maximum size (in bytes) for an output chunk after optimization. This is a soft limit, actual files on store may exceed this value slightly. |
 
 #### Examples
 
-Perform a single optimization pass and exit (one-shot):
+Perform a single optimization run and exit (one-shot):
 
 ```bash
 mosaicod store-optimizer
 ```
 
-Run the routine continuously, once a day:
+Run the optimization routine continuously, every hour:
 
 ```bash
-mosaicod store-optimizer --time-interval 86400
+mosaicod store-optimizer --time-interval 3600
 ```
 
-Cap rewritten chunks to 128 MB:
+Run the optimization routine every hour, capping output chunks at 128 MiB:
 
 ```bash
-mosaicod store-optimizer --max-chunk-size 134217728
+mosaicod store-optimizer --time-interval 3600 --max-chunk-size 134217728
 ```
-
-Sending `SIGINT` (Ctrl+C) or `SIGTERM` to the process triggers a graceful shutdown.
 
 ## mosaicod ps
 
@@ -241,5 +233,5 @@ Each `mosaicod` command shares the following common options:
 
 | Options| Default | Description |
 | :--- | --- | :--- |
-| `--log-format <LOG_FORMAT>` | `pretty` | Set the log output format. Available values are: `json`, `pretty`, `plain`|
-| `--log-level <LOG_LEVEL>` | `warning` | Set the log level. Possible values: warning, info, debug |
+| `--log-format <LOG_FORMAT>` | `MOSAICOD_LOG_FORMAT`, then `pretty` | Set the log output format. Available values are: `json`, `pretty`, `plain`|
+| `--log-level <LOG_LEVEL>` | `MOSAICOD_LOG_LEVEL`, then `warning` | Set the log level. Possible values: warning, info, debug |

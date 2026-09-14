@@ -12,16 +12,16 @@ use tracing::{debug, info};
 pub struct Cleanup {
     /// Minimum interval, in seconds, that must pass between a cleanup run and the next one.
     ///
-    /// When set to `0` (the default) a single cleanup is performed and then the process
-    /// terminates. Any value greater than `0` runs the cleanup routine in a loop, sleeping
-    /// `time_interval` seconds between runs.
-    #[arg(long, default_value_t = 0)]
-    pub time_interval: u32,
+    /// When set to `0` a single cleanup is performed and then the process terminates. Any
+    /// value greater than `0` runs the cleanup routine in a loop, sleeping `time_interval`
+    /// seconds between runs. Defaults to MOSAICOD_CLEANUP_TIME_INTERVAL, then `0`.
+    #[arg(long)]
+    pub time_interval: Option<u32>,
 
     /// Maximum period, in seconds, an obsolete file is kept in the store before being
-    /// permanently deleted.
-    #[arg(long, default_value_t = 86400)]
-    pub retention_duration: u32,
+    /// permanently deleted. Defaults to MOSAICOD_CLEANUP_RETENTION_DURATION, then `86400`.
+    #[arg(long)]
+    pub retention_duration: Option<u32>,
 }
 
 /// Run the store cleanup routine.
@@ -64,8 +64,14 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
         }
     });
 
-    let time_interval = types::Duration::seconds(args.time_interval);
-    let retention_duration = types::Duration::seconds(args.retention_duration);
+    let time_interval = types::Duration::seconds(
+        args.time_interval
+            .unwrap_or(params.cleanup_time_interval.value),
+    );
+    let retention_duration = types::Duration::seconds(
+        args.retention_duration
+            .unwrap_or(params.cleanup_retention_duration.value),
+    );
 
     rt.block_on(async {
         let cleanup = task::Cleanup::new(db, store)
