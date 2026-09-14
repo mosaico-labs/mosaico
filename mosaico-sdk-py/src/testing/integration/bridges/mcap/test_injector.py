@@ -3,15 +3,11 @@ from pathlib import Path
 from mosaicolabs.bridges.mcap import MCAPInjectionConfig, MCAPInjector
 
 
-def create_mcap_injection_config(
-    mcap_path: Path, sequence_name: str, host: str, port: int, dry_run=False
-):
+def create_mcap_injection_config(mcap_path: Path, sequence_name: str, dry_run=False):
     return MCAPInjectionConfig(
         file_path=mcap_path,
         sequence_name=sequence_name,
         metadata={},
-        host=host,
-        port=port,
         dry_run=dry_run,
     )
 
@@ -26,8 +22,6 @@ def test_mcap_injection_succeds(
     mcap_injection_config_proto = create_mcap_injection_config(
         Path(mcap_protobuf_file),
         sequence_name_proto,
-        host=mosaico_client._host,
-        port=mosaico_client._port,
     )
     MCAPInjector(mcap_injection_config_proto).run()
 
