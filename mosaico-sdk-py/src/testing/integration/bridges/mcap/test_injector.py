@@ -16,11 +16,11 @@ def create_mcap_injection_config(
     )
 
 
-def test_mcap_ingection_succeds(
+def test_mcap_injection_succeds(
     mcap_protobuf_file, mcap_jsonschema_file, mcap_mixed_file, mosaico_client
 ):
     """Tests that the whole ingestion pipeline works using all available sample mcap files"""
-    mosaico_client._host
+
     # 1) Protobuf only mcap
     sequence_name_proto = Path(mcap_protobuf_file).stem
     mcap_injection_config_proto = create_mcap_injection_config(
