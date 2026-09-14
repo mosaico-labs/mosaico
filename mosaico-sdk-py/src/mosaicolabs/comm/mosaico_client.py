@@ -149,7 +149,7 @@ class MosaicoClient:
         cls,
         host: str,
         port: int,
-        timeout: int = 5,
+        timeout: int = 10,
         enable_tls: bool = False,
         compression: Union[
             GRPCCompressionAlgorithm, GRPCCompression
