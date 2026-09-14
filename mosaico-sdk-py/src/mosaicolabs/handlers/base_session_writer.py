@@ -11,8 +11,7 @@ from dataclasses import asdict, fields
 from logging import Logger
 from typing import Any, Dict, List, Optional, Type
 
-import pyarrow.flight as fl
-
+from mosaicolabs.comm.connection import ConnectionContext
 from mosaicolabs.comm.do_action import (
     _do_action,
     _DoActionSessionCreateResponse,
@@ -62,7 +61,7 @@ class _BaseSessionWriter(ABC):
         self,
         *,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         config: SessionWriterConfig,
         logger: Logger,
     ):
@@ -76,7 +75,7 @@ class _BaseSessionWriter(ABC):
 
         Args:
             sequence_name (str): Unique name for the sequence corresponding to the session.
-            client (fl.FlightClient): The primary control FlightClient.
+            connection (ConnectionContext): The primary control FlightClient, bundled with the server config.
             config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
             logger (Logger): The `Logger` instance
         """
@@ -86,8 +85,8 @@ class _BaseSessionWriter(ABC):
         """The config of the writer"""
         self._topic_writers: Dict[str, TopicWriter] = {}
         """The cache of the spawned topic writers"""
-        self._control_client: fl.FlightClient = client
-        """The FlightClient used for operations (creating topics, finalizing session)."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for operations (creating topics, finalizing session)."""
         self._status: SessionStatus = SessionStatus.Null
         """The status of the new session"""
         self._uuid: str = ""
@@ -115,7 +114,7 @@ class _BaseSessionWriter(ABC):
 
         # Send the `SESSION_CREATE` action, to start a new session on the existing remote resource.
         act_resp = _do_action(
-            client=self._control_client,
+            client=self._connection.flight_client,
             action=FlightAction.SESSION_CREATE,
             payload={
                 "locator": sequence_name,
@@ -311,7 +310,7 @@ class _BaseSessionWriter(ABC):
         if self._status == SessionStatus.Pending:
             try:
                 _do_action(
-                    client=self._control_client,
+                    client=self._connection.flight_client,
                     action=FlightAction.SESSION_FINALIZE,
                     payload={
                         "session_uuid": self._uuid,
@@ -341,7 +340,7 @@ class _BaseSessionWriter(ABC):
             )
             try:
                 _do_action(
-                    client=self._control_client,
+                    client=self._connection.flight_client,
                     action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
                     payload={
                         "locator": self._name,
@@ -364,7 +363,7 @@ class _BaseSessionWriter(ABC):
         if self._status != SessionStatus.Finalized:
             try:
                 _do_action(
-                    client=self._control_client,
+                    client=self._connection.flight_client,
                     action=FlightAction.SESSION_DELETE,
                     payload={
                         "locator": self._locator,
@@ -455,7 +454,7 @@ class _BaseSessionWriter(ABC):
         try:
             # Register topic on server
             act_resp = _do_action(
-                client=self._control_client,
+                client=self._connection.flight_client,
                 action=ACTION,
                 payload={
                     "session_uuid": self._uuid,
@@ -497,7 +496,7 @@ class _BaseSessionWriter(ABC):
                 sequence_name=self._name,
                 topic_name=topic_name,
                 topic_uuid=act_resp.uuid,
-                client=self._control_client,
+                connection=self._connection,
                 ontology_type=ontology_type,
                 config=topic_writer_config,
             )
@@ -514,7 +513,7 @@ class _BaseSessionWriter(ABC):
             )
             try:
                 _do_action(
-                    client=self._control_client,
+                    client=self._connection.flight_client,
                     action=FlightAction.TOPIC_DELETE,
                     payload={
                         "locator": pack_topic_resource_name(self._name, topic_name)

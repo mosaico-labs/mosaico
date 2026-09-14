@@ -104,7 +104,9 @@ pub enum ActionRequest {
     /// Perform a query in the system
     Query(requests::Query),
 
-    Version(requests::Empty),
+    /// Returns server info: version and the server's configured limits (e.g.
+    /// `max_grpc_message_size`, `target_message_size`). Replaces the former `version` action.
+    Info(requests::Empty),
 }
 
 impl std::fmt::Display for ActionRequest {
@@ -128,7 +130,7 @@ impl std::fmt::Display for ActionRequest {
             Self::SessionFinalize(_) => write!(f, "SessionFinalize"),
             Self::SessionDelete(_) => write!(f, "SessionDelete"),
             Self::Query(_) => write!(f, "Query"),
-            Self::Version(_) => write!(f, "Version"),
+            Self::Info(_) => write!(f, "Info"),
         }
     }
 }
@@ -163,7 +165,7 @@ impl ActionRequest {
 
             "query" => parse_action_req!(Query, body),
 
-            "version" => parse_action_req!(Version, body),
+            "info" => parse_action_req!(Info, body),
 
             _ => Err(ActionError::MissingAction(value.to_owned())),
         }
@@ -194,7 +196,7 @@ pub enum ActionResponse {
 
     Query(responses::Query),
 
-    Version(responses::ServerVersion),
+    Info(responses::ServerInfo),
 
     // Empty response, no data to send
     Empty,

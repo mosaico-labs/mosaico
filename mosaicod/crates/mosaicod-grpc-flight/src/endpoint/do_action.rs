@@ -109,7 +109,7 @@ pub async fn do_action(
         ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
 
         // Misc
-        ActionRequest::Version(_) => misc::version()?.into_stream(),
+        ActionRequest::Info(_) => misc::info()?.into_stream(),
     }
 }
 
@@ -135,6 +135,6 @@ fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
         ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
         ActionRequest::TopicFilterIntersect(_) => perm.can_read(),
 
-        ActionRequest::Version(_) => true,
+        ActionRequest::Info(_) => true,
     }
 }

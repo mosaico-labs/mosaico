@@ -11,7 +11,8 @@ class TopicWriterStatus(Enum):
 
     Note:
         The `FinalizedWithError`, `IgnoredLastError` and `RaisedException` values can only be tracked
-        if the `TopicWriter` is used in a `with` context.
+        if the `TopicWriter` is used in a `with` context. `RecordTooLarge` is tracked independently
+        of the `with` context: it reflects the outcome of the most recent `push()` call.
     """
 
     Active = "active"
@@ -57,11 +58,26 @@ class TopicWriterStatus(Enum):
     RaisedException = "raised_exception"
     """
     The topic writer encountered an error in its `with` block.
-    The error handling is delegated to the outer 
+    The error handling is delegated to the outer
     [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] error handling policy
     ([`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy])
     , or any try-except outer block.
 
-    This state is reached when the TopicWriter is used in a context and 
+    This state is reached when the TopicWriter is used in a context and
     its error policy is set to `TopicLevelErrorPolicy.Raise`.
+    """
+
+    RecordTooLarge = "record_too_large"
+    """
+    The topic writer is still active and can be used to push further data.
+
+    This state is reached when a single record passed to
+    [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push] alone exceeds
+    the transport's message-size limit. The record cannot be split any further,
+    so it is dropped: the writer reports the failure as a topic-level
+    notification (visible via
+    [`MosaicoClient.list_topic_notifications()`][mosaicolabs.comm.MosaicoClient.list_topic_notifications])
+    and continues accepting subsequent records.
+
+    This temporary state is overwritten by the outcome of the next `push()` call.
     """

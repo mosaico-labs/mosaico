@@ -12,8 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pyarrow.flight as fl
 
 from ..comm.connection import (
-    DEFAULT_MAX_BATCH_BYTES,
-    DEFAULT_MAX_BATCH_SIZE_RECORDS,
+    ConnectionContext,
 )
 from ..enum import SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
@@ -53,7 +52,7 @@ class SequenceHandler:
         self,
         *,
         sequence_model: Sequence,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         timestamp_ns_min: Optional[int],
         timestamp_ns_max: Optional[int],
     ):
@@ -66,12 +65,12 @@ class SequenceHandler:
 
         Args:
             sequence_model (Sequence): The underlying metadata and system info model for the sequence.
-            client (fl.FlightClient): The active FlightClient for remote operations.
+            connection (ConnectionContext): The active FlightClient, bundled with the server config, for remote operations.
             timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this sequence.
             timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this sequence.
         """
-        self._fl_client: fl.FlightClient = client
-        """The FlightClient used for remote operations."""
+        self._connection: ConnectionContext = connection
+        """The FlightClient (and server config) used for remote operations."""
         self._topic_handler_instances: Dict[str, TopicHandler] = {}
         """The cache of the spawned topic handlers instances"""
         self._data_streamer_instance: Optional[SequenceDataStreamer] = None
@@ -87,7 +86,7 @@ class SequenceHandler:
     def _connect(
         cls,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
     ) -> Optional["SequenceHandler"]:
         """
         Internal factory method to create a handler.
@@ -99,14 +98,14 @@ class SequenceHandler:
 
         Args:
             sequence_name (str): Name of the sequence.
-            client (fl.FlightClient): Connected client.
+            connection (ConnectionContext): Connected client, bundled with the server config.
 
         Returns:
             SequenceHandler: Initialized handler or None if error occurs
         """
 
         model_tuple = SequenceHandler._get_platform_resource_data(
-            sequence_name=sequence_name, client=client
+            sequence_name=sequence_name, client=connection.flight_client
         )
         if model_tuple is None:
             return None
@@ -115,7 +114,7 @@ class SequenceHandler:
 
         return cls(
             sequence_model=sequence_model,
-            client=client,
+            connection=connection,
             timestamp_ns_min=tstamp_ns_min,
             timestamp_ns_max=tstamp_ns_max,
         )
@@ -198,7 +197,7 @@ class SequenceHandler:
             bool: True if the reload was successful, False otherwise.
         """
         model_tuple = SequenceHandler._get_platform_resource_data(
-            sequence_name=self.name, client=self._fl_client
+            sequence_name=self.name, client=self._connection.flight_client
         )
         if model_tuple is None:
             return False
@@ -393,7 +392,7 @@ class SequenceHandler:
             topics,
             start_timestamp_ns,
             end_timestamp_ns,
-            self._fl_client,
+            self._connection,
         )
         return self._data_streamer_instance
 
@@ -452,7 +451,7 @@ class SequenceHandler:
             th = TopicHandler._connect(
                 sequence_name=self._sequence.name,
                 topic_name=topic_name,
-                client=self._fl_client,
+                connection=self._connection,
             )
             if not th:
                 raise ValueError(
@@ -465,8 +464,6 @@ class SequenceHandler:
     def update(
         self,
         on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
     ) -> SequenceUpdater:
         """
         Update the sequence on the platform and returns a [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] for ingestion.
@@ -478,8 +475,6 @@ class SequenceHandler:
         Args:
             on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-            max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
-            max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
         Returns:
             SequenceUpdater: An initialized updater instance.
@@ -511,25 +506,11 @@ class SequenceHandler:
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
         """
 
-        # Use defaults if specific batch sizes aren't provided
-        max_batch_size_bytes = (
-            max_batch_size_bytes
-            if max_batch_size_bytes is not None
-            else DEFAULT_MAX_BATCH_BYTES
-        )
-        max_batch_size_records = (
-            max_batch_size_records
-            if max_batch_size_records is not None
-            else DEFAULT_MAX_BATCH_SIZE_RECORDS
-        )
-
         return SequenceUpdater(
             sequence_name=self._sequence.name,
-            client=self._fl_client,
+            connection=self._connection,
             config=SessionWriterConfig(
                 on_error=on_error,
-                max_batch_size_bytes=max_batch_size_bytes,
-                max_batch_size_records=max_batch_size_records,
             ),
         )
 

@@ -17,6 +17,8 @@ from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 
 import pyarrow.flight as fl
 
+from mosaicolabs.platform.server_config import ServerInfo
+
 from ..enum import FlightAction
 from ..logging_config import get_logger
 from ..query import QueryResponse, QueryResponseItem
@@ -181,6 +183,20 @@ def _do_action(
 
 
 # --- Concrete Response Dataclasses ---
+
+
+@dataclass
+class _DoActionInfoResponse(_DoActionResponse):
+    """Response containing the metadata of the 'info' DoAction."""
+
+    actions: ClassVar[list[FlightAction]] = [
+        FlightAction.INFO,
+    ]
+    info: ServerInfo
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionInfoResponse":
+        return cls(info=ServerInfo.from_dict(data))
 
 
 @dataclass

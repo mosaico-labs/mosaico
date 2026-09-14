@@ -8,8 +8,7 @@ and distributes client resources to individual Topics.
 
 from typing import Any, Optional, Type
 
-import pyarrow.flight as fl
-
+from ..comm.connection import ConnectionContext
 from ..enum import TopicLevelErrorPolicy
 from ..logging_config import get_logger
 from ..models.core import Serializable
@@ -43,7 +42,7 @@ class SequenceUpdater(_BaseSessionWriter):
         self,
         *,
         sequence_name: str,
-        client: fl.FlightClient,
+        connection: ConnectionContext,
         config: SessionWriterConfig,
     ):
         """
@@ -78,14 +77,14 @@ class SequenceUpdater(_BaseSessionWriter):
 
         Args:
             sequence_name (str): Unique name for the new sequence.
-            client (fl.FlightClient): The primary control FlightClient.
+            connection (ConnectionContext): The primary control FlightClient, bundled with the server config.
             config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
         """
 
         # Initialize base class
         super().__init__(
             sequence_name=sequence_name,
-            client=client,
+            connection=connection,
             config=config,
             logger=logger,
         )

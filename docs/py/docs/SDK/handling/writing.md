@@ -70,7 +70,10 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 **Key Roles:**
 
 * **Smart Buffering**: Instead of sending every single message over the network—which would be highly inefficient—the `TopicWriter` accumulates records in a memory buffer.
-* **Automated Flushing**: The writer automatically triggers a "flush" to the server whenever the internal buffer exceeds your configured limits, such as a maximum byte size or a specific number of records.
+* **Automated Flushing**: The writer automatically triggers a "flush" to the server whenever the internal buffer approaches the server's message-size limit, discovered automatically at connection time.
+
+!!! warning "Oversized Records"
+    If a single record's size alone exceeds the server's message-size limit, it cannot be split any further and is dropped rather than failing the whole upload. The writer keeps accepting subsequent records; the failure is reported to the server as a topic notification and can be inspected locally via [`TopicWriter.status`][mosaicolabs.handlers.TopicWriter.status] and [`TopicWriter.last_error`][mosaicolabs.handlers.TopicWriter.last_error].
 
 ```python
 # Continues from the code above...
