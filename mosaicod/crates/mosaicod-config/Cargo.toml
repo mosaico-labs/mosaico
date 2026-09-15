@@ -1,0 +1,16 @@
+[package]
+name = "mosaicod-config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_config"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+etcetera = { workspace = true }
+serde = { workspace = true }
+toml = "1.1.5"

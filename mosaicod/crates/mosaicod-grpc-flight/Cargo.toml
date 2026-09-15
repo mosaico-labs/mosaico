@@ -10,6 +10,7 @@ license.workspace = true
 name = "mosaicod_grpc_flight"
 
 [dependencies]
+mosaicod-config = { workspace = true }
 mosaicod-grpc-common = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-marshal = { workspace = true }

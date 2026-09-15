@@ -81,6 +81,10 @@ article a:hover {
   text-decoration-thickness: 2px;
 }
 
+.plain-links a {
+  text-decoration: none;
+}
+
 h1,
 h2,
 h3,
@@ -91,6 +95,11 @@ h6,
 .footer__title {
   color: #ffffff;
   opacity: 1;
+}
+
+/* Ensures anchor targets scroll below the navbar */
+h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], [id] {
+  scroll-margin-top: calc(var(--ifm-navbar-height) + 1.5rem);
 }
 
 /** Navbar **/

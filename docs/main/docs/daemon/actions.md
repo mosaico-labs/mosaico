@@ -1,6 +1,6 @@
 ---
 title: Actions
-sidebar_position: 4
+sidebar_position: 5
 description: "Reference for mosaicod's administrative action protocol built on Arrow Flight DoAction RPC. Documents every action name, its request/response payload schema, and when to use it for sequence lifecycle, topic management, and catalog operations."
 ---
 

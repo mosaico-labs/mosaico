@@ -1,4 +1,4 @@
-use mosaicod_core::{params, types};
+use mosaicod_core::types;
 use tracing::error;
 
 /// After this many seconds without a heartbeat, `mosaicod ps` considers an instance possibly
@@ -7,13 +7,13 @@ use tracing::error;
 ///
 /// TODO: the 3x multiplier is an unvalidated guess, not derived from observed heartbeat
 /// jitter/latency. Revisit once we have real data.
-const INSTANCE_STALE_THRESHOLD_SECS: u32 = 3 * params::INSTANCE_HEARTBEAT_INTERVAL_SECS;
+const INSTANCE_STALE_THRESHOLD_SECS: u32 = 3 * types::INSTANCE_HEARTBEAT_INTERVAL_SECS;
 
 /// After this many seconds without a heartbeat, `mosaicod ps` considers an instance dead.
 ///
 /// TODO: the 10x multiplier is an unvalidated guess, not derived from observed heartbeat
 /// jitter/latency. Revisit once we have real data.
-const INSTANCE_DEAD_THRESHOLD_SECS: u32 = 10 * params::INSTANCE_HEARTBEAT_INTERVAL_SECS;
+const INSTANCE_DEAD_THRESHOLD_SECS: u32 = 10 * types::INSTANCE_HEARTBEAT_INTERVAL_SECS;
 
 /// A registered `mosaicod` process (server, cleanup, ...). See `mosaicod ps`.
 #[derive(Debug, Clone, PartialEq)]

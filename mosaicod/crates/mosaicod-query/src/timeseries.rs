@@ -19,7 +19,8 @@ use datafusion::functions_nested::expr_fn::{
 };
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
-use mosaicod_core::{params, types};
+use mosaicod_config::params as config_params;
+use mosaicod_core::{constants, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
 use std::collections::HashMap;
@@ -102,7 +103,7 @@ impl TimeseriesEngine {
 
         let select = format!(
             "SELECT * FROM data ORDER BY {}",
-            params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP
+            constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP
         );
 
         let df = ctx.sql(&select).await?;
@@ -151,14 +152,14 @@ impl TimeseriesResult {
     ) -> Result<Self, Error> {
         if !ts_range.start.is_unbounded() {
             self.data_frame = self.data_frame.filter(
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+                col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
                     .gt_eq(lit(ts_range.start.as_i64())),
             )?;
         }
 
         if !ts_range.end.is_unbounded() {
             self.data_frame = self.data_frame.filter(
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+                col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
                     .lt(lit(ts_range.end.as_i64())),
             )?;
         }
@@ -221,8 +222,8 @@ impl TimeseriesResult {
         let stats = self.data_frame.aggregate(
             vec![],
             vec![
-                min(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
-                max(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                min(col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                max(col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
             ],
         )?;
 
@@ -259,8 +260,8 @@ impl TimeseriesResult {
             vec![],
             vec![
                 count(lit(1i64)),
-                min(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
-                max(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                min(col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                max(col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
             ],
         )?;
 
@@ -400,7 +401,7 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Expr, Err
         scalar => return Ok(arr.eq(value_to_df_expr(scalar))),
     };
 
-    let max = params::params().max_size_plain_list_eq.value;
+    let max = config_params::params().max_size_plain_list_eq.value;
     if len > max {
         return Err(Error::list_too_large(field_name.to_owned(), max));
     }
@@ -855,7 +856,7 @@ mod tests {
     /// range
     #[tokio::test]
     async fn timeseries_range() {
-        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
 
         let file_path = "dummy_file.parquet";
 
@@ -893,7 +894,7 @@ mod tests {
     /// replacement for both.
     #[tokio::test]
     async fn count_and_timestamp_range_matches_separate_calls() {
-        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
 
         let file_path = "dummy_file.parquet";
 

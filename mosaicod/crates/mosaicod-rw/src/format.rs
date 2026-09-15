@@ -8,7 +8,8 @@
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
 use datafusion::prelude::*;
-use mosaicod_core::{params, traits::AsExtension, types};
+use mosaicod_config::params as config_params;
+use mosaicod_core::{constants, traits::AsExtension, types};
 use parquet::{
     basic::{Compression, ZstdLevel},
     file::properties::{EnabledStatistics, WriterProperties, WriterVersion},
@@ -53,7 +54,7 @@ pub trait ParquetFormatProperties: FormatProperties {
             .with_file_extension(format!(".{}", self.as_extension()))
             .with_file_sort_order(vec![vec![
                 // null_first set to FALSE to match datafusion ASC ordering while retrieving data.
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, false),
+                col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, false),
             ]])
     }
 
@@ -64,7 +65,7 @@ pub trait ParquetFormatProperties: FormatProperties {
     /// will affect the final peak memory footprint.
     fn buffer_capacity(&self) -> usize {
         // (cabba) NOTE: not tuned yet :)
-        ((params::params()
+        ((config_params::params()
             .parquet_in_memory_encoding_buffer_size
             .value as f64)
             * 1.1) as usize
@@ -81,7 +82,7 @@ pub struct DefaultFormatProperties;
 
 impl AsExtension for DefaultFormatProperties {
     fn as_extension(&self) -> String {
-        params::ext::PARQUET.to_owned()
+        constants::ext::PARQUET.to_owned()
     }
 }
 
@@ -115,7 +116,7 @@ impl RaggedFormatProperties {
 
 impl AsExtension for RaggedFormatProperties {
     fn as_extension(&self) -> String {
-        params::ext::PARQUET.to_owned()
+        constants::ext::PARQUET.to_owned()
     }
 }
 
@@ -127,7 +128,7 @@ impl FormatProperties for RaggedFormatProperties {
 
 impl ParquetFormatProperties for RaggedFormatProperties {
     fn writer_properties(&self) -> WriterProperties {
-        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+        let ts_path = ColumnPath::from(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)
@@ -160,7 +161,7 @@ impl ImageFormatProperties {
 
 impl AsExtension for ImageFormatProperties {
     fn as_extension(&self) -> String {
-        params::ext::PARQUET.to_owned()
+        constants::ext::PARQUET.to_owned()
     }
 }
 
@@ -172,7 +173,7 @@ impl FormatProperties for ImageFormatProperties {
 
 impl ParquetFormatProperties for ImageFormatProperties {
     fn writer_properties(&self) -> WriterProperties {
-        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+        let ts_path = ColumnPath::from(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)
@@ -190,7 +191,7 @@ impl ParquetFormatProperties for ImageFormatProperties {
 
     fn buffer_capacity(&self) -> usize {
         // (cabba) NOTE: not tuned yet :)
-        ((params::params()
+        ((config_params::params()
             .parquet_in_memory_encoding_buffer_size
             .value as f64)
             * 1.3) as usize

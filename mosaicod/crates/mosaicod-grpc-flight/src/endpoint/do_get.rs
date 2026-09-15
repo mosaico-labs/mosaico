@@ -6,7 +6,8 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use mosaicod_core::{self as core, params};
+use mosaicod_config::params;
+use mosaicod_core::{self as core};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;

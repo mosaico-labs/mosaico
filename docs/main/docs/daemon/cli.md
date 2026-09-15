@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-sidebar_position: 8
+sidebar_position: 11
 description: "Complete CLI reference for the mosaicod binary. Documents all subcommands (server, cleanup, key management, and others) with their flags, default values, and usage examples."
 ---
 
@@ -233,5 +233,6 @@ Each `mosaicod` command shares the following common options:
 
 | Options| Default | Description |
 | :--- | --- | :--- |
+| `--config <PATH>` | See [config file](config.md#locating-the-file) | Path to a `config.toml` file. |
 | `--log-format <LOG_FORMAT>` | `MOSAICOD_LOG_FORMAT`, then `pretty` | Set the log output format. Available values are: `json`, `pretty`, `plain`|
 | `--log-level <LOG_LEVEL>` | `MOSAICOD_LOG_LEVEL`, then `warning` | Set the log level. Possible values: warning, info, debug |

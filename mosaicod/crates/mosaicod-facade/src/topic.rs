@@ -1,9 +1,10 @@
 use super::{Context, Error};
 use arrow::datatypes::SchemaRef;
 
+use mosaicod_config::params;
 use mosaicod_core::error::PublicError;
 use mosaicod_core::types::TopicMetadataProperties;
-use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
+use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
