@@ -11,5 +11,6 @@ name = "mosaicod_config"
 
 [dependencies]
 mosaicod-core = { workspace = true }
+etcetera = { workspace = true }
 serde = { workspace = true }
 toml = "1.1.5"

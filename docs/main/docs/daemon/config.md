@@ -1,6 +1,6 @@
 ---
 title: Config File
-sidebar_position: 12
+sidebar_position: 13
 description: "How to configure mosaicod with a config.toml file: file resolution order, the TOML schema, secret handling, and how it interacts with CLI flags and environment variables."
 ---
 

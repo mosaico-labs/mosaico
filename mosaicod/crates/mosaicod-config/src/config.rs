@@ -10,6 +10,7 @@
 //! registry — the two are inseparable in practice, which is why they live in the same
 //! crate rather than forcing every consumer to depend on two crates for one concern.
 
+use etcetera::base_strategy::BaseStrategy;
 use mosaicod_core::error::PublicResult as Result;
 use mosaicod_core::types::{LogFormat, LogLevel};
 use serde::Deserialize;
@@ -181,18 +182,11 @@ fn require_path(path: PathBuf, source: &str) -> Result<Option<PathBuf>> {
     }
 }
 
+/// Resolves to the XDG strategy on Linux and macOS (`$XDG_CONFIG_HOME`/`~/.config`).
 fn xdg_config_path() -> Option<PathBuf> {
-    if let Ok(xdg) = env::var("XDG_CONFIG_HOME")
-        && !xdg.is_empty()
-    {
-        return Some(PathBuf::from(xdg).join(CONFIG_FILE_RELATIVE_PATH));
-    }
-
-    env::var("HOME").ok().map(|home| {
-        PathBuf::from(home)
-            .join(".config")
-            .join(CONFIG_FILE_RELATIVE_PATH)
-    })
+    etcetera::choose_base_strategy()
+        .ok()
+        .map(|strategy| strategy.config_dir().join(CONFIG_FILE_RELATIVE_PATH))
 }
 
 /// Reads and parses the config file at `path`.
