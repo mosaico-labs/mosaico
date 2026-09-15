@@ -11,7 +11,7 @@ This script demonstrates a complete workflow:
 
 Run the example via:
 ```bash
-cd mosaico-sdk-py/src/examples && poetry run python ros_injection/main.py
+cd mosaico-sdk-py/src/example/bridges && poetry run python ros/injection.py
 ```
 """
 
@@ -28,7 +28,7 @@ from mosaicolabs import MosaicoClient, Time
 from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
 
 # Example Imports
-from ..config import (
+from ...config import (
     API_KEY,
     ASSET_DIR,
     ENABLE_TLS,
@@ -36,7 +36,7 @@ from ..config import (
     MOSAICO_HOST,
     MOSAICO_PORT,
 )
-from .helpers import download_asset
+from ..helpers import download_asset
 
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico
 BASE_BAGFILE_URL = "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files"
