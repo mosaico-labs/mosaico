@@ -24,14 +24,16 @@ def _filename_from_url(url: str) -> Optional[str]:
     return name if name else None
 
 
-def download_asset(url: str, target_dir: Path, console: Console) -> Path:
+def download_asset(
+    url: str, target_dir: Path, console: Console, out_file_name: Optional[str] = None
+) -> Path:
     """
     Downloads a remote asset with a high-visibility progress bar.
 
     This utility ensures the local workspace is prepared before injection begins.
     """
     target_dir.mkdir(parents=True, exist_ok=True)
-    filename = _filename_from_url(url)
+    filename = out_file_name or _filename_from_url(url)
     if not filename:
         raise ValueError("Cannot resolve filename from URL.")
 
