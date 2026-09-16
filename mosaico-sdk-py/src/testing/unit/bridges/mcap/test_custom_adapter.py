@@ -1,8 +1,14 @@
+from typing import Dict
+
 import pytest
 from google.protobuf.json_format import MessageToDict
 
 from mosaicolabs import IMU, Time, Vector3d
-from mosaicolabs.bridges.mcap import MCAPAdapterBase, MCAPMessage
+from mosaicolabs.bridges.mcap import (
+    MCAPAdapterBase,
+    MCAPAdapterBaseProtobuf,
+    MCAPMessage,
+)
 from mosaicolabs.bridges.mcap.bridge import (
     MCAPBridge,
     compute_mcap_msg_type,
@@ -15,14 +21,14 @@ from ..config import (
 )
 
 
-class UnsupportedAdapter(MCAPAdapterBase[IMU]):
+class UnsupportedAdapter(MCAPAdapterBase[IMU, Dict]):
     """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
 
     schema_name = "Mosaico.invented.data"
     schema_encoding = "not-supported-encoding"
 
 
-class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):
+class MyImuProtobufAdapter(MCAPAdapterBaseProtobuf[IMU]):
     """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
 
     schema_name = "Mosaico.Imu"

@@ -74,20 +74,19 @@ class MCAPBridge(Generic[T]):
         """
 
         # Check that adapter encoding exists and is contained within __mosaico_supported_schema_encodings__
-        if not adapter_class.skip_encoding_check:
-            if getattr(adapter_class, "schema_encoding", None) is None:
-                raise ValueError(
-                    f"{adapter_class.__name__} must defined a non-empty schema_encoding"
-                )
+        if getattr(adapter_class, "schema_encoding", None) is None:
+            raise ValueError(
+                f"{adapter_class.__name__} must defined a non-empty schema_encoding"
+            )
 
-            if (
-                adapter_class.schema_encoding
-                not in cls.__mosaico_supported_schema_encodings__
-            ):
-                raise ValueError(
-                    f"{adapter_class.__name__} does not define a supported schema_encoding.\
-                      Supported encoding are: {cls.__mosaico_supported_schema_encodings__}"
-                )
+        if (
+            adapter_class.schema_encoding
+            not in cls.__mosaico_supported_schema_encodings__
+        ):
+            raise ValueError(
+                f"{adapter_class.__name__} does not define a supported schema_encoding.\
+                    Supported encoding are: {cls.__mosaico_supported_schema_encodings__}"
+            )
 
         mcap_msg_type = compute_mcap_msg_type(
             adapter_class.schema_name, adapter_class.schema_encoding

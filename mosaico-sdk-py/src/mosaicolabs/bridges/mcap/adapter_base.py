@@ -1,10 +1,10 @@
 from abc import abstractmethod
 from collections.abc import Hashable
-from typing import Any, ClassVar, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
+from google.protobuf.message import Message as ProfobufMsg
 from mcap.records import Message as MCAPRecordMessage
 
-from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message as Message, Serializable
 
 from ..base_schema_metadata import BaseSchemaMetadata
@@ -39,7 +39,9 @@ class MCAPSchemaMetadata(BaseSchemaMetadata):
     constant rather than the literal string, so the namespace can be renamed in one place."""
 
 
-T = TypeVar("T", bound=Serializable)
+OntologyT = TypeVar("OntologyT", bound=Serializable)
+# type of the object handled by to_mcap() that needs to be filled with data in Mosaico Message
+McapT = TypeVar("McapT", Dict, ProfobufMsg)
 
 
 def compute_mcap_msg_type(schema_name: str, schema_encoding: str) -> str:
@@ -58,7 +60,9 @@ def compute_mcap_msg_type(schema_name: str, schema_encoding: str) -> str:
     return f"{schema_name}__{schema_encoding}"
 
 
-class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
+class MCAPAdapterBase(
+    BridgeAdapterBase[OntologyT, MCAPRecordMessage], Generic[OntologyT, McapT]
+):
     """
     Abstract Base Class for converting MCAP messages to Mosaico Ontology types.
 
@@ -77,7 +81,7 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
     skip_encoding_check: ClassVar[bool] = False
     _REQUIRED_KEYS: Tuple[str, ...]
 
-    __mosaico_ontology_type__: Type[T]
+    __mosaico_ontology_type__: Type[OntologyT]
 
     # --- API to be compliant with BridgeAdapterBase
 
@@ -92,7 +96,7 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, mcap_data: dict) -> T:
+    def from_dict(cls, mcap_data: dict) -> OntologyT:
         """
         Maps the raw MCAP dictionary to the Mosaico model.
 
@@ -102,7 +106,9 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
 
     @classmethod
     @abstractmethod
-    def to_native(cls, mosaico_data: Union[Message, T], **kwargs) -> MCAPRecordMessage:
+    def to_native(
+        cls, mosaico_data: Union[Message, OntologyT], **kwargs
+    ) -> MCAPRecordMessage:
         """
         Args:
             mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable``
@@ -112,7 +118,14 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
         Returns:
             MCAPRecordMessage: The native MCAP message obtained from ``mosaico_data``.
         """
-        return cls.to_mcap(mosaico_data, **kwargs)
+
+        data, header = cls.unpack_mosaico_msg(mosaico_data)
+
+        cls.to_mcap(data, **kwargs)
+
+        return MCAPRecordMessage(
+            channel_id=0, log_time=0, data=b"", publish_time=1, sequence=0
+        )
 
     @classmethod
     def translate(cls, msg: MCAPMessage, **kwargs: Any) -> Message:
@@ -141,69 +154,9 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
             raise Exception(f"Translation failed for {msg.schema_name}: {e}")
 
     # --- Custom API specific for MCAP adapter
-
-    @classmethod
-    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, Header]:
-        """
-        Extracts the typed Mosaico payload and its ``Header`` (if present) from a wrapped or bare message.
-
-        Handles two input cases:
-
-        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``.
-        - **Raw ontology instance**: returned as-is with
-
-        the ``Header`` is extracted from the ontology (if supported), otherwise an default Header (empty `frame_id` and zero `Time`) is returned.
-
-        Args:
-            mosaico_msg (Union[Message, T]): Either a ``Message`` envelope or a raw instance of
-                ``cls.__mosaico_ontology_type__``.
-
-        Returns:
-            tuple[T, Header]: A ``(data, header)`` tuple where *data* is the typed ontology object and
-            *header* is the corresponding ``Header``, or a default ``Header`` (empty ``frame_id`` and
-            zero ``Time``) if not present.
-
-        Raises:
-            TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
-                the expected ontology type.
-        """
-        if isinstance(mosaico_msg, Message):
-            data: Optional[T] = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
-            if data is None:
-                raise TypeError(
-                    f"Adapter {cls.__name__} cannot handle {mosaico_msg.ontology_tag()} Mosaico type"
-                )
-
-        elif isinstance(mosaico_msg, cls.__mosaico_ontology_type__):
-            data = mosaico_msg
-
-        else:
-            raise TypeError(
-                f"Mosaico data passed to {cls.__name__} Adapter has type {type(mosaico_msg)} and it is neither a Message nor a {cls.__mosaico_ontology_type__.ontology_tag()}"
-            )
-
-        header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
-
-        tmp = getattr(data, "header", None)
-
-        if tmp:
-            if isinstance(tmp, Header):
-                header.frame_id = tmp.frame_id
-                header.timestamp = tmp.timestamp
-
-            else:
-                raise TypeError(
-                    f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
-                )
-
-        return data, header
-
     @classmethod
     @abstractmethod
-    def to_mcap(
-        cls,
-        mosaico_data: Union[Message, T],
-    ) -> MCAPRecordMessage:
+    def to_mcap(cls, mosaico_data: OntologyT, mcap_class: Type[McapT]) -> McapT:
         """
         Converts a Mosaico message or ontology object back into a native MCAP message.
 
@@ -268,6 +221,16 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
         return mcap_meta.to_dict()
 
     @classmethod
-    def ontology_data_type(cls) -> Type[T]:
+    def ontology_data_type(cls) -> Type[OntologyT]:
         """Returns the Ontology class type associated with this adapter."""
         return cls.__mosaico_ontology_type__
+
+
+class MCAPAdapterBaseProtobuf(
+    MCAPAdapterBase[OntologyT, ProfobufMsg], Generic[OntologyT]
+):
+    schema_encoding: ClassVar[str] = "protobuf"
+
+
+class MCAPAdapterBaseJsonschema(MCAPAdapterBase[OntologyT, Dict], Generic[OntologyT]):
+    schema_encoding: ClassVar[str] = "jsonschema"
