@@ -46,7 +46,7 @@ class MCAPBridge(Generic[T]):
     # Mosaico supported encodings for MCAP
     __mosaico_supported_schema_encodings__: ClassVar[Tuple[str, ...]] = (
         SchemaEncoding.Protobuf,
-        # SchemaEncoding.JSONSchema, # not yet supported
+        SchemaEncoding.JSONSchema,  # partially supported
         # SchemaEncoding.ROS2, # not yet supported
         # SchemaEncoding.ROS2IDL, # not yet supported
         # SchemaEncoding.ROS1, # not yet supported

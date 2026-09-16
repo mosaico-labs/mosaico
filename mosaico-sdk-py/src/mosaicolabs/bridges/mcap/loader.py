@@ -222,7 +222,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             decoder.register_schema(schema)
 
             # 4) Filter topics that cannot resolve neither a registered Mosaico-adapter nor an Unmodeled one because no PyArrow schema can be derived.
-            adapter = self._get_or_create_adapter(schema, channel)
+            adapter = self._get_or_create_adapter(schema, channel, decoder)
 
             if adapter is None:
                 logger.warning(
@@ -243,7 +243,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         return self._reader
 
     def _get_or_create_adapter(
-        self, schema: Schema, channel: Channel
+        self, schema: Schema, channel: Channel, decoder: MCAPMsgDecoder
     ) -> Optional[type[MCAPAdapterBase]]:
         """
         Resolves the Mosaico adapter for a channel, creating an ad-hoc one if none exists.
@@ -344,10 +344,15 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             serialization_format=serialization_format,
         )
 
+        mcap_type = decoder.get_schema_class(
+            schema.name, schema.data
+        )  # FIXME: change this
+
         # Get the unmodeled adapter or create a new one
         adapter = UnmodeledAdapter.get_or_create(
             # This will make a new class or reuse an already registered one
             ontology_type=unmodeled_ontology,
+            mcap_type=mcap_type,
             schema_name=schema.name,
             schema_encoding=schema.encoding,
         )

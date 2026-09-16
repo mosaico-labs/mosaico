@@ -1,8 +1,6 @@
 from . import adapters as adapters
 from .adapter_base import (
     MCAPAdapterBase as MCAPAdapterBase,
-    MCAPAdapterBaseJsonschema as MCAPAdapterBaseJsonschema,
-    MCAPAdapterBaseProtobuf as MCAPAdapterBaseProtobuf,
 )
 from .bridge import (
     MCAPBridge as MCAPBridge,
