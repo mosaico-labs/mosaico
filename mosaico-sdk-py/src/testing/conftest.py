@@ -17,12 +17,12 @@ from .unit.bridges.config import (
     ALL_CHANNEL_NAMES,
     GPS_CHANNEL_NAME,
     GPS_JSONSCHEMA,
-    GPS_PROTOBUF,
+    GPS_PROTOBUF_CLS,
     IMU_CHANNEL_NAME,
     IMU_JSONSCHEMA,
-    IMU_PROTOBUF,
+    IMU_PROTOBUF_CLS,
     MAGN_JSONSCHEMA,
-    MAGN_PROTOBUF,
+    MAGN_PROTOBUF_CLS,
     MAGNETOMETER_CHANNEL_NAME,
     N_STEPS,
     START_TIME_NS,
@@ -30,7 +30,7 @@ from .unit.bridges.config import (
     STEP_NS,
     VARIANT_CHANNEL_NAME,
     VARIANT_JSONSCHEMA,
-    VARIANT_PROTOBUF,
+    VARIANT_PROTOBUF_CLS,
     make_gps_mcap,
     make_imu_mcap,
     make_magn_mcap,
@@ -204,23 +204,29 @@ channelname_to_maker = {
     VARIANT_CHANNEL_NAME: make_variant_mcap,
 }
 
-channelname_to_jsonschema: Dict[str, bytes] = {
-    IMU_CHANNEL_NAME: json.dumps(IMU_JSONSCHEMA).encode("utf8"),
-    GPS_CHANNEL_NAME: json.dumps(GPS_JSONSCHEMA).encode("utf8"),
-    MAGNETOMETER_CHANNEL_NAME: json.dumps(MAGN_JSONSCHEMA).encode("utf8"),
-    VARIANT_CHANNEL_NAME: json.dumps(VARIANT_JSONSCHEMA).encode("utf8"),
-}
 
-channelname_to_protobuf: Dict[str, Type[Message]] = {
-    IMU_CHANNEL_NAME: IMU_PROTOBUF,
-    GPS_CHANNEL_NAME: GPS_PROTOBUF,
-    MAGNETOMETER_CHANNEL_NAME: MAGN_PROTOBUF,
-    VARIANT_CHANNEL_NAME: VARIANT_PROTOBUF,
-}
+@pytest.fixture(scope="session")
+def channelname_to_jsonschema() -> Dict[str, bytes]:
+    return {
+        IMU_CHANNEL_NAME: json.dumps(IMU_JSONSCHEMA).encode("utf8"),
+        GPS_CHANNEL_NAME: json.dumps(GPS_JSONSCHEMA).encode("utf8"),
+        MAGNETOMETER_CHANNEL_NAME: json.dumps(MAGN_JSONSCHEMA).encode("utf8"),
+        VARIANT_CHANNEL_NAME: json.dumps(VARIANT_JSONSCHEMA).encode("utf8"),
+    }
 
 
 @pytest.fixture(scope="session")
-def mcap_jsonschema_file(tmp_path_factory):
+def channelname_to_protobuf() -> Dict[str, Type[Message]]:
+    return {
+        IMU_CHANNEL_NAME: IMU_PROTOBUF_CLS,
+        GPS_CHANNEL_NAME: GPS_PROTOBUF_CLS,
+        MAGNETOMETER_CHANNEL_NAME: MAGN_PROTOBUF_CLS,
+        VARIANT_CHANNEL_NAME: VARIANT_PROTOBUF_CLS,
+    }
+
+
+@pytest.fixture(scope="session")
+def mcap_jsonschema_file(tmp_path_factory, channelname_to_jsonschema):
     """Creates and returns the path to an example mcap file with jsonschema encoding"""
 
     fn = tmp_path_factory.mktemp("data") / "example_mcap_jsonschema.mcap"
@@ -289,7 +295,9 @@ def mcap_protobuf_file(tmp_path_factory):
 
 
 @pytest.fixture(scope="session")
-def mcap_mixed_file(tmp_path_factory):
+def mcap_mixed_file(
+    tmp_path_factory, channelname_to_jsonschema, channelname_to_protobuf
+):
     """Creates an mcap file mixing protobuf- and json-encoded channels on a single writer.
 
     Built through the low-level `mcap.writer.Writer` API directly (rather than

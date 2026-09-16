@@ -72,7 +72,7 @@ class BaseSchemaMetadata:
         Reads the `KEY` block out of a metadata dict or `{}` if absent.
 
         Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `{"_mcap_": {...}}` `None`.
+            metadata (Optional[dict]): A metadata dict, typically `{"_KEY_": {...}}` or `{"_mcap_": {...}}` `None`.
 
         Returns:
             dict: The extracted `KEY` block, or an empty dict if not present.
@@ -83,13 +83,13 @@ class BaseSchemaMetadata:
     def from_dict(cls, metadata: Optional[dict]) -> "BaseSchemaMetadata":
         """
         Creates a `BaseSchemaMetadata` from a plain metadata dict, e.g. the return value of
-        `ROSAdapterBase.schema_metadata()`. Any keys outside the `_ros_` namespace are ignored.
+        `ROSAdapterBase.schema_metadata()`. Any keys outside the `_KEY_` namespace are ignored.
 
         Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
+            metadata (Optional[dict]): A metadata dict, typically `{"_KEY_": {...}}` or `None`.
 
         Returns:
-            BaseSchemaMetadata: A new instance seeded with the extracted `_ros_` fields
-                (empty if `metadata` is `None` or carries no `_ros_` block).
+            BaseSchemaMetadata: A new instance seeded with the extracted `_KEY_` fields
+                (empty if `metadata` is `None` or carries no `_KEY_` block).
         """
         return cls(**cls.extract(metadata))

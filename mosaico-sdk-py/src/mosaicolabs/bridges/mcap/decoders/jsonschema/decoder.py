@@ -1,5 +1,5 @@
 import json
-from typing import Any, ClassVar, Dict, Optional
+from typing import Any, ClassVar, Dict, Optional, Type
 
 from mcap.decoder import DecoderFactory
 from mcap.records import Schema
@@ -23,14 +23,29 @@ class JsonDecoderFactory(DecoderFactory):
 
 
 @register_decoder
-class MCAPJsonschemaMsgDecoder(MCAPMsgDecoder):
+class MCAPJsonschemaMsgDecoder(MCAPMsgDecoder[Dict]):
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = "json"
 
-    def decoder_factory(self) -> DecoderFactory:
+    @staticmethod
+    def decoder_factory() -> DecoderFactory:
         return JsonDecoderFactory()
 
     # def register_schema(self, schema: Schema) -> None:
     #     """Computes the per-field postprocessors this schema needs for PyArrow compliance."""
+
+    def get_schema_class(self, schema_name: str, schema_def: bytes) -> Type[Dict]:
+        """Returns the Python Object type eveloping the data. For jsonschema encoding
+        this is always the Dict object, independently of schema name/definition"""
+        return Dict
+
+    @staticmethod
+    def stringify_schema_def(schema_def: bytes) -> str:
+        """`schema_def` is already UTF-8 JSON text, so keep it as plain, human-readable text."""
+        return schema_def.decode("utf-8")
+
+    @staticmethod
+    def destringify_schema_def(schema_def_str: str) -> bytes:
+        return schema_def_str.encode("utf-8")
 
     def _to_dict(self, msg_data: Any) -> Dict[str, Any]:
 

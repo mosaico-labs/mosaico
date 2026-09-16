@@ -570,8 +570,8 @@ class MCAPInjector:
             return
 
         # --- Integrity Check ---
-        # If the loader yielded an exception or empty data, mark as error
-        if exc or not mcap_msg.data_field:
+        # If the loader yielded an exception, mark as error
+        if exc:
             logger.warning(
                 f"Skipping message on topic '{mcap_msg.channel_name}' due to error: '{exc}'"
             )
@@ -603,7 +603,15 @@ class MCAPInjector:
         # Should theoretically not be None if exists returned True
         if twriter is None:
             # --- Schema metadata Resolution ---
-            mcap_meta = MCAPSchemaMetadata.from_dict(adapter.schema_metadata())
+            assert mcap_msg.schema_def  # here schema_def cannot be None, otherwise an exception would have been already occured
+
+            mcap_meta = MCAPSchemaMetadata.from_dict(
+                adapter.schema_metadata(
+                    mcap_msg.channel_name,
+                    mcap_msg.channel_encoding,
+                    mcap_msg.schema_def,
+                )
+            )
 
             # Record which mcap file introduced this topic, inside the reserved `_mcap_`
             # namespace. This lets the source of each topic remain traceable even after
