@@ -241,16 +241,28 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
         )
 
     @classmethod
-    def schema_metadata(cls) -> Optional[dict]:
+    def schema_metadata(
+        cls, channel_name: str, channel_encoding: str, schema_def: str
+    ) -> Optional[dict]:
         """
         Extract the MCAP message specific schema metadata, if any.
+
+        Args:
+            channel_name (str): The full name of the MCAP channel the adapter is associated to
+            channel_encoding (str): The encoding of the MCAP channel the adapter is associated to
+            schema_def (str): The string representation of the MCAP schema the adapter is
+                associated to, as produced by the resolved `MCAPMsgDecoder.stringify_schema_def()`.
 
         Returns:
             Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
 
         """
         mcap_meta = MCAPSchemaMetadata(
-            schema_name=cls.schema_name, schema_encoding=cls.schema_encoding
+            schema_name=cls.schema_name,
+            schema_encoding=cls.schema_encoding,
+            schema_def=schema_def,
+            channel_name=channel_name,
+            channel_encoding=channel_encoding,
         )
 
         return mcap_meta.to_dict()

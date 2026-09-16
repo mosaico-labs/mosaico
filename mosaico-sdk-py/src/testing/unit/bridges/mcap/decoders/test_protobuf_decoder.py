@@ -3,12 +3,10 @@ from mcap.records import Channel, Message, Schema
 from mcap_protobuf.schema import build_file_descriptor_set
 
 from mosaicolabs import Time
-
-# from mosaicolabs.bridges.mcap import MCAPAdapterBase, MCAPMessage
 from mosaicolabs.bridges.mcap.decoders.protobuf.decoder import MCAPProtobufMsgDecoder
 
 from ...config import (
-    IMU_PROTOBUF,
+    IMU_PROTOBUF_CLS,
     IMU_PROTOBUF_MSGTYPE,
     VARIANT_PROTOBUF_MSGTYPE,
     make_imu_mcap,
@@ -43,7 +41,7 @@ def test_unset_singular_message_field_decodes_to_none():
     """Regression test: a singular (non-repeated) message field left unset on the wire has
     real presence, so `MessageToDict` omits it entirely; the decoder must still surface it as
     an explicit `None` rather than silently dropping the key."""
-    msg = IMU_PROTOBUF(calibrated=True)
+    msg = IMU_PROTOBUF_CLS(calibrated=True)
 
     result = _decode(msg, IMU_PROTOBUF_MSGTYPE)
 
@@ -72,56 +70,15 @@ def test_oneof_absent_members():
     assert sum(value is not None for value in members.values()) == 1
 
 
-# class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):
-#     """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
+def test_stringify_schema_def_round_trips_to_original_bytes():
+    """`schema.data` for `protobuf` is a binary serialized `FileDescriptorSet`, not valid
+    UTF-8 text, so `stringify_schema_def`/`destringify_schema_def` must round-trip it exactly
+    via base64 rather than a plain text decode (which would raise `UnicodeDecodeError`)."""
+    original_bytes = build_file_descriptor_set(IMU_PROTOBUF_CLS).SerializeToString()
 
-#     schema_name = "Mosaico.Imu"
-#     schema_encoding = "protobuf"
-#     __mosaico_ontology_type__ = IMU
+    schema_def_str = MCAPProtobufMsgDecoder.stringify_schema_def(original_bytes)
 
-#     @classmethod
-#     def from_dict(cls, mcap_data: dict) -> IMU:
-
-#         mcap_acceleration = mcap_data["linear_acceleration"]
-#         mcap_angular_velocity = mcap_data["angular_velocity"]
-
-#         return IMU(
-#             acceleration=Vector3d(
-#                 x=mcap_acceleration["x"],
-#                 y=mcap_acceleration["y"],
-#                 z=mcap_acceleration["z"],
-#             ),
-#             angular_velocity=Vector3d(
-#                 x=mcap_angular_velocity["x"],
-#                 y=mcap_angular_velocity["y"],
-#                 z=mcap_angular_velocity["z"],
-#             ),
-#         )
-
-
-# def test_custom_adapter():
-#     """Test that MyImuProtobufAdapter custom adapter create correctly a Mosaico IMU message"""
-
-#     msg = make_imu_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
-
-#     mcap_data = _decode(msg, IMU_PROTOBUF_MSGTYPE)
-
-#     mcap_message = MCAPMessage(
-#         channel_name="front_car/imu",
-#         channel_encoding="protobuf",
-#         schema_name=MyImuProtobufAdapter.schema_name,
-#         schema_encoding=MyImuProtobufAdapter.schema_encoding,
-#         data=mcap_data,
-#         log_time_ns=1,
-#         publish_time_ns=1,
-#     )
-
-#     msco_imu = MyImuProtobufAdapter.translate(mcap_message).get_data(IMU)
-
-#     assert msco_imu is not None
-#     assert msco_imu.acceleration.x == mcap_data["linear_acceleration"]["x"]
-#     assert msco_imu.acceleration.y == mcap_data["linear_acceleration"]["y"]
-#     assert msco_imu.acceleration.z == mcap_data["linear_acceleration"]["z"]
-#     assert msco_imu.angular_velocity.x == mcap_data["angular_velocity"]["x"]
-#     assert msco_imu.angular_velocity.y == mcap_data["angular_velocity"]["y"]
-#     assert msco_imu.angular_velocity.z == mcap_data["angular_velocity"]["z"]
+    assert isinstance(schema_def_str, str)
+    assert (
+        MCAPProtobufMsgDecoder.destringify_schema_def(schema_def_str) == original_bytes
+    )

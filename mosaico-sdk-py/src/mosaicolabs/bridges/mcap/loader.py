@@ -166,7 +166,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         self._mcap_file = MCAPFile(
             self._file_path,
             [
-                decoder_cls().decoder_factory()
+                decoder_cls.decoder_factory()
                 for decoder_cls in DecoderRegistry.all_decoders()
             ],
         )
@@ -540,6 +540,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     )
                 schema_name = decoded_message.schema.name
                 schema_encoding = decoded_message.schema.encoding
+                schema_def = decoded_message.schema.data
 
                 decoder = self._get_decoder(decoded_message.channel)
                 if decoder is None:
@@ -554,6 +555,8 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 # Create dictionary from decoded message Python Object
                 data_dict = decoder.decode(decoded_message)
 
+                schema_def_str = decoder.stringify_schema_def(schema_def)
+
                 # Yield the standard SDK message
                 yield (
                     MCAPMessage(
@@ -561,6 +564,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                         channel_encoding=channel_encoding,
                         schema_name=schema_name,
                         schema_encoding=schema_encoding,
+                        schema_def=schema_def_str,
                         data=data_dict,
                         log_time_ns=log_time_ns,
                         publish_time_ns=publish_time,
@@ -575,6 +579,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                         channel_encoding=channel_encoding,
                         schema_name=None,
                         schema_encoding=None,
+                        schema_def=None,
                         data=None,
                         log_time_ns=log_time_ns,
                         publish_time_ns=publish_time,

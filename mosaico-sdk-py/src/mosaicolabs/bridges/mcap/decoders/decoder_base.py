@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, Generic, List, Type, TypeVar
 
 from mcap.decoder import DecoderFactory
 from mcap.reader import DecodedMessageTuple
@@ -7,8 +7,10 @@ from mcap.records import Schema
 
 from .rule import Rule, RulePath
 
+NativeType = TypeVar("NativeType")
 
-class MCAPMsgDecoder(ABC):
+
+class MCAPMsgDecoder(ABC, Generic[NativeType]):
     """
     Encoding-specific runtime behavior needed to decode MCAP messages into plain dicts.
 
@@ -44,8 +46,9 @@ class MCAPMsgDecoder(ABC):
         """The `channel.message_encoding` value this decoder handles (e.g. `"protobuf"`)."""
         return cls.SUPPORTED_CHANNEL_ENCODING
 
+    @staticmethod
     @abstractmethod
-    def decoder_factory(self) -> DecoderFactory:
+    def decoder_factory() -> DecoderFactory:
         """The `mcap.decoder.DecoderFactory` to register on the shared reader."""
 
     def register_schema(self, schema: Schema) -> None:
@@ -79,6 +82,25 @@ class MCAPMsgDecoder(ABC):
             for rule in rules:
                 rule.apply(data, path)
         return data
+
+    @abstractmethod
+    def get_schema_class(self, schema_name: str, schema_def: bytes) -> Type[NativeType]:
+        """Generic function that, given a specific schema name and schema definition, returns
+        the Python object type containing the data. Such type depends on the decoder's encoding
+        (i.e. for jsonschema they are always Dict while for protobuf they are created from their
+        associated `.proto` file)"""
+
+    @staticmethod
+    @abstractmethod
+    def stringify_schema_def(schema_def: bytes) -> str:
+        """Converts `schema_def` (coming from schema.data) bytes into a JSON-safe string that
+        `destringify_schema_def` can turn back into the exact original bytes."""
+
+    @staticmethod
+    @abstractmethod
+    def destringify_schema_def(schema_def_str: str) -> bytes:
+        """Inverse of `stringify_schema_def`: recovers the exact original schema_def bytes
+        (representing `schema.data`)."""
 
     @abstractmethod
     def _to_dict(self, msg_data: Any) -> Dict[str, Any]:

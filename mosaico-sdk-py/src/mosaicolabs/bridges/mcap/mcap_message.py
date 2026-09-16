@@ -36,10 +36,13 @@ class MCAPMessage:
 
     Attributes:
         channel_name (str): The channel name of the message source.
+        channel_encoding (str): The channel encoding of the message source.
         schema_name (Optional[str]): The schema name of the message source. `None` if the
             schema could not be resolved or decoding failed.
         schema_encoding (Optional[str]): The schema encoding of the message source (e.g.
             `protobuf`, `jsonschema`). `None` if the schema could not be resolved or decoding failed.
+        schema_def (Optional[str]): The schema message definition of the message source, as a
+            string produced by the resolved `MCAPMsgDecoder.stringify_schema_def()`
         data_field (Optional[Dict[str, Any]]): The message payload, converted into a standard
             nested Python dictionary. `None` if decoding failed.
         log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
@@ -52,6 +55,7 @@ class MCAPMessage:
         channel_encoding: str,
         schema_name: Optional[str],
         schema_encoding: Optional[str],
+        schema_def: Optional[str],
         data: Optional[Dict[str, Any]],
         log_time_ns: int,
         publish_time_ns: Optional[int] = None,
@@ -64,6 +68,8 @@ class MCAPMessage:
             channel_encoding (str): The encoding of the message source.
             schema_name (Optional[str]): The schema name of the message source.
             schema_encoding (Optional[str]): The encoding of the schema source.
+            schema_def (Optional[str]): The schema message definition of the message source, as a
+                string produced by the resolved `MCAPMsgDecoder.stringify_schema_def()`.
             data (Optional[Dict[str, Any]]): The message payload, converted into a standard nested Python dictionary.
             log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
             publish_time_ns (Optional[int]): Timestamp (nanoseconds) at which the message was published. If not available, must be set to the log time.
@@ -72,6 +78,7 @@ class MCAPMessage:
         self.channel_encoding = channel_encoding
         self.schema_name = schema_name
         self.schema_encoding = schema_encoding
+        self.schema_def = schema_def
         self.data_field = data
         self.log_time_ns = log_time_ns
         self.publish_time_ns = publish_time_ns if publish_time_ns else log_time_ns
@@ -84,6 +91,9 @@ class MCAPMessage:
     """The schema name of the message source."""
     schema_encoding: Optional[str]
     """The encoding of the schema source."""
+    schema_def: Optional[str]
+    """The message definition of the schema source, as a string produced by the resolved
+    `MCAPMsgDecoder.stringify_schema_def()`."""
     data_field: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
     log_time_ns: int
