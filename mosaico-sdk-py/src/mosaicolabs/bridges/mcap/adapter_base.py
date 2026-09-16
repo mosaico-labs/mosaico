@@ -156,7 +156,7 @@ class MCAPAdapterBase(
     # --- Custom API specific for MCAP adapter
     @classmethod
     @abstractmethod
-    def to_mcap(cls, mosaico_data: OntologyT, mcap_class: Type[McapT]) -> McapT:
+    def to_mcap(cls, mosaico_data: OntologyT) -> McapT:
         """
         Converts a Mosaico message or ontology object back into a native MCAP message.
 
@@ -224,13 +224,3 @@ class MCAPAdapterBase(
     def ontology_data_type(cls) -> Type[OntologyT]:
         """Returns the Ontology class type associated with this adapter."""
         return cls.__mosaico_ontology_type__
-
-
-class MCAPAdapterBaseProtobuf(
-    MCAPAdapterBase[OntologyT, ProfobufMsg], Generic[OntologyT]
-):
-    schema_encoding: ClassVar[str] = "protobuf"
-
-
-class MCAPAdapterBaseJsonschema(MCAPAdapterBase[OntologyT, Dict], Generic[OntologyT]):
-    schema_encoding: ClassVar[str] = "jsonschema"
