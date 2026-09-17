@@ -1,54 +1,23 @@
-import fnmatch
 from typing import (
     Any,
     ClassVar,
     Dict,
     List,
     Optional,
-    TypeGuard,
     get_origin,
 )
 
 import numpy as np
 from rosbags.interfaces import TopicInfo
 
-from mosaicolabs import SequenceHandler, TopicHandler
+from mosaicolabs import TopicHandler
 from mosaicolabs.logging_config import get_logger
 
+from ..helpers import _filter_from_list
 from .adapter_base import RosSchemaMetadata
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
-
-
-def _validate_sequence(
-    seq_handler: Optional[SequenceHandler],
-) -> TypeGuard[SequenceHandler]:
-    if seq_handler is None:
-        return False
-    return True
-
-
-def _clip_timestamp(
-    start_ns: Optional[int],
-    end_ns: Optional[int],
-    min_ns: Optional[int],
-    max_ns: Optional[int],
-) -> tuple[Optional[int], Optional[int]]:
-
-    if start_ns is not None and min_ns is not None and start_ns < min_ns:
-        logger.warning(
-            f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {start_ns} < {min_ns}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
-        )
-        start_ns = max(start_ns, min_ns)
-
-    if end_ns is not None and max_ns is not None and end_ns > max_ns:
-        logger.warning(
-            f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
-        )
-        end_ns = min(end_ns, max_ns)
-
-    return start_ns, end_ns
 
 
 def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
@@ -144,92 +113,6 @@ def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
     return message, {}
 
 
-def _filter_topics_from_list(
-    available_topics: List[str], requested_topics: Optional[List[str]]
-) -> List[str]:
-    """
-    Resolve the set of topics to be processed based on user-provided glob patterns.
-
-    This method filters `available_topics` according to the patterns defined in
-    `requested_topics`, using ORDER-DEPENDENT (gitignore-like) semantics.
-    Pattern semantics:
-        - Patterns use standard shell-style wildcards (via `fnmatch`):
-            * "*" matches any sequence of characters
-            * "?" matches any single character
-        - Patterns NOT starting with "!" are treated as inclusion patterns.
-        - Patterns starting with "!" are treated as exclusion patterns.
-
-    Patterns are evaluated sequentially, and each pattern modifies the current
-    selection of topics. Evaluation rules:
-        - Patterns are processed in the order they appear.
-        - Each non-"!" pattern adds matching topics to the result set.
-        - Each "!" pattern removes matching topics from the result set.
-        - Later patterns override earlier ones.
-        - If no inclusion pattern is present, the initial set is ALL available topics,
-          which are then filtered by subsequent exclusion patterns.
-
-    Args:
-        available_topics (list[str]):
-            List of topic names.
-        requested_topics (Optional[List[str]]):
-            Optional list of topic names or patterns to filter results.
-            Only topics matching any of the provided values will be returned.
-
-    Examples:
-        ["/gps/*", "!/gps/leica/time_reference"]
-            → include all /gps/* topics except the Leica time_reference topic
-
-        ["!/gps/*", "/gps/leica/time_reference"]
-            → exclude all /gps/* topics, then re-include the specific topic
-
-        ["foo*"]
-            → include only topics starting with "foo"
-
-        ["!foo*"]
-            → include all topics except those starting with "foo"
-
-        []
-            → include all available topics
-
-    Warnings:
-        - A warning is logged if a pattern matches no topics.
-
-    Side Effects:
-        - Returns a filtered list of topics.
-    """
-
-    if not requested_topics:
-        return available_topics
-
-    # # If there is at least one include pattern, we start empty.
-    # # Otherwise we start from all topics (implicit include-all).
-    has_include = any(not p.startswith("!") for p in requested_topics)
-
-    if has_include:
-        resolved_topics = set()
-    else:
-        resolved_topics = set(available_topics)
-
-    for pattern in requested_topics:
-        exclude_me = pattern.startswith("!")
-        raw_pattern = pattern[1:] if exclude_me else pattern
-
-        matches = fnmatch.filter(available_topics, raw_pattern)
-
-        if not matches:
-            logger.warning(f"Topic pattern '{pattern}' matched nothing in this bag.")
-            continue
-
-        match_set = set(matches)
-
-        if exclude_me:
-            resolved_topics -= match_set
-        else:
-            resolved_topics |= match_set
-
-    return list(resolved_topics)
-
-
 def _filter_topics_from_dict(
     available_topics: Dict[str, TopicInfo], requested_topics: Optional[List[str]]
 ) -> Dict[str, TopicInfo]:
@@ -287,7 +170,7 @@ def _filter_topics_from_dict(
     if not requested_topics:
         return available_topics
 
-    resolved_keys = _filter_topics_from_list(available_topics.keys(), requested_topics)
+    resolved_keys = _filter_from_list(available_topics.keys(), requested_topics)
 
     return {key: val for key, val in available_topics.items() if key in resolved_keys}
 
