@@ -10,7 +10,6 @@ use mosaicod_core::types;
 use mosaicod_ext as ext;
 
 use arrow_flight::Ticket;
-use mosaicod_marshal::flight::FilterTimestampRange;
 use mosaicod_marshal::{self as marshal, Ontology};
 
 use serde_json::json;
@@ -598,7 +597,7 @@ pub async fn topic_filter_clusterize(
     locator: &str,
     clustering_dt_ns: u64,
     ontology: Ontology,
-    timestamp_range: Option<FilterTimestampRange>,
+    timestamp_range: Option<marshal::TimestampRange>,
 ) -> Result<Vec<serde_json::Value>, tonic::Status> {
     let body = json!({
         "locator": locator,
