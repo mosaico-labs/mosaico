@@ -18,7 +18,10 @@ def test_connect_enables_gzip_options(host, port, with_gzip):
     if not with_gzip:
         pytest.skip("Tests run without '--gzip'")
     # We patch the FlightClient class where it is imported/used in your client module
-    with patch("pyarrow.flight.FlightClient") as mock_flight_class:
+    with (
+        patch("pyarrow.flight.FlightClient") as mock_flight_class,
+        patch("mosaicolabs.comm.connection._wait_for_available"),
+    ):
         # Act
         MosaicoClient.connect(host, port, compression=GRPCCompressionAlgorithm.Gzip)
 
@@ -43,7 +46,10 @@ def test_connect_enables_gzip_with_level_options(host, port, with_gzip):
     if not with_gzip:
         pytest.skip("Tests run without '--gzip'")
     # We patch the FlightClient class where it is imported/used in your client module
-    with patch("pyarrow.flight.FlightClient") as mock_flight_class:
+    with (
+        patch("pyarrow.flight.FlightClient") as mock_flight_class,
+        patch("mosaicolabs.comm.connection._wait_for_available"),
+    ):
         # Act
         MosaicoClient.connect(
             host,
@@ -72,7 +78,10 @@ def test_connect_disables_gzip_by_default(host, port, with_gzip):
     if not with_gzip:
         pytest.skip("Tests run without '--gzip'")
 
-    with patch("pyarrow.flight.FlightClient") as mock_flight_class:
+    with (
+        patch("pyarrow.flight.FlightClient") as mock_flight_class,
+        patch("mosaicolabs.comm.connection._wait_for_available"),
+    ):
         MosaicoClient.connect(host, port)
 
         args, kwargs = mock_flight_class.call_args

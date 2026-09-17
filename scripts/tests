@@ -112,6 +112,8 @@ Options:
     --full-stack                Run full-stack tests (requires Docker + mosaicod build)
     --full-stack-tls            Run full-stack tests with TLS (requires Docker + mosaicod build)
     --full-stack-api-key        Run full-stack tests on API KEY (requires Docker + mosaicod build)
+    --full-stack-gzip           Run full-stack tests with gzip compression enabled (requires Docker + mosaicod build)
+    --full-stack-all            Run all full-stack tests (requires (Docker + mosaicod build)
     --all                       Run all tests (default)
     --help                      Show this help message
 EOF
@@ -302,6 +304,14 @@ main() {
                 shift
                 ;;
             --full-stack-api-key)
+                run_full_stack_api_key=true
+                run_selected=true
+                shift
+                ;;
+            --full-stack-all)
+                run_full_stack=true
+                run_full_stack_tls=true
+                run_full_stack_gzip=true
                 run_full_stack_api_key=true
                 run_selected=true
                 shift

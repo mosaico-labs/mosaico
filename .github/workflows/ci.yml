@@ -4,6 +4,7 @@ on:
   push:
     branches: ["main", "release/v*.*", "release/py/v*.*"]
     paths:
+      - ".github/workflows/ci.yml"
       - "**.rs"
       - "**.py"
       - "**/Cargo.toml"
@@ -13,6 +14,7 @@ on:
   pull_request:
     branches: ["main"]
     paths:
+      - ".github/workflows/ci.yml"
       - "**.rs"
       - "**.py"
       - "**/Cargo.toml"
@@ -54,5 +56,4 @@ jobs:
 
       - name: Integration Tests
         run: |
-          ./scripts/tests --full-stack
-          ./scripts/tests --full-stack-tls
+          ./scripts/tests --full-stack-all
