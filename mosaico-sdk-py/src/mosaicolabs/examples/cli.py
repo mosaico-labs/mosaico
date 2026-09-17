@@ -8,11 +8,13 @@ from mosaicolabs.examples import config
 
 # Map command names to their respective module paths
 EXAMPLES_MAP = {
-    "ros_injection": "mosaicolabs.examples.ros_injection.main",
+    "mcap_injection": "mosaicolabs.examples.bridges.mcap.injection",
+    "reconstruct_mcap": "mosaicolabs.examples.bridges.mcap.reconstruct",
+    "ros_injection": "mosaicolabs.examples.bridges.ros.injection",
+    "reconstruct_rosbags": "mosaicolabs.examples.bridges.ros.reconstruct",
     "data_inspection": "mosaicolabs.examples.data_inspection",
     "query_catalogs": "mosaicolabs.examples.query_catalogs",
     "mujoco_vis": "mosaicolabs.examples.mujoco_vis",
-    "reconstruct_rosbags": "mosaicolabs.examples.ros_injection.reconstruct_rosbags",
 }
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
