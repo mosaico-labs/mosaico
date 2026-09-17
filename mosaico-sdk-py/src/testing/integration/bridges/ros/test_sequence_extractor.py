@@ -6,7 +6,7 @@ from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs import Pose, SessionLevelErrorPolicy
-from mosaicolabs.bridges.ros import MosaicoLoader, ROSBridge, ROSLoader
+from mosaicolabs.bridges.ros import MosaicoToROSLoader, ROSBridge, ROSLoader
 from mosaicolabs.bridges.ros.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
@@ -178,10 +178,11 @@ def test_valid_msgtype(mosaico_client):
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
         # Reading topic
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (

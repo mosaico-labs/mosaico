@@ -1,9 +1,9 @@
+import json
 from abc import abstractmethod
 from collections.abc import Hashable
 from typing import Any, ClassVar, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
 from google.protobuf.message import Message as ProfobufMsg
-from mcap.records import Message as MCAPRecordMessage
 
 from mosaicolabs.models.core import Message as Message, Serializable
 
@@ -60,9 +60,7 @@ def compute_mcap_msg_type(schema_name: str, schema_encoding: str) -> str:
     return f"{schema_name}__{schema_encoding}"
 
 
-class MCAPAdapterBase(
-    BridgeAdapterBase[OntologyT, MCAPRecordMessage], Generic[OntologyT, McapT]
-):
+class MCAPAdapterBase(BridgeAdapterBase[OntologyT, bytes], Generic[OntologyT, McapT]):
     """
     Abstract Base Class for converting MCAP messages to Mosaico Ontology types.
 
@@ -106,9 +104,7 @@ class MCAPAdapterBase(
 
     @classmethod
     @abstractmethod
-    def to_native(
-        cls, mosaico_data: Union[Message, OntologyT], **kwargs
-    ) -> MCAPRecordMessage:
+    def to_native(cls, mosaico_data: Union[Message, OntologyT], **kwargs) -> bytes:
         """
         Args:
             mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable``
@@ -121,11 +117,37 @@ class MCAPAdapterBase(
 
         data, header = cls.unpack_mosaico_msg(mosaico_data)
 
-        cls.to_mcap(data, **kwargs)
+        result = cls.to_mcap(data, **kwargs)
 
-        return MCAPRecordMessage(
-            channel_id=0, log_time=0, data=b"", publish_time=1, sequence=0
-        )
+        # FIXME: you need to move all this turning to bytes into a newly Encoder class
+        # You need to turn to_mcap() output into `bytes`. This depends on the current encoding
+        if cls.schema_encoding == "protobuf":
+            assert isinstance(result, ProfobufMsg), (
+                f"Type mismatch in {cls.__name__} adapter. \
+                  Adapter supports `{cls.schema_encoding}` encoding expecting `{ProfobufMsg.__name__}` type \
+                  from `to_mcap()`. However it returned `{type(result).__name__}` type"
+            )
+
+            bytes_result: bytes = result.SerializeToString()
+
+        elif cls.schema_encoding == "jsonschema":
+            assert isinstance(result, Dict), (
+                f"Type mismatch in {cls.__name__} adapter. \
+                  Adapter supports `{cls.schema_encoding}` encoding expecting `{Dict.__name__}` type \
+                  from `to_mcap()`. However it returned `{type(result).__name__}` type"
+            )
+
+            bytes_result = json.dumps(result).encode("utf-8")
+
+        else:
+            raise NotImplementedError(
+                f"Adapter with {cls.schema_encoding} encoding does not support `to_native()` yet."
+            )
+
+        return bytes_result
+        # return MCAPRecordMessage(
+        # channel_id=0, log_time=0, data=bytes_result, publish_time=1, sequence=0
+        # )
 
     @classmethod
     def translate(cls, msg: MCAPMessage, **kwargs: Any) -> Message:

@@ -20,7 +20,7 @@ from .injector import (
     ROSInjectionConfig as ROSInjectionConfig,
 )
 from .loader import (
-    MosaicoLoader as MosaicoLoader,
+    MosaicoToROSLoader as MosaicoToROSLoader,
     ROSLoader as ROSLoader,
 )
 from .registry import ROSTypeRegistry as ROSTypeRegistry

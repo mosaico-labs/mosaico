@@ -16,8 +16,6 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs import (
     MosaicoClient,
-    SequenceDataStreamer,
-    SequenceHandler,
     TopicHandler,
 )
 from mosaicolabs.bridges.ros.adapters.unmodeled import UnmodeledAdapter
@@ -26,10 +24,9 @@ from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ...models.core.serializable import _compute_schema_fingerprint
-from ..helpers import _clip_timestamp, _filter_from_list, _validate_sequence
-from ..loader_base import BaseLoader
+from ..loader_base import BaseLoader, MosaicoLoader, TopicResolution
 from ..protocols.mcap.converters.ros_converter import RosMsgSchemaConverter
-from ..topic_status import ROSTopicStatus, TopicStatus
+from ..topic_status import CommonTopicStatus, ROSTopicStatus
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
 from .bridge import ROSBridge
 from .helpers import (
@@ -44,7 +41,7 @@ from .ros_message import ROSMessage
 logger = get_logger(__name__)
 
 
-class ROSLoader(BaseLoader):
+class ROSLoader(BaseLoader[ROSAdapterBase]):
     """
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
 
@@ -199,8 +196,7 @@ class ROSLoader(BaseLoader):
                     f"Skipping topic {conn.topic}: not matching the provided filter."
                 )
 
-                filtered_topic_info = self._resolved_topics[conn.topic]
-                self._filtered_topics.update({conn.topic: filtered_topic_info})
+                self._reject(conn.topic, CommonTopicStatus.FILTERED)
                 continue
 
             # 2) Filter topics that cannot resolve neither a registered Mosaico-adapter nor an Unmodeled one because no PyArrow schema can be derived
@@ -212,7 +208,7 @@ class ROSLoader(BaseLoader):
                 logger.warning(
                     f"Topic {conn.topic}: unresolved Adapted for msgtype {topic_info.msgtype}. Did you forget to register it?"
                 )
-                self._unresolved_adapter_topics.update({conn.topic: topic_info})
+                self._reject(conn.topic, CommonTopicStatus.UNRESOLVED_ADAPTER)
                 continue
 
             # Adapter found, add it the the cache and add connection
@@ -451,22 +447,32 @@ class ROSLoader(BaseLoader):
         self.close()
 
 
-class MosaicoLoader(BaseLoader):
+class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
     """
-    Lazy data loader that streams messages from a Mosaico sequence.
+    Streams messages out of a Mosaico sequence and adapts them back into ROS messages.
 
-    Connects to the Mosaico server on first access, resolves the requested
-    sequence and topic filter, clips the time window to valid sequence bounds,
-    and exposes a :class:`SequenceDataStreamer` for iteration.
+    This is the ROS specialization of [`MosaicoLoader`][mosaicolabs.bridges.loader_base.MosaicoLoader]
+    and the read end of the extraction pipeline: [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]
+    iterates it and writes the results into a bag. It is the mirror image of
+    [`ROSLoader`][mosaicolabs.bridges.ros.ROSLoader], which reads a bag *into* Mosaico.
 
-    Conforms to the :class:`Loader` protocol, making it usable with
-    :class:`ProgressManager` for live progress reporting.
+    On top of the generic sequence handling it adds the two things that are specific to
+    targeting ROS:
 
-    Note: `MosaicoLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry].
+    * **Typestore registration.** A topic's `_ros_.msgdef`, recorded at ingestion time, is
+      registered into the typestore as topics are resolved, so custom messages can be
+      reconstructed without the caller having to supply their `.msg` files again.
+    * **Adapter resolution against the `_ros_` namespace**, falling back to the ontology
+      tag and finally to a synthesized `UnmodeledAdapter` — see :meth:`_resolve_topic`.
+
+    Note: `MosaicoToROSLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry].
         Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
         `.msg` registration) is the caller's responsibility — [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]
-        does this internally before constructing a `MosaicoLoader`.
+        does this internally before constructing a `MosaicoToROSLoader`.
     """
+
+    SCHEMA_METADATA = RosSchemaMetadata
+    """Topics ingested by the ROS bridge carry their bookkeeping under the `_ros_` key."""
 
     def __init__(
         self,
@@ -481,7 +487,7 @@ class MosaicoLoader(BaseLoader):
         Initializes the loader against a Mosaico sequence, using a caller-supplied
         `Typestore` or ROS distro to resolve adapters and ROS message types.
 
-        `MosaicoLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
+        `MosaicoToROSLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
         that already has any custom `.msg` definitions registered (e.g. via
         `get_typestore(ros_distro)` plus `Typestore.register(...)`, or the `Typestore`
         that `ROSSequenceExtractor` builds internally from `ROSExtractorConfig.ros_distro`/
@@ -492,11 +498,11 @@ class MosaicoLoader(BaseLoader):
             ```python
             from rosbags.typesys import Stores
             from mosaicolabs import MosaicoClient
-            from mosaicolabs.bridges.ros import MosaicoLoader
+            from mosaicolabs.bridges.ros import MosaicoToROSLoader
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Stream only IMU and GPS topics back out of a sequence
-                with MosaicoLoader(
+                with MosaicoToROSLoader(
                     m_client=client,
                     typestore_or_distro=Stores.ROS2_HUMBLE,
                     sequence_name="on_track_experiment",
@@ -512,7 +518,7 @@ class MosaicoLoader(BaseLoader):
                 already carrying custom `.msg` registrations), or a `Stores` distro to
                 resolve a fresh, empty typestore for via `get_typestore()`.
             sequence_name (str): Name of the Mosaico sequence to load.
-            topics (Optional[Union[str, List[str]]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
+            topics (Optional[List[str]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
                 exclusions). ``None`` loads all topics.
             start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
                 to the sequence minimum if out of range.
@@ -521,62 +527,109 @@ class MosaicoLoader(BaseLoader):
         """
 
         super().__init__(
-            container_type=list[str]
-        )  # Initialize the base class to set up topic resolution state
+            m_client, sequence_name, topics, start_timestamp_ns, end_timestamp_ns
+        )
 
-        self._client = m_client
-        """The MosaicoClient used to fetch sequence data and metadata."""
         self._typestore: Typestore = (
             typestore_or_distro
             if isinstance(typestore_or_distro, Typestore)
             else get_typestore(typestore_or_distro)
         )
         """The ROS typestore containing the registered ROS messages. Used for adapter resolution."""
-        self._sequence_name = sequence_name
-        """The name of the Mosaico sequence to load."""
-        self._topic_glob_pattern = topics
-        """Optional list of topic-name filter patterns (glob-style, ``!``-prefixed for exclusions)."""
-        self._start_timestamp_ns = start_timestamp_ns
-        """Lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
-        self._end_timestamp_ns = end_timestamp_ns
-        """Upper bound for the time window (nanoseconds). Clipped to the sequence maximum if out of range."""
-        self._seq_handler: Optional[SequenceHandler] = None
-        """The mosaico sequence handler, lazily initialized on first access."""
-        self._streamer: Optional[SequenceDataStreamer] = None
-        """The mosaico sequence streamer, lazily initialized on first access. Provides an iterator over the sequence messages."""
 
-        # Additional rejection buckets for Mosaico-specific reasons
-        self._unregistered_topics: list[str] = []
+    def _register_msgtype(self, msgtype: str, msgdef: Optional[str]):
+        """Registers ``msgtype`` in the typestore using ``msgdef``, unless already present."""
+        if msgtype in self._typestore.types:
+            return
+
+        if msgdef is None:
+            logger.warning(f"Failed registering {msgtype}: missing msgdef.")
+            return
+
+        add_types = get_types_from_msg(msgdef, msgtype)
+        self._typestore.register(add_types)
+
+    def _resolve_topic(
+        self, t_handler: TopicHandler
+    ) -> TopicResolution[ROSAdapterBase]:
         """
-        The topics whose message type is not present within the typestore.
-        These topics are rejected because their ROS message type cannot be deserialized without a registered schema.
+        Resolves a topic's Mosaico adapter and the ROS msgtype to write it back out as.
+
+        Three resolution strategies are tried in order, the first to succeed wins:
+
+        1. :meth:`_adapter_from_metadata_msgtype` - hand-written adapter keyed by the
+           ``msgtype`` recorded in the topic's ``_ros_`` metadata.
+        2. :meth:`_adapter_from_ontology_tag` - hand-written adapter registered as the
+           default for the topic's ontology tag (schema-fingerprint checked).
+        3. :meth:`_create_unmodeled_adapter` - fallback that synthesizes an
+           ``UnmodeledAdapter``. This always succeeds, provided ``msgtype`` is known.
+
+        Once resolved, the msgtype is registered in the typestore if it isn't already
+        present, and then required to be there — a type that can be neither recovered
+        from ``_ros_.msgdef`` nor supplied by the caller cannot be serialized, so the
+        topic is rejected rather than silently mistranslated.
+
+        Args:
+            t_handler (TopicHandler): The topic handler whose adapter should be resolved.
+
+        Returns:
+            TopicResolution[ROSAdapterBase]: The resolved ``(adapter, msgtype)`` pair, or a
+                rejection carrying one of:
+
+                * ``ROSTopicStatus.MALFORMED_METADATA`` - the ``_ros_`` block holds a field
+                  of an unexpected type.
+                * ``CommonTopicStatus.UNRESOLVED_ADAPTER`` - no strategy produced an adapter,
+                  because ``msgtype`` is unknown and the ontology is not adapted.
+                * ``ROSTopicStatus.NOT_IN_TYPESTORE`` - the msgtype is still absent from the
+                  typestore after registration was attempted.
         """
-        self._malformed_metadata_topics: list[str] = []
-        """
-        The topics whose '_ros_' metadata is malformed.
-        These topics are rejected because their metadata does not contain the required 'msgtype' or 'msgdef' fields.
-        """
-        self._topic_ros_metadata: dict[str, Any] = {}
-        """Dictionary containing a map from Mosaico accepted topics to their extracted ROS metadata (from '_ros_' field)."""
-        # self._topic_cached_adapters: dict[str, type[ROSAdapterBase]] = {}
-        # """Dictionary containing a map from Mosaico accepted topics to their resolved Mosaico adapter class."""
+
+        # Read and validate the `_ros_` block once, here, rather than in each strategy.
+        try:
+            ros_metadata = _extract_ros_metadata(t_handler)
+        except TypeError as e:
+            return TopicResolution.rejected(ROSTopicStatus.MALFORMED_METADATA, str(e))
+
+        factory_result = (
+            self._adapter_from_metadata_msgtype(ros_metadata)
+            or self._adapter_from_ontology_tag(t_handler)
+            or self._create_unmodeled_adapter(t_handler, ros_metadata)
+        )
+
+        if factory_result is None:
+            return TopicResolution.rejected(
+                CommonTopicStatus.UNRESOLVED_ADAPTER,
+                f"Unable to infer an adapter for ontology '{t_handler.ontology_tag}'.",
+            )
+
+        adapter, resolved_rosmsg_type = factory_result
+
+        # Register type within typestore (no-op if already registered)
+        self._register_msgtype(resolved_rosmsg_type, ros_metadata.get("msgdef"))
+
+        if self._typestore.types.get(resolved_rosmsg_type) is None:
+            return TopicResolution.rejected(
+                ROSTopicStatus.NOT_IN_TYPESTORE,
+                f"'{resolved_rosmsg_type}' is not present in the ROS typestore.",
+            )
+
+        return TopicResolution.accepted(adapter, resolved_rosmsg_type)
 
     def _adapter_from_metadata_msgtype(
-        self, t_handler: TopicHandler
+        self, ros_metadata: Dict[str, Any]
     ) -> Optional[Tuple[type[ROSAdapterBase], str]]:
         """
         Strategy 1: look up a hand-written adapter using the ``msgtype`` recorded
         in the topic's ``_ros_`` metadata.
 
         Args:
-            t_handler (TopicHandler): The topic handler whose ``_ros_`` metadata is read for a ``msgtype``.
+            ros_metadata (Dict[str, Any]): The topic's already-extracted ``_ros_`` block.
 
         Returns:
             Optional[Tuple[type[ROSAdapterBase], str]]: The ``(adapter, msgtype)`` pair if a hand-written
                 adapter is registered for ``msgtype``, otherwise ``None``.
         """
 
-        ros_metadata = _extract_ros_metadata(t_handler)
         msgtype: Optional[str] = ros_metadata.get("msgtype")
 
         if msgtype is None:
@@ -619,7 +672,7 @@ class MosaicoLoader(BaseLoader):
         return adapter, adapter.get_default_ros_msg()
 
     def _create_unmodeled_adapter(
-        self, t_handler: TopicHandler
+        self, t_handler: TopicHandler, ros_metadata: Dict[str, Any]
     ) -> Optional[Tuple[type[UnmodeledAdapter], str]]:
         """
         Strategy 3 (fallback): synthesize an ``UnmodeledAdapter`` for the topic's
@@ -627,16 +680,16 @@ class MosaicoLoader(BaseLoader):
         provided ``msgtype`` is known.
 
         Args:
-            t_handler (TopicHandler): The topic handler used to derive the ``msgtype`` (from its
-                ``_ros_`` metadata) and to build the unmodeled ontology (from its ontology tag,
-                Arrow schema, and serialization format).
+            t_handler (TopicHandler): The topic handler used to build the unmodeled ontology
+                (from its ontology tag, Arrow schema, and serialization format).
+            ros_metadata (Dict[str, Any]): The topic's already-extracted ``_ros_`` block,
+                read for the ``msgtype`` to key the adapter on.
 
         Returns:
             Optional[Tuple[type[UnmodeledAdapter], str]]: The ``(adapter, msgtype)`` pair,
-                otherwise ``None``.
+                or ``None`` if the ``_ros_`` block carries no ``msgtype``.
         """
 
-        ros_metadata = _extract_ros_metadata(t_handler)
         msgtype: Optional[str] = ros_metadata.get("msgtype")
 
         if msgtype is None:
@@ -655,331 +708,3 @@ class MosaicoLoader(BaseLoader):
         )
 
         return adapter, msgtype
-
-    def _register_msgtype(self, msgtype: str, msgdef: Optional[str]):
-        """Registers ``msgtype`` in the typestore using ``msgdef``, unless already present."""
-        if msgtype in self._typestore.types:
-            return
-
-        if msgdef is None:
-            logger.warning(f"Failed registering {msgtype}: missing msgdef.")
-            return
-
-        add_types = get_types_from_msg(msgdef, msgtype)
-        self._typestore.register(add_types)
-
-    def _get_or_create_adapter(
-        self, t_handler: TopicHandler
-    ) -> Tuple[type[ROSAdapterBase] | type[UnmodeledAdapter], str]:
-        """
-        Resolves a topic's Mosaico adapter and the ROS msgtype used to validate it
-        against the typestore.
-
-        Three resolution strategies are tried in order, the first to succeed wins:
-
-        1. :meth:`_adapter_from_metadata_msgtype` - hand-written adapter keyed by the
-           ``msgtype`` recorded in the topic's ``_ros_`` metadata.
-        2. :meth:`_adapter_from_ontology_tag` - hand-written adapter registered as the
-           default for the topic's ontology tag (schema-fingerprint checked).
-        3. :meth:`_create_unmodeled_adapter` - fallback that synthesizes an
-           ``UnmodeledAdapter``. This always succeeds unless ``msgtype`` is unknown,
-           in which case it raises.
-
-        Once resolved, the ``rosmsg_type`` is registered in the typestore if it
-        isn't already present.
-
-        Args:
-            t_handler (TopicHandler): The topic handler whose adapter should be resolved.
-
-        Returns:
-            Tuple[type[ROSAdapterBase] | type[UnmodeledAdapter], str]: A ``(adapter, rosmsg_type)`` pair.
-                Both are always populated: either an earlier strategy resolves both together,
-                or the final fallback does.
-
-        Raises:
-            TypeError: when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
-                metadata).
-            RuntimeError: when every hand-written-adapter strategy fails and ``msgtype`` is unknown, so
-                even the unmodeled fallback cannot be created.
-        """
-
-        factory_result = (
-            self._adapter_from_metadata_msgtype(t_handler)
-            or self._adapter_from_ontology_tag(t_handler)
-            or self._create_unmodeled_adapter(t_handler)
-        )
-
-        if factory_result is None:
-            raise RuntimeError(f"Unable to infer an adapter for {t_handler.name} topic")
-        else:
-            adapter, resolved_rosmsg_type = factory_result
-
-        # Register type within typestore (no-op if already registered)
-        msgdef = _extract_ros_metadata(t_handler).get("msgdef")
-        self._register_msgtype(resolved_rosmsg_type, msgdef)
-
-        return adapter, resolved_rosmsg_type
-
-    def _resolve_sequence(self) -> SequenceHandler:
-        """
-        Lazily initializes the sequence handler, resolved topic list, and streamer.
-
-        Called automatically on first access to any property or iterator. Performs
-        the following steps:
-
-        1. Fetches the :class:`SequenceHandler` for the configured sequence name
-           and validates it exists.
-        2. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
-           logging a warning if clipping occurs.
-        3. Applies the topic filter via :func:`_filter_from_list`.
-        4. For each matched topic, extracts its Mosaico adapter via
-           :meth:`_get_or_create_adapter`. Adapter is first looked up using
-           ``_ros_`` metadata, falling back to adapter associated to the ontology
-           tag. Afterward, msgtype is extracted from found adapter if metadata did
-           not hold this information.
-           Topics that pass all checks are accepted, together with their extracted
-           ROS metadata and adapter, cached in ``_topic_ros_metadata`` and
-           ``_topic_cached_adapters`` respectively. On the other hand, a topic may
-           be rejected because:
-            - adapter is not found
-            - malformed metadata
-            - msgtype is not present within ROS typestore
-        5. Creates the :class:`SequenceDataStreamer` over the accepted topics, to be
-           returned by :meth:`__iter__`.
-
-        """
-        if self._seq_handler is not None:
-            return self._seq_handler
-
-        # Get requested sequence + validation
-        self._seq_handler = self._client.sequence_handler(
-            sequence_name=self._sequence_name
-        )
-
-        # Check sequence exists
-        if not _validate_sequence(self._seq_handler):
-            raise (
-                ValueError(
-                    f"Your requested sequence '{self._sequence_name}' could not be found!"
-                )
-            )
-
-        # Get all topics from sequence handler
-        self._resolved_topics = self._seq_handler.topics
-
-        # Clipping requested start/end timestamp to start/end sequence timestamp if existing
-        self._start_timestamp_ns, self._end_timestamp_ns = _clip_timestamp(
-            self._start_timestamp_ns,
-            self._end_timestamp_ns,
-            self._seq_handler.timestamp_ns_min,
-            self._seq_handler.timestamp_ns_max,
-        )
-
-        matched_topics = _filter_from_list(
-            self._seq_handler.topics, self._topic_glob_pattern
-        )
-
-        # Filter topics
-        for t_name in self._seq_handler.topics:
-            # 1) Filter if topic has not been requested
-            if t_name not in matched_topics:
-                self._filtered_topics.append(t_name)
-                continue
-
-            t_handler = self._seq_handler.get_topic_handler(t_name)
-
-            # 2) Filter if Mosaico adapter cannot be deduced topic's adapter
-            try:
-                adapter, rosmsg_type = self._get_or_create_adapter(t_handler)
-            except TypeError:
-                self._malformed_metadata_topics.append(t_name)
-                logger.warning(
-                    f"Skipping topic '{t_name}': malformed metadata {t_handler.user_metadata}."
-                )
-                continue
-            except RuntimeError:
-                logger.warning(
-                    f"Skipping topic '{t_name}': not-adapted ontology '{t_handler.ontology_tag}'."
-                )
-                self._unresolved_adapter_topics.append(t_name)
-                continue
-
-            # 3) check that rosmsg_type (either from metadata or default adapter) is present within typestore
-            if self._typestore.types.get(rosmsg_type) is None:
-                logger.warning(
-                    f"Skipping topic '{t_name}': '{rosmsg_type}' not present in ROS typestore."
-                )
-                self._unregistered_topics.append(t_name)
-                continue
-
-            # Finally accept the topic and extract its ROS metadata (if any)
-            self._accepted_topics.append(t_name)
-
-            self._topic_ros_metadata.update(
-                {t_name: RosSchemaMetadata.extract(t_handler.user_metadata)}
-            )
-            self._topic_cached_adapters.update({t_name: adapter})
-
-        if not self._accepted_topics:
-            raise RuntimeError(
-                "Unable to initialize MosaicoLoader: No topic matched criteria or adapter found. Try checking the topics filter, if any."
-            )
-
-        # Resolving streamer only with accepted topics
-        self._streamer = self._seq_handler.get_data_streamer(
-            topics=self._accepted_topics,
-            start_timestamp_ns=self._start_timestamp_ns,
-            end_timestamp_ns=self._end_timestamp_ns,
-        )
-
-        return self._seq_handler
-
-    # --- Properties ---
-    def msg_count(self, topic: Optional[str] = None) -> int:
-        """
-        Returns the total number of messages for the given topic, or for all
-        resolved topics combined.
-
-        Args:
-            topic (Optional[str]): If provided, count messages for that specific topic only.
-                If ``None``, sum across all resolved topics.
-
-        Returns:
-            int: The total message count.
-        """
-        self._resolve_sequence()
-
-        if not self._streamer:
-            raise Exception(
-                "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
-            )
-
-        if topic and topic not in self.topics:
-            raise ValueError(
-                f"Topic {topic} is not among the accepted topics. Accepted topics are: {self._accepted_topics}"
-            )
-
-        topics_to_count = [topic] if topic else self._accepted_topics
-
-        total_msg_count = sum(
-            filter(
-                None,
-                (
-                    self._streamer._topic_readers[topic].msg_count
-                    for topic in topics_to_count
-                ),
-            )
-        )
-
-        return total_msg_count
-
-    @property
-    def duration(self) -> int:
-        """
-        Returns the duration of the sequence in nanoseconds.
-
-        Returns:
-            int: The duration of the sequence in nanoseconds. Returns 0 if sequence is not valid
-        """
-        s_handler = self._resolve_sequence()
-
-        if (
-            s_handler.timestamp_ns_max is not None
-            and s_handler.timestamp_ns_min is not None
-        ):
-            return s_handler.timestamp_ns_max - s_handler.timestamp_ns_min
-
-        return 0
-
-    def _ensure_resolved(self) -> None:
-        """Lazily resolves the sequence, its topics, and their adapters (see `_resolve_sequence`)."""
-        self._resolve_sequence()
-
-    def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
-        """Adds the Mosaico-specific rejection reasons on top of FILTERED/UNRESOLVED_ADAPTED."""
-        rejected: List[Tuple[str, TopicStatus]] = [
-            (t, ROSTopicStatus.NOT_IN_TYPESTORE) for t in self._unregistered_topics
-        ]
-        rejected += [
-            (t, ROSTopicStatus.MALFORMED_METADATA)
-            for t in self._malformed_metadata_topics
-        ]
-        return rejected
-
-    @property
-    def msg_types(self) -> List[str | None]:
-        """
-        Returns the Mosaico ontology type tags for each accepted topic.
-
-        Entries appear in the same order as :attr:`topics`. A ``None`` entry
-        indicates that the topic handler could not be found.
-
-        Triggers lazy initialization on first access.
-
-        Returns:
-            List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
-                or ``None`` for unresolvable topics.
-        """
-        s_handler = self._resolve_sequence()
-
-        return [
-            t_handler.ontology_tag
-            if (t_handler := s_handler.get_topic_handler(topic)) is not None
-            else None
-            for topic in self._accepted_topics
-        ]
-
-    # --- Core Logic ---
-
-    def resolve_rosmsg_type(self, topic_name: str) -> Optional[str]:
-        """
-        Returns the original ROS message type for a topic stored in Mosaico.
-
-        When a ROS bag is ingested into Mosaico, the original ROS message type
-        (e.g. ``sensor_msgs/msg/Imu``) is preserved in the topic's user metadata
-        under the ``_ros_`` key. This method retrieves that type so callers can
-        reconstruct the correct ROS schema when re-exporting or comparing data.
-
-        Args:
-            topic_name (str): The topic whose original ROS message type should be resolved.
-                Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
-
-        Returns:
-            Optional[str]: The ROS message type string (e.g. ``"sensor_msgs/msg/Imu"``) if the
-                metadata was stored at ingestion time, or ``None`` if the topic is
-                unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
-                key is missing from that block.
-        """
-        self._resolve_sequence()
-
-        return (self._topic_ros_metadata.get(topic_name) or {}).get("msgtype")
-
-    def __iter__(self):
-        self._resolve_sequence()
-
-        if not self._streamer:
-            raise Exception(
-                "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
-            )
-
-        return self._streamer
-
-    def close(self):
-        """
-        Explicitly closes the sequence handler and releases system resources.
-        """
-
-        # This handles also streamer closing
-        if self._seq_handler:
-            self._seq_handler.close()
-            self._seq_handler = None
-            self._streamer = None
-
-    def __enter__(self):
-        """Context manager support."""
-        self._resolve_sequence()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensures resources are released even if an error occurs in the `with` block."""
-        self.close()
