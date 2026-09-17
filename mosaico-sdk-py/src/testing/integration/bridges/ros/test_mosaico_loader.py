@@ -1,5 +1,4 @@
 import pyarrow as pa
-import pytest
 from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs import (
@@ -10,8 +9,9 @@ from mosaicolabs import (
     Serializable,
     SessionLevelErrorPolicy,
 )
-from mosaicolabs.bridges.ros import MosaicoLoader
+from mosaicolabs.bridges.ros import MosaicoToROSLoader
 from mosaicolabs.bridges.ros.adapters import UnmodeledAdapter
+from mosaicolabs.bridges.topic_status import ROSTopicStatus
 from mosaicolabs.models.core import resolve_ontology_class
 
 
@@ -31,10 +31,11 @@ def test_valid_msgtype(mosaico_client):
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
         # Reading topic
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
@@ -60,15 +61,19 @@ def test_invalid_msgtype(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        with pytest.raises(
-            TypeError,
-            match=f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type.",
-        ):
-            mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+
+        assert not resolution.is_accepted
+        assert resolution.status is ROSTopicStatus.MALFORMED_METADATA
+        assert (
+            f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type."
+            in resolution.detail
+        )
+        assert resolution.adapter is None
 
         mosaico_client.sequence_delete(ros_sequence_name)
 
@@ -99,11 +104,12 @@ def test_no_msgtype_fallback_to_default_adapter(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
@@ -140,14 +146,15 @@ def test_no_adapter_available(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
 
-        assert issubclass(adapter, UnmodeledAdapter)
-        assert rosmsg_type == "not_adapted_ontology"
+        assert resolution.adapter is None
+        assert resolution.native_msg_type is None
+        assert resolution.status is ROSTopicStatus.NOT_IN_TYPESTORE
 
         mosaico_client.sequence_delete(ros_sequence_name)
 
@@ -178,11 +185,12 @@ def test_not_adapted_msgtype_fallack_to_default_adapter(
 
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
@@ -247,11 +255,12 @@ def test_unmodeled_adapter(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter is not None
         assert issubclass(adapter, UnmodeledAdapter)
@@ -324,11 +333,12 @@ def test_unmodeled_adapter_with_existing_ontology_tag(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter is not None
         assert issubclass(adapter, UnmodeledAdapter)
@@ -420,11 +430,12 @@ def test_unmodeled_adapter_with_nested_msgdef(mosaico_client):
         # Reading topic
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter is not None
         assert issubclass(adapter, UnmodeledAdapter)

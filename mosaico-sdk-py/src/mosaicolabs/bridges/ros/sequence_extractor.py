@@ -29,7 +29,7 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
 from mosaicolabs.bridges.ros.adapter_base import ROSAdapterBase
-from mosaicolabs.bridges.ros.loader import MosaicoLoader
+from mosaicolabs.bridges.ros.loader import MosaicoToROSLoader
 from mosaicolabs.bridges.ros.qos import get_qos_for_topic
 from mosaicolabs.bridges.ros.registry import ROSTypeRegistry
 from mosaicolabs.bridges.ui import ProgressManager
@@ -176,7 +176,7 @@ class ROSSequenceExtractor:
 
     1. Prepares (and optionally clears) the output directory.
     2. Connects to the Mosaico server via :class:`MosaicoClient`.
-    3. Opens a :class:`MosaicoLoader` to stream messages for the configured sequence.
+    3. Opens a :class:`MosaicoToROSLoader` to stream messages for the configured sequence.
     4. For every message, looks up the appropriate :class:`ROSAdapterBase` via
        :class:`ROSBridge`, converts the payload to a native ROS type, and writes it
        to the bag.
@@ -198,7 +198,7 @@ class ROSSequenceExtractor:
         self.ignored_topics: set[str] = set()
         self.accepted_connections: dict[str, Connection] = {}
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
-        self.mosaico_loader: Optional[MosaicoLoader] = None
+        self.mosaico_loader: Optional[MosaicoToROSLoader] = None
 
         # Own a private registry by default, so this extractor's custom types can never
         # leak into another injector/extractor run in the same process. Pass the same
@@ -248,18 +248,21 @@ class ROSSequenceExtractor:
             except Exception as e:
                 logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
-    def _open_or_get_mosaicoloader(self, mclient: MosaicoClient) -> MosaicoLoader:
+    def _open_or_get_mosaicoloader(self, mclient: MosaicoClient) -> MosaicoToROSLoader:
         """
-        Returns the MosaicoLoader.
+        Returns this extractor's loader, creating it on first use.
+
+        Args:
+            mclient (MosaicoClient): The open connection the loader should read through.
 
         Returns:
-            MosaicoLoader: An instance of MosaicoLoader.
+            MosaicoToROSLoader: The cached loader for the configured sequence.
         """
 
         if self.mosaico_loader:
             return self.mosaico_loader
 
-        self.mosaico_loader = MosaicoLoader(
+        self.mosaico_loader = MosaicoToROSLoader(
             mclient,
             self.typestore,
             self.cfg.sequence_name,
@@ -374,10 +377,10 @@ class ROSSequenceExtractor:
         adapter = self.mosaico_loader.resolve_adapter(t_name)
 
         if adapter is None:
-            return  # This should not happen since MosaicoLoader should filter unsupported message types
+            return  # This should not happen since MosaicoToROSLoader should filter unsupported message types
 
         # --- Translate Check ---
-        ros_msg_type = self.mosaico_loader.resolve_rosmsg_type(t_name)
+        ros_msg_type = self.mosaico_loader.resolve_native_msg_type(t_name)
 
         ros_msg = self._encode_ros_message(adapter, ms_msg, ros_msg_type, t_name, ui)
         if ros_msg is None:
@@ -526,7 +529,7 @@ class ROSSequenceExtractor:
                 for topic in ms_loader.topics:
                     adapter = ms_loader.resolve_adapter(topic)
                     ros_msg_type = (
-                        ms_loader.resolve_rosmsg_type(topic)
+                        ms_loader.resolve_native_msg_type(topic)
                         or adapter.get_default_ros_msg()
                         if adapter
                         else None
@@ -577,7 +580,7 @@ class ROSSequenceExtractor:
 
         1. Calls :meth:`_prepare_output_path` to validate / clear the output location.
         2. Opens a :class:`MosaicoClient` connection and a bag writer.
-        3. Instantiates a :class:`MosaicoLoader` to stream the sequence messages.
+        3. Instantiates a :class:`MosaicoToROSLoader` to stream the sequence messages.
         4. For each ``(topic, message)`` pair, delegates to
            :meth:`_process_message` which translates and writes the ROS message.
 

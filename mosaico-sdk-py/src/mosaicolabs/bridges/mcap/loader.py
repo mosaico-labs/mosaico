@@ -12,7 +12,7 @@ from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ..loader_base import BaseLoader
 from ..protocols.mcap.registry import McapSchemaRegistry
-from ..topic_status import MCAPTopicStatus, TopicStatus
+from ..topic_status import CommonTopicStatus, MCAPTopicStatus
 from .adapter_base import MCAPAdapterBase
 from .bridge import MCAPBridge
 from .decoders.decoder_base import MCAPMsgDecoder
@@ -119,13 +119,6 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         """`MCAPMsgDecoder` instances resolved so far, keyed by `channel.topic` and
         scoped to this loader. Lazily populated by `_get_decoder()`."""
 
-        # Additional rejection buckets for MCAP-specific reasons
-        self._unavailable_schema_topics: dict[str, Channel] = {}
-        """Channels where there are no information about their schema. They need to be rejected"""
-
-        self._unavailable_decoder_topics: dict[str, Channel] = {}
-        """Channels that cannot be decode since their MCAPMsgDecoder has not been implemented yet. They need to be rejected"""
-
     def _get_decoder(self, channel: Channel) -> Optional[MCAPMsgDecoder]:
         """
         Returns the `MCAPMsgDecoder` associated to `channel.topic` if available, or instantiating it from
@@ -193,7 +186,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"Skipping channel {channel.topic}: not matching the provided filter."
                 )
 
-                self._filtered_topics.update({channel.topic: channel})
+                self._reject(channel.topic, CommonTopicStatus.FILTERED)
                 continue
 
             # 2) Reject channels that do not hold schema information
@@ -204,7 +197,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"{channel.topic} channel with {channel.schema_id} schema_id cannot be found among all schema ids. "
                     f"Available schema ids are {[id for id in mcap_summary.schemas.keys()]}"
                 )
-                self._unavailable_schema_topics.update({channel.topic: channel})
+                self._reject(channel.topic, MCAPTopicStatus.UNAVAILABLE_SCHEMA)
                 continue
 
             # 3) Filter topics whose message encoding has no registered decoder.
@@ -217,7 +210,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"Channel {channel.topic}: message encoding '{channel.message_encoding}' has no "
                     f"registered decoder on {type(self).__name__}. Supported: {supported}"
                 )
-                self._unavailable_decoder_topics.update({channel.topic: channel})
+                self._reject(channel.topic, MCAPTopicStatus.UNRESOLVED_DECODER)
                 continue
             decoder.register_schema(schema)
 
@@ -228,7 +221,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 logger.warning(
                     f"Channel {channel.topic}: unresolved Adapted for mcap type {(schema.name, schema.encoding)}. Did you forget to register it?"
                 )
-                self._unresolved_adapter_topics.update({channel.topic: channel})
+                self._reject(channel.topic, CommonTopicStatus.UNRESOLVED_ADAPTER)
                 continue
 
             # Adapter found, add it the the cache and add to accepted topics
@@ -358,27 +351,6 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         )
 
         return adapter
-
-    def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
-        """Reports channels rejected by the `_resolve_channels()` decoder gate (their
-        `channel.message_encoding` has no registered `MCAPMsgDecoder`), on top of the
-        FILTERED/UNRESOLVED_ADAPTER buckets `BaseLoader.rejected_topics` already covers."""
-
-        # Channels with unavailable schema
-        rejected: List[Tuple[str, TopicStatus]] = [
-            (topic, MCAPTopicStatus.UNAVAILABLE_SCHEMA)
-            for topic in self._unavailable_schema_topics.keys()
-        ]
-
-        # Channels with unresolved decoder
-        rejected.extend(
-            [
-                (topic, MCAPTopicStatus.UNRESOLVED_DECODER)
-                for topic in self._unavailable_decoder_topics.keys()
-            ]
-        )
-
-        return rejected
 
     def _get_mcap_summary(self, mcap_file: MCAPFile) -> Summary:
         """
