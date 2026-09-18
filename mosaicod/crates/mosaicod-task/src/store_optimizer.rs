@@ -33,8 +33,9 @@ use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::GreedyMemoryPool;
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use futures::StreamExt;
+use mosaicod_config::params as config_params;
 use mosaicod_core::{
-    self as core, error::PublicResult as Result, params, traits::AsyncWriteToPath, types,
+    self as core, constants, error::PublicResult as Result, traits::AsyncWriteToPath, types,
 };
 use mosaicod_db as db;
 use mosaicod_facade as facade;
@@ -208,7 +209,9 @@ impl StoreOptimizer {
         let mut builder =
             RuntimeEnvBuilder::new().with_object_store_registry(self.store.registry());
 
-        let memory_pool_size = params::params().store_optimizer_memory_pool_size.value;
+        let memory_pool_size = config_params::params()
+            .store_optimizer_memory_pool_size
+            .value;
         if memory_pool_size != 0 {
             builder = builder
                 .with_memory_pool(Arc::new(GreedyMemoryPool::new(memory_pool_size)))
@@ -266,7 +269,7 @@ impl StoreOptimizer {
         // guarantees that the new larger files are neatly segmented by time.
         let sorted_df = df
             .sort(vec![
-                df::logical_expr::col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+                df::logical_expr::col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
                     .sort(true, false),
             ])
             .map_err(df_to_internal_error)?;

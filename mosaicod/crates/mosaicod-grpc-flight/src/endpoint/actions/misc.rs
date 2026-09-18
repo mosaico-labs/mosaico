@@ -1,4 +1,4 @@
-use mosaicod_core::params;
+use mosaicod_config::params;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{ActionResponse, ServerConfig, ServerInfo};
 use tracing::info as log_info;
@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_server_info() {
         // `info` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params_from_env(params::ParamsLoadOptions::testing());
+        let _ = params::load_params(params::ParamsLoadOptions::testing());
 
         if let ActionResponse::Info(v) = info().unwrap() {
             println!("server info: {:?}", v);

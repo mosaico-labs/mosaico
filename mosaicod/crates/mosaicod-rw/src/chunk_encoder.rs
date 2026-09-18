@@ -144,7 +144,8 @@ mod tests {
     };
     use arrow::datatypes::Field;
     use arrow_schema::DataType;
-    use mosaicod_core::params;
+    use mosaicod_config::params as config_params;
+    use mosaicod_core::constants;
 
     /// Helper function to create a test RecordBatch.
     /// This provides a schema with numeric, string, and nested struct types,
@@ -200,7 +201,7 @@ mod tests {
 
     #[test]
     fn chunk_writer_statistics() {
-        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
 
         let batch = create_test_batch();
         let schema = batch.schema();
@@ -249,8 +250,8 @@ mod tests {
 
         // Check stats for "pose.x"
         if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.x") {
-            assert!((s.min - 0.1).abs() < params::EPSILON);
-            assert!((s.max - 0.3).abs() < params::EPSILON);
+            assert!((s.min - 0.1).abs() < constants::EPSILON);
+            assert!((s.max - 0.3).abs() < constants::EPSILON);
             assert!(!s.has_null);
             assert!(!s.has_nan);
         } else {
@@ -259,8 +260,8 @@ mod tests {
 
         // Check stats for "pose.y"
         if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.y") {
-            assert!((s.min - 1.1).abs() < params::EPSILON);
-            assert!((s.max - 1.3).abs() < params::EPSILON);
+            assert!((s.min - 1.1).abs() < constants::EPSILON);
+            assert!((s.max - 1.3).abs() < constants::EPSILON);
             assert!(!s.has_null);
             assert!(!s.has_nan);
         } else {

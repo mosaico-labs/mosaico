@@ -1,6 +1,6 @@
 ---
 title: TLS
-sidebar_position: 11
+sidebar_position: 4
 description: "How to enable and configure TLS on mosaicod. Covers certificate and private key file setup, environment variable configuration, self-signed certificate generation, and client verification modes."
 ---
 

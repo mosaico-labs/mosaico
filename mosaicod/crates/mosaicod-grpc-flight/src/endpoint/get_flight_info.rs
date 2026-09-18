@@ -3,9 +3,8 @@ use arrow_flight::{
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use mosaicod_core::{
-    self as core,
+    self as core, constants,
     error::BoxPublicError,
-    params,
     types::{self},
 };
 use mosaicod_facade as facade;
@@ -77,7 +76,7 @@ async fn sequence_flight_info(
             let topic_endpoint = build_topic_endpoint(topic_info, timestamp_range).await?;
             Ok::<FlightEndpoint, BoxPublicError>(topic_endpoint)
         })
-        .buffer_unordered(params::MAX_BUFFERED_FUTURES)
+        .buffer_unordered(constants::MAX_BUFFERED_FUTURES)
         .try_collect::<Vec<FlightEndpoint>>()
         .await?;
 

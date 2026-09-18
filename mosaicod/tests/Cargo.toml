@@ -8,6 +8,7 @@ license.workspace = true
 
 
 [dependencies]
+mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
