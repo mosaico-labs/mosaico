@@ -1,5 +1,5 @@
-use super::Error;
 use super::JsonMetadataBlob;
+use super::{Error, TimestampRange};
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
 use mosaicod_core::types::{SessionMetadata, TopicLocator};
@@ -268,44 +268,18 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 // TOPIC APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TopicAppMetadataTimestamp {
-    /// First timestamp observed in the topic
-    pub start_ns: i64,
-    /// Last timestamp observed in the topic
-    pub end_ns: i64,
-}
-
-impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
-    fn from(value: types::TimestampRange) -> Self {
-        Self {
-            start_ns: value.start.as_i64(),
-            end_ns: value.end.as_i64(),
-        }
-    }
-}
-
-impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
-    fn from(value: TopicAppMetadataTimestamp) -> Self {
-        Self {
-            start: value.start_ns.into(),
-            end: value.end_ns.into(),
-        }
-    }
-}
-
 /// Topic information for the time window specified in the request.
 #[derive(Serialize, Deserialize)]
 pub struct TopicAppMetadataTimeWindow {
     // First and last timestamps. It's None if the topic has no data.
-    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub interval: Option<TimestampRange>,
     pub row_count: u64,
 }
 
 /// Topic information regarding the whole topic.
 #[derive(Serialize, Deserialize)]
 pub struct TopicAppMetadataDataInfo {
-    pub interval: Option<TopicAppMetadataTimestamp>,
+    pub interval: Option<TimestampRange>,
     pub total_row_count: u64,
     pub total_bytes: u64,
     pub total_chunks_count: u64,
@@ -372,76 +346,6 @@ impl TryFrom<bytes::Bytes> for TopicAppMetadata {
     fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
         serde_json::from_slice(value.as_ref())
             .map_err(|e| Error::DeserializationError(e.to_string()))
-    }
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// Filter
-// ////////////////////////////////////////////////////////////////////////////
-#[derive(Serialize, Deserialize, Debug)]
-pub struct FilterTimestampRange {
-    /// Lower bound of the window: messages with timestamp less than start_ns are ignored.
-    start_ns: u64,
-    /// Upper bound of the window: messages with timestamp greater than end_ns are ignored.
-    end_ns: u64,
-}
-
-impl FilterTimestampRange {
-    pub fn validate(&self) -> Result<(), mosaicod_core::Error> {
-        if self.start_ns >= self.end_ns {
-            return Err(mosaicod_core::Error::bad_request(format!(
-                "invalid timestamp range: start_ns ({}) must be < end_ns ({})",
-                self.start_ns, self.end_ns
-            )));
-        }
-
-        Ok(())
-    }
-}
-
-impl TryFrom<types::TimestampRange> for FilterTimestampRange {
-    type Error = mosaicod_core::Error;
-
-    fn try_from(value: types::TimestampRange) -> Result<Self, Self::Error> {
-        let start_ns = if value.start.is_unbounded_neg() {
-            0
-        } else {
-            u64::try_from(value.start.as_i64()).map_err(|_| {
-                mosaicod_core::Error::bad_request(format!(
-                    "negative start timestamp not allowed: {}",
-                    value.start
-                ))
-            })?
-        };
-
-        let end_ns = if value.end.is_unbounded_pos() {
-            u64::MAX
-        } else {
-            u64::try_from(value.end.as_i64()).map_err(|_| {
-                mosaicod_core::Error::bad_request(format!(
-                    "negative end timestamp not allowed: {}",
-                    value.end
-                ))
-            })?
-        };
-
-        Ok(Self { start_ns, end_ns })
-    }
-}
-
-impl From<&FilterTimestampRange> for types::TimestampRange {
-    fn from(value: &FilterTimestampRange) -> Self {
-        let start = if value.start_ns == 0 {
-            types::Timestamp::unbounded_neg()
-        } else {
-            types::Timestamp::from(value.start_ns as i64)
-        };
-        let end = if value.end_ns == u64::MAX {
-            types::Timestamp::unbounded_pos()
-        } else {
-            types::Timestamp::from(value.end_ns as i64)
-        };
-        types::TimestampRange::between(start, end)
     }
 }
 

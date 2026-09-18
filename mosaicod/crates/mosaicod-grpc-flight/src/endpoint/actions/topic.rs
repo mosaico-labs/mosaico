@@ -12,10 +12,7 @@ use mosaicod_core::{
 use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::{
-    self as marshal, ActionResponse, ClusterTimestampRange, Ontology, flight::FilterTimestampRange,
-    requests, responses,
-};
+use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests, responses};
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -172,7 +169,7 @@ pub async fn filter_clusterize(
     locator: String,
     clustering_dt_ns: u64,
     ontology: Ontology,
-    timestamp_range: Option<FilterTimestampRange>,
+    timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<DoActionStream> {
     info!("filter clusterize for {}", locator);
 
@@ -195,8 +192,14 @@ async fn spawn_cluster_stream(
     locator: String,
     clustering_dt_ns: u64,
     ontology: Ontology,
-    timestamp_range: Option<FilterTimestampRange>,
+    timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<ReceiverStream<ClusteringResult>> {
+    if let Some(ts_range) = &timestamp_range
+        && ts_range.is_empty()
+    {
+        Err(core::Error::bad_timestamp_range(*ts_range))?;
+    }
+
     // Check at least one ontology filter is present
     if ontology.is_empty() {
         Err(core::Error::bad_request(format!(
@@ -204,15 +207,6 @@ async fn spawn_cluster_stream(
             ontology.len()
         )))?;
     }
-
-    // Validation and conversion to TimestampRange
-    let ts: Option<types::TimestampRange> = match timestamp_range.as_ref() {
-        Some(ftr) => {
-            ftr.validate()?;
-            Some(ftr.into())
-        }
-        None => None,
-    };
 
     // Check clustering_dt_ns
     let dt_ns = if clustering_dt_ns == 0 {
@@ -226,8 +220,8 @@ async fn spawn_cluster_stream(
     let timestamp_column = core::constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
     let ontology_filter = ontology.try_into()?;
 
-    // RecordBatch stram filtered by timestamp if any and ontology
-    let batch_stream = query_by_timestamp(ctx, &topic_locator, ts, ontology_filter)
+    // RecordBatch stream filtered by timestamp if any and ontology
+    let batch_stream = query_by_timestamp(ctx, &topic_locator, timestamp_range, ontology_filter)
         .await?
         .map(|item| item.map_err(|e| ArrowError::ExternalError(Box::new(e))));
 
@@ -261,10 +255,7 @@ where
     F: FnOnce(responses::TopicFilterClusterize) -> ActionResponse,
 {
     let res = responses::TopicFilterClusterize {
-        ts: ClusterTimestampRange {
-            start_ns: cluster.start_ns,
-            end_ns: cluster.end_ns,
-        },
+        ts: cluster.timestamp_range.into(),
         id: cluster.id,
     };
 
@@ -318,7 +309,7 @@ pub async fn filter_intersect(
             tfc.locator,
             tfc.clustering_dt_ns,
             tfc.ontology,
-            tfc.timestamp_range,
+            tfc.timestamp_range.map(Into::into),
         )
         .await?;
         receivers.push(rx);
@@ -377,22 +368,27 @@ async fn intersect_cluster_streams(
             break;
         }
 
-        let mut max_start = u64::MIN;
-        let mut min_end = u64::MAX;
+        let mut max_start = i64::MIN;
+        let mut min_end = i64::MAX;
         let mut idx = 0;
 
         for (i, c) in current_cluster.iter().enumerate() {
-            if min_end > c.end_ns {
-                min_end = c.end_ns;
+            if min_end > c.timestamp_range.end.as_i64() {
+                min_end = c.timestamp_range.end.as_i64();
                 idx = i;
             }
 
-            if max_start < c.start_ns {
-                max_start = c.start_ns;
+            if max_start < c.timestamp_range.start.as_i64() {
+                max_start = c.timestamp_range.start.as_i64();
             }
         }
 
-        if max_start <= min_end.saturating_add(intersect_dt_ns) {
+        let start_le_end_plus_dt = match min_end.checked_add_unsigned(intersect_dt_ns) {
+            Some(sum) => max_start <= sum,
+            None => true,
+        };
+
+        if start_le_end_plus_dt {
             let (start_ns, end_ns) = if max_start <= min_end {
                 (max_start, min_end)
             } else {
@@ -402,12 +398,14 @@ async fn intersect_cluster_streams(
                 // floor and produce start_ns > end_ns when gap == intersect_dt_ns.
                 let lo = intersect_dt_ns / 2;
                 let hi = intersect_dt_ns - lo;
-                (max_start.saturating_sub(lo), min_end.saturating_add(hi))
+                (
+                    max_start.saturating_sub_unsigned(lo),
+                    min_end.saturating_add_unsigned(hi),
+                )
             };
             out.send(Ok(Cluster {
-                start_ns,
-                end_ns,
                 id: cluster_id,
+                timestamp_range: types::TimestampRange::between(start_ns.into(), end_ns.into()),
             }))
             .await
             .map_err(|_| ClusteringError::ChannelClosed)?;

@@ -1,6 +1,7 @@
 //! This module defines the formatting structure for
 //! responses.
 
+use crate::TimestampRange;
 use mosaicod_core::types::{self, Locator};
 use semver;
 use serde::{Deserialize, Serialize};
@@ -119,18 +120,11 @@ impl From<types::SequenceTopicGroupSet> for Query {
 // Clustering
 // ####
 
-/// Timestamp range of a cluster, in nanoseconds.
-#[derive(Serialize, Debug)]
-pub struct ClusterTimestampRange {
-    pub start_ns: u64,
-    pub end_ns: u64,
-}
-
 /// Single JSONL record emitted as response to a TopicFilterClusterize request:
 /// one cluster per line, identified by a progressive `id` and bounded by ts.
 #[derive(Serialize, Debug)]
 pub struct TopicFilterClusterize {
-    pub ts: ClusterTimestampRange,
+    pub ts: TimestampRange,
     pub id: u64,
 }
 

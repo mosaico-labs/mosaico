@@ -218,7 +218,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     let info = actions::get_flight_info(
         &mut client,
         topic_name,
-        Some(types::TimestampRange::between(10100.into(), 10100.into())),
+        Some(types::TimestampRange::between(10100.into(), 10101.into())),
     )
     .await
     .unwrap();

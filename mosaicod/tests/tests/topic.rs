@@ -3,7 +3,7 @@ use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_ext::arrow::testing::clustering_test_batch;
-use mosaicod_marshal::{self as marshal, Ontology, flight::FilterTimestampRange};
+use mosaicod_marshal::{self as marshal, Ontology};
 use serde_json::json;
 use tests::{self, actions, common};
 // ===========================================================================
@@ -1193,7 +1193,7 @@ async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::Datab
 
     setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
 
-    let ts_range: FilterTimestampRange = serde_json::from_value(json!({
+    let ts_range: marshal::TimestampRange = serde_json::from_value(json!({
         "start_ns": 500u64, "end_ns": 1_500u64
     }))
     .unwrap();
@@ -1300,7 +1300,7 @@ async fn test_topic_filter_clusterize_gap_equals_dt(pool: sqlx::Pool<db::Databas
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_topic_filter_clusterize_wrong_timestamp(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -1314,7 +1314,26 @@ async fn test_topic_filter_clusterize_wrong_timestamp(pool: sqlx::Pool<db::Datab
     }))
     .unwrap();
 
-    let timestamp: FilterTimestampRange = serde_json::from_value(json!({
+    // Start == End
+    let timestamp: marshal::TimestampRange = serde_json::from_value(json!({
+        "start_ns": 10000, "end_ns": 10000
+    }))
+    .unwrap();
+
+    let res = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        clustering_dt_ns,
+        ontology.clone(),
+        Some(timestamp),
+    )
+    .await;
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+
+    // Start > End
+    let timestamp: marshal::TimestampRange = serde_json::from_value(json!({
         "start_ns": 10000, "end_ns": 3000
     }))
     .unwrap();
