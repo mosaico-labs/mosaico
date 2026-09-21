@@ -19,3 +19,6 @@ mod cli;
 pub use cli::*;
 
 pub mod flight;
+
+mod time;
+pub use time::*;

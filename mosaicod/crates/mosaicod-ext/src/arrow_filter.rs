@@ -3,6 +3,7 @@ use arrow::datatypes::Int64Type;
 use arrow::error::ArrowError;
 use arrow::record_batch::RecordBatch;
 use futures::{Stream, StreamExt};
+use mosaicod_core::types;
 use thiserror::Error;
 use tokio::sync::mpsc;
 
@@ -45,9 +46,8 @@ impl ClusteringError {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cluster {
-    pub start_ns: u64,
-    pub end_ns: u64,
     pub id: u64,
+    pub timestamp_range: types::TimestampRange,
 }
 
 /// Sends a clustering error through the output channel.
@@ -99,7 +99,7 @@ where
     S: Stream<Item = Result<RecordBatch, ArrowError>> + Unpin,
 {
     let mut current: Option<Cluster> = None;
-    let mut prev_ts: Option<u64> = None;
+    let mut prev_ts: Option<i64> = None;
     let mut id: u64 = 0;
 
     if clustering_dt_ns == 0 {
@@ -125,14 +125,14 @@ where
             match (current.as_mut(), prev_ts) {
                 (None, _) => {
                     current = Some(Cluster {
-                        start_ns: t,
-                        end_ns: t,
+                        timestamp_range: types::TimestampRange::between(t.into(), t.into()),
                         id,
                     });
                 }
                 (Some(curr), Some(prev)) => {
-                    if (t - prev) <= clustering_dt_ns {
-                        curr.end_ns = t;
+                    debug_assert!(t >= prev);
+                    if t.abs_diff(prev) <= clustering_dt_ns {
+                        curr.timestamp_range.end = t.into();
                     } else {
                         out.send(Ok(*curr))
                             .await
@@ -140,8 +140,7 @@ where
                         id += 1;
                         // t is the first point of the next cluster, not just the gap-closing one
                         current = Some(Cluster {
-                            start_ns: t,
-                            end_ns: t,
+                            timestamp_range: types::TimestampRange::between(t.into(), t.into()),
                             id,
                         });
                     }
@@ -165,7 +164,7 @@ where
 fn extract_timestamps<'a>(
     batch: &'a RecordBatch,
     column: &str,
-) -> Result<&'a [u64], ClusteringError> {
+) -> Result<&'a [i64], ClusteringError> {
     let timestamp_array = batch
         .column_by_name(column)
         .ok_or_else(|| ClusteringError::ColumnNotFound(column.to_string()))?;
@@ -180,21 +179,7 @@ fn extract_timestamps<'a>(
         .unwrap()
         .values();
 
-    // SAFETY: reinterpreting &[i64] as &[u64] is sound here because:
-    //   - i64 and u64 have the same size (8 bytes) and alignment, so the
-    //     pointer cast preserves the memory layout of the slice;
-    //   - the timestamp column is enforced to be Int64 at ingest time
-    //     (do_put session), so we never reach this code with a different type;
-    //   - timestamps represent nanoseconds since the Unix epoch and are always
-    //     non-negative, hence every value fits in the positive range of i64
-    //     and maps one-to-one to u64 without any change in numeric meaning;
-    let ts: &[u64] = unsafe {
-        std::slice::from_raw_parts(
-            timestamp_array.as_ptr() as *const u64,
-            timestamp_array.len(),
-        )
-    };
-    Ok(ts)
+    Ok(timestamp_array)
 }
 
 #[cfg(test)]
@@ -207,10 +192,9 @@ mod tests {
     use futures::stream;
     use std::sync::Arc;
 
-    fn batch(ts: &[u64]) -> RecordBatch {
+    fn batch(ts: &[i64]) -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![Field::new("ts", DataType::Int64, false)]));
-        let ts: Vec<i64> = ts.iter().map(|&v| v as i64).collect();
-        let array = Int64Array::from(ts);
+        let array = Int64Array::from(ts.to_vec());
         RecordBatch::try_new(schema, vec![Arc::new(array)]).unwrap()
     }
 
@@ -282,8 +266,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 11,
+                timestamp_range: types::TimestampRange::between(10.into(), 11.into()),
                 id: 0
             }]
         );
@@ -295,8 +278,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 42,
-                end_ns: 42,
+                timestamp_range: types::TimestampRange::between(42.into(), 42.into()),
                 id: 0
             }]
         );
@@ -308,8 +290,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 14,
+                timestamp_range: types::TimestampRange::between(10.into(), 14.into()),
                 id: 0
             }]
         );
@@ -322,18 +303,15 @@ mod tests {
             clusters,
             vec![
                 Cluster {
-                    start_ns: 10,
-                    end_ns: 10,
+                    timestamp_range: types::TimestampRange::between(10.into(), 10.into()),
                     id: 0
                 },
                 Cluster {
-                    start_ns: 100,
-                    end_ns: 100,
+                    timestamp_range: types::TimestampRange::between(100.into(), 100.into()),
                     id: 1
                 },
                 Cluster {
-                    start_ns: 1_000,
-                    end_ns: 1_000,
+                    timestamp_range: types::TimestampRange::between(1_000.into(), 1_000.into()),
                     id: 2
                 },
             ]
@@ -347,13 +325,11 @@ mod tests {
             clusters,
             vec![
                 Cluster {
-                    start_ns: 0,
-                    end_ns: 6,
+                    timestamp_range: types::TimestampRange::between(0.into(), 6.into()),
                     id: 0
                 },
                 Cluster {
-                    start_ns: 106,
-                    end_ns: 112,
+                    timestamp_range: types::TimestampRange::between(106.into(), 112.into()),
                     id: 1
                 },
             ]
@@ -366,8 +342,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 13,
+                timestamp_range: types::TimestampRange::between(10.into(), 13.into()),
                 id: 0
             }]
         );
@@ -380,13 +355,11 @@ mod tests {
             clusters,
             vec![
                 Cluster {
-                    start_ns: 10,
-                    end_ns: 11,
+                    timestamp_range: types::TimestampRange::between(10.into(), 11.into()),
                     id: 0
                 },
                 Cluster {
-                    start_ns: 200,
-                    end_ns: 201,
+                    timestamp_range: types::TimestampRange::between(200.into(), 201.into()),
                     id: 1
                 },
             ]
@@ -400,13 +373,11 @@ mod tests {
             clusters,
             vec![
                 Cluster {
-                    start_ns: 10,
-                    end_ns: 11,
+                    timestamp_range: types::TimestampRange::between(10.into(), 11.into()),
                     id: 0
                 },
                 Cluster {
-                    start_ns: 100,
-                    end_ns: 101,
+                    timestamp_range: types::TimestampRange::between(100.into(), 101.into()),
                     id: 1
                 },
             ]
@@ -419,8 +390,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 20,
+                timestamp_range: types::TimestampRange::between(10.into(), 20.into()),
                 id: 0
             }]
         );
@@ -433,13 +403,11 @@ mod tests {
             clusters,
             vec![
                 Cluster {
-                    start_ns: 10,
-                    end_ns: 10,
+                    timestamp_range: types::TimestampRange::between(10.into(), 10.into()),
                     id: 0
                 },
                 Cluster {
-                    start_ns: 16,
-                    end_ns: 16,
+                    timestamp_range: types::TimestampRange::between(16.into(), 16.into()),
                     id: 1
                 },
             ]
@@ -452,8 +420,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 30,
+                timestamp_range: types::TimestampRange::between(10.into(), 30.into()),
                 id: 0
             }]
         );
@@ -497,8 +464,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 17,
+                timestamp_range: types::TimestampRange::between(10.into(), 17.into()),
                 id: 0
             }]
         );
@@ -510,8 +476,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 13,
+                timestamp_range: types::TimestampRange::between(10.into(), 13.into()),
                 id: 0
             }]
         );
@@ -533,8 +498,7 @@ mod tests {
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 10,
-                end_ns: 11,
+                timestamp_range: types::TimestampRange::between(10.into(), 11.into()),
                 id: 0
             }]
         );
@@ -585,13 +549,12 @@ mod tests {
             .expect("clustering failed");
 
         assert_eq!(got.len(), 8);
-        for (i, c) in got.iter().enumerate() {
-            let ts = (i as u64) * 100;
+        for (i, c) in (0u32..).zip(got.iter()) {
+            let ts = (i * 100) as i64;
             assert_eq!(
                 *c.as_ref().unwrap(),
                 Cluster {
-                    start_ns: ts,
-                    end_ns: ts,
+                    timestamp_range: types::TimestampRange::between(ts.into(), ts.into()),
                     id: i as u64,
                 }
             );
@@ -600,13 +563,12 @@ mod tests {
 
     #[tokio::test]
     async fn timestamps_near_u64_max_do_not_overflow() {
-        let near_max = u64::MAX - 10;
-        let clusters = run(vec![batch(&[near_max, u64::MAX - 5, u64::MAX])], 100).await;
+        let near_max = i64::MAX - 10;
+        let clusters = run(vec![batch(&[near_max, i64::MAX - 5, i64::MAX])], 100).await;
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: near_max,
-                end_ns: u64::MAX,
+                timestamp_range: types::TimestampRange::between(near_max.into(), i64::MAX.into()),
                 id: 0
             }]
         );
@@ -614,12 +576,11 @@ mod tests {
 
     #[tokio::test]
     async fn max_threshold_collapses_everything_into_one_cluster() {
-        let clusters = run(vec![batch(&[0, u64::MAX / 2, u64::MAX])], u64::MAX).await;
+        let clusters = run(vec![batch(&[0, i64::MAX / 2, i64::MAX])], u64::MAX).await;
         assert_eq!(
             clusters,
             vec![Cluster {
-                start_ns: 0,
-                end_ns: u64::MAX,
+                timestamp_range: types::TimestampRange::between(0.into(), i64::MAX.into()),
                 id: 0
             }]
         );
@@ -627,14 +588,14 @@ mod tests {
 
     #[tokio::test]
     async fn many_singleton_clusters_have_sequential_ids() {
-        let ts: Vec<u64> = (0..1_000).map(|i| i * 1_000).collect();
+        let ts: Vec<i64> = (0..1_000).map(|i| i * 1_000).collect();
         let clusters = run(vec![batch(&ts)], 5).await;
 
         assert_eq!(clusters.len(), 1_000);
-        for (i, c) in clusters.iter().enumerate() {
+        for (i, c) in (0u32..).zip(clusters.iter()) {
             assert_eq!(c.id, i as u64);
-            assert_eq!(c.start_ns, c.end_ns);
-            assert_eq!(c.start_ns, (i as u64) * 1_000);
+            assert_eq!(c.timestamp_range.start, c.timestamp_range.end);
+            assert_eq!(c.timestamp_range.start.as_i64(), (i * 1_000) as i64);
         }
     }
 
@@ -656,8 +617,7 @@ mod tests {
         assert_eq!(
             items[0].as_ref().unwrap(),
             &Cluster {
-                start_ns: 1,
-                end_ns: 1,
+                timestamp_range: types::TimestampRange::between(1.into(), 1.into()),
                 id: 0
             }
         );

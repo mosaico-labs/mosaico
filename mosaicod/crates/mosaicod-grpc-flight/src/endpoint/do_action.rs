@@ -97,7 +97,7 @@ pub async fn do_action(
                 data.params.locator,
                 data.params.clustering_dt_ns,
                 data.params.ontology,
-                data.params.timestamp_range,
+                data.params.timestamp_range.map(Into::into),
             )
             .await
         }

@@ -1,7 +1,7 @@
 use super::ActionError;
 use crate::Format;
 use crate::Ontology;
-use crate::flight::FilterTimestampRange;
+use crate::TimestampRange;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -53,7 +53,8 @@ pub struct TopicClusterizeParams {
     pub locator: String,
     pub clustering_dt_ns: u64,
     pub ontology: Ontology,
-    pub timestamp_range: Option<FilterTimestampRange>,
+    /// Time window: messages with timestamp < start_ns or >= end_ns are ignored.
+    pub timestamp_range: Option<TimestampRange>,
 }
 
 /// Filters a topic by ontology and timestamp range,
