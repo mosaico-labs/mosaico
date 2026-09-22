@@ -1,352 +1,290 @@
-use super::JsonMetadataBlob;
-use super::{Error, TimestampRange};
-use bincode::{Decode, Encode};
+use super::{Error, JsonMetadataBlob, metadata};
 use mosaicod_core::types;
-use mosaicod_core::types::{SessionMetadata, TopicLocator};
-use serde::{Deserialize, Serialize};
+use mosaicod_core::types::TopicLocator;
+use mosaicod_proto::v1::flight as proto_flight;
+use prost::Message;
+
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Non-exported type for deserialize [`GetFlightInfoCmd`]
-#[derive(Deserialize)]
-struct GetFlightInfoCmd {
-    resource_locator: String,
-    timestamp_ns_start: Option<i64>,
-    timestamp_ns_end: Option<i64>,
-}
-
-impl From<GetFlightInfoCmd> for types::flight::GetFlightInfoCmd {
-    fn from(value: GetFlightInfoCmd) -> Self {
-        let up = value
-            .timestamp_ns_end
-            .map_or_else(types::Timestamp::unbounded_pos, |e| e.into());
-
-        let lb = value
-            .timestamp_ns_start
-            .map_or_else(types::Timestamp::unbounded_neg, |e| e.into());
-
-        let mut ts_range: Option<types::TimestampRange> = None;
-        if !lb.is_unbounded() || !up.is_unbounded() {
-            ts_range = Some(types::TimestampRange::between(lb, up));
-        }
-
-        types::flight::GetFlightInfoCmd {
-            resource_locator: value.resource_locator,
-            timestamp_range: ts_range,
-        }
-    }
-}
-
-/// Convert a raw flight command into a [`GetFlightInfoCmd`]
+/// Convert a raw flight command into a [`types::flight::GetFlightInfoCmd`]
 pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, super::Error> {
-    serde_json::from_slice::<GetFlightInfoCmd>(v)
-        .map_err(|e| super::Error::DeserializationError(e.to_string()))
-        .map(|v| v.into())
+    let cmd = proto_flight::GetFlightInfoCmd::decode(v)
+        .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
+
+    let lb = cmd
+        .timestamp_ns_start
+        .map_or_else(types::Timestamp::unbounded_neg, |e| e.into());
+    let up = cmd
+        .timestamp_ns_end
+        .map_or_else(types::Timestamp::unbounded_pos, |e| e.into());
+
+    let mut ts_range: Option<types::TimestampRange> = None;
+    if !lb.is_unbounded() || !up.is_unbounded() {
+        ts_range = Some(types::TimestampRange::between(lb, up));
+    }
+
+    Ok(types::flight::GetFlightInfoCmd {
+        resource_locator: cmd.resource_locator,
+        timestamp_range: ts_range,
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // GET SCHEMA CMD
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Non-exported type for deserialize [`GetSchemaCmd`]
-#[derive(Deserialize)]
-struct GetSchemaCmd {
-    resource_locator: String,
-}
-
-impl From<GetSchemaCmd> for types::flight::GetSchemaCmd {
-    fn from(value: GetSchemaCmd) -> Self {
-        types::flight::GetSchemaCmd {
-            resource_locator: value.resource_locator,
-        }
-    }
-}
-
-/// Convert a raw flight command into a [`GetSchemaCmd`]
+/// Convert a raw flight command into a [`types::flight::GetSchemaCmd`]
 pub fn get_schema_cmd(v: &[u8]) -> Result<types::flight::GetSchemaCmd, super::Error> {
-    serde_json::from_slice::<GetSchemaCmd>(v)
-        .map_err(|e| super::Error::DeserializationError(e.to_string()))
-        .map(|v| v.into())
+    let cmd = proto_flight::GetSchemaCmd::decode(v)
+        .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
+
+    Ok(types::flight::GetSchemaCmd {
+        resource_locator: cmd.resource_locator,
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // DO PUT
 // ////////////////////////////////////////////////////////////////////////////
-#[derive(Deserialize)]
-struct DoPutCmd {
-    resource_locator: String,
-    topic_uuid: String,
-}
-
-impl From<DoPutCmd> for types::flight::DoPutCmd {
-    fn from(value: DoPutCmd) -> Self {
-        types::flight::DoPutCmd {
-            resource_locator: value.resource_locator,
-            key: value.topic_uuid,
-        }
-    }
-}
 
 pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
-    serde_json::from_slice::<DoPutCmd>(v)
-        .map_err(|e| super::Error::DeserializationError(e.to_string()))
-        .map(|v| v.into())
+    let cmd = proto_flight::DoPutCmd::decode(v)
+        .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
+
+    Ok(types::flight::DoPutCmd {
+        resource_locator: cmd.resource_locator,
+        key: cmd.topic_uuid,
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // SEQUENCE APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Sequence app metadata sent when requesting flight info topics and sequences flights
-#[derive(Serialize, Deserialize)]
-pub struct SequenceAppMetadata {
-    created_at_ns: i64,
-    resource_locator: String,
-    sessions: Vec<SessionAppMetadata>,
-    user_metadata: Option<JsonMetadataBlob>,
+pub fn sequence_metadata_to_bytes(
+    value: types::SequenceMetadata<JsonMetadataBlob>,
+) -> Result<Vec<u8>, Error> {
+    Ok(proto_flight::SequenceAppMetadata {
+        created_at_ns: value.created_at.as_i64(),
+        resource_locator: value.resource_locator.to_string(),
+        sessions: value
+            .sessions
+            .into_iter()
+            .map(session_metadata_to_proto)
+            .collect(),
+        user_metadata: metadata::user_metadata_to_bytes(value.user_metadata)
+            .map_err(|e| Error::SerializationError(e.to_string()))?,
+    }
+    .encode_to_vec())
 }
 
-impl From<types::SequenceMetadata<JsonMetadataBlob>> for SequenceAppMetadata {
-    fn from(value: types::SequenceMetadata<JsonMetadataBlob>) -> Self {
-        Self {
-            created_at_ns: value.created_at.as_i64(),
-            resource_locator: value.resource_locator.to_string(),
-            sessions: value.sessions.into_iter().map(Into::into).collect(),
-            user_metadata: value.user_metadata,
-        }
+pub fn sequence_metadata_from_bytes(
+    value: &[u8],
+) -> Result<types::SequenceMetadata<JsonMetadataBlob>, Error> {
+    let value = proto_flight::SequenceAppMetadata::decode(value)
+        .map_err(|e| Error::DeserializationError(e.to_string()))?;
+
+    let res = types::SequenceMetadata {
+        created_at: value.created_at_ns.into(),
+        resource_locator: value
+            .resource_locator
+            .parse()
+            .map_err(|_| Error::DeserializationError(value.resource_locator))?,
+        sessions: value
+            .sessions
+            .into_iter()
+            .map(session_metadata_from_proto)
+            .collect::<Result<Vec<_>, _>>()?,
+        user_metadata: metadata::user_metadata_from_bytes(value.user_metadata)
+            .map_err(|e| Error::DeserializationError(e.to_string()))?,
+    };
+
+    Ok(res)
+}
+
+/// Internal utility method used to convert [`types::SessionMetadata`] to its proto counterpart.
+fn session_metadata_to_proto(value: types::SessionMetadata) -> proto_flight::SessionAppMetadata {
+    proto_flight::SessionAppMetadata {
+        locator: value.locator.to_string(),
+        created_at_ns: value.created_at.as_i64(),
+        completed_at_ns: value.completed_at.map(Into::into),
+        topics: value.topics.into_iter().map(|x| x.to_string()).collect(),
+        locked: value.completed_at.is_some(),
     }
 }
 
-/// Used for testing.
-impl TryFrom<SequenceAppMetadata> for types::SequenceMetadata<JsonMetadataBlob> {
-    type Error = super::Error;
+/// Internal utility method used to obtain a [`types::SessionMetadata`] from its proto counterpart.
+///
+/// Used only for testing.
+fn session_metadata_from_proto(
+    value: proto_flight::SessionAppMetadata,
+) -> Result<types::SessionMetadata, Error> {
+    let locator = value
+        .locator
+        .parse::<types::SessionLocator>()
+        .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
-    fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
-        let res = Self {
-            created_at: value.created_at_ns.into(),
-            resource_locator: value
-                .resource_locator
-                .parse()
-                .map_err(|_| Error::DeserializationError(value.resource_locator))?,
-            sessions: value
-                .sessions
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<Result<Vec<_>, _>>()?,
-            user_metadata: value.user_metadata,
-        };
-
-        Ok(res)
-    }
-}
-
-impl From<SequenceAppMetadata> for bytes::Bytes {
-    fn from(value: SequenceAppMetadata) -> Self {
-        serde_json::to_vec(&value).unwrap_or_default().into()
-    }
-}
-
-impl TryFrom<bytes::Bytes> for SequenceAppMetadata {
-    type Error = Error;
-    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
-        serde_json::from_slice(value.as_ref())
-            .map_err(|e| Error::DeserializationError(e.to_string()))
-    }
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// SESSION APP METADATA
-// ////////////////////////////////////////////////////////////////////////////
-
-#[derive(Serialize, Deserialize)]
-pub struct SessionAppMetadata {
-    locator: String,
-    created_at_ns: i64,
-    completed_at_ns: Option<i64>,
-    topics: Vec<String>,
-    locked: bool,
-}
-
-impl From<types::SessionMetadata> for SessionAppMetadata {
-    fn from(value: types::SessionMetadata) -> Self {
-        Self {
-            locator: value.locator.to_string(),
-            created_at_ns: value.created_at.as_i64(),
-            completed_at_ns: value.completed_at.map(Into::into),
-            topics: value.topics.into_iter().map(|x| x.to_string()).collect(),
-            locked: value.completed_at.is_some(),
-        }
-    }
-}
-
-// Used for debug.
-impl TryFrom<SessionAppMetadata> for types::SessionMetadata {
-    type Error = super::Error;
-
-    fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
-        let locator = value
-            .locator
-            .parse::<types::SessionLocator>()
-            .map_err(|e| Error::DeserializationError(e.to_string()))?;
-
-        Ok(SessionMetadata {
-            locator,
-            created_at: value.created_at_ns.into(),
-            completed_at: value.completed_at_ns.map(Into::into),
-            topics: value
-                .topics
-                .into_iter()
-                .map(|x| x.parse().map_err(|_| Error::DeserializationError(x)))
-                .collect::<Result<Vec<TopicLocator>, _>>()?,
-        })
-    }
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// TICKET TOPIC
-// ////////////////////////////////////////////////////////////////////////////
-#[derive(Encode, Decode)]
-struct TicketTopic {
-    locator: String,
-    timestamp_ns_start: Option<i64>,
-    timestamp_ns_end: Option<i64>,
-}
-
-impl From<types::flight::TicketTopic> for TicketTopic {
-    fn from(value: types::flight::TicketTopic) -> Self {
-        Self {
-            locator: value.locator.to_string(),
-            timestamp_ns_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
-            timestamp_ns_end: value.timestamp_range.map(|tsr| tsr.end.into()),
-        }
-    }
-}
-
-impl TryFrom<TicketTopic> for types::flight::TicketTopic {
-    type Error = super::Error;
-
-    fn try_from(value: TicketTopic) -> Result<Self, Error> {
-        let ub: types::Timestamp = value
-            .timestamp_ns_end
-            .map_or_else(types::Timestamp::unbounded_pos, |v| v.into());
-        let lb: types::Timestamp = value
-            .timestamp_ns_start
-            .map_or_else(types::Timestamp::unbounded_neg, |v| v.into());
-
-        let ts = types::TimestampRange::between(lb, ub);
-
-        let timestamp_range = if ts.is_unbounded() { None } else { Some(ts) };
-
-        Ok(Self {
-            locator: value
-                .locator
-                .parse::<types::TopicLocator>()
-                .map_err(|_| Error::DeserializationError(value.locator))?,
-            timestamp_range,
-        })
-    }
-}
-
-pub fn ticket_topic_to_binary(tt: types::flight::TicketTopic) -> Result<Vec<u8>, super::Error> {
-    let tt: TicketTopic = tt.into();
-    let config = bincode::config::standard();
-
-    bincode::encode_to_vec(tt, config).map_err(|e| super::Error::SerializationError(e.to_string()))
-}
-
-pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, super::Error> {
-    let config = bincode::config::standard();
-
-    let (ticket, _): (TicketTopic, usize) = bincode::decode_from_slice(v, config)
-        .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
-
-    ticket.try_into()
+    Ok(types::SessionMetadata {
+        locator,
+        created_at: value.created_at_ns.into(),
+        completed_at: value.completed_at_ns.map(Into::into),
+        topics: value
+            .topics
+            .into_iter()
+            .map(|x| x.parse().map_err(|_| Error::DeserializationError(x)))
+            .collect::<Result<Vec<TopicLocator>, _>>()?,
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
 // TOPIC APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Topic information for the time window specified in the request.
-#[derive(Serialize, Deserialize)]
-pub struct TopicAppMetadataTimeWindow {
-    // First and last timestamps. It's None if the topic has no data.
-    pub interval: Option<TimestampRange>,
-    pub row_count: u64,
-}
-
-/// Topic information regarding the whole topic.
-#[derive(Serialize, Deserialize)]
-pub struct TopicAppMetadataDataInfo {
-    pub interval: Option<TimestampRange>,
-    pub total_row_count: u64,
-    pub total_bytes: u64,
-    pub total_chunks_count: u64,
-}
-
-/// Topic app metadata sent when requesting flight info topics and sequences flights
-#[derive(Serialize, Deserialize)]
-pub struct TopicAppMetadata {
-    pub created_at_ns: i64,
-    pub completed_at_ns: Option<i64>,
-    pub locked: bool,
-    pub resource_locator: String,
-    pub ontology_tag: String,
-    pub serialization_format: super::Format,
-    pub user_metadata: Option<JsonMetadataBlob>,
-    pub data_info: TopicAppMetadataDataInfo,
-    pub time_window_info: Option<TopicAppMetadataTimeWindow>,
-}
-
-impl TopicAppMetadata {
-    pub fn new(
-        metadata: types::TopicMetadata<JsonMetadataBlob>,
-        data_info: types::TopicDataInfo,
-        time_window_info: Option<types::TopicTimeWindowInfo>,
-    ) -> Self {
-        Self {
-            created_at_ns: metadata.properties.created_at.as_i64(),
-            completed_at_ns: metadata.properties.completed_at.map(Into::into),
-            locked: metadata.properties.completed_at.is_some(),
-            resource_locator: metadata.properties.resource_locator.to_string(),
-            ontology_tag: metadata.ontology_metadata.ontology_tag,
-            serialization_format: metadata.ontology_metadata.serialization_format.into(),
-            user_metadata: metadata.ontology_metadata.user_metadata,
-            data_info: TopicAppMetadataDataInfo {
-                interval: if data_info.timestamp_range.is_unbounded() {
-                    None
-                } else {
-                    Some(data_info.timestamp_range.into())
-                },
-                total_row_count: data_info.total_row_count,
-                total_bytes: data_info.total_bytes,
-                total_chunks_count: data_info.total_chunks,
-            },
-            time_window_info: time_window_info.map(|tw_info| TopicAppMetadataTimeWindow {
-                interval: if tw_info.timestamp_range.is_unbounded() {
-                    None
-                } else {
-                    Some(tw_info.timestamp_range.into())
-                },
-                row_count: tw_info.row_count,
-            }),
-        }
+fn data_info_to_proto(value: types::TopicDataInfo) -> proto_flight::TopicAppMetadataDataInfo {
+    proto_flight::TopicAppMetadataDataInfo {
+        interval: if value.timestamp_range.is_unbounded() {
+            None
+        } else {
+            Some(super::timestamp_range_to_proto(&value.timestamp_range))
+        },
+        total_row_count: value.total_row_count,
+        total_bytes: value.total_bytes,
+        total_chunks_count: value.total_chunks,
     }
 }
 
-impl From<TopicAppMetadata> for bytes::Bytes {
-    fn from(value: TopicAppMetadata) -> Self {
-        serde_json::to_vec(&value).unwrap_or_default().into()
+fn data_info_from_proto(value: proto_flight::TopicAppMetadataDataInfo) -> types::TopicDataInfo {
+    types::TopicDataInfo {
+        total_chunks: value.total_chunks_count,
+        total_bytes: value.total_bytes,
+        timestamp_range: value
+            .interval
+            .map(|r| super::timestamp_range_from_proto(&r))
+            .unwrap_or(types::TimestampRange::unbounded()),
+        total_row_count: value.total_row_count,
     }
 }
 
-impl TryFrom<bytes::Bytes> for TopicAppMetadata {
-    type Error = Error;
-    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
-        serde_json::from_slice(value.as_ref())
-            .map_err(|e| Error::DeserializationError(e.to_string()))
+fn time_window_info_to_proto(
+    value: types::TopicTimeWindowInfo,
+) -> proto_flight::TopicAppMetadataTimeWindow {
+    proto_flight::TopicAppMetadataTimeWindow {
+        interval: if value.timestamp_range.is_unbounded() {
+            None
+        } else {
+            Some(super::timestamp_range_to_proto(&value.timestamp_range))
+        },
+        row_count: value.row_count,
     }
+}
+
+fn time_window_info_from_proto(
+    value: proto_flight::TopicAppMetadataTimeWindow,
+) -> types::TopicTimeWindowInfo {
+    types::TopicTimeWindowInfo {
+        timestamp_range: value
+            .interval
+            .map(|r| super::timestamp_range_from_proto(&r))
+            .unwrap_or(types::TimestampRange::unbounded()),
+        row_count: value.row_count,
+    }
+}
+
+pub fn topic_info_to_bytes(value: types::TopicInfo<JsonMetadataBlob>) -> Result<Vec<u8>, Error> {
+    let properties = value.metadata.properties;
+    let ontology_metadata = value.metadata.ontology_metadata;
+
+    Ok(proto_flight::TopicAppMetadata {
+        created_at_ns: properties.created_at.as_i64(),
+        completed_at_ns: properties.completed_at.map(Into::into),
+        locked: properties.completed_at.is_some(),
+        resource_locator: properties.resource_locator.to_string(),
+        ontology_tag: ontology_metadata.ontology_tag,
+        serialization_format: super::format_to_proto(ontology_metadata.serialization_format) as i32,
+        user_metadata: metadata::user_metadata_to_bytes(ontology_metadata.user_metadata)
+            .map_err(|e| Error::SerializationError(e.to_string()))?,
+        data_info: Some(data_info_to_proto(value.data_info)),
+        time_window_info: value.time_window_info.map(time_window_info_to_proto),
+        session_locator: properties.session_locator.to_string(),
+    }
+    .encode_to_vec())
+}
+
+pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetadataBlob>, Error> {
+    let value = proto_flight::TopicAppMetadata::decode(value)
+        .map_err(|e| Error::DeserializationError(e.to_string()))?;
+
+    let format =
+        super::Format::try_from(value.serialization_format).unwrap_or(super::Format::Default);
+
+    let metadata = types::TopicMetadata {
+        properties: types::TopicMetadataProperties {
+            created_at: value.created_at_ns.into(),
+            completed_at: value.completed_at_ns.map(Into::into),
+            session_locator: value
+                .session_locator
+                .parse()
+                .map_err(|_| Error::DeserializationError(value.session_locator))?,
+            resource_locator: value
+                .resource_locator
+                .parse()
+                .map_err(|_| Error::DeserializationError(value.resource_locator))?,
+        },
+        ontology_metadata: types::TopicOntologyMetadata {
+            serialization_format: super::format_from_proto(format),
+            ontology_tag: value.ontology_tag,
+            user_metadata: metadata::user_metadata_from_bytes(value.user_metadata)
+                .map_err(|e| Error::DeserializationError(e.to_string()))?,
+        },
+    };
+
+    Ok(types::TopicInfo {
+        metadata,
+        data_info: data_info_from_proto(
+            value
+                .data_info
+                .ok_or_else(|| Error::DeserializationError("missing data_info".to_owned()))?,
+        ),
+        time_window_info: value.time_window_info.map(time_window_info_from_proto),
+    })
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// TICKET TOPIC
+// ////////////////////////////////////////////////////////////////////////////
+
+pub fn ticket_topic_to_bytes(tt: types::flight::TicketTopic) -> Vec<u8> {
+    proto_flight::TicketTopic {
+        resource_locator: tt.locator.to_string(),
+        timestamp_ns_start: tt.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
+        timestamp_ns_end: tt.timestamp_range.map(|tsr| tsr.end.into()),
+    }
+    .encode_to_vec()
+}
+
+pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, super::Error> {
+    let cmd = proto_flight::TicketTopic::decode(v)
+        .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
+
+    let ub: types::Timestamp = cmd
+        .timestamp_ns_end
+        .map_or_else(types::Timestamp::unbounded_pos, |v| v.into());
+    let lb: types::Timestamp = cmd
+        .timestamp_ns_start
+        .map_or_else(types::Timestamp::unbounded_neg, |v| v.into());
+
+    let ts = types::TimestampRange::between(lb, ub);
+    let timestamp_range = if ts.is_unbounded() { None } else { Some(ts) };
+
+    Ok(types::flight::TicketTopic {
+        locator: cmd
+            .resource_locator
+            .parse::<types::TopicLocator>()
+            .map_err(|_| Error::DeserializationError(cmd.resource_locator))?,
+        timestamp_range,
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -354,97 +292,87 @@ impl TryFrom<bytes::Bytes> for TopicAppMetadata {
 // ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use mosaicod_core::types;
+    use prost::Message;
 
-    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
+    /// Check that decoding a [`super::proto_flight::GetFlightInfoCmd`] into
     /// [`types::flight::GetFlightInfoCmd`] is correct from a fully bounded info message.
     #[test]
     fn get_flight_info_cmd_to_types_full() {
-        let src = super::GetFlightInfoCmd {
+        let cmd = super::proto_flight::GetFlightInfoCmd {
             resource_locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: Some(100000),
             timestamp_ns_end: Some(110000),
         };
 
-        let name = src.resource_locator.clone();
-        let start = src.timestamp_ns_start.unwrap();
-        let end = src.timestamp_ns_end.unwrap();
+        let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        let dest: types::flight::GetFlightInfoCmd = src.into();
-
-        assert_eq!(dest.resource_locator, name);
-        assert_eq!(dest.timestamp_range.as_ref().unwrap().start.as_i64(), start);
-        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), end);
+        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(
+            dest.timestamp_range.as_ref().unwrap().start.as_i64(),
+            100000
+        );
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), 110000);
     }
 
-    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
-    /// [`types::flight::GetFlightInfoCmd`] is correct from a lower bounded info message.
+    /// Check that decoding is correct from a lower bounded info message.
     #[test]
     fn get_flight_info_cmd_to_types_lb() {
-        let src = super::GetFlightInfoCmd {
+        let cmd = super::proto_flight::GetFlightInfoCmd {
             resource_locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: Some(100000),
             timestamp_ns_end: None,
         };
 
-        let name = src.resource_locator.clone();
-        let start = src.timestamp_ns_start.unwrap();
+        let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        let dest: types::flight::GetFlightInfoCmd = src.into();
-
-        assert_eq!(dest.resource_locator, name);
-        assert_eq!(dest.timestamp_range.as_ref().unwrap().start.as_i64(), start);
+        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(
+            dest.timestamp_range.as_ref().unwrap().start.as_i64(),
+            100000
+        );
         assert!(dest.timestamp_range.as_ref().unwrap().end.is_unbounded());
     }
 
-    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
-    /// [`types::flight::GetFlightInfoCmd`] is correct from a upper bounded info message.
+    /// Check that decoding is correct from an upper bounded info message.
     #[test]
     fn get_flight_info_cmd_to_types_ub() {
-        let src = super::GetFlightInfoCmd {
+        let cmd = super::proto_flight::GetFlightInfoCmd {
             resource_locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: None,
             timestamp_ns_end: Some(110000),
         };
 
-        let name = src.resource_locator.clone();
-        let end = src.timestamp_ns_end.unwrap();
+        let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        let dest: types::flight::GetFlightInfoCmd = src.into();
-
-        assert_eq!(dest.resource_locator, name);
+        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
         assert!(dest.timestamp_range.as_ref().unwrap().start.is_unbounded());
-        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), end);
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), 110000);
     }
 
-    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
-    /// [`types::flight::GetFlightInfoCmd`] is correct from a message without timestamp.
+    /// Check that decoding is correct from a message without timestamp.
     #[test]
     fn get_flight_info_cmd_to_types_no_bounds() {
-        let src = super::GetFlightInfoCmd {
+        let cmd = super::proto_flight::GetFlightInfoCmd {
             resource_locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: None,
             timestamp_ns_end: None,
         };
 
-        let name = src.resource_locator.clone();
-        let dest: types::flight::GetFlightInfoCmd = src.into();
+        let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, name);
+        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
         assert!(dest.timestamp_range.is_none());
     }
 
-    /// Check that the conversion between [`super::GetSchemaCmd`] and
-    /// [`types::flight::GetSchemaCmd`] is correct.
+    /// Check that decoding a [`super::proto_flight::GetSchemaCmd`] is correct.
     #[test]
     fn get_schema_cmd_to_types() {
-        let src = super::GetSchemaCmd {
+        let cmd = super::proto_flight::GetSchemaCmd {
             resource_locator: "test_sequence/topic/a".to_owned(),
         };
 
-        let name = src.resource_locator.clone();
-        let dest: types::flight::GetSchemaCmd = src.into();
+        let dest = super::get_schema_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, name);
+        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
     }
 }

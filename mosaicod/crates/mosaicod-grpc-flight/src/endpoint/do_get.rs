@@ -17,7 +17,7 @@ pub async fn do_get(
     ctx: &facade::Context,
     ticket: Ticket,
 ) -> grpc_common::Result<FlightDataEncoder> {
-    let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
+    let ticket = marshal::flight::ticket_topic_from_bytes(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);
 

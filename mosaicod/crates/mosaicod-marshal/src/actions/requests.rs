@@ -1,118 +1,84 @@
 use super::ActionError;
-use crate::Format;
 use crate::Ontology;
-use crate::TimestampRange;
-use serde::Deserialize;
-use serde::Serialize;
 
-#[derive(Deserialize, Debug)]
-pub struct Empty {}
-
-// ////////////////////////////////////////////////////////////////////////////
-// Sequence
-// ////////////////////////////////////////////////////////////////////////////
-
-/// Specialized message used to create a new sequence in the platform
-#[derive(Deserialize, Debug)]
-pub struct SequenceCreate {
-    pub locator: String,
-    user_metadata: serde_json::Value,
-}
-
-impl SequenceCreate {
-    pub fn user_metadata(&self) -> Result<String, ActionError> {
-        Ok(serde_json::to_string(&self.user_metadata)?)
-    }
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// Topic
-// ////////////////////////////////////////////////////////////////////////////
-
-/// Specialized message used to create a new sequence in the platform
-#[derive(Deserialize, Debug)]
-pub struct TopicCreate {
-    pub locator: String,
-    pub session_uuid: String,
-    pub serialization_format: Format,
-    pub ontology_tag: String,
-
-    user_metadata: serde_json::Value,
-}
-
-impl TopicCreate {
-    pub fn user_metadata(&self) -> Result<String, ActionError> {
-        Ok(serde_json::to_string(&self.user_metadata)?)
-    }
-}
-
-/// Parameters for filtering a single topic by ontology and timestamp range,
-/// then clustering matching timestamps by a time-gap threshold.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TopicClusterizeParams {
-    pub locator: String,
-    pub clustering_dt_ns: u64,
-    pub ontology: Ontology,
-    /// Time window: messages with timestamp < start_ns or >= end_ns are ignored.
-    pub timestamp_range: Option<TimestampRange>,
-}
-
-/// Filters a topic by ontology and timestamp range,
-/// then clusters matching timestamps by a time-gap threshold.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TopicFilterClusterize {
-    #[serde(flatten)]
-    pub params: TopicClusterizeParams,
-}
-
-/// Receives multiple topic filters (each with its own clustering configuration)
-/// and intersects their clustered timestamp sets, retaining only timestamps
-/// that fall within intersect_dt_ns nanoseconds of each other across all topics
-#[derive(Deserialize, Debug)]
-pub struct TopicFilterIntersect {
-    pub topics: Vec<TopicClusterizeParams>,
-    pub intersect_dt_ns: u64,
-}
-
-// ////////////////////////////////////////////////////////////////////////////
-// Locate & Upload
-// ////////////////////////////////////////////////////////////////////////////
+// Empty request.
+pub use mosaicod_proto::v1::requests::Empty;
 
 /// Request used to locate a specific resource by name.
-#[derive(Deserialize, Debug)]
-pub struct ResourceLocator {
-    pub locator: String,
-}
+pub use mosaicod_proto::v1::requests::ResourceLocator;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Session
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Request used to identify a session with its uuid.
-#[derive(Deserialize, Debug)]
-pub struct SessionUuid {
-    pub session_uuid: String,
-}
+pub use mosaicod_proto::v1::requests::SessionUuid;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Notifications
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Generic request message used to create notifications
-#[derive(Deserialize, Debug)]
-pub struct NotificationCreate {
-    pub locator: String,
-    pub notification_type: String,
-    pub msg: String,
+/// Generic request message used to create notifications.
+pub use mosaicod_proto::v1::requests::NotificationCreate;
+
+// ////////////////////////////////////////////////////////////////////////////
+// Sequence
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Specialized message used to create a new sequence in the platform.
+pub use mosaicod_proto::v1::requests::SequenceCreate;
+
+// ////////////////////////////////////////////////////////////////////////////
+// Topic
+// ////////////////////////////////////////////////////////////////////////////
+
+pub use mosaicod_proto::v1::requests::TopicCreate;
+
+/// Parameters for filtering a single topic by ontology and timestamp range,
+/// then clustering matching timestamps by a time-gap threshold. Reused
+/// (nested) inside [`TopicFilterIntersect::topics`], and directly as the
+/// `topic_filter_clusterize` action's own request payload.
+///
+/// Generated from `mosaicod.v1.requests.TopicClusterizeParams` in the
+/// repo-root `proto/` directory (see `mosaicod-proto`).
+pub use mosaicod_proto::v1::requests::TopicClusterizeParams;
+
+/// `TopicClusterizeParams.ontology` carries the query filter DSL's arbitrary,
+/// user-supplied shape as raw JSON bytes (see the note on it in
+/// `proto/mosaicod/v1/requests.proto`). Bridges it back to [`crate::Ontology`].
+pub fn topic_clusterize_ontology(value: &TopicClusterizeParams) -> Result<Ontology, ActionError> {
+    let bytes: &[u8] = if value.ontology.is_empty() {
+        b"{}"
+    } else {
+        &value.ontology
+    };
+
+    Ok(serde_json::from_slice(bytes)?)
 }
+
+/// Generated from `mosaicod.v1.requests.TopicFilterIntersect` in the
+/// repo-root `proto/` directory (see `mosaicod-proto`).
+pub use mosaicod_proto::v1::requests::TopicFilterIntersect;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Query
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Deserialize, Debug)]
-pub struct Query {
-    #[serde(flatten)]
-    /// Query filter used to find matches in the system
-    pub query: serde_json::Value,
+/// The query filter DSL (see [`Ontology`]) has an arbitrary, user-supplied
+/// shape with no fixed field set, so it's carried as raw JSON bytes rather
+/// than being decomposed into protobuf fields (see the note on it in
+/// `proto/mosaicod/v1/requests.proto`).
+///
+/// Generated from `mosaicod.v1.requests.Query` in the repo-root `proto/`
+/// directory (see `mosaicod-proto`).
+pub use mosaicod_proto::v1::requests::Query;
+
+pub fn query_filter(value: &Query) -> Result<serde_json::Value, ActionError> {
+    let bytes: &[u8] = if value.query.is_empty() {
+        b"{}"
+    } else {
+        &value.query
+    };
+
+    Ok(serde_json::from_slice(bytes)?)
 }

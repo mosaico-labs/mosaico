@@ -12,7 +12,7 @@ use mosaicod_core::{
 use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests, responses};
+use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests};
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -29,11 +29,11 @@ pub async fn create(
     session_uuid: String,
     serialization_format: types::Format,
     ontology_tag: String,
-    user_metadata_str: &str,
+    user_metadata: &[u8],
 ) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
-    let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
+    let user_mdata = marshal::JsonMetadataBlob::try_from_slice(user_metadata)?;
 
     let received_session_uuid: types::Uuid = session_uuid
         .parse()
@@ -56,7 +56,7 @@ pub async fn create(
         topic_locator, topic_uuid,
     );
 
-    Ok(ActionResponse::topic_create(topic_uuid.into()))
+    Ok(ActionResponse::topic_create(topic_uuid))
 }
 
 /// Deletes a topic (it doesn't matter if it's still open or archived).
@@ -101,9 +101,7 @@ pub async fn notification_list(
     let topic_locator = locator.parse::<types::TopicLocator>()?;
     let notifications = facade::topic::notification_list(ctx, &topic_locator).await?;
 
-    Ok(ActionResponse::topic_notification_list(
-        notifications.into(),
-    ))
+    Ok(ActionResponse::topic_notification_list(notifications))
 }
 
 /// Purges all notifications for a topic.
@@ -252,20 +250,15 @@ fn cluster_to_flight_result<F>(
     action_builder: F,
 ) -> std::result::Result<arrow_flight::Result, tonic::Status>
 where
-    F: FnOnce(responses::TopicFilterClusterize) -> ActionResponse,
+    F: FnOnce(u64, i64, i64) -> ActionResponse,
 {
-    let res = responses::TopicFilterClusterize {
-        ts: cluster.timestamp_range.into(),
-        id: cluster.id,
-    };
-
-    let bytes = action_builder(res)
-        .bytes()
-        .map_err(|e| tonic::Status::internal(e.to_string()))?;
-
-    let mut payload = bytes.to_vec();
-    payload.push(b'\n');
-    Ok(arrow_flight::Result::new(payload))
+    let bytes = action_builder(
+        cluster.id,
+        cluster.timestamp_range.start.as_i64(),
+        cluster.timestamp_range.end.as_i64(),
+    )
+    .bytes();
+    Ok(arrow_flight::Result::new(bytes))
 }
 
 pub async fn filter_intersect(
@@ -304,12 +297,14 @@ pub async fn filter_intersect(
     // One clustering task per topic
     let mut receivers = Vec::with_capacity(topics.len());
     for tfc in topics {
+        let ontology = requests::topic_clusterize_ontology(&tfc)?;
         let rx = spawn_cluster_stream(
             ctx,
             tfc.locator,
             tfc.clustering_dt_ns,
-            tfc.ontology,
-            tfc.timestamp_range.map(Into::into),
+            ontology,
+            tfc.timestamp_range
+                .map(|ts| marshal::timestamp_range_from_proto(&ts)),
         )
         .await?;
         receivers.push(rx);

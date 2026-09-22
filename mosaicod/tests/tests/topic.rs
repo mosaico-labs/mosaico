@@ -241,22 +241,25 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(info.endpoint.len(), 1);
     assert!(!info.endpoint.first().unwrap().app_metadata.is_empty());
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(!app_metadata.locked);
-    assert_eq!(app_metadata.resource_locator, topic_name);
-    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert!(app_metadata.metadata.properties.completed_at.is_none());
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
+    assert_eq!(app_metadata.data_info.total_chunks, 0);
     assert_eq!(app_metadata.data_info.total_bytes, 0);
-    assert!(app_metadata.data_info.interval.is_none());
-    assert_ne!(app_metadata.created_at_ns, 0);
-    assert!(app_metadata.completed_at_ns.is_none());
+    assert!(app_metadata.data_info.timestamp_range.is_unbounded());
+    assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert!(app_metadata.metadata.properties.completed_at.is_none());
 
     let batches = vec![ext::arrow::testing::dummy_empty_batch()];
 
@@ -274,23 +277,34 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(info.endpoint.len(), 1);
     assert!(!info.endpoint.first().unwrap().app_metadata.is_empty());
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(app_metadata.locked);
-    assert_ne!(app_metadata.created_at_ns, 0);
-    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
-    assert_eq!(app_metadata.resource_locator, topic_name);
+    assert!(app_metadata.metadata.properties.completed_at.is_some());
+    assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert_ne!(
+        app_metadata
+            .metadata
+            .properties
+            .completed_at
+            .unwrap()
+            .as_i64(),
+        0
+    );
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_chunks, 0);
     assert_eq!(app_metadata.data_info.total_bytes, 0);
-    assert!(app_metadata.data_info.interval.is_none());
+    assert!(app_metadata.data_info.timestamp_range.is_unbounded());
 
     // Check flight info for a locked topic with data.
     let topic_name = "test_sequence/my_topic";
@@ -316,23 +330,34 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(info.endpoint.len(), 1);
     assert!(!info.endpoint.first().unwrap().app_metadata.is_empty());
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(app_metadata.locked);
-    assert_ne!(app_metadata.created_at_ns, 0);
-    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
-    assert_eq!(app_metadata.resource_locator, topic_name);
+    assert!(app_metadata.metadata.properties.completed_at.is_some());
+    assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert_ne!(
+        app_metadata
+            .metadata
+            .properties
+            .completed_at
+            .unwrap()
+            .as_i64(),
+        0
+    );
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let ts_range: types::TimestampRange = app_metadata.data_info.interval.unwrap().into();
+    let ts_range: types::TimestampRange = app_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 
@@ -373,32 +398,44 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(!app_metadata.locked);
-    assert_eq!(&app_metadata.resource_locator, topic_name);
-    assert_ne!(app_metadata.created_at_ns, 0);
-    assert!(app_metadata.completed_at_ns.is_none());
+    assert!(app_metadata.metadata.properties.completed_at.is_none());
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
+    assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert!(app_metadata.metadata.properties.completed_at.is_none());
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_chunks, 0);
     assert_eq!(app_metadata.data_info.total_bytes, 0);
-    assert!(app_metadata.data_info.interval.is_none());
+    assert!(app_metadata.data_info.timestamp_range.is_unbounded());
 
     // ontology_tag and serialization_format are hard-coded by `actions::topic_create`'s
     // action body.
-    assert_eq!(app_metadata.ontology_tag, "mock");
-    assert_eq!(app_metadata.serialization_format, marshal::Format::Default);
+    assert_eq!(app_metadata.metadata.ontology_metadata.ontology_tag, "mock");
+    assert_eq!(
+        app_metadata.metadata.ontology_metadata.serialization_format,
+        types::Format::Default
+    );
 
     // Client-provided user_metadata must round-trip through get_flight_info.
-    let round_tripped =
-        serde_json::to_value(app_metadata.user_metadata.expect("user_metadata missing")).unwrap();
+    let round_tripped = serde_json::to_value(
+        app_metadata
+            .metadata
+            .ontology_metadata
+            .user_metadata
+            .expect("user_metadata missing"),
+    )
+    .unwrap();
     assert_eq!(round_tripped, user_metadata);
 
     server.shutdown().await;
@@ -439,27 +476,30 @@ async fn test_topic_flight_info_time_window_no_data(pool: sqlx::Pool<db::Databas
     .unwrap();
     assert_eq!(info.endpoint.len(), 1);
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(!app_metadata.locked);
-    assert_eq!(&app_metadata.resource_locator, topic_name);
+    assert!(app_metadata.metadata.properties.completed_at.is_none());
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
 
     // Whole-topic stats are still all-zero/unbounded, same as without a time window.
-    assert_eq!(app_metadata.data_info.total_chunks_count, 0);
+    assert_eq!(app_metadata.data_info.total_chunks, 0);
     assert_eq!(app_metadata.data_info.total_bytes, 0);
-    assert!(app_metadata.data_info.interval.is_none());
+    assert!(app_metadata.data_info.timestamp_range.is_unbounded());
 
     // A time window was requested, so `time_window_info` must be present, but with no data in it.
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 0);
-    assert!(time_window_info.interval.is_none());
+    assert!(time_window_info.timestamp_range.is_unbounded());
 
     server.shutdown().await;
 }
@@ -506,15 +546,11 @@ async fn test_topic_flight_info_time_window_last_chunk(pool: sqlx::Pool<db::Data
     let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
-    assert_eq!(app_metadata.data_info.total_chunks_count, 2);
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
+    assert_eq!(app_metadata.data_info.total_chunks, 2);
 
     // Request a time window that falls entirely inside the last chunk (chunk 1) and does not
     // overlap chunk 0 at all. The end bound is exclusive, so use 20031 to include the 20030
@@ -525,18 +561,14 @@ async fn test_topic_flight_info_time_window_last_chunk(pool: sqlx::Pool<db::Data
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 5);
-    let ts_range: types::TimestampRange = time_window_info.interval.unwrap().into();
+    let ts_range: types::TimestampRange = time_window_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 20010);
     assert_eq!(ts_range.end.as_i64(), 20030);
 
@@ -587,15 +619,11 @@ async fn test_topic_flight_info_time_window_overlaps_two_chunks(
     let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
-    assert_eq!(app_metadata.data_info.total_chunks_count, 2);
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
+    assert_eq!(app_metadata.data_info.total_chunks, 2);
 
     // Request a time window that starts in the tail of chunk 0 (10020, 10025, 10030) and ends in
     // the head of chunk 1 (20000, 20005, 20010). The end bound is exclusive, so use 20011 to include the 20010 sample.
@@ -605,18 +633,14 @@ async fn test_topic_flight_info_time_window_overlaps_two_chunks(
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 6);
-    let ts_range: types::TimestampRange = time_window_info.interval.unwrap().into();
+    let ts_range: types::TimestampRange = time_window_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10020);
     assert_eq!(ts_range.end.as_i64(), 20010);
 
@@ -670,34 +694,54 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
 
-    let app_metadata: marshal::flight::TopicAppMetadata = info
-        .endpoint
-        .first()
-        .unwrap()
-        .clone()
-        .app_metadata
-        .try_into()
-        .unwrap();
+    let app_metadata = marshal::flight::topic_info_from_bytes(
+        &info.endpoint.first().unwrap().clone().app_metadata,
+    )
+    .unwrap();
 
-    assert!(app_metadata.locked);
-    assert_eq!(&app_metadata.resource_locator, topic_name);
-    assert_ne!(app_metadata.created_at_ns, 0);
-    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
+    assert!(app_metadata.metadata.properties.completed_at.is_some());
+    assert_eq!(
+        app_metadata
+            .metadata
+            .properties
+            .resource_locator
+            .to_string(),
+        topic_name.to_string()
+    );
+    assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert_ne!(
+        app_metadata
+            .metadata
+            .properties
+            .completed_at
+            .unwrap()
+            .as_i64(),
+        0
+    );
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let ts_range: types::TimestampRange = app_metadata.data_info.interval.unwrap().into();
+    let ts_range: types::TimestampRange = app_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 
     // ontology_tag and serialization_format are hard-coded by `actions::topic_create`'s
     // action body.
-    assert_eq!(app_metadata.ontology_tag, "mock");
-    assert_eq!(app_metadata.serialization_format, marshal::Format::Default);
+    assert_eq!(app_metadata.metadata.ontology_metadata.ontology_tag, "mock");
+    assert_eq!(
+        app_metadata.metadata.ontology_metadata.serialization_format,
+        types::Format::Default
+    );
 
     // Client-provided user_metadata must round-trip through get_flight_info.
-    let round_tripped =
-        serde_json::to_value(app_metadata.user_metadata.expect("user_metadata missing")).unwrap();
+    let round_tripped = serde_json::to_value(
+        app_metadata
+            .metadata
+            .ontology_metadata
+            .user_metadata
+            .expect("user_metadata missing"),
+    )
+    .unwrap();
     assert_eq!(round_tripped, user_metadata);
 
     server.shutdown().await;
@@ -771,14 +815,14 @@ async fn test_topic_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
     let r = actions::topic_notification_list(&mut client, topic_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), notifications_size);
 
     for (i, notification) in notifications.iter().enumerate() {
         let error_msg = format!("Error {}_{}", topic_name, i + 1);
-        assert_eq!(notification["notification_type"], notification_type);
-        assert_eq!(notification["name"].as_str().unwrap(), topic_name);
-        assert_eq!(notification["msg"], error_msg);
+        assert_eq!(notification.notification_type, notification_type);
+        assert_eq!(notification.name, topic_name.as_str());
+        assert_eq!(notification.msg, error_msg);
     }
 
     server.shutdown().await;
@@ -809,7 +853,7 @@ async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
     let r = actions::topic_notification_list(&mut client, topic_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 5);
 
     actions::topic_notification_purge(&mut client, topic_name)
@@ -819,7 +863,7 @@ async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
     let r = actions::topic_notification_list(&mut client, topic_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
@@ -879,7 +923,7 @@ async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) 
     let r = actions::topic_notification_list(&mut client, topic_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
@@ -1040,11 +1084,11 @@ async fn test_topic_filter_clusterize_three_clusters(pool: sqlx::Pool<db::Databa
 
     assert_eq!(clusters.len(), 3, "expected 3 clusters, got: {clusters:?}");
 
-    let expected = [(100u64, 120u64), (200, 220), (300, 320)];
+    let expected = [(100i64, 120i64), (200, 220), (300, 320)];
     for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
-        let start = clusters[i]["ts"]["start_ns"].as_u64().unwrap();
-        let end = clusters[i]["ts"]["end_ns"].as_u64().unwrap();
-        let id = clusters[i]["id"].as_u64().unwrap();
+        let start = clusters[i].ts.as_ref().unwrap().start_ns;
+        let end = clusters[i].ts.as_ref().unwrap().end_ns;
+        let id = clusters[i].id;
         assert_eq!(start, *exp_start, "cluster {i} start");
         assert_eq!(end, *exp_end, "cluster {i} end");
         assert_eq!(id, i as u64, "cluster {i} id");
@@ -1080,8 +1124,8 @@ async fn test_topic_filter_clusterize_single_cluster_via_gap(pool: sqlx::Pool<db
     .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 1_050);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 1_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 1_050);
 
     server.shutdown().await;
 }
@@ -1110,8 +1154,8 @@ async fn test_topic_filter_clusterize_dt_zero_returns_full_range(
             .unwrap();
 
     assert_eq!(clusters.len(), 1, "dt_ns=0 must yield exactly one cluster");
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 10_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 10_000);
 
     server.shutdown().await;
 }
@@ -1140,10 +1184,10 @@ async fn test_topic_filter_clusterize_ontology_actually_filters(
             .unwrap();
 
     assert_eq!(clusters.len(), 2, "got: {clusters:?}");
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 140);
-    assert_eq!(clusters[1]["ts"]["start_ns"].as_u64().unwrap(), 500);
-    assert_eq!(clusters[1]["ts"]["end_ns"].as_u64().unwrap(), 520);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 140);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns, 500);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns, 520);
 
     server.shutdown().await;
 }
@@ -1193,10 +1237,10 @@ async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::Datab
 
     setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
 
-    let ts_range: marshal::TimestampRange = serde_json::from_value(json!({
-        "start_ns": 500u64, "end_ns": 1_500u64
-    }))
-    .unwrap();
+    let ts_range = marshal::TimestampRange {
+        start_ns: 500,
+        end_ns: 1_500,
+    };
 
     let clusters = actions::topic_filter_clusterize(
         &mut client,
@@ -1209,8 +1253,8 @@ async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::Datab
     .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 1_100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 1_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 1_100);
 
     server.shutdown().await;
 }
@@ -1237,8 +1281,8 @@ async fn test_topic_filter_clusterize_single_row(pool: sqlx::Pool<db::DatabaseTy
             .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 200);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 200);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 200);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 200);
 
     server.shutdown().await;
 }
@@ -1265,10 +1309,10 @@ async fn test_topic_filter_clusterize_across_batches(pool: sqlx::Pool<db::Databa
             .unwrap();
 
     assert_eq!(clusters.len(), 2, "got: {clusters:?}");
-    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
-    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 140);
-    assert_eq!(clusters[1]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
-    assert_eq!(clusters[1]["ts"]["end_ns"].as_u64().unwrap(), 1_010);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 140);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns, 1_000);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns, 1_010);
 
     server.shutdown().await;
 }
@@ -1315,10 +1359,10 @@ async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db:
     .unwrap();
 
     // Start == End
-    let timestamp: marshal::TimestampRange = serde_json::from_value(json!({
-        "start_ns": 10000, "end_ns": 10000
-    }))
-    .unwrap();
+    let timestamp = marshal::TimestampRange {
+        start_ns: 10000,
+        end_ns: 10000,
+    };
 
     let res = actions::topic_filter_clusterize(
         &mut client,
@@ -1333,10 +1377,10 @@ async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db:
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
     // Start > End
-    let timestamp: marshal::TimestampRange = serde_json::from_value(json!({
-        "start_ns": 10000, "end_ns": 3000
-    }))
-    .unwrap();
+    let timestamp = marshal::TimestampRange {
+        start_ns: 10000,
+        end_ns: 3000,
+    };
 
     let res = actions::topic_filter_clusterize(
         &mut client,
@@ -1382,10 +1426,10 @@ async fn test_topic_filter_clusterize_more_ontology(pool: sqlx::Pool<db::Databas
 
     assert_eq!(clusters.len(), 2, "expected 2 clusters, got: {clusters:?}");
 
-    let expected = [(100u64, 120u64), (200, 200)];
+    let expected = [(100, 120), (200, 200)];
     for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
-        let start = clusters[i]["ts"]["start_ns"].as_u64().unwrap();
-        let end = clusters[i]["ts"]["end_ns"].as_u64().unwrap();
+        let start = clusters[i].ts.as_ref().unwrap().start_ns;
+        let end = clusters[i].ts.as_ref().unwrap().end_ns;
         assert_eq!(start, *exp_start, "cluster {i} start");
         assert_eq!(end, *exp_end, "cluster {i} end");
     }
@@ -1484,13 +1528,13 @@ async fn test_topic_filter_intersect_no_intersection(pool: sqlx::Pool<db::Databa
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 100,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1537,13 +1581,13 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1554,11 +1598,11 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
 
     assert_eq!(items.len(), 2, "got: {items:?}");
 
-    assert_eq!(items[0]["ts"]["start_ns"].as_u64().unwrap(), 105);
-    assert_eq!(items[0]["ts"]["end_ns"].as_u64().unwrap(), 110);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 105);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 110);
 
-    assert_eq!(items[1]["ts"]["start_ns"].as_u64().unwrap(), 500);
-    assert_eq!(items[1]["ts"]["end_ns"].as_u64().unwrap(), 505);
+    assert_eq!(items[1].ts.as_ref().unwrap().start_ns, 500);
+    assert_eq!(items[1].ts.as_ref().unwrap().end_ns, 505);
 
     server.shutdown().await;
 }
@@ -1613,13 +1657,13 @@ async fn test_topic_filter_intersect_multiple_ontology_fields(pool: sqlx::Pool<d
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: multi_field,
+            ontology: serde_json::to_vec(&multi_field).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: multi_field_2,
+            ontology: serde_json::to_vec(&multi_field_2).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1630,8 +1674,8 @@ async fn test_topic_filter_intersect_multiple_ontology_fields(pool: sqlx::Pool<d
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0]["ts"]["start_ns"].as_u64().unwrap(), 105);
-    assert_eq!(items[0]["ts"]["end_ns"].as_u64().unwrap(), 110);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 105);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 110);
 
     server.shutdown().await;
 }
@@ -1673,13 +1717,13 @@ async fn test_topic_filter_intersect_multiple_ontology_tags(pool: sqlx::Pool<db:
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: mixed_tags,
+            ontology: serde_json::to_vec(&mixed_tags).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1735,19 +1779,19 @@ async fn test_topic_filter_intersect_three_topics(pool: sqlx::Pool<db::DatabaseT
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 150,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t3.to_owned(),
             clustering_dt_ns: 100,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1757,8 +1801,8 @@ async fn test_topic_filter_intersect_three_topics(pool: sqlx::Pool<db::DatabaseT
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0]["ts"]["start_ns"].as_u64().unwrap(), 130);
-    assert_eq!(items[0]["ts"]["end_ns"].as_u64().unwrap(), 170);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 130);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 170);
 
     server.shutdown().await;
 }
@@ -1796,13 +1840,13 @@ async fn test_topic_filter_intersect_within_tolerance(pool: sqlx::Pool<db::Datab
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
     ];
@@ -1814,8 +1858,8 @@ async fn test_topic_filter_intersect_within_tolerance(pool: sqlx::Pool<db::Datab
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0]["ts"]["start_ns"].as_u64().unwrap(), 145);
-    assert_eq!(items[0]["ts"]["end_ns"].as_u64().unwrap(), 150);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 145);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 150);
 
     server.shutdown().await;
 }
@@ -1849,13 +1893,13 @@ async fn test_topic_filter_intersect_different_sequences(pool: sqlx::Pool<db::Da
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_gt_5(),
+            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: ontology_value_lt_3(),
+            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
             timestamp_range: None,
         },
     ];

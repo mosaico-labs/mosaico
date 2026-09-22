@@ -7,7 +7,6 @@ use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use serde::Deserialize;
 use std::convert::Into;
 use std::fs;
 use std::net::{IpAddr, Ipv4Addr, TcpListener};
@@ -350,37 +349,8 @@ impl<T> std::ops::DerefMut for Client<T> {
     }
 }
 
-/// Represents a standard mosaicod response from a `do_action` call.
-#[derive(Deserialize, Debug)]
-pub struct ActionResponse {
-    /// The name of the action performed (e.g., "sequence_create").
-    pub action: String,
-    /// The JSON response body containing returned data.
-    ///
-    /// ### How to use `response`:
-    /// Because this is a `serde_json::Value`, you must "downcast" the fields
-    /// to the expected Rust types.
-    ///
-    /// **Example:**
-    /// ```
-    /// use tests::common;
-    ///
-    /// let body: &str = r#"{"action": "topic_create", "response": {"key": "some-uuid", "id": 10}}"#;
-    ///
-    /// let r = common::ActionResponse::from_body(body.as_bytes());
-    ///
-    /// // Extract a String (returns Option<&str>)
-    /// let key = r.response["key"].as_str().expect("key is missing");
-    ///
-    /// // Extract a Number (returns Option<u64>)
-    /// let id = r.response["id"].as_u64().expect("id is not a number");
-    /// ```
-    pub response: serde_json::Value,
-}
-
-impl ActionResponse {
-    /// Deserializes a raw byte slice from a Flight `Result` into an `ActionResponse`.
-    pub fn from_body(body: &[u8]) -> Self {
-        serde_json::from_slice(body).expect("problem deserializing action response")
-    }
-}
+// `do_action` responses are raw protobuf binary now (see
+// `mosaicod-marshal`'s `actions/core.rs`), not a `{"action":.., "response":..}`
+// JSON envelope: each helper in `actions.rs` decodes the specific
+// `mosaicod_marshal::responses` message it expects directly via
+// `prost::Message::decode`.

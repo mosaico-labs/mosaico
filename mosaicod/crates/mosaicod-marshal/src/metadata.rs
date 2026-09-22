@@ -1,8 +1,8 @@
 use super::Format;
-use mosaicod_core::types::{self, MetadataBlob, MetadataError};
+use mosaicod_core::types::{self, MetadataBlob};
 use serde::{Deserialize, Serialize};
 
-type Error = MetadataError;
+type Error = types::MetadataError;
 
 fn valid_key(key: &str) -> bool {
     !key.is_empty()
@@ -55,6 +55,18 @@ impl MetadataBlob for JsonMetadataBlob {
     fn to_bytes(&self) -> Result<Vec<u8>, Error> {
         Ok(serde_json::to_vec(&self).map_err(|e| Error::SerializationError(e.to_string())))?
     }
+
+    #[allow(refining_impl_trait)]
+    fn try_from_slice(bytes: &[u8]) -> Result<JsonMetadataBlob, Error> {
+        let json = serde_json::from_slice(bytes)
+            .map_err(|e| Error::DeserializationError(e.to_string()))?;
+
+        if let Some(invalid_key) = find_invalid_keys(&json) {
+            return Err(Error::InvalidJsonKey(invalid_key.to_owned()));
+        }
+
+        Ok(JsonMetadataBlob(json))
+    }
 }
 
 impl From<JsonMetadataBlob> for serde_json::Value {
@@ -102,7 +114,7 @@ impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyM
                 .user_metadata
                 .unwrap_or(JsonMetadataBlob(serde_json::Value::Null)),
             ontology_tag: value.ontology_tag,
-            serialization_format: value.serialization_format.into(),
+            serialization_format: super::format_to_proto(value.serialization_format),
         }
     }
 }
@@ -153,6 +165,32 @@ impl From<types::TopicMetadataProperties> for JsonTopicProperties {
             resource_locator: value.resource_locator.to_string(),
         }
     }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// USER METADATA <-> BYTES
+// ////////////////////////////////////////////////////////////////////////////
+
+/// `user_metadata` fields carry arbitrary user-supplied JSON as raw bytes.
+/// Empty bytes means `None`.
+pub fn user_metadata_to_bytes(value: Option<JsonMetadataBlob>) -> Result<Vec<u8>, Error> {
+    match value {
+        Some(metadata) => metadata.to_bytes(),
+        None => Ok(vec![]),
+    }
+}
+
+/// `user_metadata` fields carry arbitrary user-supplied JSON as raw bytes.
+/// Empty bytes means `None`.
+pub fn user_metadata_from_bytes(bytes: Vec<u8>) -> Result<Option<JsonMetadataBlob>, Error> {
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+
+    let json: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|e| Error::DeserializationError(e.to_string()))?;
+
+    Ok(Some(JsonMetadataBlob::from(json)))
 }
 
 #[cfg(test)]

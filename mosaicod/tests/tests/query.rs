@@ -1,5 +1,6 @@
 #![allow(unused_crate_dependencies)]
 use mosaicod_db as db;
+use mosaicod_marshal::responses;
 use serde_json::json;
 use tests::{actions, common};
 
@@ -38,20 +39,13 @@ async fn setup_topics_with_metadata(
         .unwrap();
 }
 
-fn topic_locator_and_ontology(items: &[serde_json::Value]) -> Vec<(String, String)> {
+fn topic_locator_and_ontology(items: &[responses::ResponseQueryItem]) -> Vec<(String, String)> {
     items
         .iter()
         .flat_map(|item| {
-            item["topics"]
-                .as_array()
-                .unwrap_or(&vec![])
+            item.topics
                 .iter()
-                .map(|t| {
-                    (
-                        t["locator"].as_str().unwrap().to_owned(),
-                        t["ontology_tag"].as_str().unwrap().to_owned(),
-                    )
-                })
+                .map(|t| (t.locator.clone(), t.ontology_tag.clone()))
                 .collect::<Vec<_>>()
         })
         .collect()

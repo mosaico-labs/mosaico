@@ -13,16 +13,17 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-grpc = { workspace = true }
-mosaicod-grpc-flight = { workspace = true }
 mosaicod-grpc-common = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true}
+mosaicod-proto = { workspace = true }
 mosaicod-task = { workspace = true}
 mosaicod-rw = { workspace = true}
 
 arrow-flight = { workspace = true }
+prost = { workspace = true }
 tonic = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }

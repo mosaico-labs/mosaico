@@ -85,8 +85,8 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
     assert_eq!(app_metadata.data_info.total_row_count, 300000);
 
