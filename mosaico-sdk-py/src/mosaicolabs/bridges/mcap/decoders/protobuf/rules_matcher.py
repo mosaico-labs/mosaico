@@ -4,7 +4,16 @@ from typing import Dict, List
 from google.protobuf.descriptor import Descriptor, FieldDescriptor
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from ..rule import FieldContainer, FieldKey, Rule, match_rules
+from ..rule import (
+    FieldContainer,
+    FieldKey,
+    FieldStep,
+    ListStep,
+    MapValuesStep,
+    Rule,
+    RulePath,
+    match_rules,
+)
 
 # ------------------------------------------------ #
 # ------------------ PREDICATES ------------------ #
@@ -56,6 +65,18 @@ def is_field_singular_message(field: FieldDescriptor) -> bool:
     presence and are always printed)."""
 
     return is_field_nested(field) and not field.is_repeated
+
+
+def is_field_map(field: FieldDescriptor) -> bool:
+    """Whether `field` is a protobuf `map<K, V>` field. Maps are implemented as a `repeated`
+    field of a synthesized `MapEntry` message (with `key`/`value` fields), so this must be
+    checked before treating a `repeated` field as an ordinary list."""
+
+    return bool(
+        field.is_repeated
+        and field.message_type
+        and field.message_type.GetOptions().map_entry
+    )
 
 
 # ------------------------------------------------ #
@@ -147,41 +168,83 @@ class ProtobufRulesMatcher:
     ]
 
     @classmethod
-    def from_descriptor(cls, descr: Descriptor) -> Dict[str, List[Rule]]:
+    def from_descriptor(cls, descr: Descriptor) -> Dict[RulePath, List[Rule]]:
         """
         Walks `descr`'s fields (recursing into nested messages) and returns a dict mapping
-        each dot-separated field path to the ordered list of `PROTOBUF_RULES` entries whose
+        each field's `RulePath` to the ordered list of `PROTOBUF_RULES` entries whose
         predicate matches that field (see `match_rules`) — a field can match more than one,
         e.g. an `Any` field that is also a `oneof` member matches both `is_field_any` and
         `is_field_oneof`. `MCAPMsgDecoder.postprocess()` applies them in this same order.
         """
-        return cls._walk(descr, {}, "")
+        return cls._descriptor_to_rules(descr, {}, ())
 
     @classmethod
-    def _walk(
+    def _descriptor_to_rules(
         cls,
         descr: Descriptor,
-        field_rule_mapper: Dict[str, List[Rule]],
-        path: str,
-    ) -> Dict[str, List[Rule]]:
+        field_rule_mapper: Dict[RulePath, List[Rule]],
+        path: RulePath,
+    ) -> Dict[RulePath, List[Rule]]:
 
-        for field in descr.fields:
-            full_field_name = f"{path}.{field.name}" if path else field.name
-
-            matched_rules = match_rules(field, cls.PROTOBUF_RULES)
-            if matched_rules:
-                field_rule_mapper[full_field_name] = matched_rules
-
-            if (
-                is_field_nested(field)
-                and not is_field_timestamp(field)
-                and not is_field_any(field)
-            ):
-                if field.message_type is None:
-                    raise RuntimeError(
-                        f"`{field.full_name}` of type {field.type} does not hold any information about its message type."
-                    )
-
-                cls._walk(field.message_type, field_rule_mapper, full_field_name)
+        for f in descr.fields:
+            cls._field_to_rule(f, field_rule_mapper, path)
 
         return field_rule_mapper
+
+    @classmethod
+    def _field_to_rule(
+        cls,
+        field: FieldDescriptor,
+        field_rule_mapper: Dict[RulePath, List[Rule]],
+        path: RulePath,
+    ):
+        """
+        Turns one protobuf FieldDescriptor into a list of Rules to be applied to that field
+        by adding them to the passed field_rule_mapper
+        """
+
+        if is_field_map(field):
+            # Maps: match/recurse the VALUE type at a MapValuesStep-terminated path, so it's
+            # fixed up per-entry exactly like a repeated message element already is via
+            # ListStep — reusing _to_rule unchanged. Map keys are left alone for now.
+            if field.message_type is None:
+                raise RuntimeError(
+                    f"`{field.full_name}` is a map field but holds no message_type information."
+                )
+            value_field = field.message_type.fields_by_name["value"]
+            cls._to_rule(
+                value_field,
+                field_rule_mapper,
+                path + (FieldStep(field.name), MapValuesStep()),
+            )
+        elif field.is_repeated:
+            cls._to_rule(
+                field, field_rule_mapper, path + (FieldStep(field.name), ListStep())
+            )
+        else:
+            cls._to_rule(field, field_rule_mapper, path + (FieldStep(field.name),))
+
+    @classmethod
+    def _to_rule(
+        cls,
+        field: FieldDescriptor,
+        field_rule_mapper: Dict[RulePath, List[Rule]],
+        path: RulePath,
+    ):
+        """Mapping a field (that is NEITHER a list NOR a map) and all its sub-fields into a Rule"""
+
+        matched_rules = match_rules(field, cls.PROTOBUF_RULES)
+        if matched_rules:
+            field_rule_mapper[path] = matched_rules
+
+        if (
+            is_field_nested(field)
+            and not is_field_timestamp(field)  # do NOT unpack Timestamps types
+            and not is_field_any(field)  # do NOT unpack Any types
+        ):
+            if field.message_type is None:
+                raise RuntimeError(
+                    f"`{field.full_name}` of type {field.type} does not hold any information about its message type."
+                )
+
+            cls._descriptor_to_rules(field.message_type, field_rule_mapper, path)

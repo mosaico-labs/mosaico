@@ -7,6 +7,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -30,6 +31,34 @@ logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
+class FieldStep:
+    """Descend into container[name] — a struct field lookup (a decoded protobuf submessage
+    dict, keyed by field name)."""
+
+    name: str
+
+
+@dataclass(frozen=True)
+class ListStep:
+    """Fan out over every element of the list found at this position (a decoded `repeated`
+    field). As the last step, the list itself is the container and each index is the key
+    (the rule's callback runs once per element); otherwise the remaining steps are resolved
+    independently against each element."""
+
+
+@dataclass(frozen=True)
+class MapValuesStep:
+    """Fan out over every value of the map dict found at this position (a decoded protobuf
+    `map<K, V>` field). Unlike `FieldStep`, does not look up one named key — a map's keys are
+    arbitrary data, not schema-known field names. As the last step, the map dict itself is
+    the container and each key addresses one value; otherwise the remaining steps are
+    resolved independently against each value."""
+
+
+RulePath = Tuple[Union[FieldStep, ListStep, MapValuesStep], ...]
+
+
+@dataclass(frozen=True)
 class Rule(Generic[T]):
     """
     A single postprocessing rule, applied by `MCAPMsgDecoder.postprocess()` to
@@ -41,7 +70,7 @@ class Rule(Generic[T]):
     1. **Schema inspection**, during `register_schema()`: an encoding-specific matcher (e.g.
        `ProtobufRulesMatcher.from_descriptor`) walks the schema and, for every field whose
        schema node satisfies `predicate` (checked via `is_respected`), associates that
-       field's dot-separated path with this `Rule`. The result is a `Dict[str, List[Rule]]`
+       field's `RulePath` with this `Rule`. The result is a `Dict[RulePath, List[Rule]]`
        (`MCAPMsgDecoder._field_rule_mapper`) mapping each field path to every `Rule` matched
        for it — a field can satisfy more than one predicate (e.g. an `Any` field that is also
        a `oneof` member), in which case all of them apply, in `PROTOBUF_RULES` order.
@@ -61,66 +90,70 @@ class Rule(Generic[T]):
         `FieldDescriptor`), meaning this rule should be registered for that field."""
         return self.predicate(node)
 
-    def apply(self, data: Dict[str, Any], path: str) -> None:
-        """Locates every dict that directly contains dot-separated `path`'s leaf key and
-        invokes `callback(container, leaf_key)` on each one, touching nothing else in `data`.
-        A `repeated` protobuf field decodes to a list, so this transparently fans out over
-        one wherever it's encountered — mid-path (e.g. a `repeated Inner` message field) or
-        at the leaf itself (e.g. a `repeated int64` field, where `callback` then runs once
-        per list index). This is what `MCAPMsgDecoder.postprocess()` calls for every rule
+    def apply(self, data: Dict[str, Any], path: RulePath) -> None:
+        """Resolves `path` against `data`, fanning out at every `ListStep`/`MapValuesStep`,
+        and invokes `callback(container, key)` once per (container, key) pair `path`
+        resolves to. This is what `MCAPMsgDecoder.postprocess()` calls for every rule
         registered against a given field path.
 
         `callback` may raise `KeyError` to signal that the field it needs is absent (e.g.
         `_coerce_int64_field` on a field `MessageToDict` omitted); that's caught and logged at
         debug level rather than propagated, so it never aborts postprocessing of the rest of
         `data`."""
-        *parents, leaf = path.split(".")
-        for container in self._resolve_containers(data, parents):
+        for container, key in self._resolve(data, path):
             try:
-                self._apply_to_leaf(container, leaf)
+                self.callback(container, key)
             except KeyError as e:
                 logger.debug(
                     f"Impossible to apply `{self.callback.__name__}` to `{path}` because: {e}"
                 )
 
-    def _resolve_containers(
-        self, node: Any, parents: List[str]
-    ) -> Iterator[Dict[str, Any]]:
-        """Yields every dict reachable by walking `parents` from `node`, fanning out over any
-        list encountered along the way: a repeated field's list doesn't correspond to its own
-        path segment, so each element is walked with the same remaining `parents`.
-
-        Stops (yields nothing) as soon as `node` is `None` or a step's key isn't found: an
-        intermediate message field can itself be an unset singular message (surfaced as `None`
-        by a `_fill_absent_field` rule, or simply absent if not yet processed), in which case
+    def _resolve(
+        self, node: Any, path: RulePath
+    ) -> Iterator[Tuple[FieldContainer, FieldKey]]:
+        """Yields every `(container, key)` pair `callback` should run on, resolving `path`
+        against `node`. Stops (yields nothing) as soon as `node` is `None`: an intermediate
+        message field can itself be an unset singular message (surfaced as `None` by a
+        `_fill_absent_field` rule, or simply absent if not yet processed), in which case
         there is nothing further down that path to postprocess."""
-        if node is None:
+        if node is None or not path:
             return
-        if isinstance(node, list):
-            for item in node:
-                yield from self._resolve_containers(item, parents)
-            return
-        if not parents:
-            yield node
-            return
-        head, *rest = parents
-        if head not in node:
-            return
-        yield from self._resolve_containers(node[head], rest)
 
-    def _apply_to_leaf(self, container: Dict[str, Any], leaf: str) -> None:
-        """Runs `callback` on `container[leaf]`, or once per index if that value is itself a
-        list (a repeated scalar/message/Any/Timestamp field). Does not itself check whether
-        `leaf` is present in `container` — `callback` is invoked unconditionally, and it is
-        each callback's own responsibility to handle (or reject, via `KeyError`) an absent
-        field; see `_fill_absent_field` vs. `_coerce_int64_field`/`_modify_any_field`/
-        `_modify_timestamp_field` in `rules_matcher.py`."""
-        value = container.get(leaf)
-        if isinstance(value, list):
-            for index in range(len(value)):
-                self.callback(value, index)
-        else:
-            self.callback(container, leaf)
+        step, *rest = path
+        rest = tuple(rest)
+
+        if isinstance(step, FieldStep):
+            if not isinstance(node, dict):
+                return
+            if not rest:
+                # Terminal: yield unconditionally, even if `step.name` is absent — the
+                # callback decides (e.g. `_fill_absent_field` specifically wants to run when
+                # the key is missing).
+                yield node, step.name
+                return
+            if step.name not in node:
+                return  # nothing further down this path to visit
+            yield from self._resolve(node[step.name], rest)
+
+        elif isinstance(step, ListStep):
+            if not isinstance(node, list):
+                return
+            if not rest:
+                for index in range(len(node)):
+                    yield node, index
+                return
+            for item in node:
+                yield from self._resolve(item, rest)
+
+        elif isinstance(step, MapValuesStep):
+            if not isinstance(node, dict):
+                return
+            if not rest:
+                for key in list(node.keys()):
+                    yield node, key
+                return
+            for key in list(node.keys()):
+                yield from self._resolve(node[key], rest)
 
 
 def match_rules(node: T, rules: List[Rule[T]]) -> Optional[List[Rule[T]]]:

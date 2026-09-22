@@ -5,7 +5,7 @@ from mcap.decoder import DecoderFactory
 from mcap.reader import DecodedMessageTuple
 from mcap.records import Schema
 
-from .rule import Rule
+from .rule import Rule, RulePath
 
 
 class MCAPMsgDecoder(ABC):
@@ -25,7 +25,7 @@ class MCAPMsgDecoder(ABC):
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = ""
 
     def __init__(self) -> None:
-        self._field_rule_mapper: Dict[str, List[Rule]] = {}
+        self._field_rule_mapper: Dict[RulePath, List[Rule]] = {}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
