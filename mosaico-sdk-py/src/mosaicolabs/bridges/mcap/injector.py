@@ -1,23 +1,22 @@
 """
-ROS Bag Injection Tool.
+MCAP Injection Tool.
 
 This module provides a command-line interface (CLI) and a Python API for injecting
-data from ROS 1/2 bag files (MCAP, DB3, BAG) into the Mosaico data platform.
+data from MCAP files into the Mosaico data platform.
 
 It handles the complex orchestration of:
-1.  **Ingestion:** Reading raw messages from bag files using `ROSLoader`.
-2.  **Adaptation:** converting ROS-specific types (e.g., `sensor_msgs/Image`) into
-    Mosaico Ontology types (e.g., `Image`) via `ROSAdapter`.
+1.  **Ingestion:** Reading raw messages from MCAP files using `MCAPLoader`.
+2.  **Adaptation:** converting MCAP-specific types (e.g., `sensor_msgs.Image`) into
+    Mosaico Ontology types (e.g., `Image`) via `MCAPAdapterBase` subclasses.
 3.  **Transmission:** streaming the converted data to the Mosaico server using
     `MosaicoClient` with efficient batching and parallelism.
-4.  **Configuration:** Managing custom message definitions via `ROSTypeRegistry`.
 
 Typical usage as a script:
-    $ mosaicolabs.ros_injector ./data.mcap --name "Test_Run_01"
+    $ mosaicolabs.mcap_injector ./data.mcap --name "Test_Run_01"
 
 Typical usage as a library:
-    config = ROSInjectionConfig(file_path=Path("data.mcap"), ...)
-    injector = RosbagInjector(config)
+    config = MCAPInjectionConfig(file_path=Path("data.mcap"), ...)
+    injector = MCAPInjector(config)
     injector.run()
 """
 
@@ -27,11 +26,9 @@ import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, List, Optional, Set, Union
 
 from rich.live import Live
-from rosbags.typesys import Stores, get_typestore
-from rosbags.typesys.store import Typestore
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
@@ -46,11 +43,10 @@ from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from ..topic_status import to_color
 from ..ui import ProgressManager
-from .adapter_base import ROSAdapterBase, RosSchemaMetadata
-from .bridge import ROSBridge
-from .loader import ROSLoader
-from .registry import ROSTypeRegistry
-from .ros_message import ROSMessage
+from .adapter_base import MCAPSchemaMetadata
+from .helpers import _sanitize_mcap_channel_name
+from .loader import MCAPLoader
+from .mcap_message import MCAPMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -61,9 +57,9 @@ _DEFAULT_SESSION_ON_ERROR = SessionLevelErrorPolicy.Report
 
 # --- Configuration ---
 @dataclass
-class ROSInjectionConfig:
+class MCAPInjectionConfig:
     """
-    The central configuration object for the ROS Bag injection process.
+    The central configuration object for the MCAP injection process.
 
     This data class serves as the single source of truth for all injection settings,
     decoupling the orchestration logic from CLI arguments or configuration files.
@@ -71,53 +67,50 @@ class ROSInjectionConfig:
     to drive a successful ingestion session.
 
     Attributes:
-        file_path (Path): Absolute or relative path to the input ROS bag file (.mcap, .db3, or .bag).
+        file_path (Path): Absolute or relative path to the input MCAP file.
         sequence_name (str): The name for the new sequence to be created on the Mosaico server.
         metadata (dict): User-defined metadata to attach to the sequence (e.g., driver, weather, location).
+        topic_metadata (Optional[Dict[str, dict]]): Mapping of exact topic name to metadata to
+            merge into the metadata computed from the message schema and the source MCAP file.
+        update_if_exists (bool): If `True`, append this MCAP's topics to an existing sequence with
+            the same name instead of raising an error. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
-        ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
-            See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
         on_error (SessionLevelErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
             Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
-        custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
-        registry (Optional[ROSTypeRegistry]): Registry to register `custom_msgs` into; a private
-            one is created if `None`. Pass a shared instance to reuse definitions across runs.
-        topics (Optional[List[str]]): List of topic patterns used to filter available topics.
+        channels (Optional[List[str]]): List of channel patterns used to filter available channels.
             Supports shell-style glob patterns (e.g., ["/cam/\\*", "\\*camera_info"]).
             Patterns starting with "!" are treated as exclusions (e.g., ["\\!/cam/debug\\*"]).
-            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available topics are loaded.
-        adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
-            allowing the use of specific adapters instead of the default for designated topics.
-            Deafult: None
-        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
-            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
-            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
+            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available channels are loaded.
+        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of MCAP schema names
+            (e.g. "sensor_msgs.PointCloud2") to the `SerializationFormat` used when synthesizing an
+            `Unmodeled` ontology for channels that have no registered Mosaico adapter. Message types not
             present in this mapping default to `SerializationFormat.Default`.
             Default: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
-            If provided it must be have the `write` permission.
+            If provided it must have the `write` permission.
             Default: None
         tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
             Default: None
+        enable_tls (bool): Enable the TLS communication protocol. Defaults to False.
+        dry_run (bool): If `True`, resolves and reports which topics would be ingested without
+            connecting to the Mosaico server or writing any data. Default: False.
 
     Example:
         ```python
         from pathlib import Path
-        from rosbags.typesys import Stores
-        from mosaicolabs.enum import SessionLevelErrorPolicy
-        from mosaicolabs.bridges.ros import ROSInjectionConfig
+        from mosaicolabs.enum import SessionLevelErrorPolicy, TopicLevelErrorPolicy
+        from mosaicolabs.bridges.mcap import MCAPInjectionConfig
 
-        config = ROSInjectionConfig(
+        config = MCAPInjectionConfig(
             file_path=Path("recording.mcap"),
             sequence_name="test_drive_01",
             metadata={"environment": "urban", "vehicle": "robot_alpha"},
-            ros_distro=Stores.ROS2_FOXY,
             on_error=SessionLevelErrorPolicy.Delete,
             topics_on_error=TopicLevelErrorPolicy.Finalize,
         )
@@ -126,7 +119,7 @@ class ROSInjectionConfig:
 
     file_path: Path
     """
-    The path to the ROS bag file to ingest.
+    The path to the MCAP file to ingest.
     """
 
     sequence_name: str
@@ -142,7 +135,7 @@ class ROSInjectionConfig:
     topic_metadata: Optional[Dict[str, dict]] = None
     """
     A mapping of exact topic name to metadata to associate with that topic, merged into the
-    metadata computed from the message schema and the source bag file (see `_process_message`).
+    metadata computed from the message schema and the source mcap file (see `_process_message`).
     User-supplied values take precedence over the auto-computed ones on key conflicts.
 
     Only applied to topics that end up being ingested; entries for topics excluded by `topics`
@@ -153,17 +146,17 @@ class ROSInjectionConfig:
     """
     Controls what happens when a sequence named `sequence_name` already exists on the server.
 
-    If `True`, the injector appends this bag's topics to the existing sequence instead of
-    creating a new one. Use this both when a ROS recording is split across multiple bag files
-    that should all land in the same sequence, and when re-ingesting a derived/reprocessed bag
+    If `True`, the injector appends this mcap's topics to the existing sequence instead of
+    creating a new one. Use this both when a MCAP recording is split across multiple MCAP files
+    that should all land in the same sequence, and when re-ingesting a derived/reprocessed MCAP
     (e.g. offline estimation results) whose topics should be merged into a sequence that was
     already ingested from the original recording.
 
     If `False` (default), the injector creates a new sequence and raises an error if a sequence
     with the same name already exists.
 
-    Each topic's metadata records the source bag file it was ingested from (see
-    `schema_metadata` handling in `_process_message`), so which bag file contributed which
+    Each topic's metadata records the source MCAP file it was ingested from (see
+    `schema_metadata` handling in `_process_message`), so which MCAP file contributed which
     topics remains traceable even after multiple updates to the same sequence.
 
     Caveat: existence is checked and then acted upon in two separate steps (not atomically),
@@ -173,7 +166,7 @@ class ROSInjectionConfig:
     Caveat: resuming after a crash is NOT idempotent. `session_writer.get_topic_writer()`
     (see `_process_message`) only consults an in-memory cache scoped to the current process's
     session (`_BaseSessionWriter._topic_writers`); it has no knowledge of topics created by a
-    previous, crashed run. So re-running the same bag with `update_if_exists=True` after a
+    previous, crashed run. So re-running the same MCAP with `update_if_exists=True` after a
     crash will call `topic_create` again for topics that were already fully ingested before
     the crash, which the server is expected to reject as duplicates (behavior not covered by
     SDK-level tests as of this writing). There is currently no dedup against the topics already
@@ -193,13 +186,6 @@ class ROSInjectionConfig:
     The port of the Mosaico server.
     """
 
-    ros_distro: Optional[Stores] = None
-    """
-    The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
-
-    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-    """
-
     on_error: SessionLevelErrorPolicy = _DEFAULT_SESSION_ON_ERROR
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
@@ -207,56 +193,30 @@ class ROSInjectionConfig:
         _DEFAULT_TOPIC_ON_ERROR
     )
     """
-    The TopicWriter `on_error` behavior ([`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]) when a topic write fails.
-    Default is `TopicLevelErrorPolicy.Raise` for all topics.
+    The TopicWriter `on_error` behavior ([`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]) 
+    when a topic write fails. Default is `TopicLevelErrorPolicy.Raise` for all topics.
     Set to a `TopicLevelErrorPolicy` to apply the same policy to all topics.
     Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different topics.
     """
 
-    custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
-    """
-    A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
-
-    For example, for "my_robot_msgs/msg/Location" pass:
-
-    package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
-
-    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-
-    Registered into `registry` (or a fresh, private `ROSTypeRegistry` if `registry` is
-    `None`) before the loader's `Typestore` is built.
-    """
-
-    registry: Optional[ROSTypeRegistry] = None
-    """
-    The `ROSTypeRegistry` instance to register `custom_msgs` into and to pull existing
-    definitions from. If `None` (default), a fresh, private instance is created for this
-    injector alone — so its custom types can never leak into another injector/extractor
-    run in the same process. Pass the *same* `ROSTypeRegistry` instance across multiple
-    configs to deliberately share a centrally pre-registered set of definitions between them.
-    """
-
-    topics: Optional[List[str]] = None
-    """List of topic patterns used to filter available topics.
+    channels: Optional[List[str]] = None
+    """List of channel patterns used to filter available channels.
 
     Supports shell-style glob patterns (e.g., "/cam/*", "*camera_info").
     Patterns starting with '!' are treated as exclusions (e.g., "!/cam/debug*").
     
     **Pattern order matters**:
-        - Each non-'!' pattern adds matching topics to the selection.
-        - Each '!' pattern removes matching topics from the selection.
+        - Each non-'!' pattern adds matching channels to the selection.
+        - Each '!' pattern removes matching channels from the selection.
         - Later patterns override earlier ones.
-        - If no inclusion pattern is provided, selection starts from ALL topics,
+        - If no inclusion pattern is provided, selection starts from ALL channels,
           and only exclusion patterns reduce the set.
 
-    If None, all topics are loaded.
+    If None, all channels are loaded.
     """
 
-    adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
-    """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
-
     serialization_formats: Optional[Dict[str, SerializationFormat]] = None
-    """A mapping of ROS message type strings (e.g. "sensor_msgs/msg/PointCloud2") to the
+    """A mapping of MCAP message channel name (e.g. "camera/pointcloud") to the
     [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] used when synthesizing an
     `Unmodeled` ontology for topics that have no registered Mosaico adapter.
 
@@ -271,14 +231,14 @@ class ROSInjectionConfig:
     """
     The API key for authentication on the mosaico server. Defaults to None.
     
-    If provided it must be have the `write` permission.
+    If provided it must have the `write` permission.
     """
 
     tls_cert_path: Optional[str] = None
     """Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None."""
 
     enable_tls: bool = False
-    """Enable the TLS commmunication protocol. Defaults to False"""
+    """Enable the TLS communication protocol. Defaults to False"""
 
     dry_run: bool = False
     """
@@ -291,43 +251,47 @@ class ROSInjectionConfig:
 # --- Main Injector Class ---
 
 
-class RosbagInjector:
+class MCAPInjector:
     """
-    Main controller for the ROS Bag ingestion workflow.
+    Main controller for the MCAP ingestion workflow.
 
-    The `RosbagInjector` orchestrates the entire data pipeline from the physical storage
-    to the remote Mosaico server. It manages the initialization of the registry,
-    establishes network connections, and drives the main adaptation loop.
+    The `MCAPInjector` orchestrates the entire data pipeline from the physical storage
+    to the remote Mosaico server. It manages resource lifecycles, establishes network
+    connections, and drives the main adaptation loop.
 
     **Core Workflow Architecture:**
 
-    1.  **Registry Initialization**: Pre-loads custom message definitions via the `ROSTypeRegistry`.
-    2.  **Resource Management**: Opens the `ROSLoader` for file access and the `MosaicoClient` for networking.
-    3.  **Stream Negotiation**: Creates a `SequenceWriter` on the server and opens individual `TopicWriter` streams.
-    4.  **Adaptation Loop**: Iterates through ROS records, translates them via the `ROSBridge`, and pushes them to the server.
+    1.  **Resource Management**: Opens the `MCAPLoader` for file access and the `MosaicoClient` for networking.
+    2.  **Stream Negotiation**: Creates a `SequenceWriter` on the server and opens individual `TopicWriter` streams.
+    3.  **Adaptation Loop**: Iterates through MCAPMessage, translates them via the `MCAPBridge`, and pushes them to the server.
 
     Example:
         ```python
-        from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
+        from mosaicolabs.bridges.mcap import MCAPInjector, MCAPInjectionConfig
 
         # Define configuration
-        config = ROSInjectionConfig(file_path=Path("data.db3"), sequence_name="auto_ingest")
+        config = MCAPInjectionConfig(file_path=Path("data.mcap"), sequence_name="auto_ingest")
 
         # Initialize and run
-        injector = RosbagInjector(config)
+        injector = MCAPInjector(config)
         injector.run() # This handles the full lifecycle including cleanup on failure
         ```
 
     Attributes:
-        cfg (ROSInjectionConfig): The active configuration settings.
-        console (Console): The rich console instance for logging and UI output.
+        _cfg (MCAPInjectionConfig): The active configuration settings.
+        _console (Console): The rich console instance for logging and UI output.
         _ignored_topics (Set[str]): Cache of topics that lack a compatible adapter, used for fast-fail filtering.
+        _malformed_message_counts (Dict[str, int]): Per-topic count of messages skipped due to
+            a deserialization error or empty payload (see `_process_message`), used to render
+            the "Malformed Messages (Skipped)" summary table at the end of the run.
+        _loader (Optional[MCAPLoader]): The active `MCAPLoader`, lazily created by
+            `_open_or_get_loader()` and reused across `_dry_run_report()` and `run()`.
     """
 
-    def __init__(self, config: ROSInjectionConfig):
+    def __init__(self, config: MCAPInjectionConfig):
         """
         Args:
-            config (ROSInjectionConfig): The fully resolved configuration object.
+            config (MCAPInjectionConfig): The fully resolved configuration object.
         """
         self._cfg = config
         # Create the single "source of truth" for the terminal
@@ -343,76 +307,13 @@ class RosbagInjector:
         self._malformed_message_counts: Dict[str, int] = (
             dict()
         )  # Tracks malformed message counts per topic
-        self._typestore: Typestore = get_typestore(self._cfg.ros_distro or Stores.EMPTY)
-        self._loader: Optional[ROSLoader] = None
+        self._loader: Optional[MCAPLoader] = None
 
-        # Own a private registry by default, so this injector's custom types can never
-        # leak into another injector/extractor run in the same process. Pass the same
-        # `ROSTypeRegistry` instance via `cfg.registry` to deliberately share definitions
-        # across multiple runs (e.g. a centralized setup routine).
-        self._registry: ROSTypeRegistry = self._cfg.registry or ROSTypeRegistry()
-
-        # Register custom ROS messages to the local typestore
-        self._typestore_custom_msgtypes()
-
-    def _typestore_custom_msgtypes(self):
-        """
-        Registers any custom ROS message definitions provided in ``cfg.custom_msgs``
-        into ``self._registry``, then pulls every definition currently registered there
-        (including ones registered elsewhere on a *shared* `cfg.registry` instance) into
-        the local typestore. Safe to always run: `self._registry` is either private to
-        this injector, or an instance the caller explicitly chose to share.
-        """
-        if self._cfg.custom_msgs:
-            logger.info("Registering custom message definitions...")
-            for package, path, store in self._cfg.custom_msgs:
-                try:
-                    self._registry.register_directory(
-                        package_name=package, dir_path=path, store=store
-                    )
-                    logger.debug(f"Registered package '{package}' from '{path}'")
-                except Exception as e:
-                    logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
-
-        self._register_definitions()
-
-    def _register_definitions(self):
-        """Safe registration wrapper."""
-        from rosbags.typesys import get_types_from_msg
-
-        custom_types = self._registry.get_types(self._cfg.ros_distro)
-        if not custom_types:
-            return
-
-        logger.info(
-            f"Registering {list(custom_types.keys())} definitions to typestore..."
-        )
-        for msg_type, msg_def in custom_types.items():
-            try:
-                add_types = get_types_from_msg(msg_def, msg_type)
-                self._typestore.register(add_types)
-            except Exception as e:
-                logger.warning(f"Failed to register type '{msg_type}': '{e}'")
-
-    def _get_default_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
-        """
-        Memoized lookup for Mosaico ROS Adapters.
-
-        Args:
-            msg_type (str): The ROS message type string (e.g., "sensor_msgs/msg/Image").
-
-        Returns:
-            Optional[Type[ROSAdapterBase]]:The adapter class if found, otherwise None.
-        """
-
-        return ROSBridge.get_default_adapter(msg_type)
-
-    def _open_or_get_loader(self) -> ROSLoader:
+    def _open_or_get_loader(self) -> MCAPLoader:
         if self._loader is None:
-            self._loader = ROSLoader(
+            self._loader = MCAPLoader(
                 file_path=self._cfg.file_path,
-                topics=self._cfg.topics,
-                typestore_or_distro=self._typestore,
+                channels=self._cfg.channels,
                 serialization_formats=self._cfg.serialization_formats,
             )
 
@@ -420,7 +321,7 @@ class RosbagInjector:
 
     def _dry_run_report(self):
         """
-        Resolves the bag's topics against the current configuration and prints a report
+        Resolves the mcap's topic against the current configuration and prints a report
         of what would be ingested, without connecting to the Mosaico server or writing data.
 
         Reports, per topic: acceptance status, resolved adapter (or rejection reason), and
@@ -429,29 +330,27 @@ class RosbagInjector:
         """
         from rich.table import Table
 
-        logger.info(f"[DRY RUN] Opening bag: '{self._cfg.file_path}'")
+        logger.info(f"[DRY RUN] Opening mcap: '{self._cfg.file_path}'")
 
-        with self._open_or_get_loader() as ros_loader:
+        with self._open_or_get_loader() as mcap_loader:
             table = Table(
                 title=f"Dry Run: '{self._cfg.file_path.name}' -> sequence '{self._cfg.sequence_name}'"
             )
-            table.add_column("Topic")
+            table.add_column("Topics")
             table.add_column("Status")
             table.add_column("Adapter / Reason")
             table.add_column("Messages", justify="right")
 
-            for topic in ros_loader.topics:
-                adapter = (self._cfg.adapter_overrides or {}).get(
-                    topic
-                ) or ros_loader.resolve_adapter(topic)
+            for topic in mcap_loader.topics:
+                adapter = mcap_loader.resolve_adapter(topic)
                 table.add_row(
                     topic,
                     "[bright_green]Accepted",
                     adapter.__name__ if adapter else "?",
-                    str(ros_loader.msg_count(topic)),
+                    str(mcap_loader.msg_count(topic)),
                 )
 
-            for topic, status in ros_loader.rejected_topics:
+            for topic, status in mcap_loader.rejected_topics:
                 table.add_row(
                     topic,
                     f"[{to_color(status)}]{status.value}",
@@ -461,7 +360,7 @@ class RosbagInjector:
 
             self._console.print(table)
 
-            accepted = set(ros_loader.topics)
+            accepted = set(mcap_loader.topics)
             unused_topic_metadata = set(self._cfg.topic_metadata or {}) - accepted
             if unused_topic_metadata:
                 logger.warning(
@@ -471,7 +370,7 @@ class RosbagInjector:
 
             self._console.print(
                 f"[bold]{len(accepted)}[/bold] topic(s) would be ingested, "
-                f"[bold]{len(ros_loader.rejected_topics)}[/bold] rejected. "
+                f"[bold]{len(mcap_loader.rejected_topics)}[/bold] rejected. "
                 "No connection to the Mosaico server was made."
             )
 
@@ -479,11 +378,7 @@ class RosbagInjector:
         """
         Main execution entry point for the injection pipeline.
 
-        This method establishes the necessary contexts (Network Client, File Loader, Server Writer)
-        and executes the processing loop. It handles graceful shutdowns in case of
-        user interrupts and provides a summary report upon completion.
-
-        If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
+        If `self._cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
         without connecting to the server.
 
         Raises:
@@ -508,18 +403,19 @@ class RosbagInjector:
                 enable_tls=self._cfg.enable_tls,
                 tls_cert_path=self._cfg.tls_cert_path,
             ) as mclient:
-                # Context: ROS Loader (File Access)
-                logger.info(f"Opening bag: '{self._cfg.file_path}'")
+                # Context: MCAP Loader (File Access)
+                logger.info(f"Opening mcap: '{self._cfg.file_path}'")
 
-                with self._open_or_get_loader() as ros_loader:
+                with self._open_or_get_loader() as mcap_loader:
                     # Setup Progress UI
-                    ui = ProgressManager(ros_loader)
+                    ui = ProgressManager(mcap_loader)
                     ui.setup()
+
                     # Handle sequence creation or update based on existence and user preference
-                    # NOTE: `update_if_exists` covers two scenarios: a ROS recording split across
-                    # multiple bags that should all land in the same sequence, and a derived/
-                    # reprocessed bag whose topics should be merged into an already-ingested
-                    # sequence. Should the sequence not exist yet, a new one is created regardless.
+                    # NOTE: `update_if_exists` covers two scenarios:
+                    #   - a MCAP recording split across multiple files that should all land in the same sequence
+                    #   - a derived/reprocessed file whose topics should be merged into an already-ingested sequence
+                    # Should the sequence not exist yet, a new one is created regardless.
                     if (
                         mclient.sequence_exists(self._cfg.sequence_name)
                         and self._cfg.update_if_exists
@@ -535,7 +431,6 @@ class RosbagInjector:
                     else:
                         # NOTE: this will raise an error if the sequence already
                         # exists and `update_sequence` is False
-                        # Context: Sequence Writer (Server Transaction)
                         seq_writer = mclient.sequence_create(
                             sequence_name=self._cfg.sequence_name,
                             metadata=self._cfg.metadata,
@@ -546,11 +441,11 @@ class RosbagInjector:
                         logger.info("Starting upload...")
 
                         # Main Processing Loop
-                        # By passing self.console, any 'logger.info' calls inside
+                        # By passing self._console, any 'logger.info' calls inside
                         # this loop will print cleanly ABOVE the progress bars.
                         with Live(ui.progress, console=self._console):
-                            for ros_msg, exc in ros_loader:
-                                self._process_message(ros_msg, exc, seq_writer, ui)
+                            for mcap_msg, exc in mcap_loader:
+                                self._process_message(mcap_msg, exc, seq_writer, ui)
 
                 if seq_writer.session_status == SessionStatus.Error:
                     raise RuntimeError(
@@ -642,23 +537,23 @@ class RosbagInjector:
 
     def _process_message(
         self,
-        ros_msg: ROSMessage,
+        mcap_msg: MCAPMessage,
         exc: Optional[Exception],
         session_writer: AnySessionWriter,
         ui: ProgressManager,
     ):
         """
-        Internal business logic for processing a single ROS message.
+        Internal business logic for processing a single MCAP message.
 
         Steps:
-        1. **Filter**: Checks if the topic is blacklisted (e.g., no adapter found).
-        2. **Validate**: Checks for deserialization errors or empty payloads.
+        1. **Filter**: Checks if the topic is blacklisted.
+        2. **Integrity**: Checks for deserialization errors or empty payloads.
         3. **Resolve**: Locates the appropriate Mosaico Adapter for the message type.
         4. **Stream**: Obtains or creates a `TopicWriter` for the specific topic.
-        5. **Adapt & Push**: Translates the ROS dictionary into a Mosaico object and pushes it to the server buffer.
+        5. **Adapt & Push**: Translates the MCAP dictionary into a Mosaico object and pushes it to the server buffer.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to process.
+            mcap_msg (MCAPMessage): The MCAP message to process.
             exc (Optional[Exception]): Any exception raised during deserialization.
             session_writer (AnySessionWriter): The active session writer for the sequence.
             ui (ProgressManager): The progress manager for updating the UI.
@@ -666,79 +561,77 @@ class RosbagInjector:
 
         if self._loader is None:
             raise RuntimeError(
-                "Impossible to process messages if ROSLoader is not instantiated first"
+                "Impossible to process messages if MCAPLoader is not instantiated first"
             )
 
         # --- Filter Check ---
-        if ros_msg.topic in self._ignored_topics:
+        if mcap_msg.channel_name in self._ignored_topics:
             ui.advance_global()
             return
 
         # --- Integrity Check ---
         # If the loader yielded an exception or empty data, mark as error
-        if exc or not ros_msg.data_field:
+        if exc or not mcap_msg.data_field:
             logger.warning(
-                f"Skipping message on topic '{ros_msg.topic}' due to error: '{exc}'"
+                f"Skipping message on topic '{mcap_msg.channel_name}' due to error: '{exc}'"
             )
             ui.update_status(
-                ros_msg.topic, "Message-related Error. Check the logs.", "red"
+                mcap_msg.channel_name, "Message-related Error. Check the logs.", "red"
             )
             ui.advance_global()
             # Update the malformed message count for this topic
-            self._malformed_message_counts[ros_msg.topic] = (
-                self._malformed_message_counts.get(ros_msg.topic, 0) + 1
+            self._malformed_message_counts[mcap_msg.channel_name] = (
+                self._malformed_message_counts.get(mcap_msg.channel_name, 0) + 1
             )
             return
 
-        # --- Adapter Resolution ---
-        adapter = (self._cfg.adapter_overrides or {}).get(
-            ros_msg.topic
-        ) or self._loader.resolve_adapter(ros_msg.topic)
+        # --- Adapter Resolve ---
+        adapter = self._loader.resolve_adapter(mcap_msg.channel_name)
 
         if adapter is None:
             # This should never happen, but we handle it gracefully
             # Blacklist this topic to prevent future lookups
-            self._ignored_topics.add(ros_msg.topic)
-            ui.update_status(ros_msg.topic, "Unable to adapt.", "red")
+            self._ignored_topics.add(mcap_msg.channel_name)
+            ui.update_status(mcap_msg.channel_name, "Unable to adapt.", "red")
             ui.advance_global()
             return
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
-        twriter = session_writer.get_topic_writer(ros_msg.topic)
+        sanitized_name = _sanitize_mcap_channel_name(mcap_msg.channel_name)
+        twriter = session_writer.get_topic_writer(sanitized_name)
 
         # Should theoretically not be None if exists returned True
         if twriter is None:
             # --- Schema metadata Resolution ---
-            ros_version = 1 if self._cfg.ros_distro is Stores.ROS1_NOETIC else 2
-            ros_meta = RosSchemaMetadata.from_dict(
-                adapter.schema_metadata(
-                    self._loader._typestore, ros_msg.msg_type, ros_version
-                )
-            )
-            # Record which bag file introduced this topic, inside the reserved `_ros_`
+            mcap_meta = MCAPSchemaMetadata.from_dict(adapter.schema_metadata())
+
+            # Record which mcap file introduced this topic, inside the reserved `_mcap_`
             # namespace. This lets the source of each topic remain traceable even after
             # later updates to the same sequence (e.g. multi-part recordings or merged
             # reprocessing results), since sequence metadata cannot be changed once the
             # sequence has been ingested.
-            ros_meta.update(source_file=self._cfg.file_path.name)
+            mcap_meta.update(source_file=self._cfg.file_path.name)
 
             # Start from the user-supplied per-topic metadata, then layer the bridge-computed
-            # `_ros_` block on top: `_ros_` is reserved and always wins on conflict, every
+            # `_mcap_` block on top: `_mcap_` is reserved and always wins on conflict, every
             # other key is fully user-owned.
-            metadata = dict((self._cfg.topic_metadata or {}).get(ros_msg.topic, {}))
-            metadata.update(ros_meta.to_dict())
+            metadata = dict(
+                (self._cfg.topic_metadata or {}).get(mcap_msg.channel_name, {})
+            )
+            metadata.update(mcap_meta.to_dict())
 
             # Register new topic on server
+            sanitized_name = _sanitize_mcap_channel_name(mcap_msg.channel_name)
             twriter = session_writer.topic_create(
-                topic_name=ros_msg.topic,
+                topic_name=sanitized_name,
                 metadata=metadata,
                 ontology_type=adapter.ontology_data_type(),
-                on_error=self._get_topic_on_error(ros_msg.topic),
+                on_error=self._get_topic_on_error(mcap_msg.channel_name),
             )
             if twriter is None:
-                ui.update_status(ros_msg.topic, "Write Error", "red")
+                ui.update_status(mcap_msg.channel_name, "Write Error", "red")
                 # We assume transient error and continue; strict policies are handled by Client
-                ui.advance_all(ros_msg.topic)
+                ui.advance_all(mcap_msg.channel_name)
                 return
 
         # --- Adapt & Push ---
@@ -746,17 +639,19 @@ class RosbagInjector:
             twriter.is_active
         ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
             with twriter:
-                # Convert ROS dict -> Mosaico Object -> Arrow Batch
-                twriter.push(adapter.translate(ros_msg))
+                # Convert MCAPMessage -> Mosaico Object -> Arrow Batch
+                twriter.push(adapter.translate(mcap_msg))
             if twriter.status == TopicWriterStatus.IgnoredLastError:
                 # If writing fails (e.g. network error, validation error), update UI
-                ui.update_status(ros_msg.topic, "Write Error (Ignored)", "yellow")
+                ui.update_status(
+                    mcap_msg.channel_name, "Write Error (Ignored)", "yellow"
+                )
             elif twriter.status == TopicWriterStatus.FinalizedWithError:
                 ui.update_status(
-                    ros_msg.topic, "Fatal Error: Prematurely finalized", "red"
+                    mcap_msg.channel_name, "Fatal Error: Prematurely finalized", "red"
                 )
 
-        ui.advance_all(ros_msg.topic)
+        ui.advance_all(mcap_msg.channel_name)
 
 
 # --- CLI Entry Point ---
@@ -812,15 +707,15 @@ def _parse_json_arg(arg_input: Optional[str], arg_name: str = "Metadata") -> dic
     sys.exit(1)
 
 
-def ros_injector():
+def mcap_injector():
     """
     Console script entry point.
     Parses arguments, sets up configuration, and initiates the injector.
     """
-    parser = argparse.ArgumentParser(description="Inject ROS Bag data into Mosaico.")
+    parser = argparse.ArgumentParser(description="Inject MCAP data into Mosaico.")
 
     # Required Arguments
-    parser.add_argument("bag_path", type=Path, help="Path to .mcap or .db3 file")
+    parser.add_argument("mcap_path", type=Path, help="Path to .mcap file")
     parser.add_argument("--name", "-n", required=True, help="Target Sequence Name")
     parser.add_argument(
         "--dry-run",
@@ -834,9 +729,10 @@ def ros_injector():
         "--update-if-exists",
         action="store_true",
         help=(
-            "If a sequence named --name already exists, append this bag's topics to it "
-            "instead of raising an error (e.g. for multi-part bags or merging reprocessed "
-            "results into an already-ingested sequence)."
+            "If a sequence named --name already exists, append this mcap's topics to it "
+            "instead of raising an error (e.g. for multi-part recordings split across "
+            "multiple mcap files, or merging reprocessed results into an already-ingested "
+            "sequence)."
         ),
     )
 
@@ -848,12 +744,12 @@ def ros_injector():
 
     # Filter Arguments
     parser.add_argument(
-        "--topics",
+        "--channels",
         nargs="+",
         help=(
-            "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
+            "Channel patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
             "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
-            "If only exclusions are provided, all topics are included except those excluded. "
+            "If only exclusions are provided, all channels are included except those excluded. "
             "Patterns are evaluated in ORDER. "
             "Note: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
             'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
@@ -870,17 +766,8 @@ def ros_injector():
         help=(
             "JSON string or path to JSON file containing a mapping of exact topic name to "
             'metadata, e.g. \'{"/imu": {"unit": "rad/s"}}\'. Only applied to topics that are '
-            "actually ingested (see --topics)."
+            "actually ingested (see --channels)."
         ),
-    )
-
-    # Advanced Arguments
-    parser.add_argument(
-        "--ros-distro",
-        default=None,
-        choices=[s.name.lower() for s in Stores],
-        help="Target ROS Distribution for message parsing (e.g., ros2_humble). "
-        "If not set, defaults to an empty/auto-detected typestore.",
     )
 
     # Advanced Arguments
@@ -919,21 +806,16 @@ def ros_injector():
 
     # --- Configuration Construction ---
 
-    # Resolve Enum from string input
-    selected_distro = (
-        Stores(args.ros_distro.lower()) if args.ros_distro else Stores.EMPTY
-    )
-
     # Parse metadata
     user_metadata = _parse_json_arg(args.metadata, arg_name="Metadata")
     # Inject traceability metadata
-    user_metadata.update({"rosbag_injection": args.bag_path.name})
+    user_metadata.update({"mcap_injection": args.mcap_path.name})
     user_topic_metadata = _parse_json_arg(
         args.topic_metadata, arg_name="Topic metadata"
     )
 
-    config = ROSInjectionConfig(
-        file_path=args.bag_path,
+    config = MCAPInjectionConfig(
+        file_path=args.mcap_path,
         sequence_name=args.name,
         metadata=user_metadata,
         topic_metadata=user_topic_metadata or None,
@@ -941,15 +823,14 @@ def ros_injector():
         dry_run=args.dry_run,
         host=args.host,
         port=args.port,
-        topics=args.topics,
-        ros_distro=selected_distro,
+        channels=args.channels,
         log_level=args.log,
         tls_cert_path=args.tls_cert,
         mosaico_api_key=args.api_key or os.environ.get("MOSAICO_API_KEY"),
     )
 
     # --- Execution ---
-    injector = RosbagInjector(config)
+    injector = MCAPInjector(config)
     try:
         injector.run()
     except KeyboardInterrupt:
@@ -961,4 +842,4 @@ def ros_injector():
 
 
 if __name__ == "__main__":
-    ros_injector()
+    mcap_injector()
