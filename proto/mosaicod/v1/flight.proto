@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package mosaicod.v1.flight;
+
+import "mosaicod/v1/time.proto";
+import "mosaicod/v1/core.proto";
+
+// These messages are Arrow Flight `FlightDescriptor.cmd` payloads (commands)
+// and `FlightInfo`/`FlightEndpoint.app_metadata` payloads, carried as raw
+// protobuf binary.
+
+// `FlightDescriptor.cmd` payload for the get_flight_info RPC.
+//
+// `timestamp_ns_start`/`timestamp_ns_end` are independently optional (an
+// absent bound means unbounded on that side, e.g. "everything after X").
+message GetFlightInfoCmd {
+  string resource_locator = 1;
+  optional int64 timestamp_ns_start = 2;
+  optional int64 timestamp_ns_end = 3;
+}
+
+// `FlightDescriptor.cmd` payload for the get_schema RPC.
+message GetSchemaCmd {
+  string resource_locator = 1;
+}
+
+// `FlightDescriptor.cmd` payload for the do_put RPC.
+message DoPutCmd {
+  string resource_locator = 1;
+  string topic_uuid = 2;
+}
+
+// `Ticket.ticket` payload for a topic's do_get RPC.
+message TicketTopic {
+  string resource_locator = 1;
+  optional int64 timestamp_ns_start = 2;
+  optional int64 timestamp_ns_end = 3;
+}
+
+// `FlightInfo.app_metadata` payload for a sequence.
+message SessionAppMetadata {
+  string locator = 1;
+  int64 created_at_ns = 2;
+  optional int64 completed_at_ns = 3;
+  repeated string topics = 4;
+  bool locked = 5;
+}
+
+message SequenceAppMetadata {
+  int64 created_at_ns = 1;
+  string resource_locator = 2;
+  repeated SessionAppMetadata sessions = 3;
+  // Arbitrary user-supplied JSON metadata, as raw UTF-8 text: no fixed
+  // schema. Empty bytes means no metadata was set.
+  bytes user_metadata = 4;
+}
+
+message TopicAppMetadataTimeWindow {
+  time.TimestampRange interval = 1;
+  uint64 row_count = 2;
+}
+
+message TopicAppMetadataDataInfo {
+  time.TimestampRange interval = 1;
+  uint64 total_row_count = 2;
+  uint64 total_bytes = 3;
+  uint64 total_chunks_count = 4;
+}
+
+// `FlightEndpoint.app_metadata` payload for a topic.
+message TopicAppMetadata {
+  int64 created_at_ns = 1;
+  optional int64 completed_at_ns = 2;
+  bool locked = 3;
+  string resource_locator = 4;
+  string ontology_tag = 5;
+  core.Format serialization_format = 6;
+  // See `SequenceAppMetadata.user_metadata`.
+  bytes user_metadata = 7;
+  TopicAppMetadataDataInfo data_info = 8;
+  TopicAppMetadataTimeWindow time_window_info = 9;
+  string session_locator = 10;
+}
