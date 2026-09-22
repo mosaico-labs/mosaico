@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from typer.testing import CliRunner
 
@@ -189,6 +191,11 @@ class TestProfileList:
         assert result.exit_code == 0
         assert "No profiles" in result.output
 
+    def test_list_empty_json(self, config_file):
+        result = runner.invoke(app, ["profile", "ls", "--output", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.output) == {"schema_version": 1, "profiles": []}
+
     def test_list_with_profiles(self, config_file):
         runner.invoke(
             app,
@@ -204,6 +211,27 @@ class TestProfileList:
         result = runner.invoke(app, ["profile", "ls"])
         assert result.exit_code == 0
         assert "myprofile" in result.output
+
+    def test_list_json_is_machine_readable_and_redacted(self, config_file):
+        runner.invoke(
+            app,
+            [
+                "profile",
+                "add",
+                "machine",
+                "--no-interactive",
+                "--host",
+                "example.com",
+                "--api-key",
+                "secret-value",
+            ],
+        )
+        result = runner.invoke(app, ["profile", "ls", "--output", "json"])
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["schema_version"] == 1
+        assert payload["profiles"][0]["api_key_configured"] is True
+        assert "secret-value" not in result.output
 
 
 class TestProfileDefault:

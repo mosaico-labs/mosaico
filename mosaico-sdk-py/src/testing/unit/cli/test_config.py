@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from mosaicolabs_cli.utils.config import (
@@ -5,6 +7,7 @@ from mosaicolabs_cli.utils.config import (
     get_config_path,
     load_config,
     serialize_to_toml,
+    write_config,
 )
 
 
@@ -68,6 +71,30 @@ class TestLoadConfig:
         path.write_text("this is [[[not valid toml")
         with pytest.raises(typer.Exit):
             load_config(path)
+
+
+class TestWriteConfig:
+    def test_creates_parent_and_round_trips(self, tmp_path):
+        path = tmp_path / "nested" / "config.toml"
+        write_config({"dev": {"host": "localhost"}}, path)
+        assert load_config(path)["dev"]["host"] == "localhost"
+
+    @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions only")
+    def test_restricts_file_permissions(self, tmp_path):
+        path = tmp_path / "config.toml"
+        write_config({"dev": {"host": "localhost"}}, path)
+        assert path.stat().st_mode & 0o777 == 0o600
+
+    @pytest.mark.skipif(os.name != "posix", reason="POSIX permissions only")
+    def test_restricts_permissions_when_replacing_existing_file(self, tmp_path):
+        path = tmp_path / "config.toml"
+        path.write_text('[old]\nhost = "old"\n')
+        path.chmod(0o644)
+
+        write_config({"new": {"host": "new"}}, path)
+
+        assert path.stat().st_mode & 0o777 == 0o600
+        assert "[new]" in path.read_text()
 
 
 class TestGetConfigPath:
