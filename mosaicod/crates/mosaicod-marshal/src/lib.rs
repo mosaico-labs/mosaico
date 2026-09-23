@@ -3,6 +3,9 @@
 mod metadata;
 pub use metadata::*;
 
+mod metadata_file;
+pub use metadata_file::*;
+
 mod format;
 pub use format::*;
 
