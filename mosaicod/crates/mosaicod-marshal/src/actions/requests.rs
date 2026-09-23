@@ -38,9 +38,6 @@ pub use mosaicod_proto::v1::requests::TopicCreate;
 /// then clustering matching timestamps by a time-gap threshold. Reused
 /// (nested) inside [`TopicFilterIntersect::topics`], and directly as the
 /// `topic_filter_clusterize` action's own request payload.
-///
-/// Generated from `mosaicod.v1.requests.TopicClusterizeParams` in the
-/// repo-root `proto/` directory (see `mosaicod-proto`).
 pub use mosaicod_proto::v1::requests::TopicClusterizeParams;
 
 /// `TopicClusterizeParams.ontology` carries the query filter DSL's arbitrary,
@@ -56,8 +53,6 @@ pub fn topic_clusterize_ontology(value: &TopicClusterizeParams) -> Result<Ontolo
     Ok(serde_json::from_slice(bytes)?)
 }
 
-/// Generated from `mosaicod.v1.requests.TopicFilterIntersect` in the
-/// repo-root `proto/` directory (see `mosaicod-proto`).
 pub use mosaicod_proto::v1::requests::TopicFilterIntersect;
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -65,12 +60,7 @@ pub use mosaicod_proto::v1::requests::TopicFilterIntersect;
 // ////////////////////////////////////////////////////////////////////////////
 
 /// The query filter DSL (see [`Ontology`]) has an arbitrary, user-supplied
-/// shape with no fixed field set, so it's carried as raw JSON bytes rather
-/// than being decomposed into protobuf fields (see the note on it in
-/// `proto/mosaicod/v1/requests.proto`).
-///
-/// Generated from `mosaicod.v1.requests.Query` in the repo-root `proto/`
-/// directory (see `mosaicod-proto`).
+/// shape with no fixed field set.
 pub use mosaicod_proto::v1::requests::Query;
 
 pub fn query_filter(value: &Query) -> Result<serde_json::Value, ActionError> {

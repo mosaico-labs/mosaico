@@ -1,8 +1,8 @@
 //! This module defines the formatting structure for responses.
 //!
 //! Most types here are generated from `.proto` schemas in the repo-root
-//! `proto/` directory (see `mosaicod-proto`), shared with `mosaico-sdk-py`'s
-//! Python codegen. Wire format is raw protobuf binary (`prost::Message`).
+//! `proto/` directory (see `mosaicod-proto`).
+//! Wire format is raw protobuf binary.
 
 use mosaicod_core::types::{self, Locator};
 
@@ -140,9 +140,6 @@ mod tests {
         assert_eq!(decoded, response);
     }
 
-    /// [`ResourceUuid`] is generated from `proto/mosaicod/v1/responses.proto`
-    /// (see `mosaicod-proto`). Pin its binary wire shape so a codegen/toolchain
-    /// upgrade can't silently change what a binary-protobuf client receives.
     #[test]
     fn resource_uuid_wire_shape() {
         let response = ResourceUuid {

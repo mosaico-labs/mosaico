@@ -30,7 +30,7 @@ pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
 ///
 /// FIXME:
 /// We need to use `http` and `https` instead of `grpc` and `grpc+tls` since tonic has an
-/// isue reagarding this https://github.com/hyperium/tonic/issues/1496
+/// issue regarding this https://github.com/hyperium/tonic/issues/1496
 pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     if tls {
         return format!("https://{host}:{port}");
@@ -348,9 +348,3 @@ impl<T> std::ops::DerefMut for Client<T> {
         &mut self.client
     }
 }
-
-// `do_action` responses are raw protobuf binary now (see
-// `mosaicod-marshal`'s `actions/core.rs`), not a `{"action":.., "response":..}`
-// JSON envelope: each helper in `actions.rs` decodes the specific
-// `mosaicod_marshal::responses` message it expects directly via
-// `prost::Message::decode`.

@@ -156,11 +156,8 @@ impl ActionRequest {
     }
 }
 
-/// `Action.body`/`arrow_flight::Result.body` values, as raw protobuf binary
-/// (not JSON): the client already knows which `mosaicod.v1.responses`
-/// message to decode from the action it sent, so unlike the previous JSON
-/// envelope there's no `{"action": ..., "response": ...}` wrapper — actions
-/// with no meaningful response just send zero bytes.
+/// `Action.body`/`arrow_flight::Result.body` values, as raw protobuf binary.
+/// Actions with no meaningful response just send zero bytes.
 pub enum ActionResponse {
     SequenceCreate(()),
     SequenceDelete(()),
