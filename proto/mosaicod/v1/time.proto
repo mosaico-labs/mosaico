@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package mosaicod.v1.time;
+
+// Timestamp range, expressed in nanoseconds.
+message TimestampRange {
+  int64 start_ns = 1;
+  int64 end_ns = 2;
+}

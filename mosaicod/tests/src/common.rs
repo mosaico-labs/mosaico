@@ -7,7 +7,6 @@ use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use serde::Deserialize;
 use std::convert::Into;
 use std::fs;
 use std::net::{IpAddr, Ipv4Addr, TcpListener};
@@ -31,7 +30,7 @@ pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
 ///
 /// FIXME:
 /// We need to use `http` and `https` instead of `grpc` and `grpc+tls` since tonic has an
-/// isue reagarding this https://github.com/hyperium/tonic/issues/1496
+/// issue regarding this https://github.com/hyperium/tonic/issues/1496
 pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     if tls {
         return format!("https://{host}:{port}");
@@ -347,40 +346,5 @@ impl<T> std::ops::Deref for Client<T> {
 impl<T> std::ops::DerefMut for Client<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
-    }
-}
-
-/// Represents a standard mosaicod response from a `do_action` call.
-#[derive(Deserialize, Debug)]
-pub struct ActionResponse {
-    /// The name of the action performed (e.g., "sequence_create").
-    pub action: String,
-    /// The JSON response body containing returned data.
-    ///
-    /// ### How to use `response`:
-    /// Because this is a `serde_json::Value`, you must "downcast" the fields
-    /// to the expected Rust types.
-    ///
-    /// **Example:**
-    /// ```
-    /// use tests::common;
-    ///
-    /// let body: &str = r#"{"action": "topic_create", "response": {"key": "some-uuid", "id": 10}}"#;
-    ///
-    /// let r = common::ActionResponse::from_body(body.as_bytes());
-    ///
-    /// // Extract a String (returns Option<&str>)
-    /// let key = r.response["key"].as_str().expect("key is missing");
-    ///
-    /// // Extract a Number (returns Option<u64>)
-    /// let id = r.response["id"].as_u64().expect("id is not a number");
-    /// ```
-    pub response: serde_json::Value,
-}
-
-impl ActionResponse {
-    /// Deserializes a raw byte slice from a Flight `Result` into an `ActionResponse`.
-    pub fn from_body(body: &[u8]) -> Self {
-        serde_json::from_slice(body).expect("problem deserializing action response")
     }
 }

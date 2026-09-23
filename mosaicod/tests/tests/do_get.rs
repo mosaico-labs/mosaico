@@ -48,13 +48,13 @@ async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    let interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(interval.start_ns, 10000);
-    assert_eq!(interval.end_ns, 10030);
+    let interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(interval.start.as_i64(), 10000);
+    assert_eq!(interval.end.as_i64(), 10030);
     assert!(app_metadata.time_window_info.is_none());
 
     assert_eq!(received_batches.len(), 1);
@@ -106,21 +106,21 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let whole_data_interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(whole_data_interval.start_ns, 10000);
-    assert_eq!(whole_data_interval.end_ns, 10030);
+    let whole_data_interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(whole_data_interval.start.as_i64(), 10000);
+    assert_eq!(whole_data_interval.end.as_i64(), 10030);
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 1);
-    let time_window_interval = time_window_info.interval.unwrap();
-    assert_eq!(time_window_interval.start_ns, 10015);
-    assert_eq!(time_window_interval.end_ns, 10015);
+    let time_window_interval = time_window_info.timestamp_range;
+    assert_eq!(time_window_interval.start.as_i64(), 10015);
+    assert_eq!(time_window_interval.end.as_i64(), 10015);
 
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
@@ -150,21 +150,21 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let whole_data_interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(whole_data_interval.start_ns, 10000);
-    assert_eq!(whole_data_interval.end_ns, 10030);
+    let whole_data_interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(whole_data_interval.start.as_i64(), 10000);
+    assert_eq!(whole_data_interval.end.as_i64(), 10030);
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 2);
-    let time_window_interval = time_window_info.interval.unwrap();
-    assert_eq!(time_window_interval.start_ns, 10015);
-    assert_eq!(time_window_interval.end_ns, 10020);
+    let time_window_interval = time_window_info.timestamp_range;
+    assert_eq!(time_window_interval.start.as_i64(), 10015);
+    assert_eq!(time_window_interval.end.as_i64(), 10020);
 
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
@@ -187,21 +187,21 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let whole_data_interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(whole_data_interval.start_ns, 10000);
-    assert_eq!(whole_data_interval.end_ns, 10030);
+    let whole_data_interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(whole_data_interval.start.as_i64(), 10000);
+    assert_eq!(whole_data_interval.end.as_i64(), 10030);
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 7);
-    let time_window_interval = time_window_info.interval.unwrap();
-    assert_eq!(time_window_interval.start_ns, 10000);
-    assert_eq!(time_window_interval.end_ns, 10030);
+    let time_window_interval = time_window_info.timestamp_range;
+    assert_eq!(time_window_interval.start.as_i64(), 10000);
+    assert_eq!(time_window_interval.end.as_i64(), 10030);
 
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
@@ -224,19 +224,19 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let whole_data_interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(whole_data_interval.start_ns, 10000);
-    assert_eq!(whole_data_interval.end_ns, 10030);
+    let whole_data_interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(whole_data_interval.start.as_i64(), 10000);
+    assert_eq!(whole_data_interval.end.as_i64(), 10030);
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 0);
-    assert!(time_window_info.interval.is_none());
+    assert!(time_window_info.timestamp_range.is_unbounded());
 
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
@@ -255,19 +255,19 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-    assert_eq!(app_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
-    let whole_data_interval = app_metadata.data_info.interval.unwrap();
-    assert_eq!(whole_data_interval.start_ns, 10000);
-    assert_eq!(whole_data_interval.end_ns, 10030);
+    let whole_data_interval = app_metadata.data_info.timestamp_range;
+    assert_eq!(whole_data_interval.start.as_i64(), 10000);
+    assert_eq!(whole_data_interval.end.as_i64(), 10030);
 
     let time_window_info = app_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 0);
-    assert!(time_window_info.interval.is_none());
+    assert!(time_window_info.timestamp_range.is_unbounded());
 
     let received_batches = actions::do_get_with_ticket(&mut client, ticket)
         .await
@@ -327,9 +327,7 @@ async fn test_do_get_nonexistent_topic(pool: sqlx::Pool<db::DatabaseType>) {
     };
 
     let fake_ticket = Ticket {
-        ticket: marshal::flight::ticket_topic_to_binary(ticket_payload)
-            .unwrap()
-            .into(),
+        ticket: marshal::flight::ticket_topic_to_bytes(ticket_payload).into(),
     };
 
     let res = actions::do_get_with_ticket(&mut client, fake_ticket).await;

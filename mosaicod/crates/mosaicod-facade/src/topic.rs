@@ -17,13 +17,7 @@ use tracing::{trace, warn};
 /// Define topic metadata type containing JSON user metadata
 pub type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
-
-#[derive(Clone)]
-pub struct TopicInfo {
-    pub metadata: TopicMetadata,
-    pub data_info: types::TopicDataInfo,
-    pub time_window_info: Option<types::TopicTimeWindowInfo>,
-}
+pub type TopicInfo = types::TopicInfo<marshal::JsonMetadataBlob>;
 
 pub struct TopicStreamingReadParams {
     pub metadata: TopicMetadata,

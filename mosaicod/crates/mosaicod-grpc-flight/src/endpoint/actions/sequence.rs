@@ -6,15 +6,15 @@ use mosaicod_marshal::{self as marshal, ActionResponse};
 use tracing::{info, trace, warn};
 
 /// Creates a new sequence with the given name and metadata.
-pub async fn create(
+pub(crate) async fn create(
     ctx: &facade::Context,
     locator: String,
-    user_metadata_str: &str,
+    user_metadata: &[u8],
 ) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", locator);
 
     let locator = locator.parse::<types::SequenceLocator>()?;
-    let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
+    let user_mdata = marshal::JsonMetadataBlob::try_from_slice(user_metadata)?;
 
     // No sequence record was found, let's write it
     let sequence_uuid = facade::sequence::try_create(ctx, &locator, Some(user_mdata)).await?;
@@ -65,9 +65,7 @@ pub async fn notification_list(
     let locator = name.parse::<types::SequenceLocator>()?;
     let notifications = facade::sequence::notification_list(ctx, locator).await?;
 
-    Ok(ActionResponse::sequence_notification_list(
-        notifications.into(),
-    ))
+    Ok(ActionResponse::sequence_notification_list(notifications))
 }
 
 /// Purges all notifications for a sequence.

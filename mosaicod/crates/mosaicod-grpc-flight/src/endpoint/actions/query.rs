@@ -21,5 +21,5 @@ pub async fn execute(
 
     trace!("groups found: {:?}", groups);
 
-    Ok(ActionResponse::Query(groups.into()))
+    Ok(ActionResponse::query(groups))
 }

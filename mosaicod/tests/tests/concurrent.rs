@@ -159,9 +159,9 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
-    let chunks = app_metadata.data_info.total_chunks_count;
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
+    let chunks = app_metadata.data_info.total_chunks;
 
     assert_eq!(chunks as usize, success_count);
 
@@ -275,12 +275,12 @@ async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
 
     for info in read_results {
         let info = info.unwrap();
-        let app_metadata: marshal::flight::TopicAppMetadata =
-            info.endpoint[0].clone().app_metadata.try_into().unwrap();
+        let app_metadata =
+            marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
-        if app_metadata.locked {
+        if app_metadata.metadata.properties.completed_at.is_some() {
             assert!(
-                app_metadata.completed_at_ns.is_some(),
+                app_metadata.metadata.properties.completed_at.is_some(),
                 "locked topic must have completed_at_ns"
             );
         }
@@ -325,7 +325,7 @@ async fn test_concurrent_notification_create(pool: sqlx::Pool<db::DatabaseType>)
     let r = actions::sequence_notification_list(&mut client, sequence_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(
         notifications.len(),
         n_notifications,

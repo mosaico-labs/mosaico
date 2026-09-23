@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package mosaicod.v1.core;
+
+// Shared core enums/messages
+
+enum Format {
+  DEFAULT = 0;
+  RAGGED = 1;
+  IMAGE = 2;
+}

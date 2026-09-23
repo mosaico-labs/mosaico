@@ -8,7 +8,7 @@ use crate::flight::{DoActionStream, IntoStream};
 use mosaicod_core::{self as core, types::auth::Permissions};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::ActionRequest;
+use mosaicod_marshal::{self as marshal, ActionRequest, requests, timestamp_range_from_proto};
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
@@ -30,8 +30,7 @@ pub async fn do_action(
     match action {
         // Sequence
         ActionRequest::SequenceCreate(data) => {
-            let user_metadata = data.user_metadata()?;
-            sequence::create(ctx, data.locator, user_metadata.as_str())
+            sequence::create(ctx, data.locator, &data.user_metadata)
                 .await?
                 .into_stream()
         }
@@ -67,14 +66,14 @@ pub async fn do_action(
 
         // Topic
         ActionRequest::TopicCreate(data) => {
-            let user_metadata = data.user_metadata()?;
+            let format = marshal::format_from_i32(data.serialization_format);
             topic::create(
                 ctx,
                 data.locator,
                 data.session_uuid,
-                data.serialization_format.into(),
+                format,
                 data.ontology_tag,
-                user_metadata.as_str(),
+                &data.user_metadata,
             )
             .await?
             .into_stream()
@@ -92,12 +91,13 @@ pub async fn do_action(
             .await?
             .into_stream(),
         ActionRequest::TopicFilterClusterize(data) => {
+            let ontology = requests::topic_clusterize_ontology(&data)?;
             topic::filter_clusterize(
                 ctx,
-                data.params.locator,
-                data.params.clustering_dt_ns,
-                data.params.ontology,
-                data.params.timestamp_range.map(Into::into),
+                data.locator,
+                data.clustering_dt_ns,
+                ontology,
+                data.timestamp_range.map(timestamp_range_from_proto),
             )
             .await
         }
@@ -106,7 +106,9 @@ pub async fn do_action(
         }
 
         // Query
-        ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
+        ActionRequest::Query(data) => query_action::execute(ctx, requests::query_filter(&data)?)
+            .await?
+            .into_stream(),
 
         // Misc
         ActionRequest::Info(_) => misc::info()?.into_stream(),

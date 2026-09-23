@@ -1,6 +1,8 @@
 use super::{requests, responses};
+use crate::time::timestamp_range_to_proto;
 use mosaicod_core as core;
-use serde::Serialize;
+use mosaicod_ext as ext;
+use prost::Message;
 use thiserror::Error;
 
 /// Represents possible errors that can occur while handling an [`ActionRequest`].
@@ -12,45 +14,27 @@ pub enum ActionError {
     #[error("no available action for string `{0}`")]
     MissingAction(String),
 
-    /// Failed to deserialize the request body.
+    /// Failed to decode the request body as the expected protobuf message.
+    #[error("body decode error")]
+    BodyDecodeError(#[from] prost::DecodeError),
+
+    /// Failed to parse a raw-bytes JSON field (e.g. `user_metadata`, the
+    /// query filter) as JSON.
     #[error("body deserialization error")]
     BodyDeserializationError(#[from] serde_json::Error),
-
-    /// Failed to serialize the response.
-    #[error("response serialization error: {0}")]
-    ResponseSerializationError(String),
 }
 
 impl core::error::PublicError for ActionError {
     fn error(&self) -> core::Error {
         match self {
-            Self::MissingAction(_) | Self::BodyDeserializationError(_) => {
-                core::Error::bad_request(self.to_string())
-            }
-            Self::ResponseSerializationError(_) => {
-                core::Error::internal(Some("internal serialization failed".to_owned()))
-            }
+            Self::MissingAction(_)
+            | Self::BodyDecodeError(_)
+            | Self::BodyDeserializationError(_) => core::Error::bad_request(self.to_string()),
         }
     }
 }
 
 /// Represents the list of actions allowed in the system.
-///
-/// ### Usage Example
-/// ```rust
-///   use mosaicod_marshal::ActionRequest;
-///
-///   let raw = r#"
-///    {
-///          "locator" : "test_sequence",
-///          "user_metadata" : {
-///              "calibration" : [0, 1, 2],
-///              "driver" : "jon"
-///          }
-///      }
-///  "#;
-///  let action = ActionRequest::try_new("sequence_create", raw.as_bytes()).unwrap();
-/// ```
 pub enum ActionRequest {
     /// Creates a new sequence in the system.
     ///
@@ -86,7 +70,7 @@ pub enum ActionRequest {
 
     /// Filters a topic by ontology and timestamp range,
     /// then clusters matching timestamps by a time-gap threshold.
-    TopicFilterClusterize(requests::TopicFilterClusterize),
+    TopicFilterClusterize(requests::TopicClusterizeParams),
 
     /// Filters multiple topics by ontology and timestamp range,
     /// then returns the intersection of their matching timestamps.
@@ -138,7 +122,7 @@ impl std::fmt::Display for ActionRequest {
 /// Internal macro used to parse action requests
 macro_rules! parse_action_req {
     ($variant:ident, $body:expr) => {
-        Ok(ActionRequest::$variant(serde_json::from_slice($body)?))
+        Ok(ActionRequest::$variant(Message::decode($body)?))
     };
 }
 
@@ -172,8 +156,8 @@ impl ActionRequest {
     }
 }
 
-#[derive(Serialize)]
-#[serde(tag = "action", content = "response", rename_all = "snake_case")]
+/// `Action.body`/`arrow_flight::Result.body` values, as raw protobuf binary.
+/// Actions with no meaningful response just send zero bytes.
 pub enum ActionResponse {
     SequenceCreate(()),
     SequenceDelete(()),
@@ -197,15 +181,30 @@ pub enum ActionResponse {
     Query(responses::Query),
 
     Info(responses::ServerInfo),
-
-    // Empty response, no data to send
-    Empty,
 }
 
 impl ActionResponse {
-    /// Converts to bytes the action response
-    pub fn bytes(&self) -> Result<Vec<u8>, ActionError> {
-        serde_json::to_vec(self).map_err(|e| ActionError::ResponseSerializationError(e.to_string()))
+    /// Encodes the action response as raw protobuf binary. Infallible:
+    /// encoding a well-formed prost message cannot fail.
+    pub fn bytes(&self) -> Vec<u8> {
+        match self {
+            Self::SequenceCreate(())
+            | Self::SequenceDelete(())
+            | Self::SequenceNotificationCreate(())
+            | Self::SequenceNotificationPurge(())
+            | Self::TopicDelete(())
+            | Self::TopicNotificationCreate(())
+            | Self::TopicNotificationPurge(())
+            | Self::SessionFinalize(())
+            | Self::SessionDelete(()) => vec![],
+
+            Self::SequenceNotificationList(r) | Self::TopicNotificationList(r) => r.encode_to_vec(),
+            Self::TopicCreate(r) => r.encode_to_vec(),
+            Self::TopicFilterClusterize(r) | Self::TopicFilterIntersect(r) => r.encode_to_vec(),
+            Self::SessionCreate(r) => r.encode_to_vec(),
+            Self::Query(r) => r.encode_to_vec(),
+            Self::Info(r) => r.encode_to_vec(),
+        }
     }
 
     pub fn sequence_create() -> Self {
@@ -224,12 +223,16 @@ impl ActionResponse {
         Self::SequenceNotificationPurge(())
     }
 
-    pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
-        Self::SequenceNotificationList(response)
+    pub fn sequence_notification_list<L: core::types::Locator>(
+        notifications: Vec<core::types::Notification<L>>,
+    ) -> Self {
+        Self::SequenceNotificationList(responses::notification_list(notifications))
     }
 
-    pub fn topic_create(response: responses::ResourceUuid) -> Self {
-        Self::TopicCreate(response)
+    pub fn topic_create(uuid: core::types::Uuid) -> Self {
+        Self::TopicCreate(responses::ResourceUuid {
+            uuid: uuid.to_string(),
+        })
     }
 
     pub fn topic_delete() -> Self {
@@ -244,15 +247,25 @@ impl ActionResponse {
         Self::TopicNotificationPurge(())
     }
 
-    pub fn topic_notification_list(response: responses::NotificationList) -> Self {
-        Self::TopicNotificationList(response)
+    pub fn topic_notification_list<L: core::types::Locator>(
+        notifications: Vec<core::types::Notification<L>>,
+    ) -> Self {
+        Self::TopicNotificationList(responses::notification_list(notifications))
     }
 
-    pub fn topic_filter_clusterize(response: responses::TopicFilterClusterize) -> Self {
+    pub fn topic_filter_clusterize(cluster: ext::arrow_filter::Cluster) -> Self {
+        let response = responses::TopicFilterClusterize {
+            ts: Some(timestamp_range_to_proto(cluster.timestamp_range)),
+            id: cluster.id,
+        };
         Self::TopicFilterClusterize(response)
     }
 
-    pub fn topic_filter_intersect(response: responses::TopicFilterClusterize) -> Self {
+    pub fn topic_filter_intersect(cluster: ext::arrow_filter::Cluster) -> Self {
+        let response = responses::TopicFilterClusterize {
+            ts: Some(timestamp_range_to_proto(cluster.timestamp_range)),
+            id: cluster.id,
+        };
         Self::TopicFilterIntersect(response)
     }
 
@@ -273,54 +286,51 @@ impl ActionResponse {
     pub fn session_delete() -> Self {
         Self::SessionDelete(())
     }
+
+    pub fn query(groups: core::types::SequenceTopicGroupSet) -> Self {
+        Self::Query(responses::query_response(groups))
+    }
+
+    pub fn info(version: &str, config: responses::ServerConfig) -> Result<Self, semver::Error> {
+        Ok(Self::Info(responses::server_info(version, config)?))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::ActionRequest;
-    use crate::Format;
-    use serde::Deserialize;
+    use crate::format::{Format, format_from_i32};
+    use mosaicod_core::types;
+    use prost::Message;
 
-    #[derive(Deserialize, Debug)]
-    struct DecodedMetadata {
-        calibration: Vec<i32>,
-        driver: String,
-    }
-
-    /// Ensure that user_metadata field in [`RequestTopicCreate`] is serialized
-    /// correctly as a string and can be converted to a parsable json if required.
+    /// Ensure that user_metadata field in [`requests::TopicCreate`] is carried
+    /// as raw bytes and can be converted to a parsable json if required.
     #[test]
     fn request_topic_create() {
-        let raw = r#"
-            {
-                "locator" : "sequence/test_topic",
-                "session_uuid" : "some_uuid",
-                "serialization_format" : "default",
-                "ontology_tag" : "my_sensor",
-                "user_metadata" : {
-                    "calibration" : [0, 1, 2],
-                    "driver" : "jon"
-                }
-            } 
-        "#;
+        let raw = super::requests::TopicCreate {
+            locator: "sequence/test_topic".to_owned(),
+            session_uuid: "some_uuid".to_owned(),
+            serialization_format: Format::Default as i32,
+            ontology_tag: "my_sensor".to_owned(),
+            user_metadata: br#"{"calibration":[0,1,2],"driver":"Jon"}"#.to_vec(),
+        };
 
-        let action = ActionRequest::try_new("topic_create", raw.as_bytes())
+        let action = ActionRequest::try_new("topic_create", &raw.encode_to_vec())
             .expect("Problem parsing action request `topic_create`");
 
         if let ActionRequest::TopicCreate(action) = action {
             assert_eq!(action.locator, "sequence/test_topic");
             assert_eq!(action.session_uuid, "some_uuid");
-            assert_eq!(action.serialization_format, Format::Default);
+            assert_eq!(
+                format_from_i32(action.serialization_format),
+                types::Format::Default
+            );
             assert_eq!(action.ontology_tag, "my_sensor");
-            let raw_json = action
-                .user_metadata()
-                .expect("Unable to get `user_metadata`");
 
-            let decoded_metadata: DecodedMetadata =
-                serde_json::from_str(&raw_json).expect("Unable to convert `user_metadata` to json");
+            let raw_json =
+                std::str::from_utf8(&action.user_metadata).expect("Unable to get `user_metadata`");
 
-            assert_eq!(decoded_metadata.calibration, [0, 1, 2]);
-            assert_eq!(decoded_metadata.driver, "jon");
+            assert_eq!(raw_json, r#"{"calibration":[0,1,2],"driver":"Jon"}"#);
         } else {
             panic!("Wrong action request, expecting `topic_create`")
         }

@@ -75,7 +75,7 @@ impl IntoStream for marshal::ActionResponse {
     /// Use this when the handler produces a single payload rather than a
     /// stream of results.
     fn into_stream(self) -> grpc_common::Result<DoActionStream> {
-        let bytes = self.bytes()?;
+        let bytes = self.bytes();
         Ok(Box::pin(futures::stream::once(async move {
             Ok(arrow_flight::Result::new(bytes))
         })))

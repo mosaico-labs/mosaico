@@ -343,17 +343,10 @@ async fn setup_topics(client: &mut common::Client, seq: &str, topics: Vec<(&str,
         .unwrap();
 }
 
-fn topic_locators(items: &[serde_json::Value]) -> Vec<String> {
+fn topic_locators(items: &[mosaicod_marshal::responses::ResponseQueryItem]) -> Vec<String> {
     items
         .iter()
-        .flat_map(|item| {
-            item["topics"]
-                .as_array()
-                .unwrap_or(&vec![])
-                .iter()
-                .map(|t| t["locator"].as_str().unwrap().to_owned())
-                .collect::<Vec<_>>()
-        })
+        .flat_map(|item| item.topics.iter().map(|t| t.locator.clone()))
         .collect()
 }
 

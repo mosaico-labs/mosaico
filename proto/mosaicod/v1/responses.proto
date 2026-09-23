@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package mosaicod.v1.responses;
+
+import "mosaicod/v1/time.proto";
+
+// Each `arrow_flight::Result.body` on the do_action Arrow Flight RPC carries
+// one of these messages as raw protobuf binary. Actions with no meaningful response
+// (e.g. `sequence_create`) send zero bytes rather than an empty message.
+
+// Generic response carrying the unique identifier of a resource just created.
+message ResourceUuid {
+  string uuid = 1;
+}
+
+message SessionCreate {
+  string uuid = 1;
+  string locator = 2;
+}
+
+message NotificationItem {
+  string name = 1;
+  string notification_type = 2;
+  string msg = 3;
+  string created_datetime = 4;
+}
+
+message NotificationList {
+  repeated NotificationItem notifications = 1;
+}
+
+// Holds topic data: locator and ontology tag.
+message QueryItemTopic {
+  string locator = 1;
+  string ontology_tag = 2;
+}
+
+message QueryItem {
+  string sequence = 1;
+  repeated QueryItemTopic topics = 2;
+}
+
+message Query {
+  repeated QueryItem items = 1;
+}
+
+// One `arrow_flight::Result` per cluster is emitted in response to a
+// TopicFilterClusterize/TopicFilterIntersect request, identified by a
+// progressive `id` and bounded by `ts`.
+message TopicFilterClusterize {
+  time.TimestampRange ts = 1;
+  uint64 id = 2;
+}
+
+message SemVerItem {
+  uint64 major = 1;
+  uint64 minor = 2;
+  uint64 patch = 3;
+  string pre = 4;
+}
+
+// Server-configured limits that clients should respect (e.g. when sizing requests).
+message ServerConfig {
+  // Maximum message size (in bytes) accepted/emitted by the gRPC protocol.
+  uint64 max_grpc_message_size = 1;
+  // Target message size (in bytes) the server aims for when streaming data.
+  uint64 target_message_size = 2;
+}
+
+message ServerInfo {
+  string version = 1;
+  SemVerItem semver = 2;
+  ServerConfig config = 3;
+}

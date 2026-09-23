@@ -1,23 +1,20 @@
 use mosaicod_config::params;
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::{ActionResponse, ServerConfig, ServerInfo};
-use tracing::info as log_info;
+use mosaicod_marshal::{self as marshal, ActionResponse};
+use tracing::info;
 
-/// Returns the server version and the server's configured limits (e.g.
-/// `max_grpc_message_size`, `target_message_size`) that clients should respect.
+/// Returns the server version and configured limits (e.g. `max_grpc_message_size`).
 pub fn info() -> grpc_common::Result<ActionResponse> {
-    log_info!("requested server info");
+    info!("requested server info");
 
     let params = params::params();
-    let config = ServerConfig {
-        max_grpc_message_size: params.max_grpc_message_size.value,
-        target_message_size: params.target_message_size,
+    let config = marshal::ServerConfig {
+        max_grpc_message_size: params.max_grpc_message_size.value as u64,
+        target_message_size: params.target_message_size as u64,
     };
 
-    let server_info = ServerInfo::new(&params::version(), config)
-        .map_err(|e: semver::Error| grpc_common::Error::not_a_semver(e.to_string()))?;
-
-    Ok(ActionResponse::Info(server_info))
+    Ok(ActionResponse::info(&params::version(), config)
+        .map_err(|e: semver::Error| grpc_common::Error::not_a_semver(e.to_string()))?)
 }
 
 #[cfg(test)]

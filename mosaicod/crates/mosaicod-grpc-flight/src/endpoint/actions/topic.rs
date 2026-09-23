@@ -1,7 +1,5 @@
 //! Topic-related actions.
 
-use ext::arrow_filter::{Cluster, ClusteringError};
-
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::StreamExt;
@@ -9,16 +7,16 @@ use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob, TopicLocator},
 };
-use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests, responses};
+use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests};
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::{info, trace, warn};
 
 use crate::flight::DoActionStream;
+use mosaicod_ext as ext;
 
 const MAX_BUFFER_CHANNEL_SIZE: usize = 128;
 
@@ -29,11 +27,11 @@ pub async fn create(
     session_uuid: String,
     serialization_format: types::Format,
     ontology_tag: String,
-    user_metadata_str: &str,
+    user_metadata: &[u8],
 ) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
-    let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
+    let user_mdata = marshal::JsonMetadataBlob::try_from_slice(user_metadata)?;
 
     let received_session_uuid: types::Uuid = session_uuid
         .parse()
@@ -56,7 +54,7 @@ pub async fn create(
         topic_locator, topic_uuid,
     );
 
-    Ok(ActionResponse::topic_create(topic_uuid.into()))
+    Ok(ActionResponse::topic_create(topic_uuid))
 }
 
 /// Deletes a topic (it doesn't matter if it's still open or archived).
@@ -101,9 +99,7 @@ pub async fn notification_list(
     let topic_locator = locator.parse::<types::TopicLocator>()?;
     let notifications = facade::topic::notification_list(ctx, &topic_locator).await?;
 
-    Ok(ActionResponse::topic_notification_list(
-        notifications.into(),
-    ))
+    Ok(ActionResponse::topic_notification_list(notifications))
 }
 
 /// Purges all notifications for a topic.
@@ -252,20 +248,10 @@ fn cluster_to_flight_result<F>(
     action_builder: F,
 ) -> std::result::Result<arrow_flight::Result, tonic::Status>
 where
-    F: FnOnce(responses::TopicFilterClusterize) -> ActionResponse,
+    F: FnOnce(ext::arrow_filter::Cluster) -> ActionResponse,
 {
-    let res = responses::TopicFilterClusterize {
-        ts: cluster.timestamp_range.into(),
-        id: cluster.id,
-    };
-
-    let bytes = action_builder(res)
-        .bytes()
-        .map_err(|e| tonic::Status::internal(e.to_string()))?;
-
-    let mut payload = bytes.to_vec();
-    payload.push(b'\n');
-    Ok(arrow_flight::Result::new(payload))
+    let bytes = action_builder(cluster).bytes();
+    Ok(arrow_flight::Result::new(bytes))
 }
 
 pub async fn filter_intersect(
@@ -304,12 +290,13 @@ pub async fn filter_intersect(
     // One clustering task per topic
     let mut receivers = Vec::with_capacity(topics.len());
     for tfc in topics {
+        let ontology = requests::topic_clusterize_ontology(&tfc)?;
         let rx = spawn_cluster_stream(
             ctx,
             tfc.locator,
             tfc.clustering_dt_ns,
-            tfc.ontology,
-            tfc.timestamp_range.map(Into::into),
+            ontology,
+            tfc.timestamp_range.map(marshal::timestamp_range_from_proto),
         )
         .await?;
         receivers.push(rx);
@@ -342,7 +329,7 @@ async fn intersect_cluster_streams(
     intersect_dt_ns: u64,
     out: mpsc::Sender<ClusteringResult>,
 ) -> std::result::Result<(), ext::arrow_filter::ClusteringError> {
-    let mut current_cluster: Vec<Cluster> = Vec::new();
+    let mut current_cluster: Vec<ext::arrow_filter::Cluster> = Vec::new();
     let mut active_streams: Vec<ReceiverStream<ClusteringResult>> = Vec::new();
 
     for mut stream in streams {
@@ -355,7 +342,7 @@ async fn intersect_cluster_streams(
             Err(e) => {
                 out.send(Err(e))
                     .await
-                    .map_err(|_| ClusteringError::ChannelClosed)?;
+                    .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
                 return Ok(());
             }
         }
@@ -403,12 +390,12 @@ async fn intersect_cluster_streams(
                     min_end.saturating_add_unsigned(hi),
                 )
             };
-            out.send(Ok(Cluster {
+            out.send(Ok(ext::arrow_filter::Cluster {
                 id: cluster_id,
                 timestamp_range: types::TimestampRange::between(start_ns.into(), end_ns.into()),
             }))
             .await
-            .map_err(|_| ClusteringError::ChannelClosed)?;
+            .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
             cluster_id += 1;
         }
 
@@ -418,7 +405,7 @@ async fn intersect_cluster_streams(
             Err(e) => {
                 out.send(Err(e))
                     .await
-                    .map_err(|_| ClusteringError::ChannelClosed)?;
+                    .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
                 return Ok(());
             }
         }

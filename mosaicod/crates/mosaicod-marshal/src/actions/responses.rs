@@ -1,69 +1,40 @@
-//! This module defines the formatting structure for
-//! responses.
+//! This module defines the formatting structure for responses.
+//!
+//! Most types here are generated from `.proto` schemas in the repo-root
+//! `proto/` directory (see `mosaicod-proto`).
+//! Wire format is raw protobuf binary.
 
-use crate::TimestampRange;
 use mosaicod_core::types::{self, Locator};
-use semver;
-use serde::{Deserialize, Serialize};
 
-/// Generic response message used to provide to clients the a unique key
-/// of a resource
-#[derive(Serialize, Deserialize, Debug)]
-pub struct ResourceUuid {
-    pub uuid: String,
-}
-
-impl From<types::Uuid> for ResourceUuid {
-    fn from(value: types::Uuid) -> Self {
-        Self {
-            uuid: value.to_string(),
-        }
-    }
-}
+/// Generic response message used to provide to clients the unique key of a resource.
+pub use mosaicod_proto::v1::responses::ResourceUuid;
 
 // ########
 // Session
 // ########
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct SessionCreate {
-    pub uuid: String,
-    pub locator: String,
-}
+pub use mosaicod_proto::v1::responses::SessionCreate;
 
 // ########
 // Notifications
 // ########
 
-#[derive(Serialize, Debug)]
-pub struct ResponseNotificationItem {
-    pub name: String,
-    pub notification_type: String,
-    pub msg: String,
-    pub created_datetime: String,
-}
+pub use mosaicod_proto::v1::responses::NotificationItem as ResponseNotificationItem;
 
-impl<L: Locator> From<types::Notification<L>> for ResponseNotificationItem {
-    fn from(value: types::Notification<L>) -> Self {
-        Self {
-            name: value.target.to_string(),
-            notification_type: value.notification_type.to_string(),
-            msg: value.msg.unwrap_or_default(),
-            created_datetime: value.created_at.to_string(),
-        }
+pub fn notification_item<L: Locator>(value: types::Notification<L>) -> ResponseNotificationItem {
+    ResponseNotificationItem {
+        name: value.target.to_string(),
+        notification_type: value.notification_type.to_string(),
+        msg: value.msg.unwrap_or_default(),
+        created_datetime: value.created_at.to_string(),
     }
 }
 
-#[derive(Serialize, Debug)]
-pub struct NotificationList {
-    pub notifications: Vec<ResponseNotificationItem>,
-}
+pub use mosaicod_proto::v1::responses::NotificationList;
 
-impl<L: Locator> From<Vec<types::Notification<L>>> for NotificationList {
-    fn from(value: Vec<types::Notification<L>>) -> Self {
-        Self {
-            notifications: value.into_iter().map(Into::into).collect(),
-        }
+pub fn notification_list<L: Locator>(value: Vec<types::Notification<L>>) -> NotificationList {
+    NotificationList {
+        notifications: value.into_iter().map(notification_item).collect(),
     }
 }
 
@@ -71,48 +42,31 @@ impl<L: Locator> From<Vec<types::Notification<L>>> for NotificationList {
 // Query
 // #####
 
-#[derive(Serialize, Debug)]
-pub struct Query {
-    pub items: Vec<ResponseQueryItem>,
-}
+pub use mosaicod_proto::v1::responses::Query;
 
 /// Holds topic data: locator and optional timestamp.
-#[derive(Serialize, Debug)]
-pub struct ResponseQueryItemTopic {
-    pub locator: String,
-    pub ontology_tag: String,
-}
+pub use mosaicod_proto::v1::responses::QueryItemTopic as ResponseQueryItemTopic;
 
-impl From<(types::TopicLocator, String)> for ResponseQueryItemTopic {
-    fn from(value: (types::TopicLocator, String)) -> Self {
-        Self {
-            locator: value.0.to_string(),
-            ontology_tag: value.1,
-        }
+pub fn query_item_topic(value: (types::TopicLocator, String)) -> ResponseQueryItemTopic {
+    ResponseQueryItemTopic {
+        locator: value.0.to_string(),
+        ontology_tag: value.1,
     }
 }
 
-#[derive(Serialize, Debug)]
-pub struct ResponseQueryItem {
-    pub sequence: String,
-    pub topics: Vec<ResponseQueryItemTopic>,
-}
+pub use mosaicod_proto::v1::responses::QueryItem as ResponseQueryItem;
 
-impl From<types::SequenceTopicGroup> for ResponseQueryItem {
-    fn from(value: types::SequenceTopicGroup) -> Self {
-        Self {
-            sequence: value.sequence.to_string(),
-            topics: value.topics.into_iter().map(Into::into).collect(),
-        }
+pub fn query_item(value: types::SequenceTopicGroup) -> ResponseQueryItem {
+    ResponseQueryItem {
+        sequence: value.sequence.to_string(),
+        topics: value.topics.into_iter().map(query_item_topic).collect(),
     }
 }
 
-impl From<types::SequenceTopicGroupSet> for Query {
-    fn from(value: types::SequenceTopicGroupSet) -> Self {
-        let vec: Vec<types::SequenceTopicGroup> = value.into();
-        Self {
-            items: vec.into_iter().map(Into::into).collect(),
-        }
+pub fn query_response(value: types::SequenceTopicGroupSet) -> Query {
+    let vec: Vec<types::SequenceTopicGroup> = value.into();
+    Query {
+        items: vec.into_iter().map(query_item).collect(),
     }
 }
 
@@ -122,63 +76,42 @@ impl From<types::SequenceTopicGroupSet> for Query {
 
 /// Single JSONL record emitted as response to a TopicFilterClusterize request:
 /// one cluster per line, identified by a progressive `id` and bounded by ts.
-#[derive(Serialize, Debug)]
-pub struct TopicFilterClusterize {
-    pub ts: TimestampRange,
-    pub id: u64,
-}
+pub use mosaicod_proto::v1::responses::TopicFilterClusterize;
 
 // ####
 // Misc
 // ####
-#[derive(Serialize, Debug)]
-pub struct SemVerItem {
-    pub major: u64,
-    pub minor: u64,
-    pub patch: u64,
-    pub pre: String,
-}
+
+pub use mosaicod_proto::v1::responses::SemVerItem;
 
 /// Server-configured limits that clients should respect (e.g. when sizing requests).
-#[derive(Serialize, Debug)]
-pub struct ServerConfig {
-    /// Maximum message size (in bytes) accepted/emitted by the gRPC protocol.
-    pub max_grpc_message_size: usize,
-    /// Target message size (in bytes) the server aims for when streaming data.
-    pub target_message_size: usize,
-}
+pub use mosaicod_proto::v1::responses::ServerConfig;
 
-#[derive(Serialize, Debug)]
-pub struct ServerInfo {
-    pub version: String,
-    pub semver: SemVerItem,
-    pub config: ServerConfig,
-}
+pub use mosaicod_proto::v1::responses::ServerInfo;
 
-impl ServerInfo {
-    pub fn new(version: &str, config: ServerConfig) -> Result<Self, semver::Error> {
-        let parsed = semver::Version::parse(version)?;
+pub fn server_info(version: &str, config: ServerConfig) -> Result<ServerInfo, semver::Error> {
+    let parsed = semver::Version::parse(version)?;
 
-        Ok(Self {
-            version: version.to_owned(),
-            semver: SemVerItem {
-                major: parsed.major,
-                minor: parsed.minor,
-                patch: parsed.patch,
-                pre: if !parsed.pre.is_empty() {
-                    parsed.pre.to_string()
-                } else {
-                    String::new()
-                },
+    Ok(ServerInfo {
+        version: version.to_owned(),
+        semver: Some(SemVerItem {
+            major: parsed.major,
+            minor: parsed.minor,
+            patch: parsed.patch,
+            pre: if !parsed.pre.is_empty() {
+                parsed.pre.to_string()
+            } else {
+                String::new()
             },
-            config,
-        })
-    }
+        }),
+        config: Some(config),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prost::Message;
 
     #[test]
     fn response_query_item() {
@@ -199,19 +132,23 @@ mod tests {
         ];
 
         let group = types::SequenceTopicGroup::new(sequence, topics);
-        let response: ResponseQueryItem = group.into();
+        let response = query_item(group);
 
-        let body = serde_json::to_string(&response).unwrap();
+        let bytes = response.encode_to_vec();
+        let decoded = ResponseQueryItem::decode(bytes.as_slice()).unwrap();
 
-        dbg!(body.to_string());
+        assert_eq!(decoded, response);
+    }
 
-        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","ontology_tag":"dummy_ontology"},{"locator":"my_sequence/topic2/subtopic","ontology_tag":"dummy_ontology"}]}"#;
+    #[test]
+    fn resource_uuid_wire_shape() {
+        let response = ResourceUuid {
+            uuid: "11111111-1111-1111-1111-111111111111".to_string(),
+        };
 
-        let body_serialized = body.to_string();
+        let bytes = response.encode_to_vec();
+        let decoded = ResourceUuid::decode(bytes.as_slice()).unwrap();
 
-        assert_eq!(
-            body_serialized, response_raw,
-            "wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}"
-        );
+        assert_eq!(decoded, response);
     }
 }

@@ -42,10 +42,14 @@ pub trait Locator: std::fmt::Display {
 ///
 /// The following criteria must be met:
 /// - non-ASCII chars are not allowed
+/// - ASCII control characters (e.g. newline, tab) are not allowed
 /// - special symbols `! " ' * £ $ % &` are not allowed
 fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
     value.chars().any(|c| {
-        !c.is_ascii() || INVALID_CHARS.contains(&c) || others.is_some_and(|o| o.contains(&c))
+        !c.is_ascii()
+            || c.is_ascii_control()
+            || INVALID_CHARS.contains(&c)
+            || others.is_some_and(|o| o.contains(&c))
     })
 }
 
@@ -314,6 +318,15 @@ pub struct TopicTimeWindowInfo {
     pub timestamp_range: TimestampRange,
     /// Number of samples within the input time window.
     pub row_count: u64,
+}
+
+/// Full snapshot of a topic: its metadata, whole-topic data statistics, and
+/// (optionally) statistics scoped to a requested time window.
+#[derive(Debug, Clone)]
+pub struct TopicInfo<M> {
+    pub metadata: TopicMetadata<M>,
+    pub data_info: TopicDataInfo,
+    pub time_window_info: Option<TopicTimeWindowInfo>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -626,6 +639,10 @@ mod tests {
         assert!(has_invalid_symbols("my/resource/name", Some(&['/'])));
 
         assert!(has_invalid_symbols("my/resource:name", Some(&[':'])));
+
+        assert!(has_invalid_symbols("my/resource\nname", None));
+
+        assert!(has_invalid_symbols("my/resource\tname", None));
 
         assert!(!has_invalid_symbols("my/resource:name/", None));
 

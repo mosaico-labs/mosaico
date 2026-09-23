@@ -1,4 +1,4 @@
-use super::common::{ActionResponse, Client};
+use super::common::Client;
 use arrow::array::RecordBatch;
 use arrow_flight::decode::DecodedPayload;
 use arrow_flight::decode::FlightRecordBatchStream;
@@ -8,12 +8,22 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
+use prost::Message;
 
 use arrow_flight::Ticket;
-use mosaicod_marshal::{self as marshal, Ontology};
+use mosaicod_marshal::{self as marshal, Ontology, requests, responses};
 
-use serde_json::json;
 use tonic::Streaming;
+
+/// Encodes `msg` as raw protobuf binary into a Flight `Action` of the given type.
+fn action(r#type: &str, msg: &impl Message) -> Action {
+    let action = Action {
+        r#type: r#type.to_owned(),
+        body: msg.encode_to_vec().into(),
+    };
+    dbg!(&action);
+    action
+}
 
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
@@ -23,62 +33,37 @@ pub async fn sequence_create(
     sequence_name: &str,
     json_metadata: Option<&str>,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "sequence_create".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{}",
-            "user_metadata": {}
-        }}
-        "#,
-            sequence_name,
-            json_metadata.unwrap_or("{}"),
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "sequence_create",
+        &requests::SequenceCreate {
+            locator: sequence_name.to_owned(),
+            user_metadata: json_metadata.unwrap_or("{}").as_bytes().to_vec(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "sequence_create");
-
-        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
-        assert_eq!(available_keys, 0);
+        assert!(result.body.is_empty());
     }
 
     Ok(())
 }
 
 pub async fn sequence_delete(client: &mut Client, locator: &str) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "sequence_delete".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{}"
-        }}
-        "#,
-            locator,
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "sequence_delete",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "sequence_delete");
-
-        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
-        assert_eq!(available_keys, 0);
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -88,20 +73,12 @@ pub async fn session_create(
     client: &mut Client,
     sequence_name: &str,
 ) -> Result<(types::SessionLocator, types::Uuid), tonic::Status> {
-    let action = Action {
-        r#type: "session_create".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{}"
-        }}
-        "#,
-            sequence_name
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "session_create",
+        &requests::ResourceLocator {
+            locator: sequence_name.to_owned(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
@@ -109,20 +86,15 @@ pub async fn session_create(
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "session_create");
+        let r = responses::SessionCreate::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
 
-        let locator = r.response["locator"]
-            .as_str()
-            .ok_or_else(|| tonic::Status::internal("locator is not a string"))?
-            .parse::<types::SessionLocator>()
-            .map_err(|e| {
-                tonic::Status::internal(format!("Failed to parse session locator: {e}"))
-            })?;
+        let locator = r.locator.parse::<types::SessionLocator>().map_err(|e| {
+            tonic::Status::internal(format!("Failed to parse session locator: {e}"))
+        })?;
 
-        let uuid = r.response["uuid"]
-            .as_str()
-            .ok_or_else(|| tonic::Status::internal("uuid is not a string"))?
+        let uuid = r
+            .uuid
             .parse::<types::Uuid>()
             .map_err(|e| tonic::Status::internal(format!("Failed to parse session uuid: {e}")))?;
 
@@ -136,29 +108,18 @@ pub async fn session_finalize(
     client: &mut Client,
     session_uuid: &types::Uuid,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "session_finalize".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "session_uuid": "{}"
-        }}
-        "#,
-            session_uuid
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "session_finalize",
+        &requests::SessionUuid {
+            session_uuid: session_uuid.to_string(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "session_finalize");
-
-        assert!(r.response.as_object().is_none());
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -169,28 +130,18 @@ pub async fn session_delete(
     client: &mut Client,
     session_locator: &types::SessionLocator,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "session_delete".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{}"
-        }}
-        "#,
-            session_locator
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "session_delete",
+        &requests::ResourceLocator {
+            locator: session_locator.to_string(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "session_delete");
-        assert!(r.response.as_object().is_none());
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -204,38 +155,27 @@ pub async fn topic_create(
     topic_name: &str,
     json_metadata: Option<&str>,
 ) -> Result<types::Uuid, tonic::Status> {
-    let action = Action {
-        r#type: "topic_create".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{name}",
-            "session_uuid": "{key}",
-            "serialization_format": "default",
-            "ontology_tag": "mock",
-            "user_metadata": {mdata}
-        }}
-        "#,
-            name = topic_name,
-            key = key,
-            mdata = json_metadata.unwrap_or("{}"),
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "topic_create",
+        &requests::TopicCreate {
+            locator: topic_name.to_owned(),
+            session_uuid: key.to_string(),
+            serialization_format: marshal::Format::Default as i32,
+            ontology_tag: "mock".to_owned(),
+            user_metadata: json_metadata.unwrap_or("{}").as_bytes().to_vec(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     let mut key: Option<types::Uuid> = None;
 
     while let Some(result) = stream.message().await? {
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_create");
+        let r = responses::ResourceUuid::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
 
-        let uuid: types::Uuid = r.response["uuid"]
-            .as_str()
-            .ok_or_else(|| tonic::Status::internal("uuid is not a string"))?
+        let uuid: types::Uuid = r
+            .uuid
             .parse::<types::Uuid>()
             .map_err(|e| tonic::Status::internal(format!("Failed to parse uuid: {e}")))?;
 
@@ -246,30 +186,18 @@ pub async fn topic_create(
 }
 
 pub async fn topic_delete(client: &mut Client, locator: &str) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "topic_delete".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "locator": "{}"
-        }}
-        "#,
-            locator,
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "topic_delete",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_delete");
-
-        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
-        assert_eq!(available_keys, 0);
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -284,15 +212,11 @@ pub async fn do_put(
 ) -> Result<tonic::Response<Streaming<PutResult>>, tonic::Status> {
     let input_stream = futures::stream::iter(batches.into_iter().map(Ok));
 
-    let cmd = format!(
-        r#"
-        {{
-            "resource_locator": "{}",
-            "topic_uuid": "{}"
-        }}
-        "#,
-        topic_name, topic_uuid
-    );
+    let cmd = mosaicod_proto::v1::flight::DoPutCmd {
+        resource_locator: topic_name.to_owned(),
+        topic_uuid: topic_uuid.to_string(),
+    }
+    .encode_to_vec();
 
     let flight_data_stream = FlightDataEncoderBuilder::new()
         .with_max_flight_data_size(25_000_000)
@@ -318,9 +242,7 @@ pub async fn do_get(
     };
 
     let ticket = Ticket {
-        ticket: marshal::flight::ticket_topic_to_binary(ticket_payload)
-            .unwrap()
-            .into(),
+        ticket: marshal::flight::ticket_topic_to_bytes(ticket_payload).into(),
     };
 
     do_get_with_ticket(client, ticket).await
@@ -350,51 +272,26 @@ pub async fn do_get_with_ticket(
 }
 
 pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "info".to_owned(),
-        body: r#"{}"#.to_string().into(),
-    };
-
-    dbg!(&action);
+    let action = action("info", &requests::Empty {});
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "info");
+        let r = responses::ServerInfo::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
 
-        assert!(r.response.as_object().unwrap().contains_key("version"));
-        let semver = r.response.as_object().unwrap().get("semver").unwrap();
+        assert!(!r.version.is_empty());
 
-        assert!(semver.as_object().unwrap().contains_key("major"));
-        assert!(semver.as_object().unwrap().contains_key("minor"));
-        assert!(semver.as_object().unwrap().contains_key("patch"));
-        assert!(semver.as_object().unwrap().contains_key("pre"));
+        let semver = r.semver.expect("semver is missing");
+        // `major` is 0 for a pre-1.0 version: only check the field exists on
+        // the type (compile-time), not that it's non-zero.
+        let _ = semver.major;
+        assert!(semver.minor > 0 || semver.patch > 0 || !semver.pre.is_empty());
 
-        let major = semver.as_object().unwrap().get("major").unwrap();
-        assert!(major.is_u64());
-        let minor = semver.as_object().unwrap().get("minor").unwrap();
-        assert!(minor.is_u64());
-        let patch = semver.as_object().unwrap().get("patch").unwrap();
-        assert!(patch.is_u64());
-        if let Some(pre) = semver.as_object().unwrap().get("pre") {
-            assert!(pre.is_string());
-        }
-
-        let config = r
-            .response
-            .as_object()
-            .unwrap()
-            .get("config")
-            .unwrap()
-            .as_object()
-            .unwrap();
-
-        let max_grpc_message_size = config.get("max_grpc_message_size").unwrap();
-        assert!(max_grpc_message_size.is_u64());
-        let target_message_size = config.get("target_message_size").unwrap();
-        assert!(target_message_size.is_u64());
+        let config = r.config.expect("config is missing");
+        assert!(config.max_grpc_message_size > 0);
+        assert!(config.target_message_size > 0);
     }
 
     Ok(())
@@ -406,18 +303,12 @@ pub async fn get_flight_info(
     topic_name: &str,
     interval: Option<types::TimestampRange>,
 ) -> Result<FlightInfo, tonic::Status> {
-    let cmd = format!(
-        r#"
-        {{
-            "resource_locator": "{}",
-            "timestamp_ns_start": {},
-            "timestamp_ns_end": {}
-        }}
-        "#,
-        topic_name,
-        interval.map_or("null".to_owned(), |range| range.start.to_string()),
-        interval.map_or("null".to_owned(), |range| range.end.to_string()),
-    );
+    let cmd = mosaicod_proto::v1::flight::GetFlightInfoCmd {
+        resource_locator: topic_name.to_owned(),
+        timestamp_ns_start: interval.map(|range| range.start.as_i64()),
+        timestamp_ns_end: interval.map(|range| range.end.as_i64()),
+    }
+    .encode_to_vec();
 
     dbg!(&cmd);
 
@@ -433,14 +324,10 @@ pub async fn get_schema(
     client: &mut Client,
     topic_name: &str,
 ) -> Result<arrow::datatypes::Schema, tonic::Status> {
-    let cmd = format!(
-        r#"
-        {{
-            "resource_locator": "{}"
-        }}
-        "#,
-        topic_name,
-    );
+    let cmd = mosaicod_proto::v1::flight::GetSchemaCmd {
+        resource_locator: topic_name.to_owned(),
+    }
+    .encode_to_vec();
 
     dbg!(&cmd);
 
@@ -458,23 +345,20 @@ pub async fn sequence_notification_create(
     notification_type: String,
     msg: String,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "sequence_notification_create".to_owned(),
-        body: format!(
-            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
-            locator, notification_type, msg
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "sequence_notification_create",
+        &requests::NotificationCreate {
+            locator: locator.to_owned(),
+            notification_type,
+            msg,
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "sequence_notification_create");
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -483,20 +367,20 @@ pub async fn sequence_notification_create(
 pub async fn sequence_notification_list(
     client: &mut Client,
     locator: &str,
-) -> Result<serde_json::Value, tonic::Status> {
-    let action = Action {
-        r#type: "sequence_notification_list".to_owned(),
-        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
-    };
+) -> Result<responses::NotificationList, tonic::Status> {
+    let action = action(
+        "sequence_notification_list",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
-    dbg!(&action);
-    let mut ret = serde_json::Value::Null;
+    let mut ret = responses::NotificationList::default();
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "sequence_notification_list");
-        ret = r.response;
+        ret = responses::NotificationList::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
     }
 
     Ok(ret)
@@ -506,17 +390,17 @@ pub async fn sequence_notification_purge(
     client: &mut Client,
     locator: &str,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "sequence_notification_purge".to_owned(),
-        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
-    };
+    let action = action(
+        "sequence_notification_purge",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
-    dbg!(&action);
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "sequence_notification_purge");
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -528,23 +412,20 @@ pub async fn topic_notification_create(
     notification_type: String,
     msg: String,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "topic_notification_create".to_owned(),
-        body: format!(
-            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
-            locator, notification_type, msg
-        )
-        .into(),
-    };
-
-    dbg!(&action);
+    let action = action(
+        "topic_notification_create",
+        &requests::NotificationCreate {
+            locator: locator.to_owned(),
+            notification_type,
+            msg,
+        },
+    );
 
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_notification_create");
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -553,20 +434,20 @@ pub async fn topic_notification_create(
 pub async fn topic_notification_list(
     client: &mut Client,
     locator: &str,
-) -> Result<serde_json::Value, tonic::Status> {
-    let action = Action {
-        r#type: "topic_notification_list".to_owned(),
-        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
-    };
+) -> Result<responses::NotificationList, tonic::Status> {
+    let action = action(
+        "topic_notification_list",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
-    dbg!(&action);
-    let mut ret = serde_json::Value::Null;
+    let mut ret = responses::NotificationList::default();
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_notification_list");
-        ret = r.response;
+        ret = responses::NotificationList::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
     }
 
     Ok(ret)
@@ -576,17 +457,17 @@ pub async fn topic_notification_purge(
     client: &mut Client,
     locator: &str,
 ) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "topic_notification_purge".to_owned(),
-        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
-    };
+    let action = action(
+        "topic_notification_purge",
+        &requests::ResourceLocator {
+            locator: locator.to_owned(),
+        },
+    );
 
-    dbg!(&action);
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_notification_purge");
+        assert!(result.body.is_empty());
     }
 
     Ok(())
@@ -598,29 +479,25 @@ pub async fn topic_filter_clusterize(
     clustering_dt_ns: u64,
     ontology: Ontology,
     timestamp_range: Option<marshal::TimestampRange>,
-) -> Result<Vec<serde_json::Value>, tonic::Status> {
-    let body = json!({
-        "locator": locator,
-        "clustering_dt_ns": clustering_dt_ns,
-        "ontology": ontology,
-        "timestamp_range": timestamp_range,
-    });
+) -> Result<Vec<responses::TopicFilterClusterize>, tonic::Status> {
+    let action = action(
+        "topic_filter_clusterize",
+        &requests::TopicClusterizeParams {
+            locator: locator.to_owned(),
+            clustering_dt_ns,
+            ontology: serde_json::to_vec(&ontology)
+                .map_err(|e| tonic::Status::internal(e.to_string()))?,
+            timestamp_range,
+        },
+    );
 
-    let action = Action {
-        r#type: "topic_filter_clusterize".to_owned(),
-        body: serde_json::to_vec(&body)
-            .map_err(|e| tonic::Status::internal(e.to_string()))?
-            .into(),
-    };
-
-    dbg!(&action);
-    let mut ret: Vec<serde_json::Value> = Vec::new();
+    let mut ret: Vec<responses::TopicFilterClusterize> = Vec::new();
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_filter_clusterize");
-        ret.push(r.response);
+        let r = responses::TopicFilterClusterize::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
+        ret.push(r);
     }
 
     Ok(ret)
@@ -630,27 +507,22 @@ pub async fn topic_filter_intersect(
     client: &mut Client,
     topics: Vec<mosaicod_marshal::requests::TopicClusterizeParams>,
     intersect_dt_ns: u64,
-) -> Result<Vec<serde_json::Value>, tonic::Status> {
-    let body = json!({
-        "topics": topics,
-        "intersect_dt_ns": intersect_dt_ns,
-    });
+) -> Result<Vec<responses::TopicFilterClusterize>, tonic::Status> {
+    let action = action(
+        "topic_filter_intersect",
+        &requests::TopicFilterIntersect {
+            topics,
+            intersect_dt_ns,
+        },
+    );
 
-    let action = Action {
-        r#type: "topic_filter_intersect".to_owned(),
-        body: serde_json::to_vec(&body)
-            .map_err(|e| tonic::Status::internal(e.to_string()))?
-            .into(),
-    };
-
-    dbg!(&action);
-    let mut ret: Vec<serde_json::Value> = Vec::new();
+    let mut ret: Vec<responses::TopicFilterClusterize> = Vec::new();
     let mut stream = client.do_action(action).await?.into_inner();
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "topic_filter_intersect");
-        ret.push(r.response);
+        let r = responses::TopicFilterClusterize::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
+        ret.push(r);
     }
 
     Ok(ret)
@@ -659,26 +531,19 @@ pub async fn topic_filter_intersect(
 pub async fn query(
     client: &mut Client,
     filter: serde_json::Value,
-) -> Result<Vec<serde_json::Value>, tonic::Status> {
-    let action = Action {
-        r#type: "query".to_owned(),
-        body: serde_json::to_vec(&filter)
-            .map_err(|e| tonic::Status::internal(e.to_string()))?
-            .into(),
-    };
+) -> Result<Vec<responses::ResponseQueryItem>, tonic::Status> {
+    let query_bytes =
+        serde_json::to_vec(&filter).map_err(|e| tonic::Status::internal(e.to_string()))?;
+    let action = action("query", &requests::Query { query: query_bytes });
 
-    dbg!(&action);
-
-    let mut items: Vec<serde_json::Value> = Vec::new();
+    let mut items: Vec<responses::ResponseQueryItem> = Vec::new();
     let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await? {
         dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "query");
-        if let Some(arr) = r.response["items"].as_array() {
-            items.extend(arr.iter().cloned());
-        }
+        let r = responses::Query::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
+        items.extend(r.items);
     }
 
     Ok(items)

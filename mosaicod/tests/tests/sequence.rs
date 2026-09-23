@@ -16,11 +16,11 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
         .build()
         .await;
 
+    // Check that sequences with same name are not allowed.
     actions::sequence_create(&mut client, "test_sequence", None)
         .await
         .unwrap();
 
-    // Check that sequences with same name are not allowed.
     assert!(
         actions::sequence_create(&mut client, "test_sequence", None)
             .await
@@ -85,9 +85,8 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_metadata: types::SequenceMetadata<marshal::JsonMetadataBlob> =
-        app_metadata.try_into().unwrap();
+    let sequence_metadata =
+        marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
     assert!(sequence_metadata.sessions.is_empty());
     assert_eq!(
@@ -106,20 +105,19 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
-        app_metadata.try_into().unwrap();
+    let sequence_metadata =
+        marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
     assert_eq!(
-        sequence_manifest.resource_locator.to_string(),
+        sequence_metadata.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
-    assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].locator, session_locator);
-    assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
-    assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert!(sequence_manifest.sessions[0].topics.is_empty());
+    assert_ne!(sequence_metadata.created_at.as_i64(), 0);
+    assert_eq!(sequence_metadata.sessions.len(), 1);
+    assert_eq!(sequence_metadata.sessions[0].locator, session_locator);
+    assert_ne!(sequence_metadata.sessions[0].created_at.as_i64(), 0);
+    assert!(sequence_metadata.sessions[0].completed_at.is_none());
+    assert!(sequence_metadata.sessions[0].topics.is_empty());
 
     let topic_name = "test_sequence/my_topic";
 
@@ -149,22 +147,21 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
-        app_metadata.try_into().unwrap();
+    let sequence_metadata =
+        marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
     assert_eq!(
-        sequence_manifest.resource_locator.to_string(),
+        sequence_metadata.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
-    assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].locator, session_locator);
-    assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
-    assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert_eq!(sequence_manifest.sessions[0].topics.len(), 1);
+    assert_ne!(sequence_metadata.created_at.as_i64(), 0);
+    assert_eq!(sequence_metadata.sessions.len(), 1);
+    assert_eq!(sequence_metadata.sessions[0].locator, session_locator);
+    assert_ne!(sequence_metadata.sessions[0].created_at.as_i64(), 0);
+    assert!(sequence_metadata.sessions[0].completed_at.is_none());
+    assert_eq!(sequence_metadata.sessions[0].topics.len(), 1);
     assert_eq!(
-        sequence_manifest.sessions[0].topics[0].to_string(),
+        sequence_metadata.sessions[0].topics[0].to_string(),
         topic_name
     );
 
@@ -175,17 +172,16 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
-        app_metadata.try_into().unwrap();
+    let sequence_metadata =
+        marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
     assert_eq!(
-        sequence_manifest.resource_locator.to_string(),
+        sequence_metadata.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
-    assert_eq!(sequence_manifest.sessions.len(), 1);
-    let sm = &sequence_manifest.sessions[0];
+    assert_ne!(sequence_metadata.created_at.as_i64(), 0);
+    assert_eq!(sequence_metadata.sessions.len(), 1);
+    let sm = &sequence_metadata.sessions[0];
     assert_eq!(sm.locator, session_locator);
     assert_ne!(sm.created_at.as_i64(), 0);
     assert_ne!(sm.completed_at.unwrap().as_i64(), 0);
@@ -193,16 +189,27 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sm.topics[0].to_string(), topic_name);
 
     assert_eq!(info.endpoint.len(), 1);
-    let ep_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
-    assert!(ep_metadata.locked);
-    assert_ne!(ep_metadata.created_at_ns, 0);
-    assert_ne!(ep_metadata.completed_at_ns.unwrap(), 0);
-    assert_eq!(ep_metadata.resource_locator, topic_name);
+    let ep_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
+    assert!(ep_metadata.metadata.properties.completed_at.is_some());
+    assert_ne!(ep_metadata.metadata.properties.created_at.as_i64(), 0);
+    assert_ne!(
+        ep_metadata
+            .metadata
+            .properties
+            .completed_at
+            .unwrap()
+            .as_i64(),
+        0
+    );
+    assert_eq!(
+        ep_metadata.metadata.properties.resource_locator.to_string(),
+        topic_name.to_string()
+    );
 
-    assert_eq!(ep_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(ep_metadata.data_info.total_chunks, 1);
     assert_eq!(ep_metadata.data_info.total_bytes, 895);
-    let ts_range: types::TimestampRange = ep_metadata.data_info.interval.unwrap().into();
+    let ts_range: types::TimestampRange = ep_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 
@@ -251,19 +258,19 @@ async fn test_sequence_flight_info_time_window(pool: sqlx::Pool<db::DatabaseType
     .unwrap();
 
     assert_eq!(info.endpoint.len(), 1);
-    let ep_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let ep_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
     // Whole-topic stats must still reflect all 7 rows.
-    assert_eq!(ep_metadata.data_info.total_chunks_count, 1);
+    assert_eq!(ep_metadata.data_info.total_chunks, 1);
     assert_eq!(ep_metadata.data_info.total_row_count, 7);
 
     // But the time-window-scoped info must reflect only the requested window (a single row).
     let time_window_info = ep_metadata.time_window_info.unwrap();
     assert_eq!(time_window_info.row_count, 1);
-    let interval = time_window_info.interval.unwrap();
-    assert_eq!(interval.start_ns, 10015);
-    assert_eq!(interval.end_ns, 10015);
+    let interval = time_window_info.timestamp_range;
+    assert_eq!(interval.start.as_i64(), 10015);
+    assert_eq!(interval.end.as_i64(), 10015);
 
     server.shutdown().await;
 }
@@ -372,14 +379,14 @@ async fn test_sequence_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), notifications_size);
 
     for (i, notification) in notifications.iter().enumerate() {
         let error_msg = format!("Error {}_{}", sequence_name, i + 1);
-        assert_eq!(notification["notification_type"], notification_type);
-        assert_eq!(notification["name"], sequence_name);
-        assert_eq!(notification["msg"], error_msg);
+        assert_eq!(notification.notification_type, notification_type);
+        assert_eq!(notification.name, sequence_name);
+        assert_eq!(notification.msg, error_msg);
     }
 
     server.shutdown().await;
@@ -414,7 +421,7 @@ async fn test_sequence_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
@@ -523,7 +530,7 @@ async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType
     let r = actions::sequence_notification_list(&mut client, sequence_name)
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
@@ -539,7 +546,7 @@ async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::Databa
     let r = actions::sequence_notification_list(&mut client, "ghost_sequence")
         .await
         .unwrap();
-    let notifications = r["notifications"].as_array().unwrap();
+    let notifications = r.notifications;
     assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
