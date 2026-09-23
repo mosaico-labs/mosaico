@@ -1,5 +1,7 @@
 use super::{requests, responses};
+use crate::time::timestamp_range_to_proto;
 use mosaicod_core as core;
+use mosaicod_ext as ext;
 use prost::Message;
 use thiserror::Error;
 
@@ -254,18 +256,18 @@ impl ActionResponse {
         Self::TopicNotificationList(responses::notification_list(notifications))
     }
 
-    pub fn topic_filter_clusterize(cluster_id: u64, start_ns: i64, end_ns: i64) -> Self {
+    pub fn topic_filter_clusterize(cluster: ext::arrow_filter::Cluster) -> Self {
         let response = responses::TopicFilterClusterize {
-            ts: Some(crate::TimestampRange { start_ns, end_ns }),
-            id: cluster_id,
+            ts: Some(timestamp_range_to_proto(cluster.timestamp_range)),
+            id: cluster.id,
         };
         Self::TopicFilterClusterize(response)
     }
 
-    pub fn topic_filter_intersect(cluster_id: u64, start_ns: i64, end_ns: i64) -> Self {
+    pub fn topic_filter_intersect(cluster: ext::arrow_filter::Cluster) -> Self {
         let response = responses::TopicFilterClusterize {
-            ts: Some(crate::TimestampRange { start_ns, end_ns }),
-            id: cluster_id,
+            ts: Some(timestamp_range_to_proto(cluster.timestamp_range)),
+            id: cluster.id,
         };
         Self::TopicFilterIntersect(response)
     }

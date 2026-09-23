@@ -2850,6 +2850,7 @@ name = "mosaicod-marshal"
 version = "0.7.0-dev"
 dependencies = [
  "mosaicod-core",
+ "mosaicod-ext",
  "mosaicod-proto",
  "mosaicod-query",
  "prost",

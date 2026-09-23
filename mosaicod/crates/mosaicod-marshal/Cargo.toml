@@ -10,6 +10,7 @@ license.workspace = true
 mosaicod-core = { workspace = true }
 mosaicod-proto = { workspace = true }
 mosaicod-query = { workspace = true}
+mosaicod-ext = { workspace = true}
 
 thiserror = { workspace = true }
 prost = { workspace = true }

@@ -1,7 +1,5 @@
 //! Topic-related actions.
 
-use ext::arrow_filter::{Cluster, ClusteringError};
-
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::StreamExt;
@@ -246,11 +244,11 @@ async fn spawn_cluster_stream(
 /// `F` is a one-shot closure that selects the correct [`ActionResponse`] variant
 /// for the operation being performed, either a clusterize or an intersect result.
 fn cluster_to_flight_result<F>(
-    cluster: Cluster,
+    cluster: ext::arrow_filter::Cluster,
     action_builder: F,
 ) -> std::result::Result<arrow_flight::Result, tonic::Status>
 where
-    F: FnOnce(Cluster) -> ActionResponse,
+    F: FnOnce(ext::arrow_filter::Cluster) -> ActionResponse,
 {
     let bytes = action_builder(cluster).bytes();
     Ok(arrow_flight::Result::new(bytes))
@@ -331,7 +329,7 @@ async fn intersect_cluster_streams(
     intersect_dt_ns: u64,
     out: mpsc::Sender<ClusteringResult>,
 ) -> std::result::Result<(), ext::arrow_filter::ClusteringError> {
-    let mut current_cluster: Vec<Cluster> = Vec::new();
+    let mut current_cluster: Vec<ext::arrow_filter::Cluster> = Vec::new();
     let mut active_streams: Vec<ReceiverStream<ClusteringResult>> = Vec::new();
 
     for mut stream in streams {
@@ -344,7 +342,7 @@ async fn intersect_cluster_streams(
             Err(e) => {
                 out.send(Err(e))
                     .await
-                    .map_err(|_| ClusteringError::ChannelClosed)?;
+                    .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
                 return Ok(());
             }
         }
@@ -392,12 +390,12 @@ async fn intersect_cluster_streams(
                     min_end.saturating_add_unsigned(hi),
                 )
             };
-            out.send(Ok(Cluster {
+            out.send(Ok(ext::arrow_filter::Cluster {
                 id: cluster_id,
                 timestamp_range: types::TimestampRange::between(start_ns.into(), end_ns.into()),
             }))
             .await
-            .map_err(|_| ClusteringError::ChannelClosed)?;
+            .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
             cluster_id += 1;
         }
 
@@ -407,7 +405,7 @@ async fn intersect_cluster_streams(
             Err(e) => {
                 out.send(Err(e))
                     .await
-                    .map_err(|_| ClusteringError::ChannelClosed)?;
+                    .map_err(|_| ext::arrow_filter::ClusteringError::ChannelClosed)?;
                 return Ok(());
             }
         }
