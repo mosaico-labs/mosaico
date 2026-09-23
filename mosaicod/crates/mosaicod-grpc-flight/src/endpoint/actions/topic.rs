@@ -9,7 +9,6 @@ use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob, TopicLocator},
 };
-use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests};
@@ -19,6 +18,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{info, trace, warn};
 
 use crate::flight::DoActionStream;
+use mosaicod_ext as ext;
 
 const MAX_BUFFER_CHANNEL_SIZE: usize = 128;
 
@@ -246,18 +246,13 @@ async fn spawn_cluster_stream(
 /// `F` is a one-shot closure that selects the correct [`ActionResponse`] variant
 /// for the operation being performed, either a clusterize or an intersect result.
 fn cluster_to_flight_result<F>(
-    cluster: ext::arrow_filter::Cluster,
+    cluster: Cluster,
     action_builder: F,
 ) -> std::result::Result<arrow_flight::Result, tonic::Status>
 where
-    F: FnOnce(u64, i64, i64) -> ActionResponse,
+    F: FnOnce(Cluster) -> ActionResponse,
 {
-    let bytes = action_builder(
-        cluster.id,
-        cluster.timestamp_range.start.as_i64(),
-        cluster.timestamp_range.end.as_i64(),
-    )
-    .bytes();
+    let bytes = action_builder(cluster).bytes();
     Ok(arrow_flight::Result::new(bytes))
 }
 
@@ -303,8 +298,7 @@ pub async fn filter_intersect(
             tfc.locator,
             tfc.clustering_dt_ns,
             ontology,
-            tfc.timestamp_range
-                .map(|ts| marshal::timestamp_range_from_proto(&ts)),
+            tfc.timestamp_range.map(marshal::timestamp_range_from_proto),
         )
         .await?;
         receivers.push(rx);

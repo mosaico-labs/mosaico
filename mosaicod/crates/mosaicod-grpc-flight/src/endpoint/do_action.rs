@@ -97,8 +97,7 @@ pub async fn do_action(
                 data.locator,
                 data.clustering_dt_ns,
                 ontology,
-                data.timestamp_range
-                    .map(|ts_range| timestamp_range_from_proto(&ts_range)),
+                data.timestamp_range.map(timestamp_range_from_proto),
             )
             .await
         }

@@ -147,7 +147,7 @@ fn data_info_to_proto(value: types::TopicDataInfo) -> proto_flight::TopicAppMeta
         interval: if value.timestamp_range.is_unbounded() {
             None
         } else {
-            Some(super::timestamp_range_to_proto(&value.timestamp_range))
+            Some(super::timestamp_range_to_proto(value.timestamp_range))
         },
         total_row_count: value.total_row_count,
         total_bytes: value.total_bytes,
@@ -161,7 +161,7 @@ fn data_info_from_proto(value: proto_flight::TopicAppMetadataDataInfo) -> types:
         total_bytes: value.total_bytes,
         timestamp_range: value
             .interval
-            .map(|r| super::timestamp_range_from_proto(&r))
+            .map(super::timestamp_range_from_proto)
             .unwrap_or(types::TimestampRange::unbounded()),
         total_row_count: value.total_row_count,
     }
@@ -174,7 +174,7 @@ fn time_window_info_to_proto(
         interval: if value.timestamp_range.is_unbounded() {
             None
         } else {
-            Some(super::timestamp_range_to_proto(&value.timestamp_range))
+            Some(super::timestamp_range_to_proto(value.timestamp_range))
         },
         row_count: value.row_count,
     }
@@ -186,7 +186,7 @@ fn time_window_info_from_proto(
     types::TopicTimeWindowInfo {
         timestamp_range: value
             .interval
-            .map(|r| super::timestamp_range_from_proto(&r))
+            .map(super::timestamp_range_from_proto)
             .unwrap_or(types::TimestampRange::unbounded()),
         row_count: value.row_count,
     }
