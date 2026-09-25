@@ -174,7 +174,7 @@ class ProtobufRulesMatcher:
         each field's `RulePath` to the ordered list of `PROTOBUF_RULES` entries whose
         predicate matches that field (see `match_rules`) — a field can match more than one,
         e.g. an `Any` field that is also a `oneof` member matches both `is_field_any` and
-        `is_field_oneof`. `MCAPMsgDecoder.postprocess()` applies them in this same order.
+        `is_field_oneof`. `MCAPMsgDecoderBase.postprocess()` applies them in this same order.
         """
         return cls._descriptor_to_rules(descr, {}, ())
 

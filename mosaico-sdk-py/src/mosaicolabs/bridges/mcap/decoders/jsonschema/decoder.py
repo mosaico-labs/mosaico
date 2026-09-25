@@ -4,7 +4,7 @@ from typing import Any, ClassVar, Dict, Optional
 from mcap.decoder import DecoderFactory
 from mcap.records import Schema
 
-from ..decoder_base import MCAPMsgDecoder
+from ..decoder_base import MCAPMsgDecoderBase
 from ..registry import register_decoder
 
 
@@ -23,7 +23,7 @@ class JsonDecoderFactory(DecoderFactory):
 
 
 @register_decoder
-class MCAPJsonschemaMsgDecoder(MCAPMsgDecoder):
+class MCAPJsonschemaMsgDecoder(MCAPMsgDecoderBase):
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = "json"
 
     def decoder_factory(self) -> DecoderFactory:

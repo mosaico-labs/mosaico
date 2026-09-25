@@ -8,7 +8,7 @@ from mcap.records import Schema
 from .rule import Rule, RulePath
 
 
-class MCAPMsgDecoder(ABC):
+class MCAPMsgDecoderBase(ABC):
     """
     Encoding-specific runtime behavior needed to decode MCAP messages into plain dicts.
 
@@ -19,7 +19,7 @@ class MCAPMsgDecoder(ABC):
     that are passed to `McapReader` (from mcap.reader), allowing to turn MCAP agnostic
     data to domain specific data through iter_decoded_messages().
     The resulting domain specific data (`Message` from `google.protobuf.message` or
-    `bytes` for jsonschema) are then turned into a Python dict using one of the MCAPMsgDecoder.decode().
+    `bytes` for jsonschema) are then turned into a Python dict using one of the MCAPMsgDecoderBase.decode().
     """
 
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = ""

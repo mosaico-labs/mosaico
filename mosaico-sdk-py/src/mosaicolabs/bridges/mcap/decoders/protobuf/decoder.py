@@ -8,13 +8,13 @@ from mcap.decoder import DecoderFactory
 from mcap.records import Schema
 from mcap_protobuf.decoder import DecoderFactory as ProtobufDecoderFactory
 
-from ..decoder_base import MCAPMsgDecoder
+from ..decoder_base import MCAPMsgDecoderBase
 from ..registry import register_decoder
 from .rules_matcher import ProtobufRulesMatcher
 
 
 @register_decoder
-class MCAPProtobufMsgDecoder(MCAPMsgDecoder):
+class MCAPProtobufMsgDecoder(MCAPMsgDecoderBase):
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = "protobuf"
 
     def __init__(self) -> None:
