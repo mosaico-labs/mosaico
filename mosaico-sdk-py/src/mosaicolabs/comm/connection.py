@@ -88,7 +88,9 @@ class ConnectionContext:
         Returns:
             int: The calculated maximum batch size in bytes.
         """
-        return int(self.server_info.config.max_grpc_message_size * size_reduction_ratio)
+        return int(
+            self.server_info.config.max_grpc_decode_message_size * size_reduction_ratio
+        )
 
 
 @dataclass

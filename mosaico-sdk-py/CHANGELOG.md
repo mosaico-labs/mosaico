@@ -8,7 +8,7 @@ This release adapts the SDK to the backend's new **`info` action** (replacing `v
 ### Breaking Changes
 
 - **`sequence_create()`, `sequence_update()` and `SequenceHandler.update()` no longer accept `max_batch_size_bytes`/`max_batch_size_records`**: the write-batching size is now always derived from the server's own reported message-size limit instead of a user-supplied override. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
-- **The backend `VERSION` action was replaced by `INFO`**, which additionally reports the server's writing configuration (`max_grpc_message_size`, `target_message_size`) alongside the version string. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
+- **The backend `VERSION` action was replaced by `INFO`**, which additionally reports the server's writing configuration (`max_grpc_decode_message_size`, `target_grpc_encode_message_size`) alongside the version string. ([#731](https://github.com/mosaico-labs/mosaico/pull/731))
 
 ### Features
 
