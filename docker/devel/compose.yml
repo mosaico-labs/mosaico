@@ -22,25 +22,25 @@ services:
     image: ghcr.io/versity/versitygw:latest
     container_name: store
     ports:
-      - "127.0.0.1:7070:7070"  # S3 API
-      - "127.0.0.1:7071:7071"  # Admin API
+      - "127.0.0.1:7090:7070"  # S3 API
+      - "127.0.0.1:7091:7071"  # Admin API
       - "127.0.0.1:8080:8080"  # Web UI
     
     environment:
       ROOT_ACCESS_KEY: admin
       ROOT_SECRET_KEY: password
-      VGW_PORT: ":7070"
-      VGW_ADMIN_PORT: ":7071"
+      VGW_PORT: ":7090"
+      VGW_ADMIN_PORT: ":7091"
       VGW_WEBUI_PORT: ":8080"
-      VGW_WEBUI_GATEWAYS: "http://127.0.0.1:7070"
-      VGW_WEBUI_ADMIN_GATEWAYS: "http://127.0.0.1:7071"
+      VGW_WEBUI_GATEWAYS: "http://127.0.0.1:7090"
+      VGW_WEBUI_ADMIN_GATEWAYS: "http://127.0.0.1:7091"
       VGW_BACKEND: posix
       VGW_BACKEND_ARGS: /data/store
       VGW_HEALTH: "/health"
     volumes:
       - /tmp/versitygw/store/mosaico:/data/store/mosaico
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7070/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7090/health"]
       interval: 10s
       timeout: 5s
       retries: 3
