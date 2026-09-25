@@ -342,9 +342,11 @@ main() {
 
     # Print configuration
     title "[ setup ]" "-"
-    echo " * MOSAICOD_DB_URL ${DIM}${MOSAICOD_DB_URL}${RESET}"
-    echo " * DATABASE_URL    ${DIM}${DATABASE_URL}${RESET}"
-    echo " * SQLX_OFFLINE    ${DIM}${SQLX_OFFLINE}${RESET}"
+    echo " * MOSAICOD_DB_URL            ${DIM}${MOSAICOD_DB_URL}${RESET}"
+    echo " * DATABASE_URL               ${DIM}${DATABASE_URL}${RESET}"
+    echo " * SQLX_OFFLINE               ${DIM}${SQLX_OFFLINE}${RESET}"
+    echo " * MOSAICOD_STORE_ENDPOINT    ${DIM}${MOSAICOD_STORE_ENDPOINT}${RESET}"
+    echo " * MOSAICOD_STORE_BUCKET      ${DIM}${MOSAICOD_STORE_BUCKET}${RESET}"
 
     # Run selected tests
     if [ "$run_all" = true ]; then
