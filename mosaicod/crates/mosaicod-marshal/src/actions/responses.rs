@@ -142,10 +142,13 @@ pub struct SemVerItem {
 /// Server-configured limits that clients should respect (e.g. when sizing requests).
 #[derive(Serialize, Debug)]
 pub struct ServerConfig {
-    /// Maximum message size (in bytes) accepted/emitted by the gRPC protocol.
-    pub max_grpc_message_size: usize,
+    /// Maximum incoming message size (in bytes) accepted by the gRPC protocol.
+    pub max_grpc_decode_message_size: usize,
+    /// Maximum outgoing message size (in bytes) the gRPC protocol can emit. Fixed,
+    /// unlike `max_grpc_decode_message_size`: clients can rely on it never shrinking.
+    pub max_grpc_encode_message_size: usize,
     /// Target message size (in bytes) the server aims for when streaming data.
-    pub target_message_size: usize,
+    pub target_grpc_encode_message_size: usize,
 }
 
 #[derive(Serialize, Debug)]
