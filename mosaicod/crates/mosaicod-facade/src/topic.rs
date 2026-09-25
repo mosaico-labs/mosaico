@@ -219,7 +219,7 @@ pub(super) mod internal {
     /// Computes the optimal batch size based on topic statistics from the database.
     /// The computed batch size is clamped between 1 and
     /// [`params::Params::max_batch_size`], so topics whose rows are larger
-    /// than [`params::Params::target_message_size`] still stream at least
+    /// than [`params::Params::target_grpc_encode_message_size`] still stream at least
     /// one row per batch instead of a degenerate batch size of 0.
     ///
     /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
@@ -245,7 +245,7 @@ pub(super) mod internal {
 
         // Guard in case of average 0 to avoid panic
         let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
-        let batch_size = params.target_message_size / avg_bytes_per_row;
+        let batch_size = params.target_grpc_encode_message_size.value / avg_bytes_per_row;
 
         Ok(batch_size.clamp(1, params.max_batch_size.value))
     }

@@ -215,9 +215,13 @@ pub async fn serve(
         );
     }
 
+    // Decoding is bounded by the user-tunable `max_grpc_decode_message_size`. Encoding is
+    // pinned to the fixed absolute ceiling instead of that tunable: since it governs
+    // outgoing (retrieval) messages, tying it to a value that can be lowered later
+    // would risk making previously-accepted, already-stored data unretrievable.
     flight_svc = flight_svc
-        .max_decoding_message_size(params::params().max_grpc_message_size.value)
-        .max_encoding_message_size(params::params().max_grpc_message_size.value);
+        .max_decoding_message_size(params::params().max_grpc_decode_message_size.value)
+        .max_encoding_message_size(params::GRPC_MSG_MAX_SIZE_BYTES);
 
     if opts.gzip {
         flight_svc = flight_svc

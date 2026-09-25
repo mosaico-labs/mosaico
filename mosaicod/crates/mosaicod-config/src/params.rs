@@ -9,13 +9,14 @@ use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
 use std::{env, str::FromStr, sync::OnceLock};
 
-// MIN/MAX values admissible for grpc message size.
+// MIN/MAX values admissible for grpc message size (incoming/outgoing).
+
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
-pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 128 * 1024 * 1024; // 128MiB
+pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 512 * 1024 * 1024; // 512MiB
 
 // Default values for Params.
-pub const DEFAULT_MAX_GRPC_MESSAGE_SIZE: usize = 50 * 1024 * 1024; // 50MiB
-pub const DEFAULT_TARGET_MESSAGE_SIZE: usize = DEFAULT_MAX_GRPC_MESSAGE_SIZE / 2; // 25MiB
+pub const DEFAULT_MAX_GRPC_DECODE_MESSAGE_SIZE: usize = 50 * 1024 * 1024; // 50MiB
+pub const DEFAULT_TARGET_GRPC_ENCODE_MESSAGE_SIZE: usize = 25 * 1024 * 1024; // 25MiB
 pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: usize = 4;
 pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: usize = 1024;
 pub const DEFAULT_MAX_DB_CONNECTIONS: u32 = 19;
@@ -265,22 +266,22 @@ where
 /// Required and configurables parameters of mosaico
 #[derive(Debug)]
 pub struct Params {
-    /// Maximum allowed message size (in bytes) by the gRPC protocol.
+    /// Maximum incoming message size (in bytes) accepted by the gRPC protocol.
+    /// The server's outgoing message size is fixed at [`GRPC_MSG_MAX_SIZE_BYTES`]
+    /// regardless of this value, so lowering this param can never make previously-accepted
+    /// data unretrievable.
     ///
     /// If you need to update this value be aware that it is usually
     /// smaller than [`Params::parquet_in_memory_encoding_buffer_size`].
     ///
     /// Defaults to 50 MB.
-    pub max_grpc_message_size: Param<usize>,
+    pub max_grpc_decode_message_size: Param<usize>,
 
     /// Target message size (in bytes) used during data streaming. Mosaicod will try to
     /// aggregate a number of Arrow RecordBatches to create a sufficiently large
     /// message. If the resulting batch size exceeds the limit, it will be capped by
     /// [`Params::max_batch_size`].
-    ///
-    /// This param does not have a corresponding ENV var associated,
-    /// but it is directly set to half of [`Params::max_grpx_message_size`] instead.
-    pub target_message_size: usize,
+    pub target_grpc_encode_message_size: Param<usize>,
 
     /// Maximum number of concurrent chunk queries during data catalog filtering.
     pub max_concurrent_chunk_queries: Param<usize>,
@@ -414,8 +415,8 @@ impl Params {
             ))?;
         }
 
-        if self.max_grpc_message_size.value < GRPC_MSG_MIN_SIZE_BYTES
-            || self.max_grpc_message_size.value > GRPC_MSG_MAX_SIZE_BYTES
+        if self.max_grpc_decode_message_size.value < GRPC_MSG_MIN_SIZE_BYTES
+            || self.max_grpc_decode_message_size.value > GRPC_MSG_MAX_SIZE_BYTES
         {
             let err_msg = format!(
                 "must be in the range: [{}, {}]",
@@ -423,7 +424,18 @@ impl Params {
             );
 
             Err(error::Error::invalid_configuration(
-                self.max_grpc_message_size.env.clone(),
+                self.max_grpc_decode_message_size.env.clone(),
+                err_msg,
+            ))?;
+        }
+
+        if self.target_grpc_encode_message_size.value == 0
+            || self.target_grpc_encode_message_size.value > GRPC_MSG_MAX_SIZE_BYTES
+        {
+            let err_msg = format!("must be in the range: (0, {}]", GRPC_MSG_MAX_SIZE_BYTES);
+
+            Err(error::Error::invalid_configuration(
+                self.target_grpc_encode_message_size.env.clone(),
                 err_msg,
             ))?;
         }
@@ -478,18 +490,23 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
 
     let ignore_env = config.ignore_env;
 
-    let max_grpc_message_size = Param::optional(
-        "MOSAICOD_MAX_GRPC_MESSAGE_SIZE",
+    let max_grpc_decode_message_size = Param::optional(
+        "MOSAICOD_MAX_GRPC_DECODE_MESSAGE_SIZE",
         ignore_env,
-        cfg.server.grpc.max_message_size,
-        DEFAULT_MAX_GRPC_MESSAGE_SIZE,
+        cfg.server.grpc.max_decode_message_size,
+        DEFAULT_MAX_GRPC_DECODE_MESSAGE_SIZE,
     );
-    let target_message_size = max_grpc_message_size.value / 2;
+    let target_grpc_encode_message_size = Param::optional(
+        "MOSAICOD_TARGET_GRPC_ENCODE_MESSAGE_SIZE",
+        ignore_env,
+        cfg.server.grpc.target_encode_message_size,
+        DEFAULT_TARGET_GRPC_ENCODE_MESSAGE_SIZE,
+    );
 
     let ev = Params {
         // general
-        max_grpc_message_size,
-        target_message_size,
+        max_grpc_decode_message_size,
+        target_grpc_encode_message_size,
         max_concurrent_chunk_queries: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES",
             ignore_env,
@@ -727,8 +744,8 @@ mod tests {
     /// fields can be overridden to exercise a single validation rule at a time.
     fn valid_params() -> Params {
         Params {
-            max_grpc_message_size: param(GRPC_MSG_MIN_SIZE_BYTES),
-            target_message_size: GRPC_MSG_MIN_SIZE_BYTES / 2,
+            max_grpc_decode_message_size: param(GRPC_MSG_MIN_SIZE_BYTES),
+            target_grpc_encode_message_size: param(DEFAULT_TARGET_GRPC_ENCODE_MESSAGE_SIZE),
             max_concurrent_chunk_queries: param(DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES),
             max_size_plain_list_eq: param(DEFAULT_MAX_SIZE_PLAIN_LIST_EQ),
             max_concurrent_writes: param(1),
@@ -786,31 +803,57 @@ mod tests {
     }
 
     #[test]
-    fn validate_rejects_max_grpc_message_size_below_min() {
+    fn validate_rejects_max_grpc_decode_message_size_below_min() {
         let mut params = valid_params();
-        params.max_grpc_message_size = param(GRPC_MSG_MIN_SIZE_BYTES - 1);
+        params.max_grpc_decode_message_size = param(GRPC_MSG_MIN_SIZE_BYTES - 1);
 
         let err = params.validate().unwrap_err();
         assert!(matches!(err.kind(), ErrorKind::InvalidConfiguration(_)));
     }
 
     #[test]
-    fn validate_rejects_max_grpc_message_size_above_max() {
+    fn validate_rejects_max_grpc_decode_message_size_above_max() {
         let mut params = valid_params();
-        params.max_grpc_message_size = param(GRPC_MSG_MAX_SIZE_BYTES + 1);
+        params.max_grpc_decode_message_size = param(GRPC_MSG_MAX_SIZE_BYTES + 1);
 
         let err = params.validate().unwrap_err();
         assert!(matches!(err.kind(), ErrorKind::InvalidConfiguration(_)));
     }
 
     #[test]
-    fn validate_accepts_max_grpc_message_size_at_bounds() {
+    fn validate_accepts_max_grpc_decode_message_size_at_bounds() {
         let mut params = valid_params();
 
-        params.max_grpc_message_size = param(GRPC_MSG_MIN_SIZE_BYTES);
+        params.max_grpc_decode_message_size = param(GRPC_MSG_MIN_SIZE_BYTES);
         assert!(params.validate().is_ok());
 
-        params.max_grpc_message_size = param(GRPC_MSG_MAX_SIZE_BYTES);
+        params.max_grpc_decode_message_size = param(GRPC_MSG_MAX_SIZE_BYTES);
+        assert!(params.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_zero_target_grpc_encode_message_size() {
+        let mut params = valid_params();
+        params.target_grpc_encode_message_size = param(0);
+
+        let err = params.validate().unwrap_err();
+        assert!(matches!(err.kind(), ErrorKind::InvalidConfiguration(_)));
+    }
+
+    #[test]
+    fn validate_rejects_target_grpc_encode_message_size_above_max() {
+        let mut params = valid_params();
+        params.target_grpc_encode_message_size = param(GRPC_MSG_MAX_SIZE_BYTES + 1);
+
+        let err = params.validate().unwrap_err();
+        assert!(matches!(err.kind(), ErrorKind::InvalidConfiguration(_)));
+    }
+
+    #[test]
+    fn validate_accepts_target_grpc_encode_message_size_at_max() {
+        let mut params = valid_params();
+        params.target_grpc_encode_message_size = param(GRPC_MSG_MAX_SIZE_BYTES);
+
         assert!(params.validate().is_ok());
     }
 
@@ -1086,7 +1129,8 @@ mod tests {
                     private_key_file: Some("key.pem".to_owned()),
                 },
                 grpc: config::ServerGrpcConfig {
-                    max_message_size: Some(GRPC_MSG_MIN_SIZE_BYTES),
+                    max_decode_message_size: Some(GRPC_MSG_MIN_SIZE_BYTES),
+                    target_encode_message_size: Some(GRPC_MSG_MIN_SIZE_BYTES / 2),
                 },
             },
             database: config::DatabaseConfig {
@@ -1148,8 +1192,14 @@ mod tests {
         assert!(p.tls_enabled.value);
         assert_eq!(p.tls_certificate_file.value, "cert.pem");
         assert_eq!(p.tls_private_key_file.value, "key.pem");
-        assert_eq!(p.max_grpc_message_size.value, GRPC_MSG_MIN_SIZE_BYTES);
-        assert_eq!(p.target_message_size, GRPC_MSG_MIN_SIZE_BYTES / 2);
+        assert_eq!(
+            p.max_grpc_decode_message_size.value,
+            GRPC_MSG_MIN_SIZE_BYTES
+        );
+        assert_eq!(
+            p.target_grpc_encode_message_size.value,
+            GRPC_MSG_MIN_SIZE_BYTES / 2
+        );
 
         assert_eq!(p.db_url.value, "postgresql://host:5432/db");
         assert_eq!(p.db_user.value, "dbuser");

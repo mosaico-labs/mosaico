@@ -391,10 +391,13 @@ pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
             .as_object()
             .unwrap();
 
-        let max_grpc_message_size = config.get("max_grpc_message_size").unwrap();
-        assert!(max_grpc_message_size.is_u64());
-        let target_message_size = config.get("target_message_size").unwrap();
-        assert!(target_message_size.is_u64());
+        let max_grpc_decode_message_size = config.get("max_grpc_decode_message_size").unwrap();
+        assert!(max_grpc_decode_message_size.is_u64());
+        let max_grpc_encode_message_size = config.get("max_grpc_encode_message_size").unwrap();
+        assert!(max_grpc_encode_message_size.is_u64());
+        let target_grpc_encode_message_size =
+            config.get("target_grpc_encode_message_size").unwrap();
+        assert!(target_grpc_encode_message_size.is_u64());
     }
 
     Ok(())
