@@ -563,7 +563,7 @@ class Message(BaseModel):
             raise ValueError("Tag must be a valid value.")
 
         flat = {
-            col: rb.column(col)[0].as_py(maps_as_pydicts="lossy")
+            col: rb.column(col)[0].as_py(maps_as_pydicts="strict")
             for col in rb.column_names
         }
         return cls._decode(tag_or_type=tag, **flat)

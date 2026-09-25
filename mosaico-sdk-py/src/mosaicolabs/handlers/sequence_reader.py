@@ -367,7 +367,7 @@ class SequenceDataStreamer:
 
         row_values = self._winning_rdstate.peeked_row
         row_dict = {
-            name: value.as_py(maps_as_pydicts="lossy")
+            name: value.as_py(maps_as_pydicts="strict")
             for name, value in zip(self._winning_rdstate.column_names, row_values)
         }
 

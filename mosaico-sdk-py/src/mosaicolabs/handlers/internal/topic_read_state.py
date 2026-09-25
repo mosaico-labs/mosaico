@@ -151,7 +151,7 @@ class _TopicReadState:
 
                 # Extract timestamp for sorting logic
                 timestamp_ns = row_values[self.timestamp_index].as_py(
-                    maps_as_pydicts="lossy"
+                    maps_as_pydicts="strict"
                 )
 
                 # Update state
