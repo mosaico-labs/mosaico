@@ -374,7 +374,7 @@ class TopicDataStreamer:
 
         # Convert Arrow values to Python types
         row_dict = {
-            name: value.as_py()
+            name: value.as_py(maps_as_pydicts="strict")
             for name, value in zip(self._rdstate.column_names, row_values)
         }
 
