@@ -105,7 +105,8 @@ pub enum ActionRequest {
     Query(requests::Query),
 
     /// Returns server info: version and the server's configured limits (e.g.
-    /// `max_grpc_message_size`, `target_message_size`). Replaces the former `version` action.
+    /// `max_grpc_decode_message_size`, `max_grpc_encode_message_size`,
+    /// `target_grpc_encode_message_size`). Replaces the former `version` action.
     Info(requests::Empty),
 }
 
