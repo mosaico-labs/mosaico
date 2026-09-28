@@ -28,6 +28,7 @@ message NotificationCreate {
 message SequenceCreate {
   string locator = 1;
   // Arbitrary user-supplied JSON metadata, as raw UTF-8 text.
+  // Empty bytes means no metadata was set.
   bytes user_metadata = 2;
 }
 
@@ -37,6 +38,7 @@ message TopicCreate {
   core.Format serialization_format = 3;
   string ontology_tag = 4;
   // Arbitrary user-supplied JSON metadata, as raw UTF-8 text.
+  // Empty bytes means no metadata was set.
   bytes user_metadata = 5;
 }
 

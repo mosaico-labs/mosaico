@@ -14,25 +14,25 @@ import "mosaicod/v1/core.proto";
 // `timestamp_ns_start`/`timestamp_ns_end` are independently optional (an
 // absent bound means unbounded on that side, e.g. "everything after X").
 message GetFlightInfoCmd {
-  string resource_locator = 1;
+  string locator = 1;
   optional int64 timestamp_ns_start = 2;
   optional int64 timestamp_ns_end = 3;
 }
 
 // `FlightDescriptor.cmd` payload for the get_schema RPC.
 message GetSchemaCmd {
-  string resource_locator = 1;
+  string locator = 1;
 }
 
 // `FlightDescriptor.cmd` payload for the do_put RPC.
 message DoPutCmd {
-  string resource_locator = 1;
+  string locator = 1;
   string topic_uuid = 2;
 }
 
 // `Ticket.ticket` payload for a topic's do_get RPC.
 message TicketTopic {
-  string resource_locator = 1;
+  string locator = 1;
   optional int64 timestamp_ns_start = 2;
   optional int64 timestamp_ns_end = 3;
 }
@@ -50,8 +50,8 @@ message SequenceAppMetadata {
   int64 created_at_ns = 1;
   string resource_locator = 2;
   repeated SessionAppMetadata sessions = 3;
-  // Arbitrary user-supplied JSON metadata, as raw UTF-8 text: no fixed
-  // schema. Empty bytes means no metadata was set.
+  // Arbitrary user-supplied JSON metadata, as raw UTF-8 text.
+  // Empty bytes means no metadata was set.
   bytes user_metadata = 4;
 }
 
@@ -72,10 +72,11 @@ message TopicAppMetadata {
   int64 created_at_ns = 1;
   optional int64 completed_at_ns = 2;
   bool locked = 3;
-  string resource_locator = 4;
+  string locator = 4;
   string ontology_tag = 5;
   core.Format serialization_format = 6;
-  // See `SequenceAppMetadata.user_metadata`.
+  // Arbitrary user-supplied JSON metadata, as raw UTF-8 text.
+  // Empty bytes means no metadata was set.
   bytes user_metadata = 7;
   TopicAppMetadataDataInfo data_info = 8;
   TopicAppMetadataTimeWindow time_window_info = 9;
