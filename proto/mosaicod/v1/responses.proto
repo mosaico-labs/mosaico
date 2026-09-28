@@ -29,7 +29,6 @@ message NotificationList {
   repeated NotificationItem notifications = 1;
 }
 
-// Holds topic data: locator and ontology tag.
 message QueryItemTopic {
   string locator = 1;
   string ontology_tag = 2;
@@ -44,9 +43,6 @@ message Query {
   repeated QueryItem items = 1;
 }
 
-// One `arrow_flight::Result` per cluster is emitted in response to a
-// TopicFilterClusterize/TopicFilterIntersect request, identified by a
-// progressive `id` and bounded by `ts`.
 message TopicFilterClusterize {
   time.TimestampRange ts = 1;
   uint64 id = 2;
