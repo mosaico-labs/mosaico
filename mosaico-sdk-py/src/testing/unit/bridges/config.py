@@ -223,7 +223,7 @@ def make_magn_mcap(
             "axis": "x",
             "value": 20.0 + math.sin(t),
             "saturated": False,
-            "axis_value_covariance": [1.0, 2.0, 3.0],
+            "axis_value_covariance": [1, 2, 3],
         },
         {
             "axis": "y",
@@ -235,7 +235,7 @@ def make_magn_mcap(
             "axis": "z",
             "value": 42.0,
             "saturated": t > 2.5,
-            "axis_value_covariance": [4.0, 5.0, 6.0],
+            "axis_value_covariance": [4, 5, 6],
         },
     ]
 

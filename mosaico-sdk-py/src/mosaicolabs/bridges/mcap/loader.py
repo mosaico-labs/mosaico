@@ -15,7 +15,7 @@ from ..protocols.mcap.registry import McapSchemaRegistry
 from ..topic_status import TopicStatus
 from .adapter_base import MCAPAdapterBase
 from .bridge import MCAPBridge
-from .decoders.decoder_base import MCAPMsgDecoder
+from .decoders.decoder_base import MCAPMsgDecoderBase
 from .decoders.registry import DecoderRegistry
 from .helpers import _class_name_from_mcap_schema, _filter_channels_from_dict
 from .mcap_file import MCAPFile
@@ -36,12 +36,12 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
     A single mcap file can (in principle) mix channels encoded as `protobuf`, `json`, or other
     encodings, each requiring a different decoding path (e.g. protobuf needs a populated
     `DescriptorPool` and `MessageToDict`, while json only needs `json.loads`). This
-    encoding-specific behavior is delegated to `MCAPMsgDecoder` instances, looked up by
+    encoding-specific behavior is delegated to `MCAPMsgDecoderBase` instances, looked up by
     `channel.topic` via `DecoderRegistry.get_decoder()`; `MCAPLoader` itself
     implements everything that is encoding-agnostic (channel resolution/filtering, adapter
     resolution, message counting, duration, resource lifecycle, and the single streaming loop
     that dispatches each message to its decoder). Support for a new encoding is added entirely
-    within `decoders.py` (a new `MCAPMsgDecoder` subclass decorated with `@register_decoder`),
+    within `decoders.py` (a new `MCAPMsgDecoderBase` subclass decorated with `@register_decoder`),
     with no changes needed here.
 
     ### Key Features
@@ -119,8 +119,8 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         self._mcap_statistics: Optional[Statistics] = None
         """Statistics of the mcap file, lazily initialized."""
 
-        self._decoder_cache: Dict[str, MCAPMsgDecoder] = {}
-        """`MCAPMsgDecoder` instances resolved so far, keyed by `channel.topic` and
+        self._decoder_cache: Dict[str, MCAPMsgDecoderBase] = {}
+        """`MCAPMsgDecoderBase` instances resolved so far, keyed by `channel.topic` and
         scoped to this loader. Lazily populated by `_get_decoder()`."""
 
         # Additional rejection buckets for MCAP-specific reasons
@@ -128,11 +128,11 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         """Channels where there are no information about their schema. They need to be rejected"""
 
         self._unavailable_decoder_topics: dict[str, Channel] = {}
-        """Channels that cannot be decode since their MCAPMsgDecoder has not been implemented yet. They need to be rejected"""
+        """Channels that cannot be decode since their MCAPMsgDecoderBase has not been implemented yet. They need to be rejected"""
 
-    def _get_decoder(self, channel: Channel) -> Optional[MCAPMsgDecoder]:
+    def _get_decoder(self, channel: Channel) -> Optional[MCAPMsgDecoderBase]:
         """
-        Returns the `MCAPMsgDecoder` associated to `channel.topic` if available, or instantiating it from
+        Returns the `MCAPMsgDecoderBase` associated to `channel.topic` if available, or instantiating it from
         `DecoderRegistry` and caching it on first use.
 
         Caching matters because a decoder can be stateful across a whole file (e.g.
@@ -144,7 +144,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             channel (Channel): A channel coming from opening a MCAP file using the mcap library.
 
         Returns:
-            Optional[MCAPMsgDecoder]: This loader's decoder instance for `channel.topic`, or `None`
+            Optional[MCAPMsgDecoderBase]: This loader's decoder instance for `channel.topic`, or `None`
                 if no decoder is registered for its encoding.
         """
         decoder = self._decoder_cache.get(channel.topic)
@@ -214,7 +214,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             decoder = self._get_decoder(channel)
             if decoder is None:
                 supported = [
-                    d.supported_encoding() for d in DecoderRegistry.all_decoders()
+                    d.supported_encoding() for d in DecoderRegistry.list_decoders()
                 ]
                 logger.warning(
                     f"Channel {channel.topic}: message encoding '{channel.message_encoding}' has no "
@@ -264,7 +264,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             self._file_path,
             [
                 decoder_cls().decoder_factory()
-                for decoder_cls in DecoderRegistry.all_decoders()
+                for decoder_cls in DecoderRegistry.list_decoders()
             ],
         )
 
@@ -432,7 +432,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
     def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
         """Reports channels rejected by the `_resolve_channels()` decoder gate (their
-        `channel.message_encoding` has no registered `MCAPMsgDecoder`), on top of the
+        `channel.message_encoding` has no registered `MCAPMsgDecoderBase`), on top of the
         FILTERED/UNRESOLVED_ADAPTER buckets `BaseLoader.rejected_topics` already covers."""
 
         # Channels with unavailable schema
@@ -557,7 +557,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         self,
     ) -> Generator[Tuple[MCAPMessage, Optional[Exception]], None, None]:
         """
-        The primary data streaming loop, dispatching each message to the `MCAPMsgDecoder`
+        The primary data streaming loop, dispatching each message to the `MCAPMsgDecoderBase`
         registered for each channel's message name.
 
         Yields:
@@ -590,7 +590,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 decoder = self._get_decoder(decoded_message.channel)
                 if decoder is None:
                     supported = [
-                        d.supported_encoding() for d in DecoderRegistry.all_decoders()
+                        d.supported_encoding() for d in DecoderRegistry.list_decoders()
                     ]
                     raise ValueError(
                         f"{type(self).__name__} cannot decode a message with `{channel_encoding}` encoding. \
