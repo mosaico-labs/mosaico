@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 from mcap.reader import McapReader
-from mcap.records import Channel, Schema
+from mcap.records import Channel, Schema, Statistics
 from mcap.summary import Summary
 
 from mosaicolabs.bridges.mcap.adapters.unmodeled import UnmodeledAdapter
@@ -12,7 +12,7 @@ from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ..loader_base import BaseLoader
 from ..protocols.mcap.registry import McapSchemaRegistry
-from ..topic_status import MCAPTopicStatus, TopicStatus
+from ..topic_status import TopicStatus
 from .adapter_base import MCAPAdapterBase
 from .bridge import MCAPBridge
 from .decoders.decoder_base import MCAPMsgDecoder
@@ -113,7 +113,11 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         self._reader: Optional[McapReader] = None
         """The underlying `mcap` reader instance, lazily initialized."""
         self._mcap_file: Optional[MCAPFile] = None
-        """Handler for the mcap file"""
+        """Handler for the mcap file, lazily initialized."""
+        self._mcap_summary: Optional[Summary] = None
+        """Summary of the mcap file, lazily initialized."""
+        self._mcap_statistics: Optional[Statistics] = None
+        """Statistics of the mcap file, lazily initialized."""
 
         self._decoder_cache: Dict[str, MCAPMsgDecoder] = {}
         """`MCAPMsgDecoder` instances resolved so far, keyed by `channel.topic` and
@@ -152,28 +156,27 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             self._decoder_cache[channel.topic] = decoder
         return decoder
 
-    def _resolve_channels(self):
+    def _resolve_channels(self) -> McapReader:
         """
-        Lazily opens the mcap file and resolves requested channel patterns.
+        Lazily resolves requested channel patterns against the mcap file's channels.
 
         This method performs "Smart Filtering" by matching requested glob patterns against
-        the actual channels available in the mcap file.
+        the actual channels available in the mcap file (read from its summary, see
+        `_resolve_summary`).
         It populates the internal `_accepted_topics` dict used for optimized iteration.
+
+        Returns:
+            McapReader: The reader of the underlying mcap file, used to stream the
+                accepted channels' messages.
+
+        Raises:
+            RuntimeError: If the mcap file has no summary section, or if no channel
+                matched the filter and resolved a decoder and an adapter.
         """
         if self._reader is not None:
-            return None
+            return self._reader
 
-        self._mcap_file = MCAPFile(
-            self._file_path,
-            [
-                decoder_cls().decoder_factory()
-                for decoder_cls in DecoderRegistry.all_decoders()
-            ],
-        )
-        self._reader = self._mcap_file.reader
-
-        mcap_summary = self._get_mcap_summary(self._mcap_file)
-
+        mcap_summary = self._resolve_summary()
         self._resolved_topics = {
             channel.topic: channel
             for channel_id, channel in mcap_summary.channels.items()
@@ -240,7 +243,80 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 "Unable to initialize MCAPLoader: No connections matched criteria. Try checking the channel filter, if any."
             )
 
+        self._reader = self._resolve_mcap_file().reader
         return self._reader
+
+    def _resolve_mcap_file(self) -> MCAPFile:
+        """
+        Lazily creates the `MCAPFile` wrapper for `_file_path`, with a decoder factory for
+        every decoder registered in `DecoderRegistry`.
+
+        The file itself is not opened here: `MCAPFile` validates and opens it on first
+        access to its `.reader`.
+
+        Returns:
+            MCAPFile: The wrapper around the mcap file.
+        """
+        if self._mcap_file is not None:
+            return self._mcap_file
+
+        self._mcap_file = MCAPFile(
+            self._file_path,
+            [
+                decoder_cls().decoder_factory()
+                for decoder_cls in DecoderRegistry.all_decoders()
+            ],
+        )
+
+        return self._mcap_file
+
+    def _resolve_summary(self) -> Summary:
+        """
+        Lazily reads and returns the mcap file's summary section (schemas, channels, statistics).
+
+        Returns:
+            Summary: The mcap file's summary, containing its `schemas`, `channels`, and
+                `statistics`.
+
+        Raises:
+            RuntimeError: If the mcap file has no summary section (e.g. it was written by
+                a non-seeking/streaming writer that omitted one).
+        """
+        if self._mcap_summary is not None:
+            return self._mcap_summary
+
+        mcap_file = self._resolve_mcap_file()
+
+        self._mcap_summary = mcap_file.reader.get_summary()
+
+        if self._mcap_summary is None:
+            raise RuntimeError("MCAP file does not contain any summary")
+
+        return self._mcap_summary
+
+    def _resolve_statistics(self) -> Statistics:
+        """
+        Lazily reads and returns the statistics record from the mcap file's summary section.
+
+        Returns:
+            Statistics: The mcap file's statistics (per-channel message counts, message
+                start/end times, ...).
+
+        Raises:
+            RuntimeError: If the mcap file has no summary section, or its summary has no
+                statistics record.
+        """
+        if self._mcap_statistics is not None:
+            return self._mcap_statistics
+
+        mcap_summary = self._resolve_summary()
+
+        self._mcap_statistics = mcap_summary.statistics
+
+        if self._mcap_statistics is None:
+            raise RuntimeError("MCAP file does not contain any statistics")
+
+        return self._mcap_statistics
 
     def _get_or_create_adapter(
         self, schema: Schema, channel: Channel
@@ -361,45 +437,19 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
         # Channels with unavailable schema
         rejected: List[Tuple[str, TopicStatus]] = [
-            (topic, MCAPTopicStatus.UNAVAILABLE_SCHEMA)
+            (topic, TopicStatus.UNAVAILABLE_SCHEMA)
             for topic in self._unavailable_schema_topics.keys()
         ]
 
         # Channels with unresolved decoder
         rejected.extend(
             [
-                (topic, MCAPTopicStatus.UNRESOLVED_DECODER)
+                (topic, TopicStatus.UNRESOLVED_DECODER)
                 for topic in self._unavailable_decoder_topics.keys()
             ]
         )
 
         return rejected
-
-    def _get_mcap_summary(self, mcap_file: MCAPFile) -> Summary:
-        """
-        Reads and returns the mcap file's summary section (schemas, channels, statistics).
-
-        Args:
-            mcap_file (MCAPFile): The already-opened mcap file to read the summary from.
-
-        Returns:
-            Summary: The mcap file's summary, containing its `schemas`, `channels`, and
-                `statistics`.
-
-        Raises:
-            RuntimeError: If the mcap file has no summary section (e.g. it was written by
-                a non-seeking/streaming writer that omitted one).
-        """
-
-        mcap_summary = mcap_file.reader.get_summary()
-
-        if mcap_summary is None:
-            raise RuntimeError(
-                f"{self._file_path} file does not contain Summary information. "
-                f"Failed to resolve channels"
-            )
-
-        return mcap_summary
 
     def _ensure_resolved(self) -> None:
         """Lazily opens the mcap file and resolves topics (see `_resolve_channels`)."""
@@ -417,23 +467,16 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 for all accepted channels.
 
         Returns:
-            int: The total message count.
+            int: The total message count. Returns 0 (and logs an error) if the mcap file has
+                no summary or statistics, if no channel is accepted, or if `topic` is not
+                a channel of the mcap file.
         """
-
-        self._resolve_channels()
-
-        if self._mcap_file is None:
+        try:
+            mcap_statistics = self._resolve_statistics()
+            self._resolve_channels()
+        except RuntimeError as ex:
             logger.error(
-                f"MCAP at {self._file_path} has not been initialised. Impossible to compute the message count"
-            )
-            return 0
-
-        mcap_statistics = self._get_mcap_summary(self._mcap_file).statistics
-
-        if mcap_statistics is None:
-            logger.error(
-                f"Cannot compute message count for MCAP at {self._file_path}. "
-                f"Statistics are not present"
+                f"Cannot compute message count for MCAP at {self._file_path} because: {ex}"
             )
             return 0
 
@@ -463,24 +506,19 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         """
         Returns the duration of the mcap file in nanoseconds.
 
+        The duration spans all the messages in the file, regardless of the channel filter.
+
         Returns:
-            int: The duration of the mcap file in nanoseconds.
+            int: The duration of the mcap file in nanoseconds. Returns 0 (and logs an error)
+                if the mcap file has no summary or statistics.
         """
-        self._resolve_channels()
-
-        if self._mcap_file is None:
-            raise ValueError(
-                f"MCAP at {self._file_path} has not been initialised. "
-                f"Impossible to compute the duration"
+        try:
+            mcap_statistics = self._resolve_statistics()
+        except RuntimeError as ex:
+            logger.error(
+                f"Cannot compute duration for MCAP at {self._file_path} because: {ex}"
             )
-
-        mcap_statistics = self._get_mcap_summary(self._mcap_file).statistics
-
-        if mcap_statistics is None:
-            raise ValueError(
-                f"Cannot compute file duration for MCAP at {self._file_path}. "
-                f"Statistics are not present"
-            )
+            return 0
 
         return mcap_statistics.message_end_time - mcap_statistics.message_start_time
 
@@ -495,9 +533,19 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
 
         Returns:
             List[Tuple[str, str]]: A list of tuples containing each accepted MCAP channel
-                name and encoding in the same order as the resolved channels.
+                name and encoding in the same order as the resolved channels. Returns an
+                empty list (and logs an error) if the mcap file has no summary or no
+                channel is accepted.
         """
-        self._resolve_channels()
+
+        try:
+            self._resolve_channels()
+        except RuntimeError as ex:
+            logger.error(
+                f"Cannot deduce channel types for MCAP at {self._file_path} because: {ex}"
+            )
+            return []
+
         return [
             (channel.topic, channel.message_encoding)
             for channel in self._accepted_topics.values()
@@ -516,14 +564,12 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             A tuple of (MCAPMessage, Exception). If deserialization succeeds, Exception is None.
         """
 
-        self._resolve_channels()
+        reader = self._resolve_channels()
 
-        if (
-            not self._accepted_topics or not self._reader
-        ):  # just for remove IDE errors on reader usage
+        if not self._accepted_topics:
             return
 
-        for decoded_message in self._reader.iter_decoded_messages(
+        for decoded_message in reader.iter_decoded_messages(
             topics=[topic for topic in self._accepted_topics.keys()],
             start_time=None,
             end_time=None,

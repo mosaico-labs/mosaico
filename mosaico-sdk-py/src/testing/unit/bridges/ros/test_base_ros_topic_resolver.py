@@ -1,5 +1,5 @@
 from mosaicolabs.bridges.ros.loader import BaseLoader
-from mosaicolabs.bridges.topic_status import CommonTopicStatus, ROSTopicStatus
+from mosaicolabs.bridges.topic_status import TopicStatus
 
 
 class _FakeAdapter:
@@ -106,23 +106,23 @@ def test_rejected_topics_combines_filtered_and_unresolved():
 
     rejected = dict(resolver.rejected_topics)
 
-    assert rejected == {"/debug": CommonTopicStatus.UNRESOLVED_ADAPTER}
+    assert rejected == {"/debug": TopicStatus.UNRESOLVED_ADAPTER}
 
 
 def test_rejected_topics_includes_source_specific_extra_rejections():
     resolver = _dict_backed_resolver(
         extra_rejections=[
-            ("/malformed", ROSTopicStatus.MALFORMED_METADATA),
-            ("/missing_type", ROSTopicStatus.NOT_IN_TYPESTORE),
+            ("/malformed", TopicStatus.MALFORMED_METADATA),
+            ("/missing_type", TopicStatus.NOT_IN_TYPESTORE),
         ]
     )
 
     rejected = dict(resolver.rejected_topics)
 
     assert rejected == {
-        "/debug": CommonTopicStatus.UNRESOLVED_ADAPTER,
-        "/malformed": ROSTopicStatus.MALFORMED_METADATA,
-        "/missing_type": ROSTopicStatus.NOT_IN_TYPESTORE,
+        "/debug": TopicStatus.UNRESOLVED_ADAPTER,
+        "/malformed": TopicStatus.MALFORMED_METADATA,
+        "/missing_type": TopicStatus.NOT_IN_TYPESTORE,
     }
 
 

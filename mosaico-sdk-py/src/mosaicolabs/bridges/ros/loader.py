@@ -29,7 +29,7 @@ from ...models.core.serializable import _compute_schema_fingerprint
 from ..helpers import _clip_timestamp, _filter_from_list, _validate_sequence
 from ..loader_base import BaseLoader
 from ..protocols.mcap.converters.ros_converter import RosMsgSchemaConverter
-from ..topic_status import ROSTopicStatus, TopicStatus
+from ..topic_status import TopicStatus
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
 from .bridge import ROSBridge
 from .helpers import (
@@ -898,11 +898,10 @@ class MosaicoLoader(BaseLoader):
     def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
         """Adds the Mosaico-specific rejection reasons on top of FILTERED/UNRESOLVED_ADAPTED."""
         rejected: List[Tuple[str, TopicStatus]] = [
-            (t, ROSTopicStatus.NOT_IN_TYPESTORE) for t in self._unregistered_topics
+            (t, TopicStatus.NOT_IN_TYPESTORE) for t in self._unregistered_topics
         ]
         rejected += [
-            (t, ROSTopicStatus.MALFORMED_METADATA)
-            for t in self._malformed_metadata_topics
+            (t, TopicStatus.MALFORMED_METADATA) for t in self._malformed_metadata_topics
         ]
         return rejected
 

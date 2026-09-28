@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 
 from .bridge_adapter_base import BridgeAdapterBase
-from .topic_status import CommonTopicStatus, TopicStatus
+from .topic_status import TopicStatus
 
 # --- Shared Topic Resolution/Rejection Bookkeeping ---
 
@@ -127,11 +127,10 @@ class BaseLoader(ABC, Generic[AdapterT]):
         self._ensure_resolved()
 
         rejected: List[Tuple[str, TopicStatus]] = [
-            (t, CommonTopicStatus.FILTERED) for t in self.filtered_topics
+            (t, TopicStatus.FILTERED) for t in self.filtered_topics
         ]
         rejected += [
-            (t, CommonTopicStatus.UNRESOLVED_ADAPTER)
-            for t in self.unresolved_adapter_topics
+            (t, TopicStatus.UNRESOLVED_ADAPTER) for t in self.unresolved_adapter_topics
         ]
         rejected += self._extra_rejected_topics()
         return rejected
