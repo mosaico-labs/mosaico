@@ -42,11 +42,13 @@ def _clip_timestamp(
         )
         start_ns = max(start_ns, min_ns)
 
+    # The end bound is exclusive (t < end): clipping it to 'max_ns' would drop the
+    # message at exactly 'max_ns', hence leave the stream unbounded instead (see issue #824)
     if end_ns is not None and max_ns is not None and end_ns > max_ns:
         logger.warning(
-            f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
+            f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Extracting data up to the end of the sequence"
         )
-        end_ns = min(end_ns, max_ns)
+        end_ns = None
 
     return start_ns, end_ns
 
