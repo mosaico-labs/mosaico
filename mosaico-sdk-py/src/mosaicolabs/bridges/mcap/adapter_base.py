@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from collections.abc import Hashable
 from typing import Any, ClassVar, Optional, Tuple, Type, TypeVar, Union
 
 from mcap.records import Message as MCAPRecordMessage
@@ -80,16 +79,6 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
     __mosaico_ontology_type__: Type[T]
 
     # --- API to be compliant with BridgeAdapterBase
-
-    @classmethod
-    def adapter_key(cls) -> Hashable:
-        """
-        Returns:
-            Hashable: A unique key identifying this adapter, derived from its
-            ``schema_name`` and ``schema_encoding``.
-        """
-        return hash(compute_mcap_msg_type(cls.schema_name, cls.schema_encoding))
-
     @classmethod
     @abstractmethod
     def from_dict(cls, mcap_data: dict) -> T:

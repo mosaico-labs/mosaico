@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
 from typing import Generic, Type, TypeVar
 
 from mosaicolabs import Message, Serializable
@@ -20,18 +19,6 @@ class BridgeAdapterBase(ABC, Generic[T, NativeMsgT]):
 
     __mosaico_ontology_type__: Type[T]
     """The Mosaico ontology class this adapter produces/consumes (e.g. ``IMU``)."""
-
-    @classmethod
-    @abstractmethod
-    def adapter_key(cls) -> Hashable:
-        """
-        Returns:
-            Hashable: A unique key identifying this adapter, deduced from the
-            bridge-specific attributes that determine which native messages it
-            handles (e.g. ``ros_msgtype`` for ROS, ``(schema_name, schema_encoding)``
-            for MCAP).
-        """
-        ...
 
     @classmethod
     @abstractmethod

@@ -17,7 +17,6 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from collections.abc import Hashable
 
 from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message, Serializable
@@ -80,16 +79,6 @@ class ROSAdapterBase(BridgeAdapterBase[T, "MsgType"]):
     _REQUIRED_KEYS_CASE_INSENSITIVE: Tuple[str, ...] = ()
 
     # --- API to be compliant with BridgeAdapterBase
-
-    @classmethod
-    def adapter_key(cls) -> Hashable:
-        """
-        Returns:
-            Hashable: A unique key identifying this adapter, derived from its
-            ``ros_msg_type()``.
-        """
-        return hash(cls.ros_msg_type())
-
     @classmethod
     @abstractmethod
     def to_native(cls, mosaico_data: Union[Message, T], **kwargs) -> MsgType:
