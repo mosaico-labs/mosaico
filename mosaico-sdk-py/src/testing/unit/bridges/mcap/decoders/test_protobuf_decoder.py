@@ -10,6 +10,8 @@ from mosaicolabs.bridges.mcap.decoders.protobuf.decoder import MCAPProtobufMsgDe
 from ...config import (
     IMU_PROTOBUF,
     IMU_PROTOBUF_MSGTYPE,
+    MAGN_PROTOBUF,
+    MAGN_PROTOBUF_MSGTYPE,
     VARIANT_PROTOBUF_MSGTYPE,
     make_imu_mcap,
     make_variant_mcap,
@@ -70,6 +72,49 @@ def test_oneof_absent_members():
 
     members = {key: result[key] for key in ("text_value", "int_value", "bool_value")}
     assert sum(value is not None for value in members.values()) == 1
+
+
+def test_undefined_list_is_empty():
+    """Test that a protobuf field of type repeated when transformed into dict is
+    an empty list rather than None, if NOT specified in protobuf"""
+
+    single_reading = {
+        "axis": "great_axis",
+        "value": 2.0,
+        "saturated": False,
+    }
+
+    msg = MAGN_PROTOBUF(readings=[single_reading])
+
+    result = _decode(msg, MAGN_PROTOBUF_MSGTYPE)
+
+    assert result["calibration_notes"] == []  # list
+    assert result["readings"][0]["axis_value_covariance"] == []  # nested list
+
+
+def test_rules_applied_to_nested_lists():
+    """Checks that rules are applied also within nested lists (list of objects containing lists).
+    In this test 2**53+1 is casted to a string when using MessageToDict and it is an element of a List
+    nested within another List of AxisReading objects. If _coerce_int64_field would not be applied to 2**53+1
+    it would result as a string in the assert"""
+
+    single_reading = {
+        "axis": "great_axis",
+        "value": 2.0,
+        "axis_value_covariance": [2**53, 2**53 + 1, 2**53 + 2],
+    }
+
+    msg = MAGN_PROTOBUF(readings=[single_reading])
+
+    result = _decode(msg, MAGN_PROTOBUF_MSGTYPE)
+
+    assert all(
+        [
+            type(cov) is int
+            for reading in result["readings"]
+            for cov in reading["axis_value_covariance"]
+        ]
+    )  # check that all elements have been casted to int from string
 
 
 # class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):

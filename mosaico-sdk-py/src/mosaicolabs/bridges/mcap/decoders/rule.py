@@ -32,27 +32,37 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class FieldStep:
-    """Descend into container[name] — a struct field lookup (a decoded protobuf submessage
-    dict, keyed by field name)."""
+    """
+    Descend into container[name] — a struct field lookup (a decoded protobuf submessage
+    dict, keyed by field name).
+    """
 
     name: str
 
 
 @dataclass(frozen=True)
 class ListStep:
-    """Fan out over every element of the list found at this position (a decoded `repeated`
+    """
+    Fan out over every element of the list found at this position (a decoded `repeated`
     field). As the last step, the list itself is the container and each index is the key
     (the rule's callback runs once per element); otherwise the remaining steps are resolved
-    independently against each element."""
+    independently against each element.
+    """
+
+    pass
 
 
 @dataclass(frozen=True)
 class MapValuesStep:
-    """Fan out over every value of the map dict found at this position (a decoded protobuf
+    """
+    Fan out over every value of the map dict found at this position (a decoded protobuf
     `map<K, V>` field). Unlike `FieldStep`, does not look up one named key — a map's keys are
     arbitrary data, not schema-known field names. As the last step, the map dict itself is
     the container and each key addresses one value; otherwise the remaining steps are
-    resolved independently against each value."""
+    resolved independently against each value.
+    """
+
+    pass
 
 
 RulePath = Tuple[Union[FieldStep, ListStep, MapValuesStep], ...]

@@ -17,7 +17,7 @@ class DecoderRegistry:
         return cls._registry.get(encoding)
 
     @classmethod
-    def all_decoders(cls) -> Tuple[Type[MCAPMsgDecoderBase], ...]:
+    def list_decoders(cls) -> Tuple[Type[MCAPMsgDecoderBase], ...]:
         """Every registered `MCAPMsgDecoderBase` class, deduplicated."""
         return tuple(dict.fromkeys(cls._registry.values()))
 

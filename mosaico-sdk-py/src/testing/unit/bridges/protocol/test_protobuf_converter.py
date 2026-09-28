@@ -153,6 +153,16 @@ GPS_EXPECTED_STRUCT = pa.struct(
     ]
 )
 
+
+AXIS_EXPECTED_STRUCT = pa.struct(
+    [
+        pa.field("axis", pa.string(), nullable=False),
+        pa.field("value", pa.float64(), nullable=False),
+        pa.field("saturated", pa.bool_(), nullable=False),
+        pa.field("axis_value_covariance", pa.list_(pa.int64()), nullable=False),
+    ]
+)
+
 MAGNETOMETER_EXPECTED_STRUCT = pa.struct(
     [
         pa.field(
@@ -172,15 +182,7 @@ MAGNETOMETER_EXPECTED_STRUCT = pa.struct(
         pa.field("calibration_notes", pa.list_(pa.string()), nullable=False),
         pa.field(
             "readings",
-            pa.list_(
-                pa.struct(
-                    [
-                        pa.field("axis", pa.string(), nullable=False),
-                        pa.field("value", pa.float64(), nullable=False),
-                        pa.field("saturated", pa.bool_(), nullable=False),
-                    ]
-                )
-            ),
+            pa.list_(AXIS_EXPECTED_STRUCT),
             nullable=False,
         ),
         pa.field("hardware_revision", pa.uint32(), nullable=False),

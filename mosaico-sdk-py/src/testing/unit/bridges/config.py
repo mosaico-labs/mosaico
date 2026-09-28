@@ -219,9 +219,24 @@ def make_magn_mcap(
     t = meas_time.to_float()
 
     readings = [
-        {"axis": "x", "value": 20.0 + math.sin(t), "saturated": False},
-        {"axis": "y", "value": -5.0 + math.cos(t), "saturated": False},
-        {"axis": "z", "value": 42.0, "saturated": t > 2.5},
+        {
+            "axis": "x",
+            "value": 20.0 + math.sin(t),
+            "saturated": False,
+            "axis_value_covariance": [1.0, 2.0, 3.0],
+        },
+        {
+            "axis": "y",
+            "value": -5.0 + math.cos(t),
+            "saturated": False,
+            "axis_value_covariance": [],
+        },
+        {
+            "axis": "z",
+            "value": 42.0,
+            "saturated": t > 2.5,
+            "axis_value_covariance": [4.0, 5.0, 6.0],
+        },
     ]
 
     if channel_encoding == "json":
