@@ -452,7 +452,11 @@ _TIME_WINDOW_TSTAMP_MAX = _TIME_WINDOW_TSTAMPS[-1]
         (None, None, _TIME_WINDOW_TSTAMPS),
         (None, _TIME_WINDOW_TSTAMP_MAX + 1, _TIME_WINDOW_TSTAMPS),
         (0, _TIME_WINDOW_TSTAMP_MAX * 2, _TIME_WINDOW_TSTAMPS),
-        (_TIME_WINDOW_TSTAMP_MAX, _TIME_WINDOW_TSTAMP_MAX * 2, [_TIME_WINDOW_TSTAMP_MAX]),
+        (
+            _TIME_WINDOW_TSTAMP_MAX,
+            _TIME_WINDOW_TSTAMP_MAX * 2,
+            [_TIME_WINDOW_TSTAMP_MAX],
+        ),
         # An end within the sequence range stays exclusive
         (None, _TIME_WINDOW_TSTAMP_MAX, _TIME_WINDOW_TSTAMPS[:-1]),
     ],
