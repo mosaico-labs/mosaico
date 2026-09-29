@@ -1,17 +1,26 @@
+import pytest
+from google.protobuf import any_pb2, descriptor_pb2, descriptor_pool
+from google.protobuf.message_factory import GetMessageClass
 from mcap.reader import DecodedMessageTuple
 from mcap.records import Channel, Message, Schema
 from mcap_protobuf.schema import build_file_descriptor_set
 
 from mosaicolabs import Time
-
-# from mosaicolabs.bridges.mcap import MCAPAdapterBase, MCAPMessage
-from mosaicolabs.bridges.mcap.decoders.protobuf.decoder import MCAPProtobufMsgDecoder
+from mosaicolabs.bridges.mcap.decoders.protobuf.protobuf_decoder import (
+    MCAPProtobufMsgDecoder,
+)
+from mosaicolabs.bridges.mcap.decoders.protobuf.rules_matcher import (
+    _coerce_byte_field,
+    _coerce_int64_field,
+    _modify_timestamp_field,
+)
 
 from ...config import (
-    IMU_PROTOBUF,
+    IMU_PROTOBUF_CLS,
     IMU_PROTOBUF_MSGTYPE,
-    MAGN_PROTOBUF,
+    MAGN_PROTOBUF_CLS,
     MAGN_PROTOBUF_MSGTYPE,
+    VARIANT_PROTOBUF_CLS,
     VARIANT_PROTOBUF_MSGTYPE,
     make_imu_mcap,
     make_variant_mcap,
@@ -30,7 +39,13 @@ def _decode(msg, msgtype: str) -> dict:
     channel = Channel(
         id=1, topic="t", message_encoding="protobuf", metadata={}, schema_id=1
     )
-    message = Message(channel_id=1, log_time=0, publish_time=0, sequence=0, data=b"")
+    message = Message(
+        channel_id=1,
+        log_time=0,
+        publish_time=0,
+        sequence=0,
+        data=msg.SerializeToString(),
+    )
 
     decoder = MCAPProtobufMsgDecoder()
     decoder.register_schema(schema)
@@ -41,11 +56,54 @@ def _decode(msg, msgtype: str) -> dict:
     )
 
 
+def _make_blobs_cls():
+    """Builds, in memory, a `t.Blobs` message holding a `bytes` member of a `oneof` and a
+    proto3 `optional bytes` field (backed by a synthetic oneof), so no `.proto` file needs to
+    be compiled for it."""
+    field_proto = descriptor_pb2.FieldDescriptorProto
+    file_proto = descriptor_pb2.FileDescriptorProto(
+        name="blobs_test.proto", package="t", syntax="proto3"
+    )
+    msg_proto = file_proto.message_type.add(name="Blobs")
+    msg_proto.oneof_decl.add(name="payload")
+    msg_proto.oneof_decl.add(name="_opt_blob")
+    msg_proto.field.add(
+        name="blob",
+        number=1,
+        type=field_proto.TYPE_BYTES,
+        label=field_proto.LABEL_OPTIONAL,
+        oneof_index=0,
+    )
+    msg_proto.field.add(
+        name="text",
+        number=2,
+        type=field_proto.TYPE_STRING,
+        label=field_proto.LABEL_OPTIONAL,
+        oneof_index=0,
+    )
+    msg_proto.field.add(
+        name="opt_blob",
+        number=3,
+        type=field_proto.TYPE_BYTES,
+        label=field_proto.LABEL_OPTIONAL,
+        oneof_index=1,
+        proto3_optional=True,
+    )
+
+    pool = descriptor_pool.DescriptorPool()
+    pool.Add(file_proto)
+    return GetMessageClass(pool.FindMessageTypeByName("t.Blobs"))
+
+
+BLOBS_MSGTYPE = "t.Blobs"
+BLOBS_CLS = _make_blobs_cls()
+
+
 def test_unset_singular_message_field_decodes_to_none():
     """Regression test: a singular (non-repeated) message field left unset on the wire has
     real presence, so `MessageToDict` omits it entirely; the decoder must still surface it as
     an explicit `None` rather than silently dropping the key."""
-    msg = IMU_PROTOBUF(calibrated=True)
+    msg = IMU_PROTOBUF_CLS(calibrated=True)
 
     result = _decode(msg, IMU_PROTOBUF_MSGTYPE)
 
@@ -74,6 +132,75 @@ def test_oneof_absent_members():
     assert sum(value is not None for value in members.values()) == 1
 
 
+def test_unset_bytes_members_decode_to_none():
+    """Regression test: an unset `bytes` member of a `oneof` (or an unset proto3 `optional
+    bytes`) is omitted by `MessageToDict` and then filled with `None`; the base64 decoding of
+    `bytes` fields must leave that `None` untouched instead of failing the whole message."""
+    result = _decode(BLOBS_CLS(text="hi"), BLOBS_MSGTYPE)
+
+    assert result["text"] == "hi"
+    assert result["blob"] is None
+    assert result["opt_blob"] is None
+
+
+def test_set_bytes_members_decode_to_original_bytes():
+    """Set `bytes` fields are base64-decoded back to their original value."""
+    result = _decode(BLOBS_CLS(blob=b"\x00\x01", opt_blob=b"\xff"), BLOBS_MSGTYPE)
+
+    assert result["blob"] == b"\x00\x01"
+    assert result["opt_blob"] == b"\xff"
+    assert result["text"] is None
+
+
+@pytest.mark.parametrize(
+    "callback", [_coerce_int64_field, _modify_timestamp_field, _coerce_byte_field]
+)
+def test_transforming_callbacks_leave_none_untouched(callback):
+    """A field already filled with `None` (e.g. an unset `oneof` member) has nothing to
+    transform: every transforming callback must leave it as is, whatever the rules order."""
+    data = {"k": None}
+
+    callback(data, "k")
+
+    assert data == {"k": None}
+
+
+def test_any_field_keeps_original_bytes():
+    """`google.protobuf.Any` is not unpacked: `value` stays the packed message's original wire
+    bytes, exactly as they were serialized."""
+    msg = make_variant_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
+
+    result = _decode(msg, VARIANT_PROTOBUF_MSGTYPE)
+
+    assert result["details"] == {
+        "type_url": msg.details.type_url,
+        "value": msg.details.value,
+    }
+
+
+def test_any_field_with_unresolvable_type():
+    """Regression test: the type packed into an Any is usually not part of the channel's schema
+    (nor of the default descriptor pool), so decoding must never need to resolve it."""
+    details = any_pb2.Any(
+        type_url="type.googleapis.com/not.registered.Type", value=b"\x08\x01"
+    )
+    msg = VARIANT_PROTOBUF_CLS(int_value=1, details=details)
+
+    result = _decode(msg, VARIANT_PROTOBUF_MSGTYPE)
+
+    assert result["details"] == {"type_url": details.type_url, "value": details.value}
+
+
+def test_any_round_trips_byte_identical():
+    """Rebuilding the message from the decoded dict, as `UnmodeledAdapter.to_mcap()` does,
+    serializes back to the original bytes, Any payload included."""
+    msg = make_variant_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
+
+    result = _decode(msg, VARIANT_PROTOBUF_MSGTYPE)
+
+    assert type(msg)(**result).SerializeToString() == msg.SerializeToString()
+
+
 def test_undefined_list_is_empty():
     """Test that a protobuf field of type repeated when transformed into dict is
     an empty list rather than None, if NOT specified in protobuf"""
@@ -84,7 +211,7 @@ def test_undefined_list_is_empty():
         "saturated": False,
     }
 
-    msg = MAGN_PROTOBUF(readings=[single_reading])
+    msg = MAGN_PROTOBUF_CLS(readings=[single_reading])
 
     result = _decode(msg, MAGN_PROTOBUF_MSGTYPE)
 
@@ -104,7 +231,7 @@ def test_rules_applied_to_nested_lists():
         "axis_value_covariance": [2**53, 2**53 + 1, 2**53 + 2],
     }
 
-    msg = MAGN_PROTOBUF(readings=[single_reading])
+    msg = MAGN_PROTOBUF_CLS(readings=[single_reading])
 
     result = _decode(msg, MAGN_PROTOBUF_MSGTYPE)
 
@@ -115,58 +242,3 @@ def test_rules_applied_to_nested_lists():
             for cov in reading["axis_value_covariance"]
         ]
     )  # check that all elements have been casted to int from string
-
-
-# class MyImuProtobufAdapter(MCAPAdapterBase[IMU]):
-#     """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
-
-#     schema_name = "Mosaico.Imu"
-#     schema_encoding = "protobuf"
-#     __mosaico_ontology_type__ = IMU
-
-#     @classmethod
-#     def from_dict(cls, mcap_data: dict) -> IMU:
-
-#         mcap_acceleration = mcap_data["linear_acceleration"]
-#         mcap_angular_velocity = mcap_data["angular_velocity"]
-
-#         return IMU(
-#             acceleration=Vector3d(
-#                 x=mcap_acceleration["x"],
-#                 y=mcap_acceleration["y"],
-#                 z=mcap_acceleration["z"],
-#             ),
-#             angular_velocity=Vector3d(
-#                 x=mcap_angular_velocity["x"],
-#                 y=mcap_angular_velocity["y"],
-#                 z=mcap_angular_velocity["z"],
-#             ),
-#         )
-
-
-# def test_custom_adapter():
-#     """Test that MyImuProtobufAdapter custom adapter create correctly a Mosaico IMU message"""
-
-#     msg = make_imu_mcap(Time(seconds=0, nanoseconds=0), "protobuf")
-
-#     mcap_data = _decode(msg, IMU_PROTOBUF_MSGTYPE)
-
-#     mcap_message = MCAPMessage(
-#         channel_name="front_car/imu",
-#         channel_encoding="protobuf",
-#         schema_name=MyImuProtobufAdapter.schema_name,
-#         schema_encoding=MyImuProtobufAdapter.schema_encoding,
-#         data=mcap_data,
-#         log_time_ns=1,
-#         publish_time_ns=1,
-#     )
-
-#     msco_imu = MyImuProtobufAdapter.translate(mcap_message).get_data(IMU)
-
-#     assert msco_imu is not None
-#     assert msco_imu.acceleration.x == mcap_data["linear_acceleration"]["x"]
-#     assert msco_imu.acceleration.y == mcap_data["linear_acceleration"]["y"]
-#     assert msco_imu.acceleration.z == mcap_data["linear_acceleration"]["z"]
-#     assert msco_imu.angular_velocity.x == mcap_data["angular_velocity"]["x"]
-#     assert msco_imu.angular_velocity.y == mcap_data["angular_velocity"]["y"]
-#     assert msco_imu.angular_velocity.z == mcap_data["angular_velocity"]["z"]

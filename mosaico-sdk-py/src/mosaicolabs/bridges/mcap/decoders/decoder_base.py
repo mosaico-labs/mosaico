@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, Generic, List, TypeVar
 
 from mcap.decoder import DecoderFactory
 from mcap.reader import DecodedMessageTuple
@@ -7,8 +7,10 @@ from mcap.records import Schema
 
 from .rule import Rule, RulePath
 
+NativeType = TypeVar("NativeType")
 
-class MCAPMsgDecoderBase(ABC):
+
+class MCAPMsgDecoderBase(ABC, Generic[NativeType]):
     """
     Encoding-specific runtime behavior needed to decode MCAP messages into plain dicts.
 
@@ -44,8 +46,9 @@ class MCAPMsgDecoderBase(ABC):
         """The `channel.message_encoding` value this decoder handles (e.g. `"protobuf"`)."""
         return cls.SUPPORTED_CHANNEL_ENCODING
 
+    @staticmethod
     @abstractmethod
-    def decoder_factory(self) -> DecoderFactory:
+    def decoder_factory() -> DecoderFactory:
         """The `mcap.decoder.DecoderFactory` to register on the shared reader."""
 
     def register_schema(self, schema: Schema) -> None:

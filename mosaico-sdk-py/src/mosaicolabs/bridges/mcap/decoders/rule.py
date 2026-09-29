@@ -82,14 +82,16 @@ class Rule(Generic[T]):
        schema node satisfies `predicate` (checked via `is_respected`), associates that
        field's `RulePath` with this `Rule`. The result is a `Dict[RulePath, List[Rule]]`
        (`MCAPMsgDecoderBase._field_rule_mapper`) mapping each field path to every `Rule` matched
-       for it — a field can satisfy more than one predicate (e.g. an `Any` field that is also
-       a `oneof` member), in which case all of them apply, in `PROTOBUF_RULES` order.
+       for it — a field can satisfy more than one predicate (e.g. a `Timestamp` field that is
+       also a `oneof` member), in which case all of them apply, in `PROTOBUF_RULES` order.
     2. **Postprocessing**, during `decode()`: `MCAPMsgDecoderBase.postprocess()` iterates that
        mapping and calls `rule.apply(data, path)` for every `(path, rule)` pair, so each
        `callback` runs only on the specific field `path` its rule was matched against — never
        on the rest of the decoded dict. If a field is absent and `callback` raises `KeyError`
        to signal that, `apply()` logs it and moves on, so a sibling rule registered for the
-       same path (e.g. a `_fill_absent_field` fallback) still gets to run.
+       same path (e.g. a `_fill_absent_field` fallback) still gets to run. A field that is
+       present but `None` (e.g. already filled in by `_fill_absent_field`) is left untouched by
+       every transforming callback.
     """
 
     predicate: FieldPredicate
@@ -109,7 +111,8 @@ class Rule(Generic[T]):
         `callback` may raise `KeyError` to signal that the field it needs is absent (e.g.
         `_coerce_int64_field` on a field `MessageToDict` omitted); that's caught and logged at
         debug level rather than propagated, so it never aborts postprocessing of the rest of
-        `data`."""
+        `data`. A field that is present but `None` is not an error: `callback` leaves it
+        untouched."""
         for container, key in self._resolve(data, path):
             try:
                 self.callback(container, key)

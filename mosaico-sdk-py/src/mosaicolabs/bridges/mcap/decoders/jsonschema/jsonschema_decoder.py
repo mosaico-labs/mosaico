@@ -23,10 +23,11 @@ class JsonDecoderFactory(DecoderFactory):
 
 
 @register_decoder
-class MCAPJsonschemaMsgDecoder(MCAPMsgDecoderBase):
+class MCAPJsonschemaMsgDecoder(MCAPMsgDecoderBase[Dict]):
     SUPPORTED_CHANNEL_ENCODING: ClassVar[str] = "json"
 
-    def decoder_factory(self) -> DecoderFactory:
+    @staticmethod
+    def decoder_factory() -> DecoderFactory:
         return JsonDecoderFactory()
 
     # def register_schema(self, schema: Schema) -> None:

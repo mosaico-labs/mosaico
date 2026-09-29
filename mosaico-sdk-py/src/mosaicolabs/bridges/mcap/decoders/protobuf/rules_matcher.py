@@ -1,4 +1,4 @@
-import json
+import base64
 from typing import Dict, List
 
 from google.protobuf.descriptor import Descriptor, FieldDescriptor
@@ -36,11 +36,13 @@ def is_field_int64(field: FieldDescriptor) -> bool:
 def is_field_any(field: FieldDescriptor) -> bool:
     """Whether `field` is a `google.protobuf.Any` message field."""
 
-    return bool(field.message_type and field.message_type.name == "Any")
+    return bool(
+        field.message_type and field.message_type.full_name == "google.protobuf.Any"
+    )
 
 
 def is_field_timestamp(field: FieldDescriptor) -> bool:
-    """Whether `field` is a `google.protobuf.Any` message field."""
+    """Whether `field` is a `google.protobuf.Timestamp` message field."""
 
     return bool(field.message_type and field.message_type.name == "Timestamp")
 
@@ -79,6 +81,11 @@ def is_field_map(field: FieldDescriptor) -> bool:
     )
 
 
+def is_field_bytes(field: FieldDescriptor) -> bool:
+    """Whether `field` is a protobuf `bytes` field."""
+    return field.type == FieldDescriptor.TYPE_BYTES
+
+
 # ------------------------------------------------ #
 # -------------------- EFFECTS ------------------- #
 # ------------------------------------------------ #
@@ -90,7 +97,8 @@ def _require_present(data: FieldContainer, key: FieldKey) -> None:
 
     Only meaningful for a `dict` container, where a missing key means `MessageToDict` omitted
     a field that has explicit presence (see `is_field_singular_message`/`is_field_oneof`). For
-    `data` with a `List` type this is a no-op."""
+    `data` with a `List` type this is a no-op. A key that is present but `None` is not an
+    error here: the callbacks check for it themselves and leave it untouched."""
     if isinstance(data, dict) and key not in data:
         raise KeyError(
             f"{key} key is not present. Available keys are: {list(data.keys())}"
@@ -100,34 +108,30 @@ def _require_present(data: FieldContainer, key: FieldKey) -> None:
 def _coerce_int64_field(data: FieldContainer, key: FieldKey) -> None:
     """protobuf's JSON mapping renders int64-family fields as strings unless
     `unquote_int64_if_possible` narrows the value into range; this normalizes whatever
-    `MessageToDict` produced into a native Python int."""
+    `MessageToDict` produced into a native Python int. A `None` value (an unset field already
+    filled in by `_fill_absent_field`) is left untouched."""
 
     _require_present(data, key)
+
+    if data[key] is None:
+        return
 
     data[key] = int(data[key])
 
 
-def _modify_any_field(data: FieldContainer, key: FieldKey) -> None:
-    """`MessageToDict` renders `google.protobuf.Any` as `{"@type": ..., <expanded fields>}`.
-    PyArrow's schema instead expects the well-known `{"type_url": ..., "value": <json string>}`
-    shape, so this reshapes the dict at `key` in place."""
-
-    _require_present(data, key)
-
-    any_data = data[key]
-    type_url = any_data.pop("@type")
-    data[key] = {"type_url": type_url, "value": json.dumps(any_data)}
-
-
 def _modify_timestamp_field(data: FieldContainer, key: FieldKey):
     """
-    `MessageToDict` encodes `google.protobuf.Timestamp as a string with RFC 3339 format
+    `MessageToDict` encodes `google.protobuf.Timestamp` as a string with RFC 3339 format
     ("{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z"). PyArrow instead expects the protobuf
-    original schema `{"seconds": ..., "nanos": ...}` shape, so this function modifies the `data`
-    dict returning to the
+    original schema `{"seconds": ..., "nanos": ...}` shape, so this function replaces the string
+    at `key` with that dict, in place. A `None` value (an unset field already filled in by
+    `_fill_absent_field`) is left untouched.
     See here for more info: https://protobuf.dev/reference/php/api-docs/Google/Protobuf/Timestamp.html"""
 
     _require_present(data, key)
+
+    if data[key] is None:
+        return
 
     rfc_time = data[key]
 
@@ -145,12 +149,26 @@ def _fill_absent_field(data: FieldContainer, key: FieldKey) -> None:
     the key with `None` if `MessageToDict` didn't already populate it, leaving a set value
     untouched.
 
-    Unlike `_coerce_int64_field`/`_modify_any_field`/`_modify_timestamp_field`, this callback
-    is expected to run on an absent key and never raises — so when a field also matches one of
-    those (e.g. an `Any` field that is also `oneof`), this rule still fills in `None` after the
-    other rule's `KeyError` is caught by `Rule.apply()`."""
+    Unlike `_coerce_int64_field`/`_modify_timestamp_field`/`_coerce_byte_field`, this callback
+    is expected to run on an absent key and never raises. `PROTOBUF_RULES` lists it after those
+    rules, so when a field also matches one of them (e.g. a `Timestamp` field that is also
+    `oneof`), this rule still fills in `None` after the other rule's `KeyError` is caught by
+    `Rule.apply()`; and were it to run first, those rules would leave its `None` untouched."""
     if key not in data:
         data[key] = None
+
+
+def _coerce_byte_field(data: FieldContainer, key: FieldKey) -> None:
+    """protobuf's JSON mapping renders bytes fields as base64 encoded strings;
+    this decodes the string back to the original `bytes`. A `None` value (an unset field
+    already filled in by `_fill_absent_field`) is left untouched."""
+
+    _require_present(data, key)
+
+    if data[key] is None:
+        return
+
+    data[key] = base64.b64decode(data[key])
 
 
 # ------------------------------------------------ #
@@ -159,10 +177,11 @@ def _fill_absent_field(data: FieldContainer, key: FieldKey) -> None:
 
 
 class ProtobufRulesMatcher:
+    # Transforming rules first, `_fill_absent_field` filling rules last (see its docstring)
     PROTOBUF_RULES: List[Rule[FieldDescriptor]] = [
         Rule(is_field_int64, _coerce_int64_field),
-        Rule(is_field_any, _modify_any_field),
         Rule(is_field_timestamp, _modify_timestamp_field),
+        Rule(is_field_bytes, _coerce_byte_field),
         Rule(is_field_oneof, _fill_absent_field),
         Rule(is_field_singular_message, _fill_absent_field),
     ]
@@ -173,8 +192,9 @@ class ProtobufRulesMatcher:
         Walks `descr`'s fields (recursing into nested messages) and returns a dict mapping
         each field's `RulePath` to the ordered list of `PROTOBUF_RULES` entries whose
         predicate matches that field (see `match_rules`) — a field can match more than one,
-        e.g. an `Any` field that is also a `oneof` member matches both `is_field_any` and
-        `is_field_oneof`. `MCAPMsgDecoderBase.postprocess()` applies them in this same order.
+        e.g. a `Timestamp` field that is also a `oneof` member matches `is_field_timestamp`,
+        `is_field_oneof` and `is_field_singular_message`. `MCAPMsgDecoderBase.postprocess()`
+        applies them in this same order.
         """
         return cls._descriptor_to_rules(descr, {}, ())
 
@@ -240,7 +260,9 @@ class ProtobufRulesMatcher:
         if (
             is_field_nested(field)
             and not is_field_timestamp(field)  # do NOT unpack Timestamps types
-            and not is_field_any(field)  # do NOT unpack Any types
+            # do NOT unpack Any types: the decoder keeps `value` as the packed message's raw
+            # bytes, which a nested `_coerce_byte_field` would corrupt by base64-decoding them
+            and not is_field_any(field)
         ):
             if field.message_type is None:
                 raise RuntimeError(

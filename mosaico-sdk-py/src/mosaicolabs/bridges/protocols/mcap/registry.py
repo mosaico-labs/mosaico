@@ -1,4 +1,4 @@
-from typing import ClassVar, Dict, Optional, Type, TypeVar
+from typing import ClassVar, Dict, List, Optional, Type, TypeVar
 
 from mosaicolabs.bridges.protocols.mcap.base_converter import McapSchemaConverter
 
@@ -47,6 +47,10 @@ class McapSchemaRegistry:
             cls._registry[converter_encoding] = converter_cls
 
     # --- Main Bridge API ---
+
+    @classmethod
+    def all_supported_encodings(cls) -> List[str]:
+        return list(cls._registry.keys())
 
     @classmethod
     def get_converter(cls, encoding: str) -> Optional[Type[McapSchemaConverter]]:
