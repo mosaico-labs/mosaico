@@ -44,7 +44,7 @@ from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 from ..topic_status import to_color
 from ..ui import ProgressManager
 from .adapter_base import MCAPSchemaMetadata
-from .helpers import _sanitize_mcap_channel_name
+from .helpers import _sanitize_mcap_name
 from .loader import MCAPLoader
 from .mcap_message import MCAPMessage
 
@@ -570,8 +570,8 @@ class MCAPInjector:
             return
 
         # --- Integrity Check ---
-        # If the loader yielded an exception or empty data, mark as error
-        if exc or not mcap_msg.data_field:
+        # If the loader yielded an exception, mark as error
+        if exc:
             logger.warning(
                 f"Skipping message on topic '{mcap_msg.channel_name}' due to error: '{exc}'"
             )
@@ -597,13 +597,25 @@ class MCAPInjector:
             return
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
-        sanitized_name = _sanitize_mcap_channel_name(mcap_msg.channel_name)
+        sanitized_name = _sanitize_mcap_name(mcap_msg.channel_name)
         twriter = session_writer.get_topic_writer(sanitized_name)
 
         # Should theoretically not be None if exists returned True
         if twriter is None:
             # --- Schema metadata Resolution ---
-            mcap_meta = MCAPSchemaMetadata.from_dict(adapter.schema_metadata())
+            assert mcap_msg.schema_def  # here schema_def cannot be None, otherwise an exception would have been already occured
+
+            # FIXME: `mcap_msg.sequence_id` is a per-message counter, but it is stored here once,
+            # as topic metadata, so only this first message's value is kept (and the extractor
+            # does not use it). Store it per message instead (e.g. like `publish_time_ns`).
+            mcap_meta = MCAPSchemaMetadata.from_dict(
+                adapter.schema_metadata(
+                    mcap_msg.channel_name,
+                    mcap_msg.channel_encoding,
+                    mcap_msg.schema_def,
+                    mcap_msg.sequence_id,
+                )
+            )
 
             # Record which mcap file introduced this topic, inside the reserved `_mcap_`
             # namespace. This lets the source of each topic remain traceable even after
@@ -621,7 +633,7 @@ class MCAPInjector:
             metadata.update(mcap_meta.to_dict())
 
             # Register new topic on server
-            sanitized_name = _sanitize_mcap_channel_name(mcap_msg.channel_name)
+            sanitized_name = _sanitize_mcap_name(mcap_msg.channel_name)
             twriter = session_writer.topic_create(
                 topic_name=sanitized_name,
                 metadata=metadata,

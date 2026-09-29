@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from rosbags.typesys import Stores, get_typestore
 
+from mosaicolabs.bridges.ros import MosaicoToROSLoader
 from mosaicolabs.bridges.ros.injector import (
     RosbagInjector,
     ROSInjectionConfig,
@@ -92,7 +93,7 @@ def test_standard_typestore_registration_extractor(ros_distro: Stores):
     """
     inj = ROSSequenceExtractor(
         config=ROSExtractorConfig(
-            rosbag_path=Path("no-path"),
+            saving_path=Path("no-path"),
             sequence_name="test",
             ros_distro=ros_distro,
         )
@@ -121,7 +122,7 @@ def test_custom_typestore_registration_extractor(ros_distro: Stores):
 
         inj = ROSSequenceExtractor(
             config=ROSExtractorConfig(
-                rosbag_path=Path("no-path"),
+                saving_path=Path("no-path"),
                 sequence_name="test",
                 ros_distro=ros_distro,
                 custom_msgs=[("custom_msgs", Path(custom_msgs_dir), ros_distro)],
@@ -144,11 +145,12 @@ def test_typestore_reaches_mosaico_loader():
     ros_distro = Stores.LATEST
     extr = ROSSequenceExtractor(
         config=ROSExtractorConfig(
-            rosbag_path=Path("no-path"),
+            saving_path=Path("no-path"),
             sequence_name="test",
             ros_distro=ros_distro,
         )
     )
-    loader = extr._open_or_get_mosaicoloader(_FakeClient())
+    loader = extr._open_mosaicoloader(_FakeClient())
     assert extr.typestore.types == get_typestore(ros_distro).types
+    assert isinstance(loader, MosaicoToROSLoader)
     assert loader._typestore.types == extr.typestore.types

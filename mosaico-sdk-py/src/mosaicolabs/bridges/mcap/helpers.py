@@ -2,7 +2,37 @@ from typing import Dict, List, Optional
 
 from mcap.records import Channel, Schema
 
+from mosaicolabs import TopicHandler
+
 from ..helpers import _filter_from_list
+from .adapter_base import MCAPSchemaMetadata
+
+
+def _extract_mcap_metadata(t_handler: TopicHandler) -> MCAPSchemaMetadata:
+    """
+    Reads and validates the ``_mcap_`` metadata field.
+
+    Each of:
+        - ``schema_name``
+        - ``schema_encoding``
+        - ``schema_def``
+        - ``channel_name``
+        - ``channel_encoding``
+
+    is required (see `MCAPSchemaMetadata.REQUIRED_KEYS`) and must hold a string.
+
+    Args:
+        t_handler (TopicHandler): The topic handler whose metadata should be inspected.
+
+    Returns:
+        MCAPSchemaMetadata: The topic's validated MCAP metadata.
+
+    Raises:
+        ValueError: When the topic carries no ``_mcap_`` metadata, or any required field is
+            missing from it.
+        TypeError: When a required field of the ``_mcap_`` metadata has an unexpected type.
+    """
+    return MCAPSchemaMetadata(**MCAPSchemaMetadata.extract(t_handler.user_metadata))
 
 
 def _filter_channels_from_dict(
@@ -64,9 +94,17 @@ def _filter_channels_from_dict(
     return {key: val for key, val in available_channels.items() if key in resolved_keys}
 
 
+def _sanitize_mcap_name(channel_name: str) -> str:
+    """Turns an MCAP name into a Mosaico topic name: dots become slashes, with a leading
+    `/` (e.g. `front_car.imu` -> `/front_car/imu`)."""
+
+    prefix = "" if channel_name.startswith("/") else "/"
+    return prefix + channel_name.replace(".", "/")
+
+
 def _class_name_from_mcap_schema(schema: Schema) -> str:
-    return f"{schema.name}__{schema.encoding}"
+    """Returns the ontology tag of the Unmodeled ontology created for `schema`: the last
+    component of its name, without package or encoding (e.g. `sensor_msgs.Imu` -> `Imu`)."""
 
-
-def _sanitize_mcap_channel_name(channel_name: str) -> str:
-    return channel_name.replace(".", "/")
+    out = _sanitize_mcap_name(schema.name)
+    return out.split("/")[-1]

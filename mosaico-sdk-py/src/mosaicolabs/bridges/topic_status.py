@@ -9,7 +9,8 @@ class TopicStatus(Enum):
 
     * **All loaders** (`ROSLoader`, `MosaicoLoader`, `MCAPLoader`, via `BaseLoader`):
       `FILTERED`, `UNRESOLVED_ADAPTER`.
-    * **`MosaicoLoader`** only: `NOT_IN_TYPESTORE`, `MALFORMED_METADATA`.
+    * **`MosaicoLoader`** only (`MosaicoToROSLoader`, `MosaicoToMCAPLoader`):
+      `MALFORMED_METADATA`, plus `NOT_IN_TYPESTORE` for `MosaicoToROSLoader`.
     * **`MCAPLoader`** only: `UNRESOLVED_DECODER`, `UNAVAILABLE_SCHEMA`.
 
     `ACCEPTED` is never reported as a rejection reason.
@@ -19,7 +20,7 @@ class TopicStatus(Enum):
         FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
         UNRESOLVED_ADAPTER: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
         NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
-        MALFORMED_METADATA: Enum specifying the Topic has been rejected since its ``_ros_`` metadata is malformed.
+        MALFORMED_METADATA: Enum specifying the Topic has been rejected since its bridge metadata (``_ros_`` or ``_mcap_``) is malformed.
         UNRESOLVED_DECODER: Enum specifying the Channel has been rejected since its encoding does not have an implemented decoder.
         UNAVAILABLE_SCHEMA: Enum specifying the Channel has been rejected since it does not contain any schema information.
     """
@@ -37,7 +38,7 @@ class TopicStatus(Enum):
     """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
 
     MALFORMED_METADATA = "Malformed metadata"
-    """ Status indicating the Topic has been rejected since its '_ros_' metadata is malformed """
+    """ Status indicating the Topic has been rejected since its bridge metadata ('_ros_' or '_mcap_') is malformed """
 
     UNRESOLVED_DECODER = "Unresolved decoder"
     """ Status indicating the Channel has been rejected since its encoding does not have an implemented decoder """

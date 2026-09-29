@@ -1,4 +1,5 @@
-from typing import ClassVar, Tuple
+import base64
+from typing import ClassVar, Tuple, Type
 
 import pyarrow as pa
 from google.protobuf.descriptor import Descriptor, FieldDescriptor
@@ -6,6 +7,8 @@ from google.protobuf.descriptor_pb2 import (
     FileDescriptorSet,
 )
 from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.message import Message as ProtobufMsg
+from google.protobuf.message_factory import GetMessageClass
 
 from mcap.records import Schema
 
@@ -14,7 +17,7 @@ from ..registry import McapSchemaRegistry
 
 
 @McapSchemaRegistry.register
-class ProtobufSchemaConverter(McapSchemaConverter):
+class ProtobufSchemaConverter(McapSchemaConverter[ProtobufMsg]):
     """Converts protobuf message descriptors into PyArrow types.
 
     Works on the *rich* descriptors from google.protobuf.descriptor (a Descriptor /
@@ -142,3 +145,29 @@ class ProtobufSchemaConverter(McapSchemaConverter):
             pool.Add(file_proto)
 
         return cls._message_to_struct(pool.FindMessageTypeByName(msgtype))
+
+    @classmethod
+    def get_schema_class(cls, schema_name: str, schema_def: bytes) -> Type[ProtobufMsg]:
+        """Returns the Python Object type enveloping the data. For protobuf encoding this is
+        the message class of `schema_name`, generated from the `FileDescriptorSet` serialized
+        in `schema_def`."""
+        pool = DescriptorPool()
+        for file_proto in FileDescriptorSet.FromString(schema_def).file:
+            pool.Add(file_proto)
+
+        descr = pool.FindMessageTypeByName(schema_name)
+
+        return GetMessageClass(descr)
+
+    @staticmethod
+    def stringify_schema_def(schema_def: bytes) -> str:
+        """`schema_def` is a binary serialized `FileDescriptorSet`, not valid text, so it is
+        base64-encoded: the only encoding that is always an exact inverse of
+        `destringify_schema_def`, regardless of the descriptor's byte content."""
+        return base64.b64encode(schema_def).decode("ascii")
+
+    @staticmethod
+    def destringify_schema_def(schema_def_str: str) -> bytes:
+        """Opposite of stringify_schema_def. Returns the bytes value of the stringified schema definition.
+        Function output can be passed directly to FileDescriptorSet.FromString() to reconstruct the FileDescriptorSet"""
+        return base64.b64decode(schema_def_str)

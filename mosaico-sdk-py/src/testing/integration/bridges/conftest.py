@@ -16,7 +16,7 @@ def default_ros_extractor_config(
     tmp_path,
 ) -> ROSExtractorConfig:
     return ROSExtractorConfig(
-        rosbag_path=tmp_path,  # TODO: change name to saving_path in next PRs
+        saving_path=tmp_path,
         sequence_name=UPLOADED_SEQUENCE_NAME,
         host=host,
         port=port,

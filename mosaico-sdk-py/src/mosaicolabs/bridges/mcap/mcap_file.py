@@ -5,7 +5,7 @@ from mcap.decoder import DecoderFactory
 from mcap.reader import McapReader, make_reader
 
 
-class MCAPFile:
+class MCAPFileReader:
     """
     Thin resource wrapper around a single MCAP file on disk.
 

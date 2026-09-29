@@ -36,45 +36,19 @@ class MCAPMessage:
 
     Attributes:
         channel_name (str): The channel name of the message source.
+        channel_encoding (str): The channel encoding of the message source.
         schema_name (Optional[str]): The schema name of the message source. `None` if the
             schema could not be resolved or decoding failed.
         schema_encoding (Optional[str]): The schema encoding of the message source (e.g.
             `protobuf`, `jsonschema`). `None` if the schema could not be resolved or decoding failed.
+        schema_def (Optional[str]): The schema message definition of the message source, as a
+            string produced by the resolved `McapSchemaConverter.stringify_schema_def()`
         data_field (Optional[Dict[str, Any]]): The message payload, converted into a standard
             nested Python dictionary. `None` if decoding failed.
         log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
         publish_time_ns (int): Timestamp (nanoseconds) at which the message was published. If not available, it is set to the log time.
+        sequence_id (int): Optional message counter assigned by publisher. Set to 0 if not available.
     """
-
-    def __init__(
-        self,
-        channel_name: str,
-        channel_encoding: str,
-        schema_name: Optional[str],
-        schema_encoding: Optional[str],
-        data: Optional[Dict[str, Any]],
-        log_time_ns: int,
-        publish_time_ns: Optional[int] = None,
-    ):
-        """
-        Initializes a new ROSMessage instance.
-
-        Args:
-            channel_name (str): The channel name of the message source.
-            channel_encoding (str): The encoding of the message source.
-            schema_name (Optional[str]): The schema name of the message source.
-            schema_encoding (Optional[str]): The encoding of the schema source.
-            data (Optional[Dict[str, Any]]): The message payload, converted into a standard nested Python dictionary.
-            log_time_ns (int): Timestamp (nanoseconds) at which the message was recorded.
-            publish_time_ns (Optional[int]): Timestamp (nanoseconds) at which the message was published. If not available, must be set to the log time.
-        """
-        self.channel_name = channel_name
-        self.channel_encoding = channel_encoding
-        self.schema_name = schema_name
-        self.schema_encoding = schema_encoding
-        self.data_field = data
-        self.log_time_ns = log_time_ns
-        self.publish_time_ns = publish_time_ns if publish_time_ns else log_time_ns
 
     channel_name: str
     """The channel name of the message source."""
@@ -84,6 +58,9 @@ class MCAPMessage:
     """The schema name of the message source."""
     schema_encoding: Optional[str]
     """The encoding of the schema source."""
+    schema_def: Optional[str]
+    """The message definition of the schema source, as a string produced by the resolved
+    `McapSchemaConverter.stringify_schema_def()`."""
     data_field: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
     log_time_ns: int
@@ -92,5 +69,9 @@ class MCAPMessage:
     """
     publish_time_ns: int
     """
-    Timestamp (nanoseconds) at which the message was published. If not available, must be set to the log time.
+    Timestamp (nanoseconds) at which the message was published. If not available, it is equal to the log_time_ns.
+    """
+    sequence_id: int
+    """
+    Optional message counter assigned by publisher. Set to 0 if not available
     """
