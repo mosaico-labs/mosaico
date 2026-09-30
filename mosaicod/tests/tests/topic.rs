@@ -80,6 +80,25 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         tonic::Code::InvalidArgument
     );
 
+    // Create topic with an out-of-range serialization_format (not representable by the
+    // `Format` enum) should give an InvalidArgument error.
+    assert_eq!(
+        actions::topic_create_raw(
+            &mut client,
+            marshal::requests::TopicCreate {
+                locator: "test_sequence/my_topic".to_owned(),
+                session_uuid: session_uuid.to_string(),
+                serialization_format: 99,
+                ontology_tag: "mock".to_owned(),
+                user_metadata: b"{}".to_vec(),
+            },
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
     // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
     let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 

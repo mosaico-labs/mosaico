@@ -66,7 +66,7 @@ pub async fn do_action(
 
         // Topic
         ActionRequest::TopicCreate(data) => {
-            let format = marshal::format_from_i32(data.serialization_format);
+            let format = marshal::try_format_from_i32(data.serialization_format)?;
             topic::create(
                 ctx,
                 data.locator,

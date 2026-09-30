@@ -299,7 +299,7 @@ impl ActionResponse {
 #[cfg(test)]
 mod tests {
     use super::ActionRequest;
-    use crate::format::{Format, format_from_i32};
+    use crate::format::{Format, try_format_from_i32};
     use mosaicod_core::types;
     use prost::Message;
 
@@ -322,7 +322,7 @@ mod tests {
             assert_eq!(action.locator, "sequence/test_topic");
             assert_eq!(action.session_uuid, "some_uuid");
             assert_eq!(
-                format_from_i32(action.serialization_format),
+                try_format_from_i32(action.serialization_format).unwrap(),
                 types::Format::Default
             );
             assert_eq!(action.ontology_tag, "my_sensor");

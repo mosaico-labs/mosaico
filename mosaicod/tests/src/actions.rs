@@ -185,6 +185,34 @@ pub async fn topic_create(
     key.ok_or_else(|| tonic::Status::internal("Unable to return key"))
 }
 
+/// Like [`topic_create`], but takes the raw request so tests can send wire
+/// values the `Format` enum can't represent (e.g. an out-of-range
+/// `serialization_format`).
+pub async fn topic_create_raw(
+    client: &mut Client,
+    raw: requests::TopicCreate,
+) -> Result<types::Uuid, tonic::Status> {
+    let action = action("topic_create", &raw);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    let mut key: Option<types::Uuid> = None;
+
+    while let Some(result) = stream.message().await? {
+        let r = responses::ResourceUuid::decode(result.body.as_ref())
+            .map_err(|e| tonic::Status::internal(format!("failed to decode response: {e}")))?;
+
+        let uuid: types::Uuid = r
+            .uuid
+            .parse::<types::Uuid>()
+            .map_err(|e| tonic::Status::internal(format!("Failed to parse uuid: {e}")))?;
+
+        key = Some(uuid);
+    }
+
+    key.ok_or_else(|| tonic::Status::internal("Unable to return key"))
+}
+
 pub async fn topic_delete(client: &mut Client, locator: &str) -> Result<(), tonic::Status> {
     let action = action(
         "topic_delete",

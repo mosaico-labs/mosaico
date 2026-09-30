@@ -1,3 +1,4 @@
+use crate::Error;
 use mosaicod_core::types;
 pub use mosaicod_proto::v1::core::Format;
 
@@ -17,7 +18,8 @@ pub(crate) fn format_from_proto(value: Format) -> types::Format {
     }
 }
 
-pub fn format_from_i32(value: i32) -> types::Format {
-    let proto_format = Format::try_from(value).unwrap_or(Format::Default);
-    format_from_proto(proto_format)
+pub fn try_format_from_i32(value: i32) -> Result<types::Format, Error> {
+    Format::try_from(value)
+        .map(format_from_proto)
+        .map_err(|_| Error::DeserializationError(format!("unknown serialization format: {value}")))
 }
