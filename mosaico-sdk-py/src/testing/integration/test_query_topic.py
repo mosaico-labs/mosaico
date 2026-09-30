@@ -4,6 +4,8 @@ from mosaicolabs import Time
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.query import QuerySequence, QueryTopic
 from testing.integration.config import (
+    MCAP_MIXED_TOPICS_NAME,
+    MCAP_PROTOBUF_TOPICS_NAME,
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
@@ -312,21 +314,26 @@ def test_query_topic_metadata(
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
-    # Six (6) sequences corresponds to this query (data stream sequence + mockups + stream list sequence)
-    assert len(query_resp) == 6
+    # Eight (8) sequences corresponds to this query (data stream sequence + mockups + stream list sequence)
+    assert len(query_resp) == 8
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
-    expected_topic_names = [
-        UPLOADED_IMU_FRONT_TOPIC,
-        UPLOADED_IMU_CAMERA_TOPIC,
-        UPLOADED_MAGNETOMETER_TOPIC,
-        UPLOADED_ROBOT_JOINTS_TOPIC,
-        UPLOADED_ROBOT_PATH_TOPIC,
-        UPLOADED_TEMPERATURE_TOPIC,
-    ] + [
-        topic["name"]
-        for sequence_info in QUERY_SEQUENCES_MOCKUP.values()
-        for topic in sequence_info["topics"]
-    ]
+    expected_topic_names = (
+        [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_IMU_CAMERA_TOPIC,
+            UPLOADED_MAGNETOMETER_TOPIC,
+            UPLOADED_ROBOT_JOINTS_TOPIC,
+            UPLOADED_ROBOT_PATH_TOPIC,
+            UPLOADED_TEMPERATURE_TOPIC,
+        ]
+        + [
+            topic["name"]
+            for sequence_info in QUERY_SEQUENCES_MOCKUP.values()
+            for topic in sequence_info["topics"]
+        ]
+        + MCAP_PROTOBUF_TOPICS_NAME
+        + MCAP_MIXED_TOPICS_NAME
+    )
     assert len(expected_topic_names) == sum(len(resp.topics) for resp in query_resp)
     assert all(
         [
