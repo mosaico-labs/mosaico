@@ -3,7 +3,6 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
-# NOTE: The Before starting Phase 2, the custom adapter must be registered. See __init__.py
 from rich.console import Console
 from rich.progress import (
     BarColumn,
