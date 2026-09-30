@@ -18,12 +18,14 @@ async fn test_concurrent_sequence_create(pool: sqlx::Pool<db::DatabaseType>) {
     let mut client1 = common::ClientBuilder::new(common::HOST, port).build().await;
     let mut client2 = common::ClientBuilder::new(common::HOST, port).build().await;
 
-    let h1 = tokio::spawn(async move {
-        actions::sequence_create(&mut client1, "concurrent_seq", None).await
-    });
-    let h2 = tokio::spawn(async move {
-        actions::sequence_create(&mut client2, "concurrent_seq", None).await
-    });
+    let h1 =
+        tokio::spawn(
+            async move { actions::sequence_create(&mut client1, "concurrent_seq", "").await },
+        );
+    let h2 =
+        tokio::spawn(
+            async move { actions::sequence_create(&mut client2, "concurrent_seq", "").await },
+        );
 
     let r1 = h1.await.unwrap();
     let r2 = h2.await.unwrap();
@@ -56,13 +58,13 @@ async fn test_concurrent_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
@@ -106,13 +108,13 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/concurrent_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -178,14 +180,14 @@ async fn test_concurrent_topic_create_during_finalize(pool: sqlx::Pool<db::Datab
     let existing_topic = &format!("{}/existing", sequence_name);
     let new_topic = &format!("{}/new", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, existing_topic, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, existing_topic, "")
         .await
         .unwrap();
     let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
@@ -202,7 +204,7 @@ async fn test_concurrent_topic_create_during_finalize(pool: sqlx::Pool<db::Datab
     let h_finalize = tokio::spawn(async move { actions::session_finalize(&mut c1, &s1).await });
     let h_create =
         tokio::spawn(
-            async move { actions::topic_create(&mut c2, &s2, &new_topic_owned, None).await },
+            async move { actions::topic_create(&mut c2, &s2, &new_topic_owned, "").await },
         );
 
     let r_fin = h_finalize.await.unwrap();
@@ -239,13 +241,13 @@ async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/read_during_write", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -297,7 +299,7 @@ async fn test_concurrent_notification_create(pool: sqlx::Pool<db::DatabaseType>)
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -343,7 +345,7 @@ async fn test_concurrent_sequence_create_and_delete(pool: sqlx::Pool<db::Databas
     let mut setup = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "race_seq";
-    actions::sequence_create(&mut setup, sequence_name, None)
+    actions::sequence_create(&mut setup, sequence_name, "")
         .await
         .unwrap();
 
@@ -378,7 +380,7 @@ async fn test_stress_many_sequences_in_parallel(pool: sqlx::Pool<db::DatabaseTyp
         let mut c = common::ClientBuilder::new(common::HOST, port).build().await;
         handles.push(tokio::spawn(async move {
             let name = format!("stress_seq_{}", i);
-            actions::sequence_create(&mut c, &name, None).await
+            actions::sequence_create(&mut c, &name, "").await
         }));
     }
 

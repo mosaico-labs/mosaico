@@ -14,10 +14,16 @@ pub(crate) async fn create(
     info!("requested resource {} creation", locator);
 
     let locator = locator.parse::<types::SequenceLocator>()?;
-    let user_mdata = marshal::JsonMetadataBlob::try_from_slice(user_metadata)?;
+
+    // Empty `user_metadata` means no metadata was provided, not malformed JSON.
+    let user_mdata = if user_metadata.is_empty() {
+        None
+    } else {
+        Some(marshal::JsonMetadataBlob::try_from_slice(user_metadata)?)
+    };
 
     // No sequence record was found, let's write it
-    let sequence_uuid = facade::sequence::try_create(ctx, &locator, Some(user_mdata)).await?;
+    let sequence_uuid = facade::sequence::try_create(ctx, &locator, user_mdata).await?;
 
     trace!("created resource {} with uuid {}", locator, sequence_uuid);
 

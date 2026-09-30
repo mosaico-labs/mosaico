@@ -31,13 +31,13 @@ fn action(r#type: &str, msg: &impl Message) -> Action {
 pub async fn sequence_create(
     client: &mut Client,
     sequence_name: &str,
-    json_metadata: Option<&str>,
+    json_metadata: &str,
 ) -> Result<(), tonic::Status> {
     let action = action(
         "sequence_create",
         &requests::SequenceCreate {
             locator: sequence_name.to_owned(),
-            user_metadata: json_metadata.unwrap_or("{}").as_bytes().to_vec(),
+            user_metadata: json_metadata.as_bytes().to_vec(),
         },
     );
 
@@ -153,7 +153,7 @@ pub async fn topic_create(
     client: &mut Client,
     key: &types::Uuid,
     topic_name: &str,
-    json_metadata: Option<&str>,
+    json_metadata: &str,
 ) -> Result<types::Uuid, tonic::Status> {
     let action = action(
         "topic_create",
@@ -162,7 +162,7 @@ pub async fn topic_create(
             session_uuid: key.to_string(),
             serialization_format: marshal::Format::Default as i32,
             ontology_tag: "mock".to_owned(),
-            user_metadata: json_metadata.unwrap_or("{}").as_bytes().to_vec(),
+            user_metadata: json_metadata.as_bytes().to_vec(),
         },
     );
 
@@ -584,7 +584,7 @@ pub async fn setup_sequence_with_notifications(
     notification_type: String,
     notifications_size: usize,
 ) -> Result<(), tonic::Status> {
-    sequence_create(client, sequence_name, None).await.unwrap();
+    sequence_create(client, sequence_name, "").await.unwrap();
     for i in 0..notifications_size {
         let error_msg = format!("Error {}_{}", sequence_name, i + 1);
         sequence_notification_create(client, sequence_name, notification_type.clone(), error_msg)
@@ -602,9 +602,9 @@ pub async fn setup_topic_with_notifications(
     notification_type: String,
     notifications_size: usize,
 ) -> Result<(), tonic::Status> {
-    sequence_create(client, sequence_name, None).await.unwrap();
+    sequence_create(client, sequence_name, "").await.unwrap();
     let (_, session_uuid) = session_create(client, sequence_name).await.unwrap();
-    let topic_uuid = topic_create(client, &session_uuid, topic_name, None)
+    let topic_uuid = topic_create(client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 

@@ -20,7 +20,7 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
 
     let sequence_name = "test_sequence";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -30,7 +30,7 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
     assert!(session_uuid.is_valid());
 
     let topic_uuid =
-        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", "")
             .await
             .unwrap();
     assert!(topic_uuid.is_valid());
@@ -40,29 +40,24 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         &mut client,
         &topic_uuid, // wrong uuid
         "test_sequence/my_topic",
-        None,
+        "",
     )
     .await
     .unwrap_err();
     assert_eq!(err.code(), tonic::Code::NotFound);
 
     // Creating a topic with same name should trigger an ALreadyExists error.
-    let err = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+    let err = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", "")
         .await
         .unwrap_err();
     assert_eq!(err.code(), tonic::Code::AlreadyExists);
 
     // Create topic with malformed metadata should give an InvalidArgument error.
     assert_eq!(
-        actions::topic_create(
-            &mut client,
-            &session_uuid,
-            "test_sequence/my_topic",
-            Some("{")
-        )
-        .await
-        .unwrap_err()
-        .code(),
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", "{")
+            .await
+            .unwrap_err()
+            .code(),
         tonic::Code::InvalidArgument
     );
 
@@ -72,7 +67,7 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
             &mut client,
             &session_uuid,
             "test_sequence/my_topic",
-            Some(r#"{"invalid--key": "dummy"}"#)
+            r#"{"invalid--key": "dummy"}"#
         )
         .await
         .unwrap_err()
@@ -121,7 +116,7 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         .unwrap();
 
     assert_eq!(
-        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic2", None)
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic2", "")
             .await
             .unwrap_err()
             .code(),
@@ -140,7 +135,7 @@ async fn test_topic_create_invalid_format(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -155,7 +150,7 @@ async fn test_topic_create_invalid_format(pool: sqlx::Pool<db::DatabaseType>) {
     ];
 
     for name in bad_names {
-        let res = actions::topic_create(&mut client, &session_uuid, name, None).await;
+        let res = actions::topic_create(&mut client, &session_uuid, name, "").await;
         assert!(res.is_err(), "topic name {:?} should be rejected", name);
         let code = res.unwrap_err().code();
         assert!(
@@ -185,7 +180,7 @@ async fn test_topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -194,7 +189,7 @@ async fn test_topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -229,7 +224,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     let sequence_name = "test_sequence";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -248,7 +243,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(res.code(), tonic::Code::InvalidArgument);
 
     // Check flight info for a locked topic without data.
-    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(uuid.is_valid());
@@ -320,7 +315,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     // Check flight info for a locked topic with data.
     let topic_name = "test_sequence/my_topic";
 
-    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(uuid.is_valid());
@@ -382,7 +377,7 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -394,7 +389,7 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
         &mut client,
         &session_uuid,
         topic_name,
-        Some(&user_metadata.to_string()),
+        &user_metadata.to_string(),
     )
     .await
     .unwrap();
@@ -458,14 +453,14 @@ async fn test_topic_flight_info_time_window_no_data(pool: sqlx::Pool<db::Databas
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -516,14 +511,14 @@ async fn test_topic_flight_info_time_window_last_chunk(pool: sqlx::Pool<db::Data
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -589,14 +584,14 @@ async fn test_topic_flight_info_time_window_overlaps_two_chunks(
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -657,7 +652,7 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -669,7 +664,7 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
         &mut client,
         &session_uuid,
         topic_name,
-        Some(&user_metadata.to_string()),
+        &user_metadata.to_string(),
     )
     .await
     .unwrap();
@@ -753,13 +748,13 @@ async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence_topic_notification_create";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -872,7 +867,7 @@ async fn test_topic_notification_create_nonexistent(pool: sqlx::Pool<db::Databas
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -898,13 +893,13 @@ async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
@@ -932,7 +927,7 @@ async fn test_topic_delete_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -955,13 +950,13 @@ async fn test_topic_delete_unlocked(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/unlocked_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -982,13 +977,13 @@ async fn setup_topic_with_batches(
     topic_name: &str,
     batches: Vec<arrow::array::RecordBatch>,
 ) {
-    actions::sequence_create(client, sequence_name, None)
+    actions::sequence_create(client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -1009,7 +1004,7 @@ async fn setup_topic_with_batches_in_existing_seq(
     let (_, session_uuid) = actions::session_create(client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 

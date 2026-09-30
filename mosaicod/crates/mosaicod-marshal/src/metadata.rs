@@ -281,6 +281,15 @@ mod tests {
     }
 
     #[test]
+    fn test_user_metadata_bytes_empty_means_none() {
+        // No metadata must serialize to empty bytes.
+        assert_eq!(user_metadata_to_bytes(None).unwrap(), Vec::<u8>::new());
+
+        // Empty bytes on the wire must deserialize back to `None`, not a parse error.
+        assert!(user_metadata_from_bytes(vec![]).unwrap().is_none());
+    }
+
+    #[test]
     fn test_json_metadata_blob_try_from_str_non_object_json() {
         // Valid JSON can also just be a string literal, number, or bare array
         // Since they don't have object keys, they should pass right through

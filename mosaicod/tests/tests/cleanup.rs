@@ -33,7 +33,7 @@ async fn test_cleanup_1(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -78,7 +78,7 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -90,7 +90,7 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
 
     let topic_name = "test_sequence/test_topic";
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -141,7 +141,7 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -153,7 +153,7 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
 
     let topic_name = "test_sequence/test_topic";
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -206,13 +206,13 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence1_name = "test_sequence1";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence1_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence1_name, metadata)
         .await
         .unwrap();
 
     let sequence2_name = "test_sequence2";
 
-    actions::sequence_create(&mut client, sequence2_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence2_name, metadata)
         .await
         .unwrap();
 
@@ -228,13 +228,13 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
 
     let topic1_name = "test_sequence1/test_topic1";
 
-    let topic1_uuid = actions::topic_create(&mut client, &session1_uuid, topic1_name, None)
+    let topic1_uuid = actions::topic_create(&mut client, &session1_uuid, topic1_name, "")
         .await
         .unwrap();
 
     let topic2_name = "test_sequence2/test_topic2";
 
-    let topic2_uuid = actions::topic_create(&mut client, &session2_uuid, topic2_name, None)
+    let topic2_uuid = actions::topic_create(&mut client, &session2_uuid, topic2_name, "")
         .await
         .unwrap();
 
@@ -297,7 +297,7 @@ async fn test_cleanup_5(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence_6";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -342,7 +342,7 @@ async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -358,7 +358,7 @@ async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Re-create a sequence with the same name. It lives in a different folder on the store
     // (path_in_store is generated fresh on creation).
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -408,7 +408,7 @@ async fn test_cleanup_7(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -473,7 +473,7 @@ async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 

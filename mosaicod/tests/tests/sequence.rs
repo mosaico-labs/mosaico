@@ -17,19 +17,19 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
         .await;
 
     // Check that sequences with same name are not allowed.
-    actions::sequence_create(&mut client, "test_sequence", None)
+    actions::sequence_create(&mut client, "test_sequence", "")
         .await
         .unwrap();
 
     assert!(
-        actions::sequence_create(&mut client, "test_sequence", None)
+        actions::sequence_create(&mut client, "test_sequence", "")
             .await
             .is_err()
     );
 
     // Check malformed metadata json.
     assert_eq!(
-        actions::sequence_create(&mut client, "test_malformed_sequence", Some("{"))
+        actions::sequence_create(&mut client, "test_malformed_sequence", "{")
             .await
             .unwrap_err()
             .code(),
@@ -41,7 +41,7 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
         actions::sequence_create(
             &mut client,
             "test_malformed_sequence",
-            Some(r#"{"invalid--key": "dummy"}"#)
+            r#"{"invalid--key": "dummy"}"#
         )
         .await
         .unwrap_err()
@@ -51,6 +51,35 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
 
     server.shutdown().await;
     Ok(())
+}
+
+/// Creating a sequence with empty (zero-byte) `user_metadata` must succeed and behave the same
+/// as not sending `user_metadata` at all: reading the sequence's flight info back must show no
+/// `user_metadata`.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_sequence_create_empty_user_metadata(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+
+    actions::sequence_create(&mut client, sequence_name, "")
+        .await
+        .unwrap();
+
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+
+    let sequence_metadata =
+        marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
+
+    assert!(sequence_metadata.user_metadata.is_none());
+
+    server.shutdown().await;
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
@@ -76,7 +105,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap_err();
     assert_eq!(res.code(), tonic::Code::InvalidArgument);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -115,7 +144,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     let topic_name = "test_sequence/my_topic";
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -218,13 +247,13 @@ async fn test_sequence_flight_info_time_window(pool: sqlx::Pool<db::DatabaseType
     let sequence_name = "test_sequence";
     let topic_name = "test_sequence/my_topic";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -274,7 +303,7 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -289,7 +318,7 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     split.next();
     assert!(split.next().unwrap().parse::<ulid::Ulid>().is_ok());
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -303,14 +332,14 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 2);
 
     actions::sequence_delete(&mut client, sequence_name)
         .await
         .unwrap();
 
     // Make sure that delete command did not actually remove any file from Store.
-    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 2);
 
     let res = actions::sequence_delete(&mut client, sequence_name).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
@@ -327,7 +356,7 @@ async fn test_sequence_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     let sequence_name = "test_sequence_notification_create";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -423,7 +452,7 @@ async fn test_sequence_delete_with_active_session(pool: sqlx::Pool<db::DatabaseT
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -450,13 +479,13 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -511,7 +540,7 @@ async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -548,7 +577,7 @@ async fn test_sequence_notification_invalid_type(pool: sqlx::Pool<db::DatabaseTy
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -572,7 +601,7 @@ async fn test_sequence_notification_purge_empty(pool: sqlx::Pool<db::DatabaseTyp
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -590,7 +619,7 @@ async fn test_sequence_create_empty_name(pool: sqlx::Pool<db::DatabaseType>) {
         .build()
         .await;
 
-    let res = actions::sequence_create(&mut client, "", None).await;
+    let res = actions::sequence_create(&mut client, "", "").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
@@ -623,7 +652,7 @@ async fn test_sequence_create_invalid_chars(pool: sqlx::Pool<db::DatabaseType>) 
     ];
 
     for name in bad_names {
-        let res = actions::sequence_create(&mut client, name, None).await;
+        let res = actions::sequence_create(&mut client, name, "").await;
         assert_eq!(
             res.unwrap_err().code(),
             tonic::Code::InvalidArgument,
@@ -643,7 +672,7 @@ async fn test_sequence_create_very_long_name(pool: sqlx::Pool<db::DatabaseType>)
         .await;
 
     let long_name = "a".repeat(10_000);
-    let res = actions::sequence_create(&mut client, &long_name, None).await;
+    let res = actions::sequence_create(&mut client, &long_name, "").await;
     if let Err(status) = res {
         assert_eq!(
             status.code(),

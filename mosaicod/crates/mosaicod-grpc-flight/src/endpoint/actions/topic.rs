@@ -31,14 +31,19 @@ pub async fn create(
 ) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
-    let user_mdata = marshal::JsonMetadataBlob::try_from_slice(user_metadata)?;
+    // Empty `user_metadata` means no metadata was provided, not malformed JSON.
+    let user_mdata = if user_metadata.is_empty() {
+        None
+    } else {
+        Some(marshal::JsonMetadataBlob::try_from_slice(user_metadata)?)
+    };
 
     let received_session_uuid: types::Uuid = session_uuid
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
     let ontology_metadata =
-        types::TopicOntologyMetadata::new(ontology_tag, serialization_format, Some(user_mdata));
+        types::TopicOntologyMetadata::new(ontology_tag, serialization_format, user_mdata);
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
     let topic_uuid = facade::topic::try_create(

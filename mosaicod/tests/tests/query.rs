@@ -9,7 +9,7 @@ async fn setup_topics_with_metadata(
     sequence_name: &str,
     topics: &[(&str, serde_json::Value)],
 ) {
-    actions::sequence_create(client, sequence_name, None)
+    actions::sequence_create(client, sequence_name, "")
         .await
         .unwrap();
 
@@ -19,14 +19,10 @@ async fn setup_topics_with_metadata(
 
     for (topic_suffix, metadata) in topics {
         let topic_name = format!("{sequence_name}/{topic_suffix}");
-        let topic_uuid = actions::topic_create(
-            client,
-            &session_uuid,
-            &topic_name,
-            Some(&metadata.to_string()),
-        )
-        .await
-        .unwrap();
+        let topic_uuid =
+            actions::topic_create(client, &session_uuid, &topic_name, &metadata.to_string())
+                .await
+                .unwrap();
 
         let batches = vec![mosaicod_ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
         actions::do_put(client, &topic_uuid, &topic_name, batches, false)
