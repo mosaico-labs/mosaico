@@ -42,22 +42,14 @@ message TopicCreate {
   bytes user_metadata = 5;
 }
 
-// Parameters for filtering a single topic by ontology and timestamp range,
-// then clustering matching timestamps by a time-gap threshold. Reused
-// (nested) inside `TopicFilterIntersect.topics`, and directly as the
-// `topic_filter_clusterize` action's own payload.
 message TopicClusterizeParams {
   string locator = 1;
   uint64 clustering_dt_ns = 2;
-  // Column -> filter-expression map with arbitrary user-supplied keys:
-  // no fixed schema, same reasoning as `SequenceCreate.user_metadata` above.
+  // Column -> filter-expression map with arbitrary user-supplied keys: no fixed schema.
   bytes ontology = 3;
   time.TimestampRange timestamp_range = 4;
 }
 
-// Receives multiple topic filters (each with its own clustering configuration)
-// and intersects their clustered timestamp sets, retaining only timestamps
-// that fall within intersect_dt_ns nanoseconds of each other across all topics.
 message TopicFilterIntersect {
   repeated TopicClusterizeParams topics = 1;
   uint64 intersect_dt_ns = 2;
