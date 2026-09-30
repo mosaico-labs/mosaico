@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Dict, Optional, Type
 
 
 class BaseSchemaMetadata:
@@ -13,14 +13,37 @@ class BaseSchemaMetadata:
 
     * The literal ``KEY`` string exists in exactly one place, instead of being duplicated across adapters,
       loaders, and the injector.
-    * Callers build up this namespace incrementally via :meth:`update` without ever touching
+    * Callers build up this namespace incrementally via `update` without ever touching
       the wrapping dict shape by hand.
     """
 
     KEY: ClassVar[str] = ""
     """The reserved metadata key. It should be overridden by each BaseSchemaMetadata specification."""
 
+    REQUIRED_KEYS: ClassVar[Dict[str, Type]] = {}
+    """The keys that need to be present in order to create the schema metadata. Empty by default"""
+
     def __init__(self, **fields: Any):
+
+        # Check that REQUIRED_KEYS are present
+        missing_required_keys = set(self.REQUIRED_KEYS.keys()) - set(fields.keys())
+
+        if missing_required_keys:
+            raise ValueError(
+                "Some among the required keys are missing. "
+                f"Missing keys are: {[k for k in missing_required_keys]}"
+            )
+
+        # Check that existing keys have expected type
+        for key, exp_type in self.REQUIRED_KEYS.items():
+            value = fields[key]
+
+            if not isinstance(value, exp_type):
+                raise TypeError(
+                    f"Required key {key} within metadata but it has unexpected type. "
+                    f"Expected {exp_type.__name__} but got {type(value).__name__}"
+                )
+
         self.fields: dict = dict(fields)
 
     def __init_subclass__(cls, **kwargs):
@@ -72,7 +95,7 @@ class BaseSchemaMetadata:
         Reads the `KEY` block out of a metadata dict or `{}` if absent.
 
         Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `{"_mcap_": {...}}` `None`.
+            metadata (Optional[dict]): A metadata dict, typically `{KEY: {...}}` (e.g. `{"_ros_": {...}}` or `{"_mcap_": {...}}`), or `None`.
 
         Returns:
             dict: The extracted `KEY` block, or an empty dict if not present.
@@ -83,13 +106,18 @@ class BaseSchemaMetadata:
     def from_dict(cls, metadata: Optional[dict]) -> "BaseSchemaMetadata":
         """
         Creates a `BaseSchemaMetadata` from a plain metadata dict, e.g. the return value of
-        `ROSAdapterBase.schema_metadata()`. Any keys outside the `_ros_` namespace are ignored.
+        `ROSAdapterBase.schema_metadata()`. Any keys outside the `KEY` namespace are ignored.
 
         Args:
-            metadata (Optional[dict]): A metadata dict, typically `{"_ros_": {...}}` or `None`.
+            metadata (Optional[dict]): A metadata dict, typically `{KEY: {...}}` or `None`.
 
         Returns:
-            BaseSchemaMetadata: A new instance seeded with the extracted `_ros_` fields
-                (empty if `metadata` is `None` or carries no `_ros_` block).
+            BaseSchemaMetadata: A new instance seeded with the extracted `KEY` fields
+                (empty if `metadata` is `None` or carries no `KEY` block, and `REQUIRED_KEYS`
+                is empty).
+
+        Raises:
+            ValueError: If any of `REQUIRED_KEYS` is missing from the extracted fields.
+            TypeError: If any of `REQUIRED_KEYS` has an unexpected type.
         """
         return cls(**cls.extract(metadata))

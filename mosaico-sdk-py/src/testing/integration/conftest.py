@@ -1,6 +1,10 @@
+from pathlib import Path
+
 import pytest
 
 from mosaicolabs import Message
+from mosaicolabs.bridges.mcap import MCAPInjector
+from mosaicolabs.bridges.mcap.injector import MCAPInjectionConfig
 from mosaicolabs.comm import MosaicoClient
 from testing.integration.helpers import (
     DataStreamItem,
@@ -17,6 +21,8 @@ from testing.integration.helpers import (
 from .config import (
     QUERY_FILTER_SEQUENCES_MOCKUP,
     QUERY_SEQUENCES_MOCKUP,
+    UPLOADED_MCAP_MIXED_SEQUENCE_NAME,
+    UPLOADED_MCAP_PROTOBUF_SEQUENCE_NAME,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
     UPLOADED_SEQUENCE_W_LIST_NAME,
@@ -281,3 +287,66 @@ def inject_mockup_sequences_filter(
 
     # free resources
     _client.close()
+
+
+@pytest.fixture(scope="session")
+def default_mcap_protobuf_injector_config(
+    host, port, api_key_manage, with_tls, tls_cert_path, mcap_protobuf_file
+) -> MCAPInjectionConfig:
+    return MCAPInjectionConfig(
+        file_path=Path(mcap_protobuf_file),
+        sequence_name=UPLOADED_MCAP_PROTOBUF_SEQUENCE_NAME,
+        host=host,
+        port=port,
+        mosaico_api_key=api_key_manage,
+        tls_cert_path=tls_cert_path,
+        enable_tls=with_tls,
+    )
+
+
+@pytest.fixture(scope="session")
+def inject_mockup_sequence_mcap_protobuf(
+    default_mcap_protobuf_injector_config: MCAPInjectionConfig,
+):
+    """Fixture that loads a MCAP file (with protobuf encoding) in the Mosaico server"""
+
+    MCAPInjector(default_mcap_protobuf_injector_config).run()
+
+
+# @pytest.fixture(scope="session")
+# def default_mcap_jsonschema_injector_config(
+#     host, port, api_key_manage, with_tls, tls_cert_path, mcap_jsonschema_file
+# ) -> MCAPInjectionConfig:
+#     return MCAPInjectionConfig(
+#         file_path=Path(mcap_jsonschema_file),
+#         sequence_name=Path(mcap_jsonschema_file).stem,
+#         host=host,
+#         port=port,
+#         mosaico_api_key=api_key_manage,
+#         tls_cert_path=tls_cert_path,
+#         enable_tls=with_tls,
+#     )
+
+
+@pytest.fixture(scope="session")
+def default_mcap_mixed_injector_config(
+    host, port, api_key_manage, with_tls, tls_cert_path, mcap_mixed_file
+) -> MCAPInjectionConfig:
+    return MCAPInjectionConfig(
+        file_path=Path(mcap_mixed_file),
+        sequence_name=UPLOADED_MCAP_MIXED_SEQUENCE_NAME,
+        host=host,
+        port=port,
+        mosaico_api_key=api_key_manage,
+        tls_cert_path=tls_cert_path,
+        enable_tls=with_tls,
+    )
+
+
+@pytest.fixture(scope="session")
+def inject_mockup_sequence_mcap_mixed(
+    default_mcap_mixed_injector_config: MCAPInjectionConfig,
+):
+    """Fixture that loads a MCAP file (with protobuf + jsonschema encoding) in the Mosaico server"""
+
+    MCAPInjector(default_mcap_mixed_injector_config).run()

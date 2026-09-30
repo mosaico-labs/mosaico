@@ -1,6 +1,11 @@
 from mosaicolabs.comm import MosaicoClient
 
-from .config import QUERY_SEQUENCES_MOCKUP, UPLOADED_SEQUENCE_NAME
+from .config import (
+    QUERY_SEQUENCES_MOCKUP,
+    UPLOADED_MCAP_MIXED_SEQUENCE_NAME,
+    UPLOADED_MCAP_PROTOBUF_SEQUENCE_NAME,
+    UPLOADED_SEQUENCE_NAME,
+)
 
 
 def test_list_sequences(
@@ -13,9 +18,12 @@ def test_list_sequences(
     """Test the retrieval of sequences from the Mosaico server."""
 
     # We expect to retrieve all the sequences correctly pushed on server (and only them)
-    expected_sequences_list = list(QUERY_SEQUENCES_MOCKUP.keys()) + [
-        UPLOADED_SEQUENCE_NAME
-    ]
+    expected_sequences_list = (
+        list(QUERY_SEQUENCES_MOCKUP.keys())
+        + [UPLOADED_SEQUENCE_NAME]
+        + [UPLOADED_MCAP_PROTOBUF_SEQUENCE_NAME]
+        + [UPLOADED_MCAP_MIXED_SEQUENCE_NAME]
+    )
     slist = mosaico_client.list_sequences()
 
     assert len(slist) == len(expected_sequences_list)

@@ -207,3 +207,17 @@ def test_convert_protobuf(message_class, msgtype, expected_struct):
     result = ProtobufSchemaConverter.convert_protobuf(fds_bytes, msgtype)
 
     assert result == expected_struct
+
+
+def test_stringify_schema_def_round_trips_to_original_bytes():
+    """`schema.data` for `protobuf` is a binary serialized `FileDescriptorSet`, not valid
+    UTF-8 text, so `stringify_schema_def`/`destringify_schema_def` must round-trip it exactly
+    via base64 rather than a plain text decode (which would raise `UnicodeDecodeError`)."""
+    original_bytes = build_file_descriptor_set(IMU_PROTOBUF_CLS).SerializeToString()
+
+    schema_def_str = ProtobufSchemaConverter.stringify_schema_def(original_bytes)
+
+    assert isinstance(schema_def_str, str)
+    assert (
+        ProtobufSchemaConverter.destringify_schema_def(schema_def_str) == original_bytes
+    )

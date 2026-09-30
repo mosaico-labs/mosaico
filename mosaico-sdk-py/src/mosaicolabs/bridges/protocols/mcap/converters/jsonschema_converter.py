@@ -10,7 +10,7 @@ from ..registry import McapSchemaRegistry
 
 
 @McapSchemaRegistry.register
-class JsonschemaSchemaConverter(McapSchemaConverter):
+class JsonschemaSchemaConverter(McapSchemaConverter[dict]):
     """Converts jsonschema message descriptors into PyArrow types.
 
     Only a subset of JSON Schema is understood: ``object``/``properties`` and
@@ -202,6 +202,23 @@ class JsonschemaSchemaConverter(McapSchemaConverter):
             not isinstance(jsonschema_dict, dict)
             or cls.PROPERTIES_KEY not in jsonschema_dict
         ):
-            return pa.struct()  # FIXME: should this raise or return None?
+            return pa.struct([])  # FIXME: should this raise or return None?
 
         return cls._object_to_struct(jsonschema_dict[cls.PROPERTIES_KEY])
+
+    @classmethod
+    def get_schema_class(cls, schema_name: str, schema_def: bytes) -> Type[dict]:
+        """Returns the Python Object type enveloping the data. For jsonschema encoding
+        this is always the dict object, independently of schema name/definition"""
+        return dict
+
+    @staticmethod
+    def stringify_schema_def(schema_def: bytes) -> str:
+        """`schema_def` is already UTF-8 JSON text, so keep it as plain, human-readable text."""
+        return schema_def.decode("utf-8")
+
+    @staticmethod
+    def destringify_schema_def(schema_def_str: str) -> bytes:
+        """Opposite of stringify_schema_def: encodes the plain JSON text back into the original
+        UTF-8 bytes of `schema.data`."""
+        return schema_def_str.encode("utf-8")

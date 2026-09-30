@@ -1,9 +1,10 @@
+import json
 from abc import abstractmethod
-from typing import Any, ClassVar, Optional, Tuple, Type, TypeVar, Union
+from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
-from mcap.records import Message as MCAPRecordMessage
+from google.protobuf.message import Message as ProtobufMsg
 
-from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message as Message, Serializable
 
 from ..base_schema_metadata import BaseSchemaMetadata
@@ -20,16 +21,25 @@ class MCAPSchemaMetadata(BaseSchemaMetadata):
     ``schema_def``) plus bridge-internal fields (e.g. the source mcap file) under one reserved
     key, so that:
 
-    * The literal string ``"_mcap_"`` exists in exactly one place (:attr:`KEY`), instead of
+    * The literal string ``"_mcap_"`` exists in exactly one place
+      ([`KEY`][mosaicolabs.bridges.mcap.adapter_base.MCAPSchemaMetadata.KEY]), instead of
       being duplicated across adapters, loaders, and the injector.
-    * Callers build up this namespace incrementally via :meth:`update` without ever touching
+    * Callers build up this namespace incrementally via
+      [`update`][mosaicolabs.bridges.base_schema_metadata.BaseSchemaMetadata.update] without ever touching
       the wrapping dict shape by hand.
 
     Example:
         ```python
-        meta = MCAPSchemaMetadata(channel_name="sensor_msgs.Imu").update(source_file="a.mcap")
+        # Every key in REQUIRED_KEYS must be provided, otherwise a ValueError is raised
+        meta = MCAPSchemaMetadata(
+            channel_name="/imu",
+            channel_encoding="protobuf",
+            schema_name="sensor_msgs.Imu",
+            schema_encoding="protobuf",
+            schema_def="<stringified schema definition>",
+        ).update(source_file="a.mcap")
         topic_metadata = meta.merge_into(user_supplied_metadata)
-        # topic_metadata == {..., "_mcap_": {"channel_name": "sensor_msgs.Imu", "source_file": "a.mcap"}}
+        # topic_metadata == {..., "_mcap_": {"channel_name": "/imu", ..., "source_file": "a.mcap"}}
         ```
     """
 
@@ -37,8 +47,49 @@ class MCAPSchemaMetadata(BaseSchemaMetadata):
     """The reserved metadata key. Adapters/loaders/the injector should reference this
     constant rather than the literal string, so the namespace can be renamed in one place."""
 
+    REQUIRED_KEYS: ClassVar[Dict[str, Type]] = {
+        "schema_name": str,
+        "schema_encoding": str,
+        "schema_def": str,
+        "channel_name": str,
+        "channel_encoding": str,
+    }
+    """The keys that need to be present in order to create the MCAPSchemaMetadata."""
 
-T = TypeVar("T", bound=Serializable)
+    def __init__(self, **fields: Any):
+        super().__init__(**fields)
+
+    def get_channel_name(self) -> str:
+        """Returns the channel name contained in the metadata."""
+        return self.fields["channel_name"]
+
+    def get_channel_encoding(self) -> str:
+        """Returns the channel encoding contained in the metadata."""
+        return self.fields["channel_encoding"]
+
+    def get_schema_name(self) -> str:
+        """Returns the schema name contained in the metadata."""
+        return self.fields["schema_name"]
+
+    def get_schema_encoding(self) -> str:
+        """Returns the schema encoding contained in the metadata."""
+        return self.fields["schema_encoding"]
+
+    def get_schema_def(self) -> str:
+        """Returns the schema def contained in the metadata."""
+        return self.fields["schema_def"]
+
+    def get_sequence_id(self) -> Optional[int]:
+        """Returns the sequence id contained in the metadata, or None if not present."""
+        # FIXME: the MCAP `sequence` is a per-message counter, but a single value is stored
+        # per topic (see `MCAPAdapterBase.schema_metadata`). Unused until it is stored per
+        # message.
+        return self.fields.get("sequence_id")
+
+
+OntologyT = TypeVar("OntologyT", bound=Serializable)
+# type of the object handled by to_mcap() that needs to be filled with data in Mosaico Message
+McapT = TypeVar("McapT", Dict, ProtobufMsg)
 
 
 def compute_mcap_msg_type(schema_name: str, schema_encoding: str) -> str:
@@ -57,7 +108,23 @@ def compute_mcap_msg_type(schema_name: str, schema_encoding: str) -> str:
     return f"{schema_name}__{schema_encoding}"
 
 
-class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
+@dataclass(frozen=True)
+class McapReturnType:
+    """
+    Container returned by [`MCAPAdapterBase.to_native`][mosaicolabs.bridges.mcap.adapter_base.MCAPAdapterBase.to_native].
+
+    Attributes:
+        data_bytes: The native MCAP message, serialized according to the adapter's `schema_encoding`.
+        publish_time_ns: The message publish time (nanoseconds) returned by `to_mcap()`, or `None` if not available.
+    """
+
+    data_bytes: bytes
+    publish_time_ns: Optional[int]
+
+
+class MCAPAdapterBase(
+    BridgeAdapterBase[OntologyT, McapReturnType], Generic[OntologyT, McapT]
+):
     """
     Abstract Base Class for converting MCAP messages to Mosaico Ontology types.
 
@@ -73,36 +140,11 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
 
     schema_name: ClassVar[str]
     schema_encoding: ClassVar[str]
-    skip_encoding_check: ClassVar[bool] = False
     _REQUIRED_KEYS: Tuple[str, ...]
 
-    __mosaico_ontology_type__: Type[T]
+    __mosaico_ontology_type__: Type[OntologyT]
 
     # --- API to be compliant with BridgeAdapterBase
-    @classmethod
-    @abstractmethod
-    def from_dict(cls, mcap_data: dict) -> T:
-        """
-        Maps the raw MCAP dictionary to the Mosaico model.
-
-        This method performs field validation and reconstruction.
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def to_native(cls, mosaico_data: Union[Message, T], **kwargs) -> MCAPRecordMessage:
-        """
-        Args:
-            mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable``
-                ontology instance to convert.
-            **kwargs (Any): Extra arguments forwarded to :meth:`to_mcap`.
-
-        Returns:
-            MCAPRecordMessage: The native MCAP message obtained from ``mosaico_data``.
-        """
-        return cls.to_mcap(mosaico_data, **kwargs)
-
     @classmethod
     def translate(cls, msg: MCAPMessage, **kwargs: Any) -> Message:
         """
@@ -123,84 +165,107 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
 
         try:
             return Message(
-                timestamp_ns=msg.publish_time_ns,
-                data=cls.from_dict(msg.data_field),
+                timestamp_ns=msg.log_time_ns,
+                data=cls.from_dict(msg.data_field, msg.publish_time_ns),
             )
         except Exception as e:
             raise Exception(f"Translation failed for {msg.schema_name}: {e}")
 
-    # --- Custom API specific for MCAP adapter
-
-    @classmethod
-    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, Header]:
-        """
-        Extracts the typed Mosaico payload and its ``Header`` (if present) from a wrapped or bare message.
-
-        Handles two input cases:
-
-        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``.
-        - **Raw ontology instance**: returned as-is with
-
-        the ``Header`` is extracted from the ontology (if supported), otherwise an default Header (empty `frame_id` and zero `Time`) is returned.
-
-        Args:
-            mosaico_msg (Union[Message, T]): Either a ``Message`` envelope or a raw instance of
-                ``cls.__mosaico_ontology_type__``.
-
-        Returns:
-            tuple[T, Header]: A ``(data, header)`` tuple where *data* is the typed ontology object and
-            *header* is the corresponding ``Header``, or a default ``Header`` (empty ``frame_id`` and
-            zero ``Time``) if not present.
-
-        Raises:
-            TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
-                the expected ontology type.
-        """
-        if isinstance(mosaico_msg, Message):
-            data: Optional[T] = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
-            if data is None:
-                raise TypeError(
-                    f"Adapter {cls.__name__} cannot handle {mosaico_msg.ontology_tag()} Mosaico type"
-                )
-
-        elif isinstance(mosaico_msg, cls.__mosaico_ontology_type__):
-            data = mosaico_msg
-
-        else:
-            raise TypeError(
-                f"Mosaico data passed to {cls.__name__} Adapter has type {type(mosaico_msg)} and it is neither a Message nor a {cls.__mosaico_ontology_type__.ontology_tag()}"
-            )
-
-        header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
-
-        tmp = getattr(data, "header", None)
-
-        if tmp:
-            if isinstance(tmp, Header):
-                header.frame_id = tmp.frame_id
-                header.timestamp = tmp.timestamp
-
-            else:
-                raise TypeError(
-                    f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
-                )
-
-        return data, header
-
     @classmethod
     @abstractmethod
-    def to_mcap(
-        cls,
-        mosaico_data: Union[Message, T],
-    ) -> MCAPRecordMessage:
+    def from_dict(cls, mcap_data: dict, publish_time_ns: int) -> OntologyT:
         """
-        Converts a Mosaico message or ontology object back into a native MCAP message.
+        Maps the raw MCAP dictionary to the Mosaico model.
+
+        This method performs field validation and reconstruction.
 
         Args:
-            mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
+            mcap_data (dict): The decoded MCAP message payload.
+            publish_time_ns (int): The message publish time (nanoseconds).
 
         Returns:
-            MCAPRecordMessage: The constructed ROS message instance, or raises an error if:
+            OntologyT: The constructed ontology instance.
+
+        Raises:
+            NotImplementedError: If the adapter does not override this method.
+        """
+        raise NotImplementedError(
+            f"{cls.__name__} does not implement from_dict(). Unable to encode the MCAP message to Mosaico Message with {cls.schema_encoding} schema encoding"
+        )
+
+    @classmethod
+    def to_native(
+        cls, mosaico_data: Union[Message, OntologyT], **kwargs
+    ) -> McapReturnType:
+        """
+        Converts a Mosaico message or ontology object into a serialized native MCAP message.
+
+        Args:
+            mosaico_data (Union[Message, OntologyT]): A `Message` wrapper or a raw `Serializable`
+                ontology instance to convert.
+            **kwargs (Any): Extra arguments forwarded to
+                [`to_mcap`][mosaicolabs.bridges.mcap.adapter_base.MCAPAdapterBase.to_mcap].
+
+        Returns:
+            McapReturnType: The native MCAP message serialized according to `schema_encoding`
+                (protobuf wire bytes or UTF-8 JSON), plus the publish time returned by `to_mcap()`.
+
+        Raises:
+            TypeError: If `to_mcap()` returns a type not matching `schema_encoding`.
+            NotImplementedError: If `schema_encoding` is neither `"protobuf"` nor `"jsonschema"`,
+                or if the adapter does not implement `to_mcap()`.
+        """
+
+        data, _ = cls.unpack_mosaico_msg(mosaico_data)
+
+        result, publish_time_ns = cls.to_mcap(data, **kwargs)
+
+        # FIXME: required to change this if/else and find a suitable location for this procedure
+        # You need to turn to_mcap() output into `bytes`. This depends on the current encoding
+        if cls.schema_encoding == "protobuf":
+            if not isinstance(result, ProtobufMsg):
+                raise TypeError(
+                    f"Type mismatch in {cls.__name__} adapter. \
+                      Adapter supports `{cls.schema_encoding}` encoding expecting `{ProtobufMsg.__name__}` type \
+                      from `to_mcap()`. However it returned `{type(result).__name__}` type"
+                )
+
+            bytes_result: bytes = result.SerializeToString()
+
+        elif cls.schema_encoding == "jsonschema":
+            if not isinstance(result, Dict):
+                raise TypeError(
+                    f"Type mismatch in {cls.__name__} adapter. \
+                      Adapter supports `{cls.schema_encoding}` encoding expecting `{Dict.__name__}` type \
+                      from `to_mcap()`. However it returned `{type(result).__name__}` type"
+                )
+
+            bytes_result = json.dumps(result).encode("utf-8")
+
+        else:
+            raise NotImplementedError(
+                f"Adapter with {cls.schema_encoding} encoding does not support `to_native()` yet."
+            )
+
+        return McapReturnType(bytes_result, publish_time_ns)
+
+    # --- Custom API specific for MCAP adapter
+    @classmethod
+    @abstractmethod
+    def to_mcap(cls, mosaico_data: OntologyT) -> Tuple[McapT, Optional[int]]:
+        """
+        Converts a Mosaico ontology object back into a native MCAP message.
+
+        Args:
+            mosaico_data (OntologyT): The ontology instance to convert.
+
+        Returns:
+            Tuple[McapT, Optional[int]]: The native MCAP message (a protobuf `Message` or a plain
+                `Dict`, depending on `schema_encoding`) and its publish time (nanoseconds), or
+                `None` if not available.
+
+        Raises:
+            NotImplementedError: If the adapter does not override this method.
         """
         raise NotImplementedError(
             f"{cls.__name__} does not implement to_mcap(). Unable to encode the Mosaico Message to MCAP with {cls.schema_encoding} schema encoding"
@@ -215,13 +280,13 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
         handled by this adapter.
 
         Args:
-            schema_name_to_validate (str): The full MCAP schema name string to check
-                                        (e.g., ``"Foxglove.Imu``).
             encoding_to_validate (str): The full MCAP encoding string to check
-                (e.g., ``"protobuf``).
+                (e.g., `"protobuf"`).
+            schema_name_to_validate (str): The full MCAP schema name string to check
+                (e.g., `"foxglove.Imu"`).
 
         Returns:
-            bool: `True` if the adapter supports this type, ``False`` otherwise.
+            bool: `True` if the adapter supports this type, `False` otherwise.
         """
 
         return (
@@ -230,21 +295,39 @@ class MCAPAdapterBase(BridgeAdapterBase[T, MCAPRecordMessage]):
         )
 
     @classmethod
-    def schema_metadata(cls) -> Optional[dict]:
+    def schema_metadata(
+        cls, channel_name: str, channel_encoding: str, schema_def: str, sequence_id: int
+    ) -> Optional[dict]:
         """
-        Extract the MCAP message specific schema metadata, if any.
+        Builds the MCAP-specific schema metadata for this adapter.
+
+        Args:
+            channel_name (str): The full name of the MCAP channel the adapter is associated to.
+            channel_encoding (str): The encoding of the MCAP channel the adapter is associated to.
+            schema_def (str): The string representation of the MCAP schema the adapter is
+                associated to, as produced by the resolved `McapSchemaConverter.stringify_schema_def()`.
+            sequence_id (int): Message counter assigned by publisher. Set to 0 if not available.
 
         Returns:
-            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+            Optional[dict]: The schema metadata, wrapped under the
+                [`MCAPSchemaMetadata.KEY`][mosaicolabs.bridges.mcap.adapter_base.MCAPSchemaMetadata.KEY] namespace.
 
         """
         mcap_meta = MCAPSchemaMetadata(
-            schema_name=cls.schema_name, schema_encoding=cls.schema_encoding
+            schema_name=cls.schema_name,
+            schema_encoding=cls.schema_encoding,
+            schema_def=schema_def,
+            channel_name=channel_name,
+            channel_encoding=channel_encoding,
+            # FIXME: the MCAP `sequence` is a per-message counter, but this metadata is built
+            # once per topic, so only the first message's value is kept. Store it per message
+            # instead (e.g. like `publish_time_ns`).
+            sequence_id=sequence_id,
         )
 
         return mcap_meta.to_dict()
 
     @classmethod
-    def ontology_data_type(cls) -> Type[T]:
+    def ontology_data_type(cls) -> Type[OntologyT]:
         """Returns the Ontology class type associated with this adapter."""
         return cls.__mosaico_ontology_type__
