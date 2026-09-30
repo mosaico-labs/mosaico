@@ -89,10 +89,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
     assert!(sequence_metadata.sessions.is_empty());
-    assert_eq!(
-        sequence_metadata.resource_locator.to_string(),
-        sequence_name
-    );
+    assert_eq!(sequence_metadata.locator.to_string(), sequence_name);
     assert_ne!(sequence_metadata.created_at.as_i64(), 0);
 
     let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -108,10 +105,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_metadata =
         marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
-    assert_eq!(
-        sequence_metadata.resource_locator.to_string(),
-        sequence_name
-    );
+    assert_eq!(sequence_metadata.locator.to_string(), sequence_name);
     assert_ne!(sequence_metadata.created_at.as_i64(), 0);
     assert_eq!(sequence_metadata.sessions.len(), 1);
     assert_eq!(sequence_metadata.sessions[0].locator, session_locator);
@@ -150,10 +144,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_metadata =
         marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
-    assert_eq!(
-        sequence_metadata.resource_locator.to_string(),
-        sequence_name
-    );
+    assert_eq!(sequence_metadata.locator.to_string(), sequence_name);
     assert_ne!(sequence_metadata.created_at.as_i64(), 0);
     assert_eq!(sequence_metadata.sessions.len(), 1);
     assert_eq!(sequence_metadata.sessions[0].locator, session_locator);
@@ -175,10 +166,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_metadata =
         marshal::flight::sequence_metadata_from_bytes(&info.app_metadata).unwrap();
 
-    assert_eq!(
-        sequence_metadata.resource_locator.to_string(),
-        sequence_name
-    );
+    assert_eq!(sequence_metadata.locator.to_string(), sequence_name);
     assert_ne!(sequence_metadata.created_at.as_i64(), 0);
     assert_eq!(sequence_metadata.sessions.len(), 1);
     let sm = &sequence_metadata.sessions[0];
@@ -203,7 +191,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         0
     );
     assert_eq!(
-        ep_metadata.metadata.properties.resource_locator.to_string(),
+        ep_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
 

@@ -239,21 +239,21 @@ pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
     pub session_locator: types::SessionLocator,
-    pub resource_locator: TopicLocator,
+    pub locator: TopicLocator,
 }
 
 impl TopicMetadataProperties {
-    pub fn new(resource_locator: TopicLocator, session_locator: types::SessionLocator) -> Self {
-        Self::new_with_created_at(resource_locator, session_locator, types::Timestamp::now())
+    pub fn new(locator: TopicLocator, session_locator: types::SessionLocator) -> Self {
+        Self::new_with_created_at(locator, session_locator, types::Timestamp::now())
     }
 
     pub fn new_with_created_at(
-        resource_locator: TopicLocator,
+        locator: TopicLocator,
         session_locator: types::SessionLocator,
         created_at: types::Timestamp,
     ) -> Self {
         Self {
-            resource_locator,
+            locator,
             created_at,
             completed_at: None,
             session_locator,
@@ -517,7 +517,7 @@ impl std::fmt::Display for SequencePathInStore {
 pub struct SequenceMetadata<M> {
     /// Timestamp of the sequence creation
     pub created_at: super::Timestamp,
-    pub resource_locator: SequenceLocator,
+    pub locator: SequenceLocator,
     pub sessions: Vec<SessionMetadata>,
     pub user_metadata: Option<M>,
 }

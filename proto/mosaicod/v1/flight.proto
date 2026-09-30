@@ -48,7 +48,7 @@ message SessionAppMetadata {
 
 message SequenceAppMetadata {
   int64 created_at_ns = 1;
-  string resource_locator = 2;
+  string locator = 2;
   repeated SessionAppMetadata sessions = 3;
   // Arbitrary user-supplied JSON metadata, as raw UTF-8 text.
   // Empty bytes means no metadata was set.

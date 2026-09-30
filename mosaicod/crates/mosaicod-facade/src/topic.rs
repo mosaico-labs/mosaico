@@ -45,7 +45,7 @@ pub(super) mod internal {
                 created_at: topic_record.creation_timestamp(),
                 completed_at: topic_record.completion_timestamp(),
                 session_locator,
-                resource_locator: topic_record.locator(),
+                locator: topic_record.locator(),
             },
             ontology_metadata: TopicOntologyMetadata {
                 serialization_format: topic_record

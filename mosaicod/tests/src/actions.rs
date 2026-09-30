@@ -213,7 +213,7 @@ pub async fn do_put(
     let input_stream = futures::stream::iter(batches.into_iter().map(Ok));
 
     let cmd = mosaicod_proto::v1::flight::DoPutCmd {
-        resource_locator: topic_name.to_owned(),
+        locator: topic_name.to_owned(),
         topic_uuid: topic_uuid.to_string(),
     }
     .encode_to_vec();
@@ -304,7 +304,7 @@ pub async fn get_flight_info(
     interval: Option<types::TimestampRange>,
 ) -> Result<FlightInfo, tonic::Status> {
     let cmd = mosaicod_proto::v1::flight::GetFlightInfoCmd {
-        resource_locator: topic_name.to_owned(),
+        locator: topic_name.to_owned(),
         timestamp_ns_start: interval.map(|range| range.start.as_i64()),
         timestamp_ns_end: interval.map(|range| range.end.as_i64()),
     }
@@ -325,7 +325,7 @@ pub async fn get_schema(
     topic_name: &str,
 ) -> Result<arrow::datatypes::Schema, tonic::Status> {
     let cmd = mosaicod_proto::v1::flight::GetSchemaCmd {
-        resource_locator: topic_name.to_owned(),
+        locator: topic_name.to_owned(),
     }
     .encode_to_vec();
 

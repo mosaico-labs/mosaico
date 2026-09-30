@@ -26,7 +26,7 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
     }
 
     Ok(types::flight::GetFlightInfoCmd {
-        resource_locator: cmd.resource_locator,
+        locator: cmd.locator,
         timestamp_range: ts_range,
     })
 }
@@ -41,7 +41,7 @@ pub fn get_schema_cmd(v: &[u8]) -> Result<types::flight::GetSchemaCmd, super::Er
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
 
     Ok(types::flight::GetSchemaCmd {
-        resource_locator: cmd.resource_locator,
+        locator: cmd.locator,
     })
 }
 
@@ -54,7 +54,7 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
 
     Ok(types::flight::DoPutCmd {
-        resource_locator: cmd.resource_locator,
+        locator: cmd.locator,
         key: cmd.topic_uuid,
     })
 }
@@ -68,7 +68,7 @@ pub fn sequence_metadata_to_bytes(
 ) -> Result<Vec<u8>, Error> {
     Ok(proto_flight::SequenceAppMetadata {
         created_at_ns: value.created_at.as_i64(),
-        resource_locator: value.resource_locator.to_string(),
+        locator: value.locator.to_string(),
         sessions: value
             .sessions
             .into_iter()
@@ -88,10 +88,10 @@ pub fn sequence_metadata_from_bytes(
 
     let res = types::SequenceMetadata {
         created_at: value.created_at_ns.into(),
-        resource_locator: value
-            .resource_locator
+        locator: value
+            .locator
             .parse()
-            .map_err(|_| Error::DeserializationError(value.resource_locator))?,
+            .map_err(|_| Error::DeserializationError(value.locator))?,
         sessions: value
             .sessions
             .into_iter()
@@ -200,7 +200,7 @@ pub fn topic_info_to_bytes(value: types::TopicInfo<JsonMetadataBlob>) -> Result<
         created_at_ns: properties.created_at.as_i64(),
         completed_at_ns: properties.completed_at.map(Into::into),
         locked: properties.completed_at.is_some(),
-        resource_locator: properties.resource_locator.to_string(),
+        locator: properties.locator.to_string(),
         ontology_tag: ontology_metadata.ontology_tag,
         serialization_format: super::format_to_proto(ontology_metadata.serialization_format) as i32,
         user_metadata: metadata::user_metadata_to_bytes(ontology_metadata.user_metadata)
@@ -227,10 +227,10 @@ pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetada
                 .session_locator
                 .parse()
                 .map_err(|_| Error::DeserializationError(value.session_locator))?,
-            resource_locator: value
-                .resource_locator
+            locator: value
+                .locator
                 .parse()
-                .map_err(|_| Error::DeserializationError(value.resource_locator))?,
+                .map_err(|_| Error::DeserializationError(value.locator))?,
         },
         ontology_metadata: types::TopicOntologyMetadata {
             serialization_format: super::format_from_proto(format),
@@ -257,7 +257,7 @@ pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetada
 
 pub fn ticket_topic_to_bytes(tt: types::flight::TicketTopic) -> Vec<u8> {
     proto_flight::TicketTopic {
-        resource_locator: tt.locator.to_string(),
+        locator: tt.locator.to_string(),
         timestamp_ns_start: tt.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
         timestamp_ns_end: tt.timestamp_range.map(|tsr| tsr.end.into()),
     }
@@ -280,9 +280,9 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
 
     Ok(types::flight::TicketTopic {
         locator: cmd
-            .resource_locator
+            .locator
             .parse::<types::TopicLocator>()
-            .map_err(|_| Error::DeserializationError(cmd.resource_locator))?,
+            .map_err(|_| Error::DeserializationError(cmd.locator))?,
         timestamp_range,
     })
 }
@@ -299,14 +299,14 @@ mod tests {
     #[test]
     fn get_flight_info_cmd_to_types_full() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
-            resource_locator: "test_sequence/topic/a".to_owned(),
+            locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: Some(100000),
             timestamp_ns_end: Some(110000),
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic/a");
         assert_eq!(
             dest.timestamp_range.as_ref().unwrap().start.as_i64(),
             100000
@@ -318,14 +318,14 @@ mod tests {
     #[test]
     fn get_flight_info_cmd_to_types_lb() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
-            resource_locator: "test_sequence/topic/a".to_owned(),
+            locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: Some(100000),
             timestamp_ns_end: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic/a");
         assert_eq!(
             dest.timestamp_range.as_ref().unwrap().start.as_i64(),
             100000
@@ -337,14 +337,14 @@ mod tests {
     #[test]
     fn get_flight_info_cmd_to_types_ub() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
-            resource_locator: "test_sequence/topic/a".to_owned(),
+            locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: None,
             timestamp_ns_end: Some(110000),
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic/a");
         assert!(dest.timestamp_range.as_ref().unwrap().start.is_unbounded());
         assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), 110000);
     }
@@ -353,14 +353,14 @@ mod tests {
     #[test]
     fn get_flight_info_cmd_to_types_no_bounds() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
-            resource_locator: "test_sequence/topic/a".to_owned(),
+            locator: "test_sequence/topic/a".to_owned(),
             timestamp_ns_start: None,
             timestamp_ns_end: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic/a");
         assert!(dest.timestamp_range.is_none());
     }
 
@@ -368,11 +368,11 @@ mod tests {
     #[test]
     fn get_schema_cmd_to_types() {
         let cmd = super::proto_flight::GetSchemaCmd {
-            resource_locator: "test_sequence/topic/a".to_owned(),
+            locator: "test_sequence/topic/a".to_owned(),
         };
 
         let dest = super::get_schema_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.resource_locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic/a");
     }
 }

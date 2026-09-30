@@ -48,7 +48,7 @@ pub(super) mod internal {
 
         let mut sequence_metadata = SequenceMetadata {
             created_at: sequence_record.creation_timestamp(),
-            resource_locator: sequence_record.locator(),
+            locator: sequence_record.locator(),
             sessions: vec![],
             user_metadata: sequence_record.user_metadata(),
         };
@@ -297,7 +297,7 @@ mod tests {
         assert!(metadata.created_at.as_i64() > 0);
         assert!(metadata.user_metadata.is_some());
         assert!(metadata.sessions.is_empty());
-        assert_eq!(metadata.resource_locator, seq_locator);
+        assert_eq!(metadata.locator, seq_locator);
 
         // Root path in store must be a valid ULID (excluded the sq_ prefix)
         assert!(

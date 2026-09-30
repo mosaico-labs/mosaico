@@ -36,7 +36,7 @@ async fn do_get_flight_info(
     desc: FlightDescriptor,
     cmd: types::flight::GetFlightInfoCmd,
 ) -> grpc_common::Result<FlightInfo> {
-    let resource_name = &cmd.resource_locator;
+    let resource_name = &cmd.locator;
 
     info!("requesting info for resource {}", resource_name);
 
@@ -121,7 +121,7 @@ async fn build_topic_endpoint(
     topic_info: facade::topic::TopicInfo,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<FlightEndpoint> {
-    let topic_locator = topic_info.metadata.properties.resource_locator.clone();
+    let topic_locator = topic_info.metadata.properties.locator.clone();
 
     let ticket = types::flight::TicketTopic {
         locator: topic_locator.clone(),

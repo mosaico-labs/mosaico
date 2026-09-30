@@ -248,11 +248,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert!(app_metadata.metadata.properties.completed_at.is_none());
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
     assert_eq!(app_metadata.data_info.total_chunks, 0);
@@ -294,11 +290,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         0
     );
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
 
@@ -347,11 +339,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         0
     );
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
 
@@ -405,11 +393,7 @@ async fn test_topic_flight_info_app_metadata_before_data(pool: sqlx::Pool<db::Da
 
     assert!(app_metadata.metadata.properties.completed_at.is_none());
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
     assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);
@@ -483,11 +467,7 @@ async fn test_topic_flight_info_time_window_no_data(pool: sqlx::Pool<db::Databas
 
     assert!(app_metadata.metadata.properties.completed_at.is_none());
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
 
@@ -701,11 +681,7 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
 
     assert!(app_metadata.metadata.properties.completed_at.is_some());
     assert_eq!(
-        app_metadata
-            .metadata
-            .properties
-            .resource_locator
-            .to_string(),
+        app_metadata.metadata.properties.locator.to_string(),
         topic_name.to_string()
     );
     assert_ne!(app_metadata.metadata.properties.created_at.as_i64(), 0);

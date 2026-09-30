@@ -88,7 +88,9 @@ pub struct JsonTopicProperties {
     pub created_at: i64,
     pub completed_at: Option<i64>,
     pub session_locator: String,
-    pub resource_locator: String,
+    // Accept the pre-rename key so existing metadata files still load.
+    #[serde(alias = "resource_locator")]
+    pub locator: String,
 }
 
 impl From<types::TopicMetadataProperties> for JsonTopicProperties {
@@ -97,7 +99,7 @@ impl From<types::TopicMetadataProperties> for JsonTopicProperties {
             created_at: value.created_at.as_i64(),
             completed_at: value.completed_at.map(Into::into),
             session_locator: value.session_locator.to_string(),
-            resource_locator: value.resource_locator.to_string(),
+            locator: value.locator.to_string(),
         }
     }
 }
