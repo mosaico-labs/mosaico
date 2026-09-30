@@ -30,7 +30,7 @@ def main():
 
     for sequence in SEQUENCE_NAMES:
         configs = ROSExtractorConfig(
-            rosbag_path=BAG_FILE_PATH,
+            saving_path=BAG_FILE_PATH,
             sequence_name=sequence,
             host=MOSAICO_HOST,
             port=MOSAICO_PORT,

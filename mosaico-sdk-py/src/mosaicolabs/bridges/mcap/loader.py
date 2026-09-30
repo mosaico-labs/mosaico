@@ -36,19 +36,23 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
     A single mcap file can (in principle) mix channels encoded as `protobuf`, `json`, or other
     encodings, each requiring a different decoding path (e.g. protobuf needs a populated
     `DescriptorPool` and `MessageToDict`, while json only needs `json.loads`). This
-    encoding-specific behavior is delegated to `MCAPMsgDecoderBase` instances, looked up by
-    `channel.topic` via `DecoderRegistry.get_decoder()`; `MCAPLoader` itself
-    implements everything that is encoding-agnostic (channel resolution/filtering, adapter
-    resolution, message counting, duration, resource lifecycle, and the single streaming loop
-    that dispatches each message to its decoder). Support for a new encoding is added entirely
-    within `decoders.py` (a new `MCAPMsgDecoderBase` subclass decorated with `@register_decoder`),
-    with no changes needed here.
+    encoding-specific behavior is delegated to `MCAPMsgDecoderBase` instances: the class for a
+    given encoding is looked up via `DecoderRegistry.get_decoder(channel.message_encoding)`,
+    and the resulting instance is then cached per `channel.topic` (see `_get_decoder`), so
+    each channel keeps its own stateful decoder (e.g. `MCAPProtobufMsgDecoder`'s
+    `DescriptorPool` and field rules) from `_resolve_channels()` to `__iter__()`.
+    `MCAPLoader` itself implements everything that is encoding-agnostic
+    (channel resolution/filtering, adapter resolution, message counting, duration, resource
+    lifecycle, and the single streaming loop that dispatches each message to its decoder).
+    Support for a new encoding is added entirely within the `decoders/` package (a new
+    `MCAPMsgDecoderBase` subclass decorated with `@register_decoder`, following the existing
+    `decoders/protobuf/` and `decoders/jsonschema/` subpackages), with no changes needed here.
 
     ### Key Features
     * **Multi-Format Support**: Automatically detects and handles different encoded messages (protobuf, json, ...).
     * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
         with `!`-prefixed patterns for exclusion (e.g., `!sensors.debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
-    * **Configurable Serialization**: Non-adapted message types can be assigned a specific
+    * **Configurable Serialization**: Non-adapted channels can be assigned a specific
         [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat] via `serialization_formats`,
         overriding the `SerializationFormat.Default` used otherwise.
     * **Memory Efficient**: Implements a generator-based iteration pattern to process large MCAPs without loading them into RAM.
@@ -72,7 +76,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             with MCAPLoader(
                 file_path="mission_01.mcap",
                 channels=["/imu*", "/gps/fix"],
-                # Non-adapted (Unmodeled) messages of this type will be
+                # Non-adapted (Unmodeled) messages of this channel will be
                 # serialized as Ragged instead of the Default format
                 serialization_formats={
                     "/sensors/custom_point_cloud": SerializationFormat.Ragged,
@@ -87,11 +91,11 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
             file_path (Union[str, Path]): Path to the mcap file or directory.
             channels (Optional[Union[str, List[str]]]): A single channel name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
                 If None, all available topics are loaded.
-            serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps a MCAP message channel name
-                (e.g. `sensor_msgs.CustomPointCloud2`) to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
+            serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps an original MCAP channel name
+                (e.g. `sensor_msgs.CustomPointCloud2`, as found in the mcap file) to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
                 used when synthesizing an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
-                ontology for that type. Only applies to topics that have **no** hand-written Mosaico
-                adapter. Message types not present in this mapping default to `SerializationFormat.Default`.
+                ontology for that channel. Only applies to channels that have **no** hand-written Mosaico
+                adapter. Channels not present in this mapping default to `SerializationFormat.Default`.
         """
 
         super().__init__(
@@ -196,7 +200,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"Skipping channel {channel.topic}: not matching the provided filter."
                 )
 
-                self._filtered_topics.update({channel.topic: channel})
+                self._reject(channel.topic, TopicStatus.FILTERED)
                 continue
 
             # 2) Reject channels that do not hold schema information
@@ -207,7 +211,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"{channel.topic} channel with {channel.schema_id} schema_id cannot be found among all schema ids. "
                     f"Available schema ids are {[id for id in mcap_summary.schemas.keys()]}"
                 )
-                self._unavailable_schema_topics.update({channel.topic: channel})
+                self._reject(channel.topic, TopicStatus.UNAVAILABLE_SCHEMA)
                 continue
 
             # 3) Filter topics whose message encoding has no registered decoder.
@@ -220,7 +224,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                     f"Channel {channel.topic}: message encoding '{channel.message_encoding}' has no "
                     f"registered decoder on {type(self).__name__}. Supported: {supported}"
                 )
-                self._unavailable_decoder_topics.update({channel.topic: channel})
+                self._reject(channel.topic, TopicStatus.UNRESOLVED_DECODER)
                 continue
             decoder.register_schema(schema)
 
@@ -231,7 +235,7 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
                 logger.warning(
                     f"Channel {channel.topic}: unresolved Adapted for mcap type {(schema.name, schema.encoding)}. Did you forget to register it?"
                 )
-                self._unresolved_adapter_topics.update({channel.topic: channel})
+                self._reject(channel.topic, TopicStatus.UNRESOLVED_ADAPTER)
                 continue
 
             # Adapter found, add it the the cache and add to accepted topics
@@ -429,27 +433,6 @@ class MCAPLoader(BaseLoader[MCAPAdapterBase]):
         )
 
         return adapter
-
-    def _extra_rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
-        """Reports channels rejected by the `_resolve_channels()` decoder gate (their
-        `channel.message_encoding` has no registered `MCAPMsgDecoderBase`), on top of the
-        FILTERED/UNRESOLVED_ADAPTER buckets `BaseLoader.rejected_topics` already covers."""
-
-        # Channels with unavailable schema
-        rejected: List[Tuple[str, TopicStatus]] = [
-            (topic, TopicStatus.UNAVAILABLE_SCHEMA)
-            for topic in self._unavailable_schema_topics.keys()
-        ]
-
-        # Channels with unresolved decoder
-        rejected.extend(
-            [
-                (topic, TopicStatus.UNRESOLVED_DECODER)
-                for topic in self._unavailable_decoder_topics.keys()
-            ]
-        )
-
-        return rejected
 
     def _ensure_resolved(self) -> None:
         """Lazily opens the mcap file and resolves topics (see `_resolve_channels`)."""
