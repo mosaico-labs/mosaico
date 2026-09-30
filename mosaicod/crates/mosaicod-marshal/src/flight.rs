@@ -202,7 +202,7 @@ pub fn topic_info_to_bytes(value: types::TopicInfo<JsonMetadataBlob>) -> Result<
         locked: properties.completed_at.is_some(),
         locator: properties.locator.to_string(),
         ontology_tag: ontology_metadata.ontology_tag,
-        serialization_format: super::format_to_proto(ontology_metadata.serialization_format) as i32,
+        serialization_format: super::format_to_i32(ontology_metadata.serialization_format),
         user_metadata: metadata::user_metadata_to_bytes(ontology_metadata.user_metadata)
             .map_err(|e| Error::SerializationError(e.to_string()))?,
         data_info: Some(data_info_to_proto(value.data_info)),
@@ -215,9 +215,6 @@ pub fn topic_info_to_bytes(value: types::TopicInfo<JsonMetadataBlob>) -> Result<
 pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetadataBlob>, Error> {
     let value = proto_flight::TopicAppMetadata::decode(value)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
-
-    let format =
-        super::Format::try_from(value.serialization_format).unwrap_or(super::Format::Default);
 
     let metadata = types::TopicMetadata {
         properties: types::TopicMetadataProperties {
@@ -233,7 +230,7 @@ pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetada
                 .map_err(|_| Error::DeserializationError(value.locator))?,
         },
         ontology_metadata: types::TopicOntologyMetadata {
-            serialization_format: super::format_from_proto(format),
+            serialization_format: super::format::try_format_from_i32(value.serialization_format)?,
             ontology_tag: value.ontology_tag,
             user_metadata: metadata::user_metadata_from_bytes(value.user_metadata)
                 .map_err(|e| Error::DeserializationError(e.to_string()))?,

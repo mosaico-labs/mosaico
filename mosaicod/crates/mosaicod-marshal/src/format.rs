@@ -10,7 +10,11 @@ pub(crate) fn format_to_proto(value: types::Format) -> Format {
     }
 }
 
-pub(crate) fn format_from_proto(value: Format) -> types::Format {
+pub fn format_to_i32(value: types::Format) -> i32 {
+    format_to_proto(value) as i32
+}
+
+fn format_from_proto(value: Format) -> types::Format {
     match value {
         Format::Default => types::Format::Default,
         Format::Ragged => types::Format::Ragged,
