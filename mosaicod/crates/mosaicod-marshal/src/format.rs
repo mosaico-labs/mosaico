@@ -14,16 +14,21 @@ pub fn format_to_i32(value: types::Format) -> i32 {
     format_to_proto(value) as i32
 }
 
-fn format_from_proto(value: Format) -> types::Format {
-    match value {
+fn try_format_from_proto(value: Format) -> Result<types::Format, Error> {
+    Ok(match value {
+        Format::Unspecified => {
+            return Err(Error::DeserializationError(
+                "unknown serialization format".to_owned(),
+            ));
+        }
         Format::Default => types::Format::Default,
         Format::Ragged => types::Format::Ragged,
         Format::Image => types::Format::Image,
-    }
+    })
 }
 
 pub fn try_format_from_i32(value: i32) -> Result<types::Format, Error> {
     Format::try_from(value)
-        .map(format_from_proto)
         .map_err(|_| Error::DeserializationError(format!("unknown serialization format: {value}")))
+        .map(try_format_from_proto)?
 }

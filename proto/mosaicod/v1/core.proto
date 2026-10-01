@@ -5,7 +5,8 @@ package mosaicod.v1.core;
 // Shared core enums/messages
 
 enum Format {
-  DEFAULT = 0;
-  RAGGED = 1;
-  IMAGE = 2;
+  FORMAT_UNSPECIFIED = 0;
+  FORMAT_DEFAULT = 1;
+  FORMAT_RAGGED = 2;
+  FORMAT_IMAGE = 3;
 }
