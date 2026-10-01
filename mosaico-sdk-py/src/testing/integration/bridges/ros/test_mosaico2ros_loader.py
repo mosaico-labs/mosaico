@@ -1,4 +1,5 @@
 import pyarrow as pa
+import pytest
 from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs import (
@@ -497,7 +498,7 @@ def test_time_window_includes_last_message(
 
         # Always delete the sequence, not to interfere with the other tests
         try:
-            with MosaicoLoader(
+            with MosaicoToROSLoader(
                 mosaico_client,
                 get_typestore(Stores.ROS2_JAZZY),
                 ros_sequence_name,
