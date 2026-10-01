@@ -322,7 +322,7 @@ class MCAPAdapterBase(
             # FIXME: the MCAP `sequence` is a per-message counter, but this metadata is built
             # once per topic, so only the first message's value is kept. Store it per message
             # instead (e.g. like `publish_time_ns`).
-            sequence_id=sequence_id,
+            # sequence_id=sequence_id,
         )
 
         return mcap_meta.to_dict()
