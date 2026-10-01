@@ -1076,8 +1076,8 @@ async fn test_topic_filter_clusterize_three_clusters(pool: sqlx::Pool<db::Databa
 
     let expected = [(100i64, 120i64), (200, 220), (300, 320)];
     for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
-        let start = clusters[i].ts.as_ref().unwrap().start_ns;
-        let end = clusters[i].ts.as_ref().unwrap().end_ns;
+        let start = clusters[i].ts.as_ref().unwrap().start_ns.unwrap();
+        let end = clusters[i].ts.as_ref().unwrap().end_ns.unwrap();
         let id = clusters[i].id;
         assert_eq!(start, *exp_start, "cluster {i} start");
         assert_eq!(end, *exp_end, "cluster {i} end");
@@ -1114,8 +1114,8 @@ async fn test_topic_filter_clusterize_single_cluster_via_gap(pool: sqlx::Pool<db
     .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 1_000);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 1_050);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 1_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 1_050);
 
     server.shutdown().await;
 }
@@ -1144,8 +1144,8 @@ async fn test_topic_filter_clusterize_dt_zero_returns_full_range(
             .unwrap();
 
     assert_eq!(clusters.len(), 1, "dt_ns=0 must yield exactly one cluster");
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 10_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 10_000);
 
     server.shutdown().await;
 }
@@ -1174,10 +1174,10 @@ async fn test_topic_filter_clusterize_ontology_actually_filters(
             .unwrap();
 
     assert_eq!(clusters.len(), 2, "got: {clusters:?}");
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 140);
-    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns, 500);
-    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns, 520);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 140);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns.unwrap(), 500);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns.unwrap(), 520);
 
     server.shutdown().await;
 }
@@ -1228,8 +1228,8 @@ async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::Datab
     setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
 
     let ts_range = marshal::TimestampRange {
-        start_ns: 500,
-        end_ns: 1_500,
+        start_ns: Some(500),
+        end_ns: Some(1_500),
     };
 
     let clusters = actions::topic_filter_clusterize(
@@ -1243,8 +1243,8 @@ async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::Datab
     .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 1_000);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 1_100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 1_000);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 1_100);
 
     server.shutdown().await;
 }
@@ -1271,8 +1271,8 @@ async fn test_topic_filter_clusterize_single_row(pool: sqlx::Pool<db::DatabaseTy
             .unwrap();
 
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 200);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 200);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 200);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 200);
 
     server.shutdown().await;
 }
@@ -1299,10 +1299,10 @@ async fn test_topic_filter_clusterize_across_batches(pool: sqlx::Pool<db::Databa
             .unwrap();
 
     assert_eq!(clusters.len(), 2, "got: {clusters:?}");
-    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns, 100);
-    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns, 140);
-    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns, 1_000);
-    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns, 1_010);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().start_ns.unwrap(), 100);
+    assert_eq!(clusters[0].ts.as_ref().unwrap().end_ns.unwrap(), 140);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().start_ns.unwrap(), 1_000);
+    assert_eq!(clusters[1].ts.as_ref().unwrap().end_ns.unwrap(), 1_010);
 
     server.shutdown().await;
 }
@@ -1350,8 +1350,8 @@ async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db:
 
     // Start == End
     let timestamp = marshal::TimestampRange {
-        start_ns: 10000,
-        end_ns: 10000,
+        start_ns: Some(10000),
+        end_ns: Some(10000),
     };
 
     let res = actions::topic_filter_clusterize(
@@ -1368,8 +1368,8 @@ async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db:
 
     // Start > End
     let timestamp = marshal::TimestampRange {
-        start_ns: 10000,
-        end_ns: 3000,
+        start_ns: Some(10000),
+        end_ns: Some(3000),
     };
 
     let res = actions::topic_filter_clusterize(
@@ -1418,8 +1418,8 @@ async fn test_topic_filter_clusterize_more_ontology(pool: sqlx::Pool<db::Databas
 
     let expected = [(100, 120), (200, 200)];
     for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
-        let start = clusters[i].ts.as_ref().unwrap().start_ns;
-        let end = clusters[i].ts.as_ref().unwrap().end_ns;
+        let start = clusters[i].ts.as_ref().unwrap().start_ns.unwrap();
+        let end = clusters[i].ts.as_ref().unwrap().end_ns.unwrap();
         assert_eq!(start, *exp_start, "cluster {i} start");
         assert_eq!(end, *exp_end, "cluster {i} end");
     }
@@ -1588,11 +1588,11 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
 
     assert_eq!(items.len(), 2, "got: {items:?}");
 
-    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 105);
-    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 110);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns.unwrap(), 105);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns.unwrap(), 110);
 
-    assert_eq!(items[1].ts.as_ref().unwrap().start_ns, 500);
-    assert_eq!(items[1].ts.as_ref().unwrap().end_ns, 505);
+    assert_eq!(items[1].ts.as_ref().unwrap().start_ns.unwrap(), 500);
+    assert_eq!(items[1].ts.as_ref().unwrap().end_ns.unwrap(), 505);
 
     server.shutdown().await;
 }
@@ -1664,8 +1664,8 @@ async fn test_topic_filter_intersect_multiple_ontology_fields(pool: sqlx::Pool<d
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 105);
-    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 110);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns.unwrap(), 105);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns.unwrap(), 110);
 
     server.shutdown().await;
 }
@@ -1791,8 +1791,8 @@ async fn test_topic_filter_intersect_three_topics(pool: sqlx::Pool<db::DatabaseT
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 130);
-    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 170);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns.unwrap(), 130);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns.unwrap(), 170);
 
     server.shutdown().await;
 }
@@ -1848,8 +1848,8 @@ async fn test_topic_filter_intersect_within_tolerance(pool: sqlx::Pool<db::Datab
         .unwrap();
 
     assert_eq!(items.len(), 1, "got: {items:?}");
-    assert_eq!(items[0].ts.as_ref().unwrap().start_ns, 145);
-    assert_eq!(items[0].ts.as_ref().unwrap().end_ns, 150);
+    assert_eq!(items[0].ts.as_ref().unwrap().start_ns.unwrap(), 145);
+    assert_eq!(items[0].ts.as_ref().unwrap().end_ns.unwrap(), 150);
 
     server.shutdown().await;
 }

@@ -333,8 +333,7 @@ pub async fn get_flight_info(
 ) -> Result<FlightInfo, tonic::Status> {
     let cmd = mosaicod_proto::v1::flight::GetFlightInfoCmd {
         locator: topic_name.to_owned(),
-        timestamp_ns_start: interval.map(|range| range.start.as_i64()),
-        timestamp_ns_end: interval.map(|range| range.end.as_i64()),
+        timestamp_range: interval.map(marshal::timestamp_range_to_proto),
     }
     .encode_to_vec();
 

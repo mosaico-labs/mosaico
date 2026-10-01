@@ -13,17 +13,10 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
     let cmd = proto_flight::GetFlightInfoCmd::decode(v)
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
 
-    let lb = cmd
-        .timestamp_ns_start
-        .map_or_else(types::Timestamp::unbounded_neg, |e| e.into());
-    let up = cmd
-        .timestamp_ns_end
-        .map_or_else(types::Timestamp::unbounded_pos, |e| e.into());
-
-    let mut ts_range: Option<types::TimestampRange> = None;
-    if !lb.is_unbounded() || !up.is_unbounded() {
-        ts_range = Some(types::TimestampRange::between(lb, up));
-    }
+    let ts_range = cmd
+        .timestamp_range
+        .map(super::timestamp_range_from_proto)
+        .filter(|r| !r.is_unbounded());
 
     Ok(types::flight::GetFlightInfoCmd {
         locator: cmd.locator,
@@ -289,6 +282,7 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
 // ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
+    use mosaicod_proto::v1::time as proto_time;
     use prost::Message;
 
     /// Check that decoding a [`super::proto_flight::GetFlightInfoCmd`] into
@@ -297,8 +291,10 @@ mod tests {
     fn get_flight_info_cmd_to_types_full() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
             locator: "test_sequence/topic/a".to_owned(),
-            timestamp_ns_start: Some(100000),
-            timestamp_ns_end: Some(110000),
+            timestamp_range: Some(proto_time::TimestampRange {
+                start_ns: Some(100000),
+                end_ns: Some(110000),
+            }),
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -316,8 +312,10 @@ mod tests {
     fn get_flight_info_cmd_to_types_lb() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
             locator: "test_sequence/topic/a".to_owned(),
-            timestamp_ns_start: Some(100000),
-            timestamp_ns_end: None,
+            timestamp_range: Some(proto_time::TimestampRange {
+                start_ns: Some(100000),
+                end_ns: None,
+            }),
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -335,8 +333,10 @@ mod tests {
     fn get_flight_info_cmd_to_types_ub() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
             locator: "test_sequence/topic/a".to_owned(),
-            timestamp_ns_start: None,
-            timestamp_ns_end: Some(110000),
+            timestamp_range: Some(proto_time::TimestampRange {
+                start_ns: None,
+                end_ns: Some(110000),
+            }),
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -350,14 +350,30 @@ mod tests {
     #[test]
     fn get_flight_info_cmd_to_types_no_bounds() {
         let cmd = super::proto_flight::GetFlightInfoCmd {
-            locator: "test_sequence/topic/a".to_owned(),
-            timestamp_ns_start: None,
-            timestamp_ns_end: None,
+            locator: "test_sequence/topic".to_owned(),
+            timestamp_range: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
 
-        assert_eq!(dest.locator, "test_sequence/topic/a");
+        assert_eq!(dest.locator, "test_sequence/topic");
+        assert!(dest.timestamp_range.is_none());
+    }
+
+    /// An explicit `TimestampRange` message whose bounds are both absent must behave the same
+    /// as omitting `timestamp_range` entirely.
+    #[test]
+    fn get_flight_info_cmd_to_types_present_but_both_unbounded() {
+        let cmd = super::proto_flight::GetFlightInfoCmd {
+            locator: "test_sequence/topic".to_owned(),
+            timestamp_range: Some(proto_time::TimestampRange {
+                start_ns: None,
+                end_ns: None,
+            }),
+        };
+
+        let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
+
         assert!(dest.timestamp_range.is_none());
     }
 

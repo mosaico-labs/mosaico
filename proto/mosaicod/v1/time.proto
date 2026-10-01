@@ -3,7 +3,10 @@ syntax = "proto3";
 package mosaicod.v1.time;
 
 // Timestamp range, expressed in nanoseconds.
+//
+// `start_ns`/`end_ns` are independently optional: an absent bound means
+// unbounded on that side (e.g. "everything after X").
 message TimestampRange {
-  int64 start_ns = 1;
-  int64 end_ns = 2;
+  optional int64 start_ns = 1;
+  optional int64 end_ns = 2;
 }
