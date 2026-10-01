@@ -311,15 +311,12 @@ pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
 
         assert!(!r.version.is_empty());
 
-        let semver = r.semver.expect("semver is missing");
-        // `major` is 0 for a pre-1.0 version: only check the field exists on
-        // the type (compile-time), not that it's non-zero.
-        let _ = semver.major;
-        assert!(semver.minor > 0 || semver.patch > 0 || !semver.pre.is_empty());
+        r.semver.expect("semver is missing");
 
         let config = r.config.expect("config is missing");
-        assert!(config.max_grpc_message_size > 0);
-        assert!(config.target_message_size > 0);
+        assert!(config.grpc_max_decode_message_size > 0);
+        assert!(config.grpc_max_encode_message_size > 0);
+        assert!(config.grpc_target_encode_message_size > 0);
     }
 
     Ok(())

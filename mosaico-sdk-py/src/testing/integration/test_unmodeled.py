@@ -11,6 +11,15 @@ from mosaicolabs.models.sensors import CameraInfo, CompressedImage, ImageFormat
 from mosaicolabs.query.builders import QueryOntologyCatalog
 from mosaicolabs.query.queryable_fields import QueryableNumeric
 
+VECTOR3_STRUCT = pa.struct(
+    [
+        pa.field("x", pa.float32()),
+        pa.field("y", pa.float32()),
+        pa.field("z", pa.float32()),
+    ]
+)
+
+
 UnmodeledGyro = make_unmodeled_ontology_class(
     "UnmodeledGyro",
     None,
@@ -19,13 +28,7 @@ UnmodeledGyro = make_unmodeled_ontology_class(
         [
             pa.field(
                 "gyro",
-                pa.struct(
-                    [
-                        pa.field("x", pa.float32()),
-                        pa.field("y", pa.float32()),
-                        pa.field("z", pa.float32()),
-                    ]
-                ),
+                VECTOR3_STRUCT,
                 nullable=False,
                 metadata={"description": "Test Implementation of Gyroscope"},
             ),
@@ -373,3 +376,66 @@ def test_bug_pabyte_tobyteview(mosaico_client: MosaicoClient):
 
     # Free resources
     mosaico_client.sequence_delete(camera_compressed_sequence_name)
+
+
+def test_bug_dict_turned_into_list_of_tuple(mosaico_client: MosaicoClient):
+    """
+    This test checks that when loading a `pa.map` into the server it is returned as a dict and not
+    as a list of tuples.
+    """
+
+    UnmodeledPosition = make_unmodeled_ontology_class(
+        "UnmodeledPosition",
+        None,
+        SerializationFormat.Default,
+        pa.struct(
+            [
+                pa.field("known_positions", pa.map_(pa.string(), VECTOR3_STRUCT)),
+            ]
+        ),
+    )
+
+    with mosaico_client:
+        sequence_name = "unmodeled_position_seq"
+
+        # Writing data
+        with mosaico_client.sequence_create(
+            sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as seq_writer:
+            top_writer = seq_writer.topic_create("car_position", {}, UnmodeledPosition)
+
+            assert top_writer is not None
+
+            def create_position():
+                return {"x": 1.0, "y": 2.0, "z": 3.0}
+
+            top_writer.push(
+                Message(
+                    timestamp_ns=1,
+                    data=UnmodeledPosition(
+                        raw_data={
+                            "known_positions": {
+                                "home": create_position(),
+                                "target_1": create_position(),
+                                "target_2": create_position(),
+                            },
+                        }
+                    ),
+                )
+            )
+
+        # Reading and ensuring the the known_position field is a `dict`
+        s_handler = mosaico_client.sequence_handler(sequence_name)
+        assert s_handler is not None
+
+        streamer = s_handler.get_data_streamer()
+
+        for _, msg in streamer:
+            data = msg.get_data(UnmodeledPosition)
+            assert data is not None
+
+            assert not isinstance(data.raw_data.get("known_positions"), list)
+            assert isinstance(data.raw_data.get("known_positions"), dict)
+
+        # Deleting sequence
+        mosaico_client.sequence_delete(sequence_name)

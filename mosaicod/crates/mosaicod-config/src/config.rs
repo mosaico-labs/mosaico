@@ -56,7 +56,8 @@ pub struct ServerTlsConfig {
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct ServerGrpcConfig {
-    pub max_message_size: Option<usize>,
+    pub max_decode_message_size: Option<usize>,
+    pub target_encode_message_size: Option<usize>,
 }
 
 #[derive(Debug, Default, Deserialize)]

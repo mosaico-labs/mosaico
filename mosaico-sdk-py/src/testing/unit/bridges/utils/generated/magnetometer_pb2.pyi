@@ -7,14 +7,16 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AxisReading(_message.Message):
-    __slots__ = ["axis", "saturated", "value"]
+    __slots__ = ["axis", "axis_value_covariance", "saturated", "value"]
     AXIS_FIELD_NUMBER: _ClassVar[int]
+    AXIS_VALUE_COVARIANCE_FIELD_NUMBER: _ClassVar[int]
     SATURATED_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
     axis: str
+    axis_value_covariance: _containers.RepeatedScalarFieldContainer[int]
     saturated: bool
     value: float
-    def __init__(self, axis: _Optional[str] = ..., value: _Optional[float] = ..., saturated: bool = ...) -> None: ...
+    def __init__(self, axis: _Optional[str] = ..., value: _Optional[float] = ..., saturated: bool = ..., axis_value_covariance: _Optional[_Iterable[int]] = ...) -> None: ...
 
 class Magnetometer(_message.Message):
     __slots__ = ["calibration_notes", "hardware_revision", "header", "magnetic_field", "magnetic_field_covariance", "raw_counter", "readings", "saturated", "sensor_id", "temperature_celsius"]

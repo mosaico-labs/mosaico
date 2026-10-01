@@ -57,10 +57,13 @@ message SemVerItem {
 
 // Server-configured limits that clients should respect (e.g. when sizing requests).
 message ServerConfig {
-  // Maximum message size (in bytes) accepted/emitted by the gRPC protocol.
-  uint64 max_grpc_message_size = 1;
+  // Maximum incoming message size (in bytes) accepted by the gRPC protocol.
+  uint64 grpc_max_decode_message_size = 1;
+  // Maximum outgoing message size (in bytes) the gRPC protocol can emit. Fixed,
+  // unlike `grpc_max_decode_message_size`: clients can rely on it never shrinking.
+  uint64 grpc_max_encode_message_size = 2;
   // Target message size (in bytes) the server aims for when streaming data.
-  uint64 target_message_size = 2;
+  uint64 grpc_target_encode_message_size = 3;
 }
 
 message ServerInfo {

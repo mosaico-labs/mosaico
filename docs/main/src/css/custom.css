@@ -338,6 +338,26 @@ h1[id], h2[id], h3[id], h4[id], h5[id], h6[id], [id] {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Diff code blocks: tint whole added/removed lines.
+   Lines are matched on their `prefix` token, because Prism leaves an empty
+   token of the previous block at the start of the next line. */
+.prism-code .token-line:has(> .token.inserted-sign.prefix) {
+  background-color: rgba(46, 160, 67, 0.15);
+}
+
+.prism-code .token-line:has(> .token.deleted-sign.prefix) {
+  background-color: rgba(248, 81, 73, 0.15);
+}
+
+/* !important is needed to override the inline colors set by the Prism theme */
+.prism-code .token.inserted-sign {
+  color: rgb(126, 231, 135) !important;
+}
+
+.prism-code .token.deleted-sign {
+  color: rgb(255, 123, 114) !important;
+}
+
 .table-of-contents__link--active {
   color: rgb(199, 132, 222);
 }

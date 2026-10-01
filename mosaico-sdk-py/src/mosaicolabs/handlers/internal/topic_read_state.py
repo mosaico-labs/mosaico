@@ -150,7 +150,9 @@ class _TopicReadState:
                 row_values = next(self.row_iterator)
 
                 # Extract timestamp for sorting logic
-                timestamp_ns = row_values[self.timestamp_index].as_py()
+                timestamp_ns = row_values[self.timestamp_index].as_py(
+                    maps_as_pydicts="strict"
+                )
 
                 # Update state
                 self.peeked_row = row_values

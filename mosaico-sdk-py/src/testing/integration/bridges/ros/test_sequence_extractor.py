@@ -6,7 +6,7 @@ from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores, get_typestore
 
 from mosaicolabs import Pose, SessionLevelErrorPolicy
-from mosaicolabs.bridges.ros import MosaicoLoader, ROSBridge, ROSLoader
+from mosaicolabs.bridges.ros import MosaicoToROSLoader, ROSBridge, ROSLoader
 from mosaicolabs.bridges.ros.sequence_extractor import (
     ROSExtractorConfig,
     ROSSequenceExtractor,
@@ -43,7 +43,7 @@ def override_ext_configs(
 
 def get_rosbagfile_path(configs: ROSExtractorConfig) -> Path:
 
-    rosbag_folder_path = configs.rosbag_path / configs.sequence_name
+    rosbag_folder_path = configs.saving_path / configs.sequence_name
     file_name = configs.sequence_name
 
     if configs.ros_distro is Stores.ROS1_NOETIC:
@@ -61,18 +61,18 @@ def get_rosbagfile_path(configs: ROSExtractorConfig) -> Path:
 @pytest.mark.parametrize("storage_plugin", STORAGE_PLUGINS)
 def test_run_rosbag_existance(
     inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed,
-    default_extractor_config,
+    default_ros_extractor_config,
     ros_distro,
     storage_plugin,
 ):
 
     overwritten_configs = override_ext_configs(
-        default_extractor_config, ros_distro, storage_plugin
+        default_ros_extractor_config, ros_distro, storage_plugin
     )
     sequence_ext = ROSSequenceExtractor(overwritten_configs)
     sequence_ext.run()
 
-    rosbag_file_path = get_rosbagfile_path(default_extractor_config)
+    rosbag_file_path = get_rosbagfile_path(default_ros_extractor_config)
 
     assert rosbag_file_path.exists()
 
@@ -82,19 +82,19 @@ def test_run_rosbag_existance(
 def test_run_data_correctness(
     inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed
     synthetic_sequence_data_stream,  # necessary since it holds the loaded sequence data
-    default_extractor_config,
+    default_ros_extractor_config,
     ros_distro,
     storage_plugin,
     mosaico_client,
 ):
 
     overwritten_configs = override_ext_configs(
-        default_extractor_config, ros_distro, storage_plugin
+        default_ros_extractor_config, ros_distro, storage_plugin
     )
     sequence_ext = ROSSequenceExtractor(overwritten_configs)
     sequence_ext.run()
 
-    rosbag_file_path = get_rosbagfile_path(default_extractor_config)
+    rosbag_file_path = get_rosbagfile_path(default_ros_extractor_config)
 
     ros_loader = ROSLoader(file_path=rosbag_file_path, typestore_or_distro=ros_distro)
 
@@ -121,42 +121,42 @@ def test_run_data_correctness(
 
 
 def test_overwrite_false_raise_on_existing_path(
-    default_extractor_config,
+    default_ros_extractor_config,
     inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed
 ):
 
     # Creating rosbag from loaded sequence
-    sequence_ext1 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext1 = ROSSequenceExtractor(default_ros_extractor_config)
     sequence_ext1.run()
 
     # Creating the rosbag again with overwrite False should Raise a FileExistsError
-    default_extractor_config.overwrite = False
-    sequence_ext2 = ROSSequenceExtractor(default_extractor_config)
+    default_ros_extractor_config.overwrite = False
+    sequence_ext2 = ROSSequenceExtractor(default_ros_extractor_config)
 
     with pytest.raises(FileExistsError):
         sequence_ext2.run()
 
 
 def test_overwrite_true_replaces_existing_bag(
-    default_extractor_config,
+    default_ros_extractor_config,
     inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed
 ):
 
     # Creating rosbag from loaded sequence
-    sequence_ext1 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext1 = ROSSequenceExtractor(default_ros_extractor_config)
     sequence_ext1.run()
 
     # Creating the rosbag again with overwrite False should Raise a FileExistsError
-    sequence_ext2 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext2 = ROSSequenceExtractor(default_ros_extractor_config)
     sequence_ext2.run()
 
-    assert get_rosbagfile_path(default_extractor_config).exists()
+    assert get_rosbagfile_path(default_ros_extractor_config).exists()
 
 
-def test_not_existing_sequence_name(default_extractor_config):
-    default_extractor_config.sequence_name = "not-existing-sequence-name"
+def test_not_existing_sequence_name(default_ros_extractor_config):
+    default_ros_extractor_config.sequence_name = "not-existing-sequence-name"
 
-    sequence_ext = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext = ROSSequenceExtractor(default_ros_extractor_config)
 
     with pytest.raises(ValueError):
         sequence_ext.run()
@@ -178,10 +178,11 @@ def test_valid_msgtype(mosaico_client):
         t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
         # Reading topic
-        mosaico_loader = MosaicoLoader(
+        mosaico_loader = MosaicoToROSLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
-        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
+        resolution = mosaico_loader._resolve_topic(t_handler)
+        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (

@@ -1,4 +1,9 @@
+import functools
+from fractions import Fraction
+
+import numpy as np
 import pandas as pd
+import pytest
 
 from mosaicolabs.ml import SyncAsOf, SyncDrop, SyncHold, SyncTransformer
 
@@ -19,7 +24,7 @@ def test_sync_transformer_fps_to_ns_alignment():
     # We expect ticks at 0, 100ms, 200ms, 300ms
     expected_ticks = [0, 100_000_000, 200_000_000, 300_000_000]
     assert dense_df["timestamp_ns"].tolist() == expected_ticks
-    assert transformer._step_ns == 100_000_000
+    assert transformer._period_ns == 100_000_000
 
 
 def test_sync_transformer_hold_policy():
@@ -136,7 +141,7 @@ def test_sync_transformer_state_carry_over():
     transformer.transform(df1)
 
     # Chunk 2: Starts at 4s, but should carry '3' forward to the 3s and 4s ticks
-    # (Note: grid logic will generate ticks based on _next_timestamp_ns)
+    # (Note: the grid continues from _origin_ns and _tick)
     df2 = pd.DataFrame({"timestamp_ns": [4_000_000_000], "val": [5]})
     dense2 = transformer.transform(df2)
 
@@ -154,8 +159,93 @@ def test_sync_transformer_reset():
     df = pd.DataFrame({"timestamp_ns": [0, 100_000_000], "val": [1, 2]})
 
     transformer.fit(df).transform(df)
-    assert transformer._next_timestamp_ns is not None
+    assert transformer._origin_ns is not None
 
     transformer.reset()
-    assert transformer._next_timestamp_ns is None
+    assert transformer._origin_ns is None
     assert len(transformer._last_values) == 0
+
+
+# Regression tests for #787: long runs must not drift from the ideal grid
+T0 = 1_700_000_000_000_000_000  # epoch-like origin (ns)
+HOUR_NS = 3600 * 10**9
+DAY_NS = 24 * HOUR_NS
+# Chunk count for the chunked test: chunk borders fall at irregular grid points
+CHUNKS = 97
+
+# (target fps, span of the data): every case produces millions of ticks
+GRID_CASES = [
+    pytest.param(1024, 2 * HOUR_NS, id="1024fps-2h"),
+    pytest.param(59.94, DAY_NS, id="59.94fps-1day"),
+    pytest.param(30, DAY_NS, id="30fps-1day"),
+    pytest.param(29.97, DAY_NS, id="29.97fps-1day"),
+    pytest.param(np.float32(29.97), DAY_NS, id="float32-29.97fps-1day"),
+    pytest.param(23.976, DAY_NS, id="23.976fps-1day"),
+    pytest.param(7, 7 * DAY_NS, id="7fps-7days"),
+    pytest.param(1, 7 * DAY_NS, id="1fps-7days"),
+]
+
+
+@functools.cache
+def _make_sparse_df(span_ns: int) -> pd.DataFrame:
+    """
+    Sensors at 100 Hz and 30 Hz (recording the first minute of every hour)
+    and at 1 Hz (always on). Each value is the index of its sample.
+    """
+    hours = np.arange(span_ns // HOUR_NS, dtype=np.int64)[:, None] * HOUR_NS
+    sensors = []
+    for hz, seconds_per_hour in ((100, 60), (30, 60), (1, 3600)):
+        in_hour = np.arange(seconds_per_hour * hz, dtype=np.int64) * 10**9 // hz
+        ts = (T0 + hours + in_hour).ravel()
+        values = np.arange(len(ts), dtype=float)
+        sensors.append(pd.DataFrame({"timestamp_ns": ts, f"sensor_{hz}hz": values}))
+    return pd.concat(sensors).groupby("timestamp_ns", as_index=False).first()
+
+
+def _check_grid_and_values(dense_df, sparse_df, target_fps):
+    # Tick k is at T0 + round_half_up(k * 1e9 / target_fps), computed exactly
+    period = Fraction(10**9) / Fraction(str(target_fps))
+    num, den = period.numerator, period.denominator
+    q, r = divmod(num, den)
+    span = int(sparse_df["timestamp_ns"].iloc[-1]) - T0
+    # Ticks k with k * period + 0.5 < span + 1
+    n_ticks = -(-(2 * span + 1) * den // (2 * num))
+    k = np.arange(n_ticks, dtype=np.int64)
+    expected = T0 + k * q + (2 * k * r + den) // (2 * den)
+
+    grid = dense_df["timestamp_ns"].to_numpy()
+    assert len(grid) == n_ticks
+    # The period is a float, so a tick may be 1 ns off; drift would grow far beyond
+    assert np.abs(grid - expected).max() <= 1
+
+    # SyncHold: each tick holds the last sample at or before it
+    for col in sparse_df.columns.drop("timestamp_ns"):
+        ts = sparse_df.loc[sparse_df[col].notna(), "timestamp_ns"].to_numpy()
+        last = np.searchsorted(ts, grid, side="right") - 1
+        assert np.array_equal(dense_df[col].to_numpy(dtype=float), last)
+
+
+@pytest.mark.parametrize("target_fps, span_ns", GRID_CASES)
+def test_sync_transformer_grid_single_dataframe(target_fps, span_ns):
+    """Verifies the grid and the held values over a single long dataframe."""
+    sparse_df = _make_sparse_df(span_ns)
+    transformer = SyncTransformer(target_fps=target_fps, policy=SyncHold())
+
+    dense_df = transformer.fit(sparse_df).transform(sparse_df)
+
+    _check_grid_and_values(dense_df, sparse_df, target_fps)
+
+
+@pytest.mark.parametrize("target_fps, span_ns", GRID_CASES)
+def test_sync_transformer_grid_chunked_dataframes(target_fps, span_ns):
+    """Verifies that feeding the same data in chunks gives the same grid and values."""
+    sparse_df = _make_sparse_df(span_ns)
+    transformer = SyncTransformer(target_fps=target_fps, policy=SyncHold())
+    chunks = sparse_df.groupby((sparse_df["timestamp_ns"] - T0) // (span_ns // CHUNKS))
+
+    dense_df = pd.concat(
+        [transformer.fit(chunk).transform(chunk) for _, chunk in chunks],
+        ignore_index=True,
+    )
+
+    _check_grid_and_values(dense_df, sparse_df, target_fps)

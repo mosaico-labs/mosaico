@@ -141,20 +141,20 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs: Additional context for the translation.
 
         Returns:
             Message: A Mosaico `Message` containing the normalized `Unmodeled` payload.
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> T:
@@ -250,7 +250,7 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
     ) -> Type["UnmodeledAdapter"]:
         """
         Gets or create an unmodeled adapter for the provided ontology type and msgtype.
-        If the adapter if found within _UNMODELED_ADAPTERS_REGISTRY it is returned immediately.
+        If the adapter is found within _UNMODELED_ADAPTERS_REGISTRY it is returned immediately.
         Conversely, it is first registered and then returned.
         """
         key = ontology_type.__registry_key__ or ontology_type.ontology_tag()
