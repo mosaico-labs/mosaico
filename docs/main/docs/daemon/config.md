@@ -107,8 +107,8 @@ The table below maps each config key to the [environment variable](env.md) it co
 | `server.tls.enabled` | [`MOSAICOD_TLS_ENABLED`](env.md#mosaicod-tls-enabled) |
 | `server.tls.certificate_file` | [`MOSAICOD_TLS_CERT_FILE`](env.md#mosaicod-tls-cert-file) |
 | `server.tls.private_key_file` | [`MOSAICOD_TLS_PRIVATE_KEY_FILE`](env.md#mosaicod-tls-private-key-file) |
-| `server.grpc.max_decode_message_size` | [`MOSAICOD_MAX_GRPC_DECODE_MESSAGE_SIZE`](env.md#mosaicod-max-grpc-decode-message-size) |
-| `server.grpc.target_encode_message_size` | [`MOSAICOD_TARGET_GRPC_ENCODE_MESSAGE_SIZE`](env.md#mosaicod-target-grpc-encode-message-size) |
+| `server.grpc.max_decode_message_size` | [`MOSAICOD_GRPC_MAX_DECODE_MESSAGE_SIZE`](env.md#mosaicod-grpc-max-decode-message-size) |
+| `server.grpc.target_encode_message_size` | [`MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE`](env.md#mosaicod-grpc-target-encode-message-size) |
 | `database.url` | [`MOSAICOD_DB_URL`](env.md#mosaicod-db-url) |
 | `database.user` | [`MOSAICOD_DB_USER`](env.md#mosaicod-db-user) |
 | `database.password_file` | [`MOSAICOD_DB_PASSWORD_FILE`](env.md#mosaicod-db-password) |

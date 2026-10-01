@@ -38,16 +38,16 @@ class ServerConfig:
     hashable throughout its lifecycle.
 
     Attributes:
-        max_grpc_decode_message_size (int): The maximum incoming message size (in bytes) accepted by the server.
-        max_grpc_encode_message_size (int): The maximum outgoing message size (in bytes) the server can emit.
-        target_grpc_encode_message_size (int): The target message size (in bytes) the server aims for when streaming data.
+        grpc_max_decode_message_size (int): The maximum incoming message size (in bytes) accepted by the server.
+        grpc_max_encode_message_size (int): The maximum outgoing message size (in bytes) the server can emit.
+        grpc_target_encode_message_size (int): The target message size (in bytes) the server aims for when streaming data.
     """
 
-    max_grpc_decode_message_size: int
+    grpc_max_decode_message_size: int
     """The maximum incoming message size (in bytes) accepted by the server."""
-    max_grpc_encode_message_size: int
+    grpc_max_encode_message_size: int
     """The maximum outgoing message size (in bytes) the server can emit."""
-    target_grpc_encode_message_size: int
+    grpc_target_encode_message_size: int
     """The target message size (in bytes) the server aims for when streaming data."""
 
 
@@ -97,10 +97,10 @@ class ServerInfo:
         )
 
         config = ServerConfig(
-            max_grpc_decode_message_size=config_data["max_grpc_decode_message_size"],
-            max_grpc_encode_message_size=config_data["max_grpc_encode_message_size"],
-            target_grpc_encode_message_size=config_data[
-                "target_grpc_encode_message_size"
+            grpc_max_decode_message_size=config_data["grpc_max_decode_message_size"],
+            grpc_max_encode_message_size=config_data["grpc_max_encode_message_size"],
+            grpc_target_encode_message_size=config_data[
+                "grpc_target_encode_message_size"
             ],
         )
 
