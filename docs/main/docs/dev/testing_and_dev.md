@@ -30,7 +30,13 @@ This configuration exports the `MOSAICOD_DB_URL`, database credentials, storage 
 
 ### Update sqlx Queries Cache
 
-If you modify SQL queries, you **must** refresh the offline metadata cache to allow the project to compile. Run the following command to update the cache:
+If you modify SQL queries, you **must** refresh the offline metadata cache to allow the project to compile. This requires the `sqlx` command line tool, which can be installed with:
+
+```bash
+cargo install sqlx-cli
+```
+
+Run the following command to update the cache:
 
 ```bash
 cd mosaicod/crates/mosaicod-db
