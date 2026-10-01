@@ -74,10 +74,10 @@ ALL_PROTOBUF_MSGTYPES = [
     VARIANT_PROTOBUF_MSGTYPE,
 ]
 
-IMU_PROTOBUF = _Imu
-GPS_PROTOBUF = _Gps
-MAGN_PROTOBUF = _Magnetometer
-VARIANT_PROTOBUF = _Variant
+IMU_PROTOBUF_CLS = _Imu
+GPS_PROTOBUF_CLS = _Gps
+MAGN_PROTOBUF_CLS = _Magnetometer
+VARIANT_PROTOBUF_CLS = _Variant
 
 
 def make_imu_mcap(
@@ -219,9 +219,24 @@ def make_magn_mcap(
     t = meas_time.to_float()
 
     readings = [
-        {"axis": "x", "value": 20.0 + math.sin(t), "saturated": False},
-        {"axis": "y", "value": -5.0 + math.cos(t), "saturated": False},
-        {"axis": "z", "value": 42.0, "saturated": t > 2.5},
+        {
+            "axis": "x",
+            "value": 20.0 + math.sin(t),
+            "saturated": False,
+            "axis_value_covariance": [1, 2, 3],
+        },
+        {
+            "axis": "y",
+            "value": -5.0 + math.cos(t),
+            "saturated": False,
+            "axis_value_covariance": [],
+        },
+        {
+            "axis": "z",
+            "value": 42.0,
+            "saturated": t > 2.5,
+            "axis_value_covariance": [4, 5, 6],
+        },
     ]
 
     if channel_encoding == "json":

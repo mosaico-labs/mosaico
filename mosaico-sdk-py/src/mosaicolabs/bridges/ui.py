@@ -10,7 +10,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from .loader import TopicStatus
+from .topic_status import TopicStatus, to_color
 
 
 # --- Generic Protocol for ProgressManager LoaderUIAPI ---
@@ -18,9 +18,9 @@ class LoaderUIAPI(Protocol):
     """
     Structural protocol for data loaders consumed by :class:`ProgressManager`.
 
-    Both :class:`ROSLoader` and :class:`MosaicoLoader` satisfy this protocol,
-    allowing :class:`ProgressManager` to set up progress bars without depending
-    on a concrete loader class.
+    :class:`ROSLoader`, :class:`MosaicoLoader`, and :class:`MCAPLoader` all satisfy
+    this protocol, allowing :class:`ProgressManager` to set up progress bars without
+    depending on a concrete loader class.
     """
 
     @property
@@ -104,9 +104,7 @@ class ProgressManager:
 
         # Rejected topics (with rejected reason) are highlighted
         for topic_name, topic_status in self.loader.rejected_topics:
-            self.update_status(
-                topic_name, topic_status.value, topic_status.display_color()
-            )
+            self.update_status(topic_name, topic_status.value, to_color(topic_status))
 
         # Create a master progress bar for the aggregate total of the accepted topics
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)

@@ -8,6 +8,7 @@ message AxisReading {
   string axis = 1;
   double value = 2;
   bool saturated = 3;
+  repeated int64 axis_value_covariance = 5;
 }
 
 message Magnetometer {

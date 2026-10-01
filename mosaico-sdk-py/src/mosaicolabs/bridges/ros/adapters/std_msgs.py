@@ -153,7 +153,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
     _REQUIRED_KEYS = ("data",)
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+    def translate(cls, msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a standard ROS message to a Mosaico Message.
 
@@ -162,7 +162,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         the specific ontology type defined for this adapter class.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to translate.
+            msg (ROSMessage): The ROS message to translate.
             **kwargs: Additional keyword arguments for translation.
 
         Returns:
@@ -171,7 +171,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Serializable:
@@ -320,20 +320,20 @@ class HeaderAdapter(ROSAdapterBase[Header]):
     @classmethod
     def translate(
         cls,
-        ros_msg: ROSMessage,  # ROSMessage
+        msg: ROSMessage,  # ROSMessage
         **kwargs: Any,
     ) -> Message:
         """
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs: Additional context for the translation.
 
         Returns:
             Message: The translated Mosaico `Message` containing the normalized `Header` payload.
         """
-        return super().translate(ros_msg, **kwargs)
+        return super().translate(msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Header:

@@ -5,13 +5,13 @@ from mcap_protobuf.schema import build_file_descriptor_set
 from mosaicolabs.bridges.protocols.mcap.converters import ProtobufSchemaConverter
 
 from ..config import (
-    GPS_PROTOBUF,
+    GPS_PROTOBUF_CLS,
     GPS_PROTOBUF_MSGTYPE,
-    IMU_PROTOBUF,
+    IMU_PROTOBUF_CLS,
     IMU_PROTOBUF_MSGTYPE,
-    MAGN_PROTOBUF,
+    MAGN_PROTOBUF_CLS,
     MAGN_PROTOBUF_MSGTYPE,
-    VARIANT_PROTOBUF,
+    VARIANT_PROTOBUF_CLS,
     VARIANT_PROTOBUF_MSGTYPE,
 )
 
@@ -87,32 +87,6 @@ IMU_EXPECTED_STRUCT = pa.struct(
     ]
 )
 
-GPS_EXPECTED_STRUCT = pa.struct(
-    [
-        pa.field(
-            "header",
-            HEADER_EXPECTED_STRUCT,
-            nullable=True,
-        ),
-        pa.field(
-            "position",
-            VECTOR_EXPECTED_STRUCT,
-            nullable=True,
-        ),
-        pa.field("position_covariance", pa.list_(pa.float64()), nullable=False),
-        pa.field("fix_type", pa.int32(), nullable=False),
-        pa.field("satellites_visible", pa.uint32(), nullable=False),
-        pa.field("satellites_used", pa.int32(), nullable=False),
-        pa.field("differential", pa.bool_(), nullable=False),
-        pa.field("horizontal_accuracy", pa.float32(), nullable=False),
-        pa.field("vertical_accuracy", pa.float32(), nullable=False),
-        pa.field("utc_time_micros", pa.int64(), nullable=False),
-        pa.field("station_id", pa.string(), nullable=False),
-        pa.field("raw_nmea", pa.binary(), nullable=False),
-        pa.field("active_satellite_ids", pa.list_(pa.string()), nullable=False),
-    ]
-)
-
 GEO_POINT_EXPECTED_STRUCT = pa.struct(
     [
         pa.field("latitude", pa.float64(), nullable=False),
@@ -153,6 +127,16 @@ GPS_EXPECTED_STRUCT = pa.struct(
     ]
 )
 
+
+AXIS_EXPECTED_STRUCT = pa.struct(
+    [
+        pa.field("axis", pa.string(), nullable=False),
+        pa.field("value", pa.float64(), nullable=False),
+        pa.field("saturated", pa.bool_(), nullable=False),
+        pa.field("axis_value_covariance", pa.list_(pa.int64()), nullable=False),
+    ]
+)
+
 MAGNETOMETER_EXPECTED_STRUCT = pa.struct(
     [
         pa.field(
@@ -172,15 +156,7 @@ MAGNETOMETER_EXPECTED_STRUCT = pa.struct(
         pa.field("calibration_notes", pa.list_(pa.string()), nullable=False),
         pa.field(
             "readings",
-            pa.list_(
-                pa.struct(
-                    [
-                        pa.field("axis", pa.string(), nullable=False),
-                        pa.field("value", pa.float64(), nullable=False),
-                        pa.field("saturated", pa.bool_(), nullable=False),
-                    ]
-                )
-            ),
+            pa.list_(AXIS_EXPECTED_STRUCT),
             nullable=False,
         ),
         pa.field("hardware_revision", pa.uint32(), nullable=False),
@@ -210,10 +186,10 @@ VARIANT_EXPECTED_STRUCT = pa.struct(
 @pytest.mark.parametrize(
     ("message_class", "msgtype", "expected_struct"),
     [
-        (IMU_PROTOBUF, IMU_PROTOBUF_MSGTYPE, IMU_EXPECTED_STRUCT),
-        (GPS_PROTOBUF, GPS_PROTOBUF_MSGTYPE, GPS_EXPECTED_STRUCT),
-        (MAGN_PROTOBUF, MAGN_PROTOBUF_MSGTYPE, MAGNETOMETER_EXPECTED_STRUCT),
-        (VARIANT_PROTOBUF, VARIANT_PROTOBUF_MSGTYPE, VARIANT_EXPECTED_STRUCT),
+        (IMU_PROTOBUF_CLS, IMU_PROTOBUF_MSGTYPE, IMU_EXPECTED_STRUCT),
+        (GPS_PROTOBUF_CLS, GPS_PROTOBUF_MSGTYPE, GPS_EXPECTED_STRUCT),
+        (MAGN_PROTOBUF_CLS, MAGN_PROTOBUF_MSGTYPE, MAGNETOMETER_EXPECTED_STRUCT),
+        (VARIANT_PROTOBUF_CLS, VARIANT_PROTOBUF_MSGTYPE, VARIANT_EXPECTED_STRUCT),
     ],
     ids=["Imu", "Gps", "Magnetometer", "Variant"],
 )

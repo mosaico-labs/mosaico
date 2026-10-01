@@ -89,7 +89,7 @@ def test_registry_shared_between_injector_and_extractor(custom_msgs_dir):
     )
     extractor = ROSSequenceExtractor(
         ROSExtractorConfig(
-            rosbag_path=Path("out"),
+            saving_path=Path("out"),
             sequence_name="a",
             ros_distro=Stores.LATEST,
             registry=shared,
