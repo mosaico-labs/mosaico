@@ -35,6 +35,7 @@ typer = { version = ">=0.25.1,<0.28.0", optional = true }
 tomli = { version = "^2.0.0", python = "<3.11", optional = true }
 mcap-protobuf-support = "^0.5.4"
 mcap = "^1.4.0"
+protobuf = ">=4.25"
 
 [tool.poetry.extras]
 cli = ["typer", "tomli"]
@@ -48,7 +49,12 @@ pre-commit = "^4.5.1"
 line-length = 88
 # protoc-generated code (own style, dynamic globals()-based class construction ruff
 # can't trace) -- not meant to be linted/formatted by project rules.
-exclude = ["**/utils/generated/*_pb2.py", "**/utils/generated/*_pb2.pyi"]
+exclude = [
+    "**/utils/generated/*_pb2.py",
+    "**/utils/generated/*_pb2.pyi",
+    "src/mosaicolabs/proto/v1/*_pb2.py",
+    "src/mosaicolabs/proto/v1/*_pb2.pyi",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

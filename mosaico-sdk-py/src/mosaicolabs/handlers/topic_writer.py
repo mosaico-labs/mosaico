@@ -6,13 +6,13 @@ It abstracts the PyArrow Flight `DoPut` stream, handling batching,
 serialization, and connection management.
 """
 
-import json
 from typing import Any, Optional, Type
 
 import pyarrow.flight as fl
 
 from mosaicolabs.enum.topic_level_error_policy import TopicLevelErrorPolicy
 from mosaicolabs.models.core import Message, Serializable
+from mosaicolabs.proto.v1 import flight_pb2, requests_pb2
 
 from ..comm.connection import ConnectionContext
 from ..comm.do_action import _do_action
@@ -160,14 +160,10 @@ class TopicWriter:
 
         # Create Flight Descriptor: Tells server where to route the data
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": pack_topic_resource_name(
-                        sequence_name, topic_name
-                    ),
-                    "topic_uuid": topic_uuid,
-                }
-            )
+            flight_pb2.DoPutCmd(
+                locator=pack_topic_resource_name(sequence_name, topic_name),
+                topic_uuid=topic_uuid,
+            ).SerializeToString()
         )
 
         # Open Flight Stream (DoPut)
@@ -263,13 +259,11 @@ class TopicWriter:
             _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={
-                    "locator": pack_topic_resource_name(
-                        self._sequence_name, self._name
-                    ),
-                    "notification_type": "error",
-                    "msg": str(err),
-                },
+                request=requests_pb2.NotificationCreate(
+                    locator=pack_topic_resource_name(self._sequence_name, self._name),
+                    notification_type="error",
+                    msg=str(err),
+                ),
                 expected_type=None,
             )
             logger.warning(f"TopicWriter '{self._name}' reported error: '{err}'.")

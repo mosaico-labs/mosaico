@@ -6,6 +6,7 @@ It manages the lifecycle of the session on the server (Create -> Write -> Finali
 and distributes client resources to individual Topics.
 """
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import asdict, fields
 from logging import Logger
@@ -36,6 +37,8 @@ from mosaicolabs.handlers.helpers import (
 from mosaicolabs.handlers.topic_writer import TopicWriter
 from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models.core import Serializable
+from mosaicolabs.platform import _proto_format
+from mosaicolabs.proto.v1 import requests_pb2
 
 
 class _BaseSessionWriter(ABC):
@@ -116,9 +119,7 @@ class _BaseSessionWriter(ABC):
         act_resp = _do_action(
             client=self._connection.flight_client,
             action=FlightAction.SESSION_CREATE,
-            payload={
-                "locator": sequence_name,
-            },
+            request=requests_pb2.ResourceLocator(locator=sequence_name),
             expected_type=_DoActionSessionCreateResponse,
         )
         if act_resp is None:
@@ -312,9 +313,7 @@ class _BaseSessionWriter(ABC):
                 _do_action(
                     client=self._connection.flight_client,
                     action=FlightAction.SESSION_FINALIZE,
-                    payload={
-                        "session_uuid": self._uuid,
-                    },
+                    request=requests_pb2.SessionUuid(session_uuid=self._uuid),
                     expected_type=None,
                 )
                 self._status = SessionStatus.Finalized
@@ -342,11 +341,11 @@ class _BaseSessionWriter(ABC):
                 _do_action(
                     client=self._connection.flight_client,
                     action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
-                    payload={
-                        "locator": self._name,
-                        "notification_type": "error",
-                        "msg": err_msg,
-                    },
+                    request=requests_pb2.NotificationCreate(
+                        locator=self._name,
+                        notification_type="error",
+                        msg=err_msg,
+                    ),
                     expected_type=None,
                 )
                 self._logger.info(
@@ -365,9 +364,7 @@ class _BaseSessionWriter(ABC):
                 _do_action(
                     client=self._connection.flight_client,
                     action=FlightAction.SESSION_DELETE,
-                    payload={
-                        "locator": self._locator,
-                    },
+                    request=requests_pb2.ResourceLocator(locator=self._locator),
                     expected_type=None,
                 )
                 self._logger.info(
@@ -456,13 +453,15 @@ class _BaseSessionWriter(ABC):
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={
-                    "session_uuid": self._uuid,
-                    "locator": pack_topic_resource_name(self._name, topic_name),
-                    "serialization_format": ontology_type.__serialization_format__.value,
-                    "ontology_tag": ontology_type.__ontology_tag__,
-                    "user_metadata": metadata,
-                },
+                request=requests_pb2.TopicCreate(
+                    session_uuid=self._uuid,
+                    locator=pack_topic_resource_name(self._name, topic_name),
+                    serialization_format=_proto_format.to_proto(
+                        ontology_type.__serialization_format__
+                    ),
+                    ontology_tag=ontology_type.__ontology_tag__,
+                    user_metadata=json.dumps(metadata).encode("utf-8"),
+                ),
                 expected_type=_DoActionTopicCreateResponse,
             )
         except Exception as e:
@@ -515,9 +514,9 @@ class _BaseSessionWriter(ABC):
                 _do_action(
                     client=self._connection.flight_client,
                     action=FlightAction.TOPIC_DELETE,
-                    payload={
-                        "locator": pack_topic_resource_name(self._name, topic_name)
-                    },
+                    request=requests_pb2.ResourceLocator(
+                        locator=pack_topic_resource_name(self._name, topic_name)
+                    ),
                     expected_type=None,
                 )
             except Exception:

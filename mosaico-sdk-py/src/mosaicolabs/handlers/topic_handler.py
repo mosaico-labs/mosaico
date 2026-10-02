@@ -6,7 +6,6 @@ for an *existing* topic on the server. It allows users to inspect metadata
 and create readers (`TopicDataStreamer`).
 """
 
-import json
 from typing import Any, Dict, Optional, Tuple
 
 import pyarrow as pa
@@ -18,6 +17,7 @@ from mosaicolabs.platform.app_metadata import (
     TopicAppMetadata,
     TopicAppMetadataError,
 )
+from mosaicolabs.proto.v1 import flight_pb2
 
 from ..comm.connection import ConnectionContext
 from ..helpers import (
@@ -446,11 +446,7 @@ class TopicHandler:
             _stzd_sequence_name, _stzd_topic_name
         )
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": topic_resrc_name,
-                }
-            )
+            flight_pb2.GetFlightInfoCmd(locator=topic_resrc_name).SerializeToString()
         )
 
         # Get FlightInfo (Metadata + Endpoints)
@@ -470,11 +466,7 @@ class TopicHandler:
             _stzd_sequence_name, _stzd_topic_name
         )
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": topic_resrc_name,
-                }
-            )
+            flight_pb2.GetSchemaCmd(locator=topic_resrc_name).SerializeToString()
         )
 
         # Get Schema

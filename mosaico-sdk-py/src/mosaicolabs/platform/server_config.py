@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from mosaicolabs.proto.v1 import responses_pb2
+
 
 @dataclass(frozen=True)
 class SemVerItem:
@@ -74,38 +76,28 @@ class ServerInfo:
     """The configuration details of the server."""
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ServerInfo":
+    def _from_proto(cls, msg: responses_pb2.ServerInfo) -> "ServerInfo":
         """
-        Factory method to create a ServerInfo instance from a dictionary.
+        Factory method to create a ServerInfo instance from a decoded protobuf message.
 
         Args:
-            data (dict): A dictionary containing server info data.
+            msg (responses_pb2.ServerInfo): The decoded 'info' DoAction response.
         """
-        semver_data = data.get("semver")
-        config_data = data.get("config")
-
-        if semver_data is None:
-            raise KeyError("Unable to find 'semver' key in data dict.")
-        if config_data is None:
-            raise KeyError("Unable to find 'config' key in data dict.")
-
         semver = SemVerItem(
-            major=semver_data["major"],
-            minor=semver_data["minor"],
-            patch=semver_data["patch"],
-            pre=semver_data.get("pre"),
+            major=msg.semver.major,
+            minor=msg.semver.minor,
+            patch=msg.semver.patch,
+            pre=msg.semver.pre or None,
         )
 
         config = ServerConfig(
-            grpc_max_decode_message_size=config_data["grpc_max_decode_message_size"],
-            grpc_max_encode_message_size=config_data["grpc_max_encode_message_size"],
-            grpc_target_encode_message_size=config_data[
-                "grpc_target_encode_message_size"
-            ],
+            grpc_max_decode_message_size=msg.config.grpc_max_decode_message_size,
+            grpc_max_encode_message_size=msg.config.grpc_max_encode_message_size,
+            grpc_target_encode_message_size=msg.config.grpc_target_encode_message_size,
         )
 
         return cls(
-            version=data["version"],
+            version=msg.version,
             semver=semver,
             config=config,
         )

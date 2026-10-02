@@ -15,6 +15,7 @@ from ..enum.flight_action import FlightAction
 from ..enum.grpc_compression import GRPCCompressionAlgorithm, GRPCCompressionLevel
 from ..logging_config import get_logger
 from ..platform.server_config import ServerInfo
+from ..proto.v1 import requests_pb2
 from .do_action import _do_action, _DoActionInfoResponse
 
 # Set the hierarchical logger
@@ -32,7 +33,7 @@ def _wait_for_available(client: fl.FlightClient, timeout: int) -> ServerInfo:
             act_resp = _do_action(
                 client=client,
                 action=FlightAction.INFO,
-                payload={},
+                request=requests_pb2.Empty(),
                 expected_type=_DoActionInfoResponse,
             )
             if act_resp is None:

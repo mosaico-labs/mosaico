@@ -6,6 +6,7 @@ It manages the lifecycle of the sequence on the server (Create -> Write -> Final
 and distributes client resources to individual Topics.
 """
 
+import json
 from typing import Any, Optional, Type
 
 from ..comm.connection import ConnectionContext
@@ -18,6 +19,7 @@ from ..enum import (
 )
 from ..logging_config import get_logger
 from ..models.core import Serializable
+from ..proto.v1 import requests_pb2
 from .base_session_writer import _BaseSessionWriter
 from .config import SessionWriterConfig
 from .helpers import _make_exception, _validate_metadata, _validate_sequence_name
@@ -135,10 +137,10 @@ class SequenceWriter(_BaseSessionWriter):
         _do_action(
             client=self._connection.flight_client,
             action=FlightAction.SEQUENCE_CREATE,
-            payload={
-                "locator": self._name,
-                "user_metadata": self._metadata,
-            },
+            request=requests_pb2.SequenceCreate(
+                locator=self._name,
+                user_metadata=json.dumps(self._metadata).encode("utf-8"),
+            ),
             expected_type=None,
         )
 
@@ -185,9 +187,7 @@ class SequenceWriter(_BaseSessionWriter):
                 _do_action(
                     client=self._connection.flight_client,
                     action=FlightAction.SEQUENCE_DELETE,
-                    payload={
-                        "locator": self._name,
-                    },
+                    request=requests_pb2.ResourceLocator(locator=self._name),
                     expected_type=None,
                 )
                 self._logger.info(f"Sequence '{self._name}' deleted successfully.")
