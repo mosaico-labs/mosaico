@@ -20,6 +20,8 @@ import inspect
 import pkgutil
 from typing import Dict, Type
 
+import pyarrow as pa
+
 import mosaicolabs.models.data as data_pkg
 import mosaicolabs.models.futures as futures_pkg
 import mosaicolabs.models.sensors as sensors_pkg
@@ -127,5 +129,95 @@ def test_schema_fingerprint_consistency_across_all_ontologies(
         mosaico_client.sequence_delete(sequence_name)
 
         assert not mismatches, "Schema fingerprint mismatches found:\n" + "\n".join(
+            mismatches
+        )
+
+
+def _flatten_field_metadata(
+    struct: pa.StructType, prefix: str = ""
+) -> Dict[str, Dict[str, str]]:
+    """
+    Recursively walks a (possibly nested) pyarrow struct, returning a flat
+    mapping from dotted field path to that field's metadata, decoded from
+    bytes to str for easy comparison.
+
+    Note: `_compute_schema_fingerprint`/`_canonicalize_arrow_type` hash on
+    `str(struct)`, which does *not* include field metadata, and pyarrow's
+    `StructType.__eq__` ignores metadata by default too - so neither the
+    fingerprint check above nor a plain `==` would catch the server silently
+    dropping or altering a field's metadata. This walker exists to check that
+    explicitly.
+    """
+    result: Dict[str, Dict[str, str]] = {}
+    for field in struct:
+        path = f"{prefix}.{field.name}" if prefix else field.name
+        metadata = field.metadata or {}
+        result[path] = {
+            (k.decode() if isinstance(k, bytes) else k): (
+                v.decode() if isinstance(v, bytes) else v
+            )
+            for k, v in metadata.items()
+        }
+
+        nested_type = field.type
+        while pa.types.is_list(nested_type) or pa.types.is_fixed_size_list(nested_type):
+            nested_type = nested_type.value_type
+        if pa.types.is_struct(nested_type):
+            result.update(_flatten_field_metadata(nested_type, prefix=path))
+
+    return result
+
+
+def test_schema_field_metadata_preserved_across_all_ontologies(
+    mosaico_client: MosaicoClient,
+):
+    """
+    Verifies that, for every concrete ontology model, the field-level
+    metadata declared by the SDK (e.g. `MosaicoField(description=...)`, see
+    `mosaicolabs.models.data.base_types`) survives a real server round-trip
+    unaltered - it's not dropped or rewritten when the topic is created and
+    later inspected.
+    """
+    ontology_classes = _discover_ontology_classes(data_pkg, futures_pkg, sensors_pkg)
+    assert ontology_classes, "Expected to discover at least one ontology class"
+    ontology_classes = {
+        name: cls
+        for name, cls in ontology_classes.items()
+        if name not in _KNOWN_UNSUPPORTED_CLASSES
+    }
+
+    sequence_name = "schema_metadata_consistency_seq"
+
+    with mosaico_client:
+        with mosaico_client.sequence_create(
+            sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as seqw:
+            for name, cls in ontology_classes.items():
+                instance = make_dummy_instance(
+                    cls, overrides=_FIELD_OVERRIDES.get(name)
+                )
+                topic_name = f"/schema_metadata_check/{name}"
+                tw = seqw.topic_create(topic_name, {}, cls)
+                assert tw is not None, f"Failed to create topic for {name}"
+                tw.push(Message(timestamp_ns=1, data=instance))
+
+        mismatches = []
+        for name, cls in ontology_classes.items():
+            topic_name = f"/schema_metadata_check/{name}"
+            th = mosaico_client.topic_handler(sequence_name, topic_name)
+            assert th is not None, f"Failed to open topic handler for {name}"
+
+            sent_metadata = _flatten_field_metadata(cls.__msco_pyarrow_struct__)
+            received_metadata = _flatten_field_metadata(th.ontology_schema)
+
+            if sent_metadata != received_metadata:
+                mismatches.append(
+                    f"{name}: sent={sent_metadata} vs received={received_metadata}"
+                )
+
+        # Free resources before asserting, so a failure doesn't leak the sequence.
+        mosaico_client.sequence_delete(sequence_name)
+
+        assert not mismatches, "Schema field metadata mismatches found:\n" + "\n".join(
             mismatches
         )
