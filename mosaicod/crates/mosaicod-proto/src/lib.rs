@@ -7,26 +7,26 @@
 pub mod v1 {
     #[allow(clippy::all)]
     pub mod time {
-        include!(concat!(env!("OUT_DIR"), "/mosaicod.v1.time.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.time.rs"));
     }
 
     #[allow(clippy::all)]
     pub mod core {
-        include!(concat!(env!("OUT_DIR"), "/mosaicod.v1.core.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.core.rs"));
     }
 
     #[allow(clippy::all)]
     pub mod requests {
-        include!(concat!(env!("OUT_DIR"), "/mosaicod.v1.requests.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.requests.rs"));
     }
 
     #[allow(clippy::all)]
     pub mod responses {
-        include!(concat!(env!("OUT_DIR"), "/mosaicod.v1.responses.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.responses.rs"));
     }
 
     #[allow(clippy::all)]
     pub mod flight {
-        include!(concat!(env!("OUT_DIR"), "/mosaicod.v1.flight.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.flight.rs"));
     }
 }

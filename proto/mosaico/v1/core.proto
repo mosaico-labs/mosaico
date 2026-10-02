@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package mosaicod.v1.core;
+package mosaico.v1.core;
 
 // Shared core enums/messages
 

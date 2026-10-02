@@ -1,5 +1,5 @@
 """
-Conversions between `mosaicod.v1.time.TimestampRange` (protobuf) and plain,
+Conversions between `mosaico.v1.time.TimestampRange` (protobuf) and plain,
 independently-optional `(start_ns, end_ns)` Python integers.
 
 `TimestampRange.start_ns`/`end_ns` are each `optional int64`: an absent bound

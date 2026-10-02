@@ -42,7 +42,7 @@ pub use mosaicod_proto::v1::requests::TopicClusterizeParams;
 
 /// `TopicClusterizeParams.ontology` carries the query filter DSL's arbitrary,
 /// user-supplied shape as raw JSON bytes (see the note on it in
-/// `proto/mosaicod/v1/requests.proto`). Bridges it back to [`crate::Ontology`].
+/// `proto/mosaico/v1/requests.proto`). Bridges it back to [`crate::Ontology`].
 pub fn topic_clusterize_ontology(value: &TopicClusterizeParams) -> Result<Ontology, ActionError> {
     let bytes: &[u8] = if value.ontology.is_empty() {
         b"{}"

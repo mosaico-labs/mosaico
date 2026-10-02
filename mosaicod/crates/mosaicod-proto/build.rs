@@ -8,11 +8,11 @@ use std::path::PathBuf;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let proto_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../proto");
     let proto_files = [
-        proto_root.join("mosaicod/v1/time.proto"),
-        proto_root.join("mosaicod/v1/core.proto"),
-        proto_root.join("mosaicod/v1/requests.proto"),
-        proto_root.join("mosaicod/v1/responses.proto"),
-        proto_root.join("mosaicod/v1/flight.proto"),
+        proto_root.join("mosaico/v1/time.proto"),
+        proto_root.join("mosaico/v1/core.proto"),
+        proto_root.join("mosaico/v1/requests.proto"),
+        proto_root.join("mosaico/v1/responses.proto"),
+        proto_root.join("mosaico/v1/flight.proto"),
     ];
 
     for proto_file in &proto_files {
@@ -28,11 +28,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // serde impl is enough since it's a unit-variant-only enum.
         // `rename_all = "snake_case"` keeps the JSON representation ("default"/"ragged"/"image") unchanged.
         .type_attribute(
-            ".mosaicod.v1.core.Format",
+            ".mosaico.v1.core.Format",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
-            ".mosaicod.v1.core.Format",
+            ".mosaico.v1.core.Format",
             "#[serde(rename_all = \"snake_case\")]",
         )
         .compile_fds(file_descriptor_set)?;

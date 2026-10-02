@@ -1,9 +1,9 @@
 syntax = "proto3";
 
-package mosaicod.v1.flight;
+package mosaico.v1.flight;
 
-import "mosaicod/v1/time.proto";
-import "mosaicod/v1/core.proto";
+import "mosaico/v1/time.proto";
+import "mosaico/v1/core.proto";
 
 // These messages are Arrow Flight `FlightDescriptor.cmd` payloads (commands)
 // and `FlightInfo`/`FlightEndpoint.app_metadata` payloads, carried as raw

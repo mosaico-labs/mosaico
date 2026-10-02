@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package mosaicod.v1.time;
+package mosaico.v1.time;
 
 // Timestamp range, expressed in nanoseconds.
 //

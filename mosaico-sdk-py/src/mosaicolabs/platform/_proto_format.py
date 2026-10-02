@@ -1,5 +1,5 @@
 """
-Conversions between `mosaicod.v1.core.Format` (protobuf) and the public
+Conversions between `mosaico.v1.core.Format` (protobuf) and the public
 `SerializationFormat` enum.
 """
 
