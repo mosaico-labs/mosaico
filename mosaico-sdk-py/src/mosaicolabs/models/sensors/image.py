@@ -434,7 +434,7 @@ class Image(
                     arr_reshaped
                 )  # avoid mode ='L' because is deprecated
                 buf = io.BytesIO()
-                pil_image.save(buf, format=format.value.upper())
+                pil_image.save(buf, format=format.value.upper(), compress_level=1)
                 img_bytes = buf.getvalue()
 
             except Exception as e:
