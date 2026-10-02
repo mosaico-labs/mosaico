@@ -28,6 +28,7 @@ from ..handlers.topic_handler import TopicHandler
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from ..platform.server_config import ServerInfo
+from ..proto.v1 import flight_pb2, requests_pb2
 from ..query import Query, QueryResponse
 from ..query.protocols import QueryableProtocol
 from .connection import (
@@ -435,11 +436,9 @@ class MosaicoClient:
             bool: True if the sequence exists, False otherwise.
         """
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": sanitize_sequence_name(sequence_name),
-                }
-            )
+            flight_pb2.GetFlightInfoCmd(
+                locator=sanitize_sequence_name(sequence_name)
+            ).SerializeToString()
         )
         # Get FlightInfo
         try:
@@ -518,14 +517,12 @@ class MosaicoClient:
             bool: True if the topic exists, False otherwise.
         """
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": pack_topic_resource_name(
-                        sanitize_sequence_name(sequence_name),
-                        sanitize_topic_name(topic_name),
-                    ),
-                }
-            )
+            flight_pb2.GetFlightInfoCmd(
+                locator=pack_topic_resource_name(
+                    sanitize_sequence_name(sequence_name),
+                    sanitize_topic_name(topic_name),
+                ),
+            ).SerializeToString()
         )
         # Get FlightInfo
         try:
@@ -694,7 +691,7 @@ class MosaicoClient:
             _do_action(
                 client=self._connection.flight_client,
                 action=FlightAction.SEQUENCE_DELETE,
-                payload={"locator": sequence_name},
+                request=requests_pb2.ResourceLocator(locator=sequence_name),
                 expected_type=None,
             )
 
@@ -735,7 +732,7 @@ class MosaicoClient:
             _do_action(
                 client=self._connection.flight_client,
                 action=FlightAction.SESSION_DELETE,
-                payload={"locator": locator},
+                request=requests_pb2.ResourceLocator(locator=locator),
                 expected_type=None,
             )
 
@@ -804,7 +801,7 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={"locator": sequence_name},
+                request=requests_pb2.ResourceLocator(locator=sequence_name),
                 expected_type=_DoActionNotificationList,
             )
 
@@ -838,7 +835,7 @@ class MosaicoClient:
             _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={"locator": sequence_name},
+                request=requests_pb2.ResourceLocator(locator=sequence_name),
                 expected_type=None,
             )
 
@@ -884,12 +881,12 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={
-                    "locator": pack_topic_resource_name(
+                request=requests_pb2.ResourceLocator(
+                    locator=pack_topic_resource_name(
                         sequence_name=sequence_name,
                         topic_name=topic_name,
                     )
-                },
+                ),
                 expected_type=_DoActionNotificationList,
             )
 
@@ -924,12 +921,12 @@ class MosaicoClient:
             _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload={
-                    "locator": pack_topic_resource_name(
+                request=requests_pb2.ResourceLocator(
+                    locator=pack_topic_resource_name(
                         sequence_name=sequence_name,
                         topic_name=topic_name,
                     )
-                },
+                ),
                 expected_type=None,
             )
 
@@ -1038,7 +1035,9 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                payload=query_dict,
+                request=requests_pb2.Query(
+                    query=json.dumps(query_dict).encode("utf-8")
+                ),
                 expected_type=_DoActionQueryResponse,
             )
 

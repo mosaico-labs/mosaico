@@ -5,8 +5,7 @@ This module provides the `TopicDataStreamer`, an iterator that reads ontology re
 from a single topic via the Flight `DoGet` protocol.
 """
 
-import json
-from typing import Any, Optional, Type
+from typing import Optional, Type
 
 import pyarrow as pa
 import pyarrow.flight as fl
@@ -18,10 +17,12 @@ from mosaicolabs.models.core.serializable import (
     _compute_schema_fingerprint,
 )
 from mosaicolabs.models.core.unmodeled import SerializationFormat
+from mosaicolabs.platform._proto_time import to_proto as timestamp_range_to_proto
 from mosaicolabs.platform.app_metadata import (
     TopicAppMetadata,
     TopicAppMetadataError,
 )
+from mosaicolabs.proto.v1 import flight_pb2
 
 from ..comm.connection import ConnectionContext
 from ..helpers.helpers import pack_topic_resource_name
@@ -441,13 +442,12 @@ class TopicDataStreamer:
     ) -> fl.FlightInfo:
         """Performs the get_flight_info call. Raises if flight function does"""
         topic_resrc_name = pack_topic_resource_name(sequence_name, topic_name)
-        cmd_dict: dict[str, Any] = {"resource_locator": topic_resrc_name}
-        if start_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
-        if end_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+        timestamp_range = timestamp_range_to_proto(start_timestamp_ns, end_timestamp_ns)
+        cmd = flight_pb2.GetFlightInfoCmd(locator=topic_resrc_name)
+        if timestamp_range is not None:
+            cmd.timestamp_range.CopyFrom(timestamp_range)
 
-        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
+        descriptor = fl.FlightDescriptor.for_command(cmd.SerializeToString())
 
         # Get FlightInfo
         return client.get_flight_info(descriptor)

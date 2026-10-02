@@ -79,7 +79,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v6
         with:
-          context: mosaicod
+          context: .
           file: docker/dockerfiles/Dockerfile.mosaicod
           platforms: ${{ matrix.platform }}
           build-args: |

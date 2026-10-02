@@ -327,11 +327,11 @@ fn no_value_batch(ts_start: i64, count: usize) -> RecordBatch {
 }
 
 async fn setup_topics(client: &mut common::Client, seq: &str, topics: Vec<(&str, RecordBatch)>) {
-    actions::sequence_create(client, seq, None).await.unwrap();
+    actions::sequence_create(client, seq, "").await.unwrap();
     let (_, session_uuid) = actions::session_create(client, seq).await.unwrap();
     for (suffix, batch) in topics {
         let topic_name = format!("{seq}/{suffix}");
-        let uuid = actions::topic_create(client, &session_uuid, &topic_name, None)
+        let uuid = actions::topic_create(client, &session_uuid, &topic_name, "")
             .await
             .unwrap();
         actions::do_put(client, &uuid, &topic_name, vec![batch], false)
@@ -343,17 +343,10 @@ async fn setup_topics(client: &mut common::Client, seq: &str, topics: Vec<(&str,
         .unwrap();
 }
 
-fn topic_locators(items: &[serde_json::Value]) -> Vec<String> {
+fn topic_locators(items: &[mosaicod_marshal::responses::ResponseQueryItem]) -> Vec<String> {
     items
         .iter()
-        .flat_map(|item| {
-            item["topics"]
-                .as_array()
-                .unwrap_or(&vec![])
-                .iter()
-                .map(|t| t["locator"].as_str().unwrap().to_owned())
-                .collect::<Vec<_>>()
-        })
+        .flat_map(|item| item.topics.iter().map(|t| t.locator.clone()))
         .collect()
 }
 

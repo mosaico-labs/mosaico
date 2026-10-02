@@ -24,13 +24,13 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -106,7 +106,7 @@ async fn test_get_schema_wrong_locator_kind(pool: sqlx::Pool<db::DatabaseType>) 
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -138,13 +138,13 @@ async fn test_get_schema_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 

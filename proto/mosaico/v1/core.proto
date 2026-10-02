@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package mosaico.v1.core;
+
+// Shared core enums/messages
+
+enum Format {
+  FORMAT_UNSPECIFIED = 0;
+  FORMAT_DEFAULT = 1;
+  FORMAT_RAGGED = 2;
+  FORMAT_IMAGE = 3;
+}
+
+// Generic empty message.
+message Empty {}

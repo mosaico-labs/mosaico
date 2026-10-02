@@ -1,9 +1,11 @@
+import json
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Iterator, List, Optional
+from typing import ClassVar, Iterator, List, Optional
 
 from pyarrow.flight import FlightClient
 
 from mosaicolabs.helpers import unpack_topic_full_path
+from mosaicolabs.proto.v1 import requests_pb2, responses_pb2
 
 from ..comm.do_action_page import (
     _do_action_page,
@@ -30,7 +32,7 @@ def _build_clusterize_payload(
     clustering_dt_ns: Optional[int] = None,
     timestamp_range: Optional["TimestampRange"] = None,
     include_timestamp_range: bool = True,
-) -> dict[str, Any]:
+) -> requests_pb2.TopicClusterizeParams:
     """Creates the payload for the topic filter clusterize do_action_page"""
 
     # Merging expressions within a single dict
@@ -38,20 +40,18 @@ def _build_clusterize_payload(
         k: v for expr in item_topic._query_exprs for k, v in expr.to_dict().items()
     }
 
-    payload = {
-        "locator": item_topic.locator,
-        "clustering_dt_ns": clustering_dt_ns
+    params = requests_pb2.TopicClusterizeParams(
+        locator=item_topic.locator,
+        clustering_dt_ns=clustering_dt_ns
         if clustering_dt_ns is not None
         else item_topic.DEFAULT_CLUSTERING_DT,
-        "ontology": merged_exprs,
-    }
+        ontology=json.dumps(merged_exprs).encode("utf-8"),
+    )
 
-    if include_timestamp_range:
-        payload["timestamp_range"] = (
-            timestamp_range.to_dict() if timestamp_range else None
-        )
+    if include_timestamp_range and timestamp_range is not None:
+        params.timestamp_range.CopyFrom(timestamp_range.to_proto())
 
-    return payload
+    return params
 
 
 def _build_intersect_payload(
@@ -59,11 +59,11 @@ def _build_intersect_payload(
     intersect_dt_ns: int,
     clustering_map: Optional[dict[str, int]] = None,
     override_clustering_dt_ns: Optional[int] = None,
-):
+) -> requests_pb2.TopicFilterIntersect:
     """Creates the payload for the topic filter intersect do_action_page"""
 
-    return {
-        "topics": [
+    return requests_pb2.TopicFilterIntersect(
+        topics=[
             _build_clusterize_payload(
                 item_topic,
                 clustering_map.get(item_topic.ontology_tag, override_clustering_dt_ns)
@@ -73,8 +73,8 @@ def _build_intersect_payload(
             )
             for item_topic in item_topics
         ],
-        "intersect_dt_ns": intersect_dt_ns,
-    }
+        intersect_dt_ns=intersect_dt_ns,
+    )
 
 
 @dataclass
@@ -89,8 +89,8 @@ class QueryResponseItemSequence:
     name: str
 
     @classmethod
-    def _from_dict(cls, qdict: dict[str, str]) -> "QueryResponseItemSequence":
-        return cls(name=qdict["sequence"])
+    def _from_proto(cls, msg: responses_pb2.QueryItem) -> "QueryResponseItemSequence":
+        return cls(name=msg.sequence)
 
 
 @dataclass
@@ -213,7 +213,7 @@ class QueryResponseItemTopic:
             act_resp = _do_action_page(
                 client=self._client,
                 action=ACTION,
-                payload=_build_clusterize_payload(
+                request=_build_clusterize_payload(
                     self, clustering_dt_ns, timestamp_range
                 ),
                 expected_type=_DoActionPageResponseFilterClusterize,
@@ -337,7 +337,7 @@ class QueryResponseItemTopic:
             act_resp = _do_action_page(
                 client=self._client,
                 action=ACTION,
-                payload=_build_intersect_payload(
+                request=_build_intersect_payload(
                     [self, *query_response_item_topics],
                     intersect_dt_ns,
                     clustering_map,
@@ -358,11 +358,8 @@ class QueryResponseItemTopic:
             raise
 
     @classmethod
-    def _from_dict(cls, tdict: dict[str, Any]) -> "QueryResponseItemTopic":
-        locator = tdict["locator"]
-        t_ontology_tag = tdict["ontology_tag"]
-
-        return cls(locator=locator, ontology_tag=t_ontology_tag)
+    def _from_proto(cls, msg: responses_pb2.QueryItemTopic) -> "QueryResponseItemTopic":
+        return cls(locator=msg.locator, ontology_tag=msg.ontology_tag)
 
     def _set_client(self, client: FlightClient):
         self._client = client
@@ -570,7 +567,7 @@ class QueryResponseItem:
             act_resp = _do_action_page(
                 client=self._client,
                 action=ACTION,
-                payload=_build_intersect_payload(
+                request=_build_intersect_payload(
                     total_topics,
                     intersect_dt_ns,
                     clustering_map,
@@ -591,12 +588,10 @@ class QueryResponseItem:
             raise
 
     @classmethod
-    def _from_dict(cls, qdict: dict[str, Any]) -> "QueryResponseItem":
+    def _from_proto(cls, msg: responses_pb2.QueryItem) -> "QueryResponseItem":
         return cls(
-            sequence=QueryResponseItemSequence._from_dict(qdict),
-            topics=[
-                QueryResponseItemTopic._from_dict(tdict) for tdict in qdict["topics"]
-            ],
+            sequence=QueryResponseItemSequence._from_proto(msg),
+            topics=[QueryResponseItemTopic._from_proto(topic) for topic in msg.topics],
         )
 
     def _set_client(self, client: FlightClient):

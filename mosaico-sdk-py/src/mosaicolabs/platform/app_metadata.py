@@ -1,13 +1,16 @@
+import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 
-from pyarrow.flight import FlightEndpoint
+from pyarrow.flight import FlightEndpoint, FlightInfo
 
 from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.logging_config import get_logger
+from mosaicolabs.proto.v1 import flight_pb2
 
 from ..helpers.helpers import unpack_topic_full_path
-from .helpers import _decode_app_metadata
+from . import _proto_format
+from ._proto_time import from_proto as timestamp_range_from_proto
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -31,28 +34,15 @@ class SessionAppMetadataError(Exception):
     pass
 
 
-def _get_metadata_value(
-    metadata: Dict[str, Any],
-    key: str,
-    is_mandatory: bool = True,
-    default: Optional[Any] = None,
-) -> Any:
+def _decode_user_metadata(raw: bytes) -> dict:
     """
-    Safely retrieves a value from the metadata dictionary.
-
-    Args:
-        metadata (Dict[str, Any]): The metadata dictionary.
-        key (str): The key to retrieve.
-        is_mandatory (bool): Whether the key is mandatory.
-        default (Optional[Any]): The default value to return if the key is not found.
-
-    Returns:
-        Any: The value associated with the key or the default value.
+    Decodes the `user_metadata` raw-bytes field shared by several app_metadata
+    messages: arbitrary user-supplied JSON, as raw UTF-8 text. Empty bytes
+    means no metadata was set.
     """
-    value = metadata.get(key, default)
-    if is_mandatory and value is None:
-        raise ValueError(f"Missing mandatory key '{key}' in metadata.")
-    return value
+    if not raw:
+        return {}
+    return json.loads(raw)
 
 
 @dataclass(frozen=True)
@@ -114,114 +104,73 @@ class TopicAppMetadata:
                 to unpack topic and sequence names from the locator.
         """
         try:
-            app_mdata = _decode_app_metadata(endpoint.app_metadata)
+            msg = flight_pb2.TopicAppMetadata.FromString(endpoint.app_metadata)
 
-            created_timestamp = _get_metadata_value(app_mdata, "created_at_ns")
-            locked = _get_metadata_value(app_mdata, "locked")
-            resrc_loc = _get_metadata_value(app_mdata, "resource_locator")
-            ontology_tag = _get_metadata_value(app_mdata, "ontology_tag")
-            serialization_format = _get_metadata_value(
-                app_mdata, "serialization_format"
-            )
             try:
-                serialization_format = SerializationFormat(serialization_format)
-            except Exception as e:
+                serialization_format = _proto_format.from_proto(
+                    msg.serialization_format
+                )
+            except ValueError as e:
                 raise ValueError(
                     f"Unable to convert to a valid 'SerializationFormat'.\nInner err: {e}"
                 )
-            user_metadata = _get_metadata_value(app_mdata, "user_metadata")
-            info_mdata = _get_metadata_value(app_mdata, "data_info")
-            if not isinstance(info_mdata, dict):
+
+            if not msg.HasField("data_info"):
                 raise TopicAppMetadataError(
-                    f"Unrecognized format for key 'data_info' in app_metadata: type {type(info_mdata).__name__}, expected a JSON."
+                    "Missing mandatory field 'data_info' in app_metadata."
                 )
 
-            total_size_bytes = _get_metadata_value(info_mdata, "total_bytes")
-            total_chunks_count = _get_metadata_value(info_mdata, "total_chunks_count")
-
-            locator_tuple = unpack_topic_full_path(resrc_loc)
+            locator_tuple = unpack_topic_full_path(msg.locator)
             if locator_tuple is None:
                 raise TopicAppMetadataError(
-                    f"Invalid format for 'resource_locator': cannot deduce sequence and topic name from '{resrc_loc}'."
+                    f"Invalid format for 'locator': cannot deduce sequence and topic name from '{msg.locator}'."
                 )
 
             tmax = tmin = total_row_count = None
-            # Get timestamp and row counts from 'time_window_info' first: if not None, an inner range has been asked
-            time_window_info = _get_metadata_value(
-                app_mdata, "time_window_info", is_mandatory=False
-            )
-            if time_window_info is not None:
-                # If an inner range has nbeen asked, the fields are mandatory
-                tmin, tmax = cls._parse_timestamp_range(
-                    _get_metadata_value(
-                        time_window_info, "interval", is_mandatory=False, default={}
-                    )
+            # Get timestamp and row counts from 'time_window_info' first: if set, an inner range has been asked
+            if msg.HasField("time_window_info"):
+                # If an inner range has been asked, the fields are mandatory
+                tmin, tmax = timestamp_range_from_proto(
+                    msg.time_window_info.interval
+                    if msg.time_window_info.HasField("interval")
+                    else None
                 )
-                total_row_count = _get_metadata_value(time_window_info, "row_count")
+                total_row_count = msg.time_window_info.row_count
             else:
                 # If no inner range has been asked, get the global timestamp range from 'data_info'
-                # The fiels are mandatory
-                tmin, tmax = cls._parse_timestamp_range(
-                    _get_metadata_value(
-                        info_mdata, "interval", is_mandatory=False, default={}
-                    )
+                tmin, tmax = timestamp_range_from_proto(
+                    msg.data_info.interval
+                    if msg.data_info.HasField("interval")
+                    else None
                 )
-                total_row_count = _get_metadata_value(info_mdata, "total_row_count")
+                total_row_count = msg.data_info.total_row_count
 
             seq_name, top_name = locator_tuple
 
             return cls(
                 name=top_name,
                 sequence_name=seq_name,
-                created_timestamp=created_timestamp,
-                completed_timestamp=_get_metadata_value(
-                    app_mdata, "completed_at_ns", is_mandatory=False
+                created_timestamp=msg.created_at_ns,
+                completed_timestamp=(
+                    msg.completed_at_ns if msg.HasField("completed_at_ns") else None
                 ),
-                locked=locked,
+                locked=msg.locked,
                 serialization_format=serialization_format,
-                ontology_tag=ontology_tag,
-                total_size_bytes=total_size_bytes,
-                total_chunks_count=total_chunks_count,
-                user_metadata=user_metadata,
+                ontology_tag=msg.ontology_tag,
+                total_size_bytes=msg.data_info.total_bytes,
+                total_chunks_count=msg.data_info.total_chunks_count,
+                user_metadata=_decode_user_metadata(msg.user_metadata),
                 timestamp_ns_min=tmin,
                 timestamp_ns_max=tmax,
                 total_row_count=total_row_count,
             )
 
         except Exception as e:
-            # Wrap internal errors (like UnicodeDecode or Unpacking errors)
+            # Wrap internal errors (like decode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
             raise TopicAppMetadataError(
                 f"Failed to parse topic metadata from endpoint: {e}"
             ) from e
-
-    @staticmethod
-    def _parse_timestamp_range(
-        tstamp_mdata: dict,
-    ) -> Tuple[Optional[int], Optional[int]]:
-        """
-        Parses the minimum and maximum timestamps of the resource.
-
-        Args:
-            tstamp_mdata (dict): The timestamp metadata.
-
-        Returns:
-            Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
-        """
-        # (can be missing in metadata - i.e. degenerate Topics with no data stream)
-        tmin = None
-        tmax = None
-        # Can be null (i.e. "timestamp" present but empty)
-        if isinstance(tstamp_mdata, dict):
-            tmin = _get_metadata_value(tstamp_mdata, "start_ns", is_mandatory=False)
-            tmax = _get_metadata_value(tstamp_mdata, "end_ns", is_mandatory=False)
-            # Ensure both keys exist
-            if (tmin is None) != (tmax is None):
-                logger.error(
-                    f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
-                )
-
-        return tmin, tmax
 
 
 @dataclass
@@ -250,37 +199,28 @@ class SessionAppMetadata:
     topics: list[str]
 
     @classmethod
-    def _from_app_metadata(
+    def _from_proto(
         cls,
-        session_mdata: Dict[str, Any],
+        msg: flight_pb2.SessionAppMetadata,
     ) -> "SessionAppMetadata":
         """
-        Internal static method to construct a SessionAppMetadata from app_metadata.
+        Internal factory method to construct a SessionAppMetadata from a decoded
+        protobuf message.
 
         Args:
-            session_mdata (Dict[str, Any]): The app_metadata from the FlightInfo.
+            msg (flight_pb2.SessionAppMetadata): The decoded session app_metadata.
 
         Returns:
             SessionAppMetadata: The SessionAppMetadata object.
-
-        Raises:
-            SessionAppMetadataError: If the endpoint `app_metadata` misses required keys.
         """
-
-        locator = _get_metadata_value(session_mdata, "locator")
-        created_timestamp = _get_metadata_value(session_mdata, "created_at_ns")
-        locked = _get_metadata_value(session_mdata, "locked")
-
-        return SessionAppMetadata(
-            locator=locator,
-            created_timestamp=created_timestamp,
-            completed_timestamp=_get_metadata_value(
-                session_mdata, "completed_at_ns", is_mandatory=False
+        return cls(
+            locator=msg.locator,
+            created_timestamp=msg.created_at_ns,
+            completed_timestamp=(
+                msg.completed_at_ns if msg.HasField("completed_at_ns") else None
             ),
-            locked=locked,
-            topics=_get_metadata_value(
-                session_mdata, "topics", is_mandatory=False, default=[]
-            ),
+            locked=msg.locked,
+            topics=list(msg.topics),
         )
 
 
@@ -306,45 +246,47 @@ class SequenceAppMetadata:
     sessions: List[SessionAppMetadata]
 
     @classmethod
-    def _from_app_metadata(
+    def _from_proto(
         cls,
-        app_mdata: Dict[str, Any],
+        msg: flight_pb2.SequenceAppMetadata,
     ) -> "SequenceAppMetadata":
         """
-        Factory method to create a SequenceAppMetadata from FlightInfo.app_metadata.
+        Factory method to create a SequenceAppMetadata from a decoded protobuf message.
 
         Args:
-            app_mdata (Union[bytes, str]): The app_metadata object containing the sequence resource info.
+            msg (flight_pb2.SequenceAppMetadata): The decoded sequence app_metadata.
 
         Returns:
             SequenceAppMetadata: An immutable instance containing parsed data.
-
-        Raises:
-            SequenceAppMetadataError: If the endpoint `app_metadata` misses required keys.
         """
-
         try:
-            resource_locator = _get_metadata_value(app_mdata, "resource_locator")
-            created_timestamp = _get_metadata_value(app_mdata, "created_at_ns")
-            user_metadata = _get_metadata_value(app_mdata, "user_metadata")
-
-            sessions = _get_metadata_value(
-                app_mdata, "sessions", is_mandatory=False, default=[]
-            )
-
             return cls(
-                locator=resource_locator,
-                created_timestamp=created_timestamp,
-                user_metadata=user_metadata,
+                locator=msg.locator,
+                created_timestamp=msg.created_at_ns,
+                user_metadata=_decode_user_metadata(msg.user_metadata),
                 sessions=[
-                    SessionAppMetadata._from_app_metadata(session)
-                    for session in sessions
+                    SessionAppMetadata._from_proto(session) for session in msg.sessions
                 ],
             )
 
         except Exception as e:
-            # Wrap internal errors (like UnicodeDecode or Unpacking errors)
-            # into a domain-specific exception for the caller to handle.
+            # Wrap internal errors (like decode errors) into a domain-specific
+            # exception for the caller to handle.
             raise SequenceAppMetadataError(
                 f"Failed to parse metadata from app_metadata: {e}"
             ) from e
+
+    @classmethod
+    def _from_flight_info(cls, flight_info: FlightInfo) -> "SequenceAppMetadata":
+        """
+        Factory method to create a SequenceAppMetadata straight from a FlightInfo's
+        top-level `app_metadata` field.
+
+        Args:
+            flight_info (FlightInfo): The FlightInfo carrying the sequence's app_metadata.
+
+        Returns:
+            SequenceAppMetadata: An immutable instance containing parsed data.
+        """
+        msg = flight_pb2.SequenceAppMetadata.FromString(flight_info.app_metadata)
+        return cls._from_proto(msg)

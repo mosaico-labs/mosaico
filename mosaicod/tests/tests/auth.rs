@@ -46,7 +46,7 @@ async fn test_api_key_read_only(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // Write is denied.
-    let res = actions::sequence_create(&mut client, "read_only_seq", None).await;
+    let res = actions::sequence_create(&mut client, "read_only_seq", "").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
     // Delete is denied.
@@ -75,7 +75,7 @@ async fn test_api_key_write_only(pool: sqlx::Pool<db::DatabaseType>) {
     let mut client = make_client(&api_key.key, server.port()).await;
 
     // Write is allowed.
-    let res = actions::sequence_create(&mut client, "write_only_seq", None).await;
+    let res = actions::sequence_create(&mut client, "write_only_seq", "").await;
     assert!(res.is_ok());
 
     // Read is denied.
@@ -115,11 +115,11 @@ async fn test_api_key_delete_only(pool: sqlx::Pool<db::DatabaseType>) {
     let seq_name = "delete_only_seq";
 
     // The delete-only key cannot create the sequence.
-    let res = actions::sequence_create(&mut client_deleter, seq_name, None).await;
+    let res = actions::sequence_create(&mut client_deleter, seq_name, "").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
     // A write key sets up the sequence, then the delete key removes it.
-    actions::sequence_create(&mut client_writer, seq_name, None)
+    actions::sequence_create(&mut client_writer, seq_name, "")
         .await
         .unwrap();
 
@@ -165,7 +165,7 @@ async fn test_api_key_combined_permissions(pool: sqlx::Pool<db::DatabaseType>) {
     let mut client_full = make_client(&full.key, port).await;
 
     // write|delete: can create and delete, cannot read.
-    actions::sequence_create(&mut client_wd, "wd_seq", None)
+    actions::sequence_create(&mut client_wd, "wd_seq", "")
         .await
         .unwrap();
     assert_eq!(
@@ -177,7 +177,7 @@ async fn test_api_key_combined_permissions(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // read|write|delete: full access.
-    actions::sequence_create(&mut client_full, "full_seq", None)
+    actions::sequence_create(&mut client_full, "full_seq", "")
         .await
         .unwrap();
     assert_ne!(
@@ -237,27 +237,27 @@ async fn test_api_key_invalid_token(pool: sqlx::Pool<db::DatabaseType>) {
         .build()
         .await;
 
-    let res = actions::sequence_create(&mut client_1, "test_1", None).await;
+    let res = actions::sequence_create(&mut client_1, "test_1", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
-    let res = actions::sequence_create(&mut client_2, "test_2", None).await;
+    let res = actions::sequence_create(&mut client_2, "test_2", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
-    let res = actions::sequence_create(&mut client_3, "test_3", None).await;
+    let res = actions::sequence_create(&mut client_3, "test_3", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
-    let res = actions::sequence_create(&mut client_4, "test_4", None).await;
+    let res = actions::sequence_create(&mut client_4, "test_4", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
-    let res = actions::sequence_create(&mut client_5, "test_5", None).await;
+    let res = actions::sequence_create(&mut client_5, "test_5", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
-    let res = actions::sequence_create(&mut client_6, "test_6", None).await;
+    let res = actions::sequence_create(&mut client_6, "test_6", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
@@ -287,17 +287,17 @@ async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
     let mut client_expiring = make_client(&expiring_key.key, port).await;
 
-    let res = actions::sequence_create(&mut client_expiring, "test_before_expiry", None).await;
+    let res = actions::sequence_create(&mut client_expiring, "test_before_expiry", "").await;
     assert!(res.is_ok());
 
     tokio::time::sleep(TTL + std::time::Duration::from_millis(300)).await;
 
-    let res = actions::sequence_create(&mut client_expiring, "test_after_expiry", None).await;
+    let res = actions::sequence_create(&mut client_expiring, "test_after_expiry", "").await;
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
     // A non-expiring key keeps working.
-    let res = actions::sequence_create(&mut client_stable, "test_stable", None).await;
+    let res = actions::sequence_create(&mut client_stable, "test_stable", "").await;
     assert!(res.is_ok());
 
     server.shutdown().await;
@@ -324,8 +324,8 @@ async fn test_api_key_concurrent_same_sequence(pool: sqlx::Pool<db::DatabaseType
 
     let seq_name = "test_concurrent_create";
     let (r1, r2) = tokio::join!(
-        actions::sequence_create(&mut client_w1, seq_name, None),
-        actions::sequence_create(&mut client_w2, seq_name, None),
+        actions::sequence_create(&mut client_w1, seq_name, ""),
+        actions::sequence_create(&mut client_w2, seq_name, ""),
     );
     dbg!(&r1, &r2);
 
@@ -355,7 +355,7 @@ async fn test_api_key_concurrent_same_sequence(pool: sqlx::Pool<db::DatabaseType
     };
     assert_eq!(err.code(), tonic::Code::NotFound);
 
-    let res = actions::sequence_create(&mut client_w1, seq_name, None).await;
+    let res = actions::sequence_create(&mut client_w1, seq_name, "").await;
     assert!(res.is_ok());
 
     server.shutdown().await;

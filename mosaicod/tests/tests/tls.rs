@@ -19,7 +19,7 @@ async fn test_tls_with_valid_cert(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::R
         .await;
 
     // make a dummy sequence create to see if the connection works
-    actions::sequence_create(&mut client, "test_sequence", None)
+    actions::sequence_create(&mut client, "test_sequence", "")
         .await
         .unwrap();
 

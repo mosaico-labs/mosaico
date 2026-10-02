@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package mosaico.v1.time;
+
+// Timestamp range, expressed in nanoseconds.
+//
+// `start_ns`/`end_ns` are independently optional: an absent bound means
+// unbounded on that side (e.g. "everything after X").
+message TimestampRange {
+  optional int64 start_ns = 1;
+  optional int64 end_ns = 2;
+}

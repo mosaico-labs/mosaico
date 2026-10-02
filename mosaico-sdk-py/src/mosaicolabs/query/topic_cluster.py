@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Dict
+
+from mosaicolabs.proto.v1 import responses_pb2, time_pb2
 
 
 @dataclass
@@ -19,14 +20,11 @@ class TimestampRange:
     end: int
 
     @classmethod
-    def _from_dict(cls, data: Dict[str, Any]) -> "TimestampRange":
-        return cls(start=data["start_ns"], end=data["end_ns"])
+    def _from_proto(cls, msg: time_pb2.TimestampRange) -> "TimestampRange":
+        return cls(start=msg.start_ns, end=msg.end_ns)
 
-    def to_dict(self):
-        return {
-            "start_ns": self.start,
-            "end_ns": self.end,
-        }
+    def to_proto(self) -> time_pb2.TimestampRange:
+        return time_pb2.TimestampRange(start_ns=self.start, end_ns=self.end)
 
 
 @dataclass
@@ -44,20 +42,20 @@ class TopicCluster:
     timerange: TimestampRange
 
     @classmethod
-    def _from_dict(cls, data: Dict[str, Any]) -> "TopicCluster":
+    def _from_proto(cls, msg: responses_pb2.TopicFilterClusterize) -> "TopicCluster":
         """
-        Creates a TopicCluster object from a dictionary.
+        Creates a TopicCluster object from a decoded protobuf message.
 
         Args:
-            data (Dict[str, Any]): The dictionary to create the TopicCluster object from.
+            msg (responses_pb2.TopicFilterClusterize): The decoded cluster message.
 
         Returns:
             TopicCluster: A TopicCluster object.
         """
 
         return cls(
-            id=data["id"],
-            timerange=TimestampRange._from_dict(data["ts"]),
+            id=msg.id,
+            timerange=TimestampRange._from_proto(msg.ts),
         )
 
     def __str__(self) -> str:

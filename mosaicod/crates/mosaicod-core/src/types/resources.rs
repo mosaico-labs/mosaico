@@ -42,10 +42,14 @@ pub trait Locator: std::fmt::Display {
 ///
 /// The following criteria must be met:
 /// - non-ASCII chars are not allowed
+/// - ASCII control characters (e.g. newline, tab) are not allowed
 /// - special symbols `! " ' * £ $ % &` are not allowed
 fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
     value.chars().any(|c| {
-        !c.is_ascii() || INVALID_CHARS.contains(&c) || others.is_some_and(|o| o.contains(&c))
+        !c.is_ascii()
+            || c.is_ascii_control()
+            || INVALID_CHARS.contains(&c)
+            || others.is_some_and(|o| o.contains(&c))
     })
 }
 
@@ -235,21 +239,21 @@ pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
     pub session_locator: types::SessionLocator,
-    pub resource_locator: TopicLocator,
+    pub locator: TopicLocator,
 }
 
 impl TopicMetadataProperties {
-    pub fn new(resource_locator: TopicLocator, session_locator: types::SessionLocator) -> Self {
-        Self::new_with_created_at(resource_locator, session_locator, types::Timestamp::now())
+    pub fn new(locator: TopicLocator, session_locator: types::SessionLocator) -> Self {
+        Self::new_with_created_at(locator, session_locator, types::Timestamp::now())
     }
 
     pub fn new_with_created_at(
-        resource_locator: TopicLocator,
+        locator: TopicLocator,
         session_locator: types::SessionLocator,
         created_at: types::Timestamp,
     ) -> Self {
         Self {
-            resource_locator,
+            locator,
             created_at,
             completed_at: None,
             session_locator,
@@ -314,6 +318,15 @@ pub struct TopicTimeWindowInfo {
     pub timestamp_range: TimestampRange,
     /// Number of samples within the input time window.
     pub row_count: u64,
+}
+
+/// Full snapshot of a topic: its metadata, whole-topic data statistics, and
+/// (optionally) statistics scoped to a requested time window.
+#[derive(Debug, Clone)]
+pub struct TopicInfo<M> {
+    pub metadata: TopicMetadata<M>,
+    pub data_info: TopicDataInfo,
+    pub time_window_info: Option<TopicTimeWindowInfo>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -504,7 +517,7 @@ impl std::fmt::Display for SequencePathInStore {
 pub struct SequenceMetadata<M> {
     /// Timestamp of the sequence creation
     pub created_at: super::Timestamp,
-    pub resource_locator: SequenceLocator,
+    pub locator: SequenceLocator,
     pub sessions: Vec<SessionMetadata>,
     pub user_metadata: Option<M>,
 }
@@ -626,6 +639,10 @@ mod tests {
         assert!(has_invalid_symbols("my/resource/name", Some(&['/'])));
 
         assert!(has_invalid_symbols("my/resource:name", Some(&[':'])));
+
+        assert!(has_invalid_symbols("my/resource\nname", None));
+
+        assert!(has_invalid_symbols("my/resource\tname", None));
 
         assert!(!has_invalid_symbols("my/resource:name/", None));
 
