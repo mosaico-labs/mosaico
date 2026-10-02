@@ -2,7 +2,7 @@ use super::ActionError;
 use crate::Ontology;
 
 // Empty request.
-pub use mosaicod_proto::v1::requests::Empty;
+pub use mosaicod_proto::v1::core::Empty;
 
 /// Request used to locate a specific resource by name.
 pub use mosaicod_proto::v1::requests::ResourceLocator;

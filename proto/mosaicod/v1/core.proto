@@ -10,3 +10,6 @@ enum Format {
   FORMAT_RAGGED = 2;
   FORMAT_IMAGE = 3;
 }
+
+// Generic empty message.
+message Empty {}

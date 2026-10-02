@@ -7,10 +7,6 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class Empty(_message.Message):
-    __slots__ = []
-    def __init__(self) -> None: ...
-
 class NotificationCreate(_message.Message):
     __slots__ = ["locator", "msg", "notification_type"]
     LOCATOR_FIELD_NUMBER: _ClassVar[int]
