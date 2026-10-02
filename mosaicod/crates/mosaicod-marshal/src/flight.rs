@@ -248,8 +248,7 @@ pub fn topic_info_from_bytes(value: &[u8]) -> Result<types::TopicInfo<JsonMetada
 pub fn ticket_topic_to_bytes(tt: types::flight::TicketTopic) -> Vec<u8> {
     proto_flight::TicketTopic {
         locator: tt.locator.to_string(),
-        timestamp_ns_start: tt.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
-        timestamp_ns_end: tt.timestamp_range.map(|tsr| tsr.end.into()),
+        timestamp_range: tt.timestamp_range.map(super::timestamp_range_to_proto),
     }
     .encode_to_vec()
 }
@@ -258,15 +257,10 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
     let cmd = proto_flight::TicketTopic::decode(v)
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
 
-    let ub: types::Timestamp = cmd
-        .timestamp_ns_end
-        .map_or_else(types::Timestamp::unbounded_pos, |v| v.into());
-    let lb: types::Timestamp = cmd
-        .timestamp_ns_start
-        .map_or_else(types::Timestamp::unbounded_neg, |v| v.into());
-
-    let ts = types::TimestampRange::between(lb, ub);
-    let timestamp_range = if ts.is_unbounded() { None } else { Some(ts) };
+    let timestamp_range = cmd
+        .timestamp_range
+        .map(super::timestamp_range_from_proto)
+        .filter(|r| !r.is_unbounded());
 
     Ok(types::flight::TicketTopic {
         locator: cmd
