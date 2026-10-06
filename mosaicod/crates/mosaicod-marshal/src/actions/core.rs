@@ -18,8 +18,7 @@ pub enum ActionError {
     #[error("body decode error")]
     BodyDecodeError(#[from] prost::DecodeError),
 
-    /// Failed to parse a raw-bytes JSON field (e.g. `user_metadata`, the
-    /// query filter) as JSON.
+    /// Failed to parse a raw-bytes JSON field (e.g. `user_metadata`) as JSON.
     #[error("body deserialization error")]
     BodyDeserializationError(#[from] serde_json::Error),
 }
@@ -86,7 +85,7 @@ pub enum ActionRequest {
     SessionDelete(requests::ResourceLocator),
 
     /// Perform a query in the system
-    Query(requests::Query),
+    Query(Box<requests::Query>),
 
     /// Returns server info: version and the server's configured limits (e.g.
     /// `grpc_max_decode_message_size`, `grpc_max_encode_message_size`,

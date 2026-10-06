@@ -521,6 +521,14 @@ impl OntologyFilter {
                 .collect(),
         }
     }
+
+    pub fn len(&self) -> usize {
+        self.ontology.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ontology.is_empty()
+    }
 }
 
 /// Represents the logical operator to apply to a field for filtering.

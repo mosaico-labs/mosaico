@@ -3,7 +3,7 @@ use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_ext::arrow::testing::clustering_test_batch;
-use mosaicod_marshal::{self as marshal, Ontology};
+use mosaicod_marshal as marshal;
 use serde_json::json;
 use tests::{self, actions, common};
 // ===========================================================================
@@ -1016,18 +1016,16 @@ async fn setup_topic_with_batches_in_existing_seq(
         .unwrap();
 }
 
-fn ontology_value_gt_5() -> Ontology {
-    serde_json::from_value(json!({
+fn ontology_value_gt_5() -> serde_json::Value {
+    json!({
         "mock.value": { "$gt": 5 }
-    }))
-    .unwrap()
+    })
 }
 
-fn ontology_value_lt_3() -> Ontology {
-    serde_json::from_value(json!({
+fn ontology_value_lt_3() -> serde_json::Value {
+    json!({
         "mock.value": { "$lt": 3 }
-    }))
-    .unwrap()
+    })
 }
 
 fn clustering_test_batch_xy(ts: &[i64], xs: &[i64], ys: &[i64]) -> arrow::array::RecordBatch {
@@ -1343,10 +1341,9 @@ async fn test_topic_filter_clusterize_empty_timestamp_range(pool: sqlx::Pool<db:
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/test_topic", sequence_name);
     let clustering_dt_ns: u64 = 10;
-    let ontology: Ontology = serde_json::from_value(json!({
+    let ontology = json!({
         "imu.acceleration.x": { "$gt": 5 }
-    }))
-    .unwrap();
+    });
 
     // Start == End
     let timestamp = marshal::TimestampRange {
@@ -1405,10 +1402,9 @@ async fn test_topic_filter_clusterize_more_ontology(pool: sqlx::Pool<db::Databas
 
     // x > 5 AND y < 3 keeps ts [100, 110, 120, 200]; with dt 50 that is two
     // clusters: (100, 120) and (200, 200). idx 4 and 5 are excluded by the AND.
-    let ontology: Ontology = serde_json::from_value(json!({
+    let ontology = json!({
         "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
-    }))
-    .unwrap();
+    });
 
     let clusters = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None)
         .await
@@ -1443,10 +1439,9 @@ async fn test_topic_filter_clusterize_wrong_ontology_tag(pool: sqlx::Pool<db::Da
     setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
 
     // Topic uses ontology_tag "mock"; "imu" does not match it.
-    let ontology: Ontology = serde_json::from_value(json!({
+    let ontology = json!({
         "imu.acceleration.x": { "$gt": 5 }
-    }))
-    .unwrap();
+    });
 
     let res = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None).await;
 
@@ -1472,10 +1467,9 @@ async fn test_topic_filter_clusterize_multiple_ontology_tags(pool: sqlx::Pool<db
     setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
 
     // Topic uses ontology_tag "mock"; mixing "mock" with "imu" spans two ontologies.
-    let ontology: Ontology = serde_json::from_value(json!({
+    let ontology = json!({
         "mock.value": { "$gt": 5 }, "imu.acceleration.y": { "$lt": 3 }
-    }))
-    .unwrap();
+    });
 
     let res = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None).await;
 
@@ -1518,13 +1512,13 @@ async fn test_topic_filter_intersect_no_intersection(pool: sqlx::Pool<db::Databa
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 100,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
     ];
@@ -1571,13 +1565,13 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
     ];
@@ -1634,26 +1628,24 @@ async fn test_topic_filter_intersect_multiple_ontology_fields(pool: sqlx::Pool<d
     )
     .await;
 
-    let multi_field: Ontology = serde_json::from_value(json!({
+    let multi_field = json!({
         "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
-    }))
-    .unwrap();
-    let multi_field_2: Ontology = serde_json::from_value(json!({
+    });
+    let multi_field_2 = json!({
         "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
-    }))
-    .unwrap();
+    });
 
     let topics = vec![
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&multi_field).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&multi_field)),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&multi_field_2).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&multi_field_2)),
             timestamp_range: None,
         },
     ];
@@ -1698,22 +1690,21 @@ async fn test_topic_filter_intersect_multiple_ontology_tags(pool: sqlx::Pool<db:
     .await;
 
     // Topic 1 mixes "mock" with "imu": two ontologies in one filter -> rejected.
-    let mixed_tags: Ontology = serde_json::from_value(json!({
+    let mixed_tags = json!({
         "mock.value": { "$gt": 5 }, "imu.acceleration.y": { "$lt": 3 }
-    }))
-    .unwrap();
+    });
 
     let topics = vec![
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&mixed_tags).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&mixed_tags)),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
     ];
@@ -1769,19 +1760,19 @@ async fn test_topic_filter_intersect_three_topics(pool: sqlx::Pool<db::DatabaseT
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 150,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t3.to_owned(),
             clustering_dt_ns: 100,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
     ];
@@ -1830,13 +1821,13 @@ async fn test_topic_filter_intersect_within_tolerance(pool: sqlx::Pool<db::Datab
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
     ];
@@ -1883,13 +1874,13 @@ async fn test_topic_filter_intersect_different_sequences(pool: sqlx::Pool<db::Da
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_gt_5()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_gt_5())),
             timestamp_range: None,
         },
         mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
-            ontology: serde_json::to_vec(&ontology_value_lt_3()).unwrap(),
+            ontology: Some(actions::ontology_filter_to_proto(&ontology_value_lt_3())),
             timestamp_range: None,
         },
     ];

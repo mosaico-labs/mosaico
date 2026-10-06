@@ -106,7 +106,7 @@ pub async fn do_action(
         }
 
         // Query
-        ActionRequest::Query(data) => query_action::execute(ctx, requests::query_filter(&data)?)
+        ActionRequest::Query(data) => query_action::execute(ctx, requests::query_filter(*data))
             .await?
             .into_stream(),
 
