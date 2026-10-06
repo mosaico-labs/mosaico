@@ -110,10 +110,10 @@ class ExtractorConfig:
     """
 
     start_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) from where to start extracting data of specified sequence"""
+    """Inclusive timestamp upper-bound (in nanoseconds) from where to start extracting data of specified sequence"""
 
     end_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
+    """Exclusive timestamp lower-bound (in nanoseconds) to finish extracting data of specified sequence"""
 
     overwrite: bool = False
     """If True, delete and recreate the output path if it already exists. Defaults to False."""
@@ -509,13 +509,13 @@ def _add_common_arguments(
         "--start_timestamp_ns",
         type=int,
         default=None,
-        help="Timestamp (in nanoseconds) from which to start extracting the sequence. None by default",
+        help="Inclusive timestamp lower-bound (in nanoseconds) from which to start extracting the sequence. None by default",
     )
     parser.add_argument(
         "--end_timestamp_ns",
         type=int,
         default=None,
-        help="Timestamp (in nanoseconds) at which to stop extracting the sequence. None by default",
+        help="Exclusive timestamp upper-bound (in nanoseconds) at which to stop extracting the sequence. None by default",
     )
 
     # Connection Arguments

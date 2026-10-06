@@ -70,8 +70,10 @@ class DataFrameExtractor:
         Args:
             topics (List[str], optional): Topics to extract. Defaults to all topics.
             window_sec (float): Duration of each DataFrame chunk in seconds.
-            timestamp_ns_start (Optional[int]): Global start time for extraction.
-            timestamp_ns_end (Optional[int]): Global end time for extraction.
+            timestamp_ns_start (Optional[int]): Global inclusive start time for extraction.
+            timestamp_ns_end (Optional[int]): Global exclusive end time for extraction (t < end).
+                If `None` or beyond the sequence `timestamp_ns_max`, the extraction
+                includes the last message of the sequence.
 
         Yields:
             pd.DataFrame: A sparse, flattened DataFrame containing data from all
@@ -109,13 +111,15 @@ class DataFrameExtractor:
                 timestamp_ns_start, self._sequence_handler.timestamp_ns_min
             )  # do not go beyond (before) the minimum sequence timestamp
         )
-        timestamp_ns_end = (
-            timestamp_ns_end
-            if timestamp_ns_end is None
-            else min(
-                timestamp_ns_end, self._sequence_handler.timestamp_ns_max
-            )  # do not go beyond (after) the maximum sequence timestamp
-        )
+        # The end bound is exclusive (t < end). If the requested end reaches beyond
+        # the last sequence sample, clamping it to 'timestamp_ns_max' would drop the
+        # message at exactly 'timestamp_ns_max': leave the stream unbounded instead,
+        # and include the last sample in the final window (see issue #824).
+        if (
+            timestamp_ns_end is not None
+            and timestamp_ns_end > self._sequence_handler.timestamp_ns_max
+        ):
+            timestamp_ns_end = None
 
         # Get topic names from selection
         topic_names = topics or self._sequence_handler.topics
@@ -133,8 +137,9 @@ class DataFrameExtractor:
             if timestamp_ns_start is not None
             else self._sequence_handler.timestamp_ns_min
         )
+        # Exclusive if set by the user, inclusive if it is the sequence end
         global_end_ns = (
-            timestamp_ns_end  # Already clamped
+            timestamp_ns_end
             if timestamp_ns_end is not None
             else self._sequence_handler.timestamp_ns_max
         )
@@ -153,8 +158,11 @@ class DataFrameExtractor:
 
         try:
             current_window_start = global_start_ns
-            while current_window_start < global_end_ns:
+            while True:
                 current_window_end = current_window_start + window_ns
+                # The last window drains the readers, so that samples at the
+                # (inclusive) sequence end are not left in the carry-over
+                is_last_window = is_full_load or current_window_end >= global_end_ns
                 window_parts = []
 
                 # Safely convert data streams to DataFrame.
@@ -166,7 +174,8 @@ class DataFrameExtractor:
 
                     # Fetch raw batches from the state until the window is covered
                     while (
-                        df_topic.empty
+                        is_last_window
+                        or df_topic.empty
                         or df_topic[self._timestamp_column_name].max()
                         < current_window_end
                     ):
@@ -184,7 +193,9 @@ class DataFrameExtractor:
                         del new_df  # Free tmp memory immediately
 
                     if not df_topic.empty:
-                        if is_full_load:
+                        if is_last_window:
+                            # Server-side filtering already bounds the stream to the
+                            # requested range: all the remaining data belongs here
                             window_parts.append(df_topic)
                         else:
                             # Split data: [Current Window] | [Future Data (Carry-over)]
@@ -206,8 +217,8 @@ class DataFrameExtractor:
                         window_parts, axis=0, ignore_index=True
                     ).sort_values(self._timestamp_column_name)
 
-                # In full_load, we have finished after the first yield
-                if is_full_load:
+                # The last window (or the only one, in full_load) has drained the readers
+                if is_last_window:
                     break
 
                 current_window_start = current_window_end

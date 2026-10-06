@@ -1,10 +1,10 @@
 """
 This example demonstrates how to list the sequences in the MosaicoDB catalog.
-This example can be run after running the ingestion example (examples/ros_injection/main.py).
+This example can be run after running the ingestion example (examples/bridges/ros/injection.py).
 
 Ingest data via:
 ```bash
-cd mosaico-sdk-py/src/examples && poetry run python ros_injection/main.py
+cd mosaico-sdk-py && poetry run mosaicolabs.examples ros_injection
 ```
 
 Then, list sequences via:

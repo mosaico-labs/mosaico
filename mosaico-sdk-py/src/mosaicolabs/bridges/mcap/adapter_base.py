@@ -79,13 +79,6 @@ class MCAPSchemaMetadata(BaseSchemaMetadata):
         """Returns the schema def contained in the metadata."""
         return self.fields["schema_def"]
 
-    def get_sequence_id(self) -> Optional[int]:
-        """Returns the sequence id contained in the metadata, or None if not present."""
-        # FIXME: the MCAP `sequence` is a per-message counter, but a single value is stored
-        # per topic (see `MCAPAdapterBase.schema_metadata`). Unused until it is stored per
-        # message.
-        return self.fields.get("sequence_id")
-
 
 OntologyT = TypeVar("OntologyT", bound=Serializable)
 # type of the object handled by to_mcap() that needs to be filled with data in Mosaico Message
@@ -296,7 +289,7 @@ class MCAPAdapterBase(
 
     @classmethod
     def schema_metadata(
-        cls, channel_name: str, channel_encoding: str, schema_def: str, sequence_id: int
+        cls, channel_name: str, channel_encoding: str, schema_def: str
     ) -> Optional[dict]:
         """
         Builds the MCAP-specific schema metadata for this adapter.
@@ -306,7 +299,6 @@ class MCAPAdapterBase(
             channel_encoding (str): The encoding of the MCAP channel the adapter is associated to.
             schema_def (str): The string representation of the MCAP schema the adapter is
                 associated to, as produced by the resolved `McapSchemaConverter.stringify_schema_def()`.
-            sequence_id (int): Message counter assigned by publisher. Set to 0 if not available.
 
         Returns:
             Optional[dict]: The schema metadata, wrapped under the
@@ -319,10 +311,6 @@ class MCAPAdapterBase(
             schema_def=schema_def,
             channel_name=channel_name,
             channel_encoding=channel_encoding,
-            # FIXME: the MCAP `sequence` is a per-message counter, but this metadata is built
-            # once per topic, so only the first message's value is kept. Store it per message
-            # instead (e.g. like `publish_time_ns`).
-            # sequence_id=sequence_id,
         )
 
         return mcap_meta.to_dict()

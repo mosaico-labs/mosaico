@@ -40,9 +40,31 @@ The `--tls`, `--gzip` and `--api-key` options of `mosaicod server` have been rem
 
 The `--host` and `--port` options are unchanged. See the [CLI reference](cli.md#mosaicod-server) for details.
 
-### Removed environment variables
+### Environment Variables
 
-* `MOSAICOD_TARGET_MESSAGE_SIZE`: no longer configurable. It is now always derived as half of [`MOSAICOD_MAX_GRPC_MESSAGE_SIZE`](env.md#mosaicod-max-grpc-message-size), which must be set between `4 MiB` and `128 MiB`.
+#### gRPC message size configuration
+
+`MOSAICOD_MAX_GRPC_MESSAGE_SIZE` has been replaced by two independently configurable limits, decoupling the incoming (decode) and outgoing (encode) message size:
+
+```diff
+- MOSAICOD_MAX_GRPC_MESSAGE_SIZE=52428800
++ MOSAICOD_GRPC_MAX_DECODE_MESSAGE_SIZE=52428800
++ MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE=26214400
+```
+
+`MOSAICOD_TARGET_MESSAGE_SIZE` is removed. In 0.6 it was not configurable (always derived as half of `MOSAICOD_MAX_GRPC_MESSAGE_SIZE`); in 0.7 it is replaced by `MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE`, which is independently configurable and defaults to `25 MiB`.
+
+The allowed range for the decode limit also widened from `4 MiB`-`128 MiB` to `4 MiB`-`512 MiB`. The corresponding `config.toml` keys are `server.grpc.max_decode_message_size` and `server.grpc.target_encode_message_size`. See the [environment variables reference](env.md#general).
+
+### Actions
+
+#### `info`
+
+The `VERSION` action has been replaced by `INFO`, which, in addition to the version string, reports the server's configured gRPC message size limits:
+
+* `grpc_max_decode_message_size`
+* `grpc_max_encode_message_size`
+* `grpc_target_encode_message_size`
 
 ### Store optimizer
 

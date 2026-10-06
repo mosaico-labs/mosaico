@@ -520,10 +520,11 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
             sequence_name (str): Name of the Mosaico sequence to load.
             topics (Optional[List[str]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
                 exclusions). ``None`` loads all topics.
-            start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
-                to the sequence minimum if out of range.
-            end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
-                the sequence maximum if out of range.
+            start_timestamp_ns (Optional[int]): Inclusive lower bound for the time window (nanoseconds).
+                Clipped to the sequence minimum if out of range.
+            end_timestamp_ns (Optional[int]): Exclusive upper bound for the time window (nanoseconds).
+                If beyond the sequence maximum, the data are loaded up to the end of the sequence
+                (last message included).
         """
 
         super().__init__(

@@ -505,15 +505,11 @@ class MCAPInjector:
             # --- Schema metadata Resolution ---
             assert mcap_msg.schema_def  # here schema_def cannot be None, otherwise an exception would have been already occured
 
-            # FIXME: `mcap_msg.sequence_id` is a per-message counter, but it is stored here once,
-            # as topic metadata, so only this first message's value is kept (and the extractor
-            # does not use it). Store it per message instead (e.g. like `publish_time_ns`).
             mcap_meta = MCAPSchemaMetadata.from_dict(
                 adapter.schema_metadata(
                     mcap_msg.channel_name,
                     mcap_msg.channel_encoding,
                     mcap_msg.schema_def,
-                    mcap_msg.sequence_id,
                 )
             )
 
