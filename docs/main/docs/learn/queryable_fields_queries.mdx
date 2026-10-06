@@ -8,7 +8,7 @@ import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
 Every query example so far has used the `.Q` proxy: `IMU.Q.acceleration.x.gt(9.8)`. That works because `IMU` is a real Python class with a real schema baked in.
-Unmodeled ontologies break that assumption. When you ingest data whose schema is only known at runtime, such as an unadapted ROS message type translated on the fly,
+Unmodeled ontologies break that assumption. When you ingest data whose schema is only known at runtime, such as an unadapted ROS message type translated on the fly or any channel of an MCAP file ingested through the [MCAP bridge](/examples/MCAP/mcap_ingestion),
 the resulting class is created dynamically, and you may not have kept a reference to it around, may not even be in the same process that ingested it,
 or may not care which of several schema variants sharing one ontology tag you're actually querying. In every one of those cases, there's no class to write `.Q` on.
 
@@ -77,7 +77,7 @@ Both calls produce the exact same query sent to the server. For a modeled ontolo
 
 ## Querying an Unmodeled Ontology
 
-Say a ROS bridge translated an unadapted gyroscope message into an unmodeled ontology tagged `"GyroRaw"`, with a `gyro` struct holding `x`, `y`, `z` readings.
+Say the ROS or MCAP bridge translated an unadapted gyroscope message into an unmodeled ontology tagged `"GyroRaw"`, with a `gyro` struct holding `x`, `y`, `z` readings.
 That happened in a separate ingestion script; by the time you want to search the data, that process - and the dynamically-generated class it created - no longer exists.
 All you have is the tag and the field names, which is exactly what `QueryableNumeric` needs:
 
