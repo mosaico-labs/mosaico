@@ -38,19 +38,21 @@ Run the command with `--help` to see all available options.
 
 The daemon must be running, and it must already contain the sequences ingested by the [ROS Ingestion](./ros_ingestion) example. This script only reads back data already on the server, it does not download or ingest anything itself.
 
-The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/reconstruct_rosbags.py).
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/bridges/ros/reconstruct.py).
 
 ## Custom Ontology Definition
 
-The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same custom, hand-modeled type introduced in the [Custom Ontology](./custom_ontology) example to make wheel-encoder ticks ingestible (reused here without modification).
+The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same custom, hand-modeled type introduced in the [Custom Ontology](../custom_ontology) example to make wheel-encoder ticks ingestible (reused here without modification).
 
 ## No Adapter Needed to Reconstruct
 
-**Reuse, not required.** The [ROS Ingestion](./ros_ingestion) example writes `EncoderTicksAdapter` by hand (imported here via `ros_injection.custom_ontology`, see [ROS Ingestion](./ros_ingestion#ros-adapter)) to get a fully-typed, queryable `EncoderTicks` model, but that step is a choice, not a requirement.
+**Reuse, not required.** The [ROS Ingestion](./ros_ingestion) example writes `EncoderTicksAdapter` by hand (imported here via `bridges.ros.custom_ontology`, see [ROS Ingestion](./ros_ingestion#ros-adapter)) to get a fully-typed, queryable `EncoderTicks` model, but that step is a choice, not a requirement.
 
 **Automatic fallback.** Writing a reverse adapter is optional too: for any topic that reaches the extractor with no adapter registered for its ROS message type, the bridge falls back to the same automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) used at ingestion time. Since the original `.msg` definition was already captured as topic metadata when the sequence was ingested, the extractor can recover it, re-register it with the local ROS typestore, and reconstruct the native ROS message from it. See [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) for the full mechanics of this round-trip.
 
 ## Reconstruction Pipeline
+
+`ROSSequenceExtractor` is the ROS specialization of the bridge-agnostic `SequenceExtractor`, the same base used by the MCAP bridge's `MCAPSequenceExtractor`. The base class drives the run; the ROS class only supplies the loader, the bag writer, and the per-message encoding. Likewise, `ROSExtractorConfig` extends the shared `ExtractorConfig` (connection, sequence, topic and time-window filters, output path, `overwrite`, `dry_run`) with the ROS-specific `ros_distro`, `storage_plugin`, `custom_msgs`, and `registry` fields.
 
 `ROSSequenceExtractor.run()` mirrors the injector's pipeline in reverse:
 
@@ -58,7 +60,7 @@ The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same 
 
 **Stream.** Reads back every message of the requested sequence, resolving the adapter for each topic (falling back to the automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) as described above).
 
-**Write.** Translates each message back into its native ROS type and writes it into a fresh bag under `rosbag_path/sequence_name`.
+**Write.** Translates each message back into its native ROS type through the adapter's `to_native()` and writes it into a fresh bag under `saving_path/sequence_name`.
 
 ```python title="Reconstruct every ingested sequence"
 BAG_FILE_PATH = Path(ASSET_DIR) / "reconstructed"
@@ -74,7 +76,7 @@ ROS_DISTRO = Stores.ROS2_JAZZY
 
 for sequence in SEQUENCE_NAMES:
     configs = ROSExtractorConfig(
-        rosbag_path=BAG_FILE_PATH,
+        saving_path=BAG_FILE_PATH,
         sequence_name=sequence,
         host=MOSAICO_HOST,
         port=MOSAICO_PORT,
