@@ -703,10 +703,11 @@ class MosaicoLoader(_BaseROSTopicResolver):
             sequence_name (str): Name of the Mosaico sequence to load.
             topics (Optional[Union[str, List[str]]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
                 exclusions). ``None`` loads all topics.
-            start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
-                to the sequence minimum if out of range.
-            end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
-                the sequence maximum if out of range.
+            start_timestamp_ns (Optional[int]): Inclusive lower bound for the time window (nanoseconds).
+                Clipped to the sequence minimum if out of range.
+            end_timestamp_ns (Optional[int]): Exclusive upper bound for the time window (nanoseconds).
+                If beyond the sequence maximum, the data are loaded up to the end of the sequence
+                (last message included).
         """
 
         super().__init__(
@@ -726,9 +727,9 @@ class MosaicoLoader(_BaseROSTopicResolver):
         self._topic_glob_pattern = topics
         """Optional list of topic-name filter patterns (glob-style, ``!``-prefixed for exclusions)."""
         self._start_timestamp_ns = start_timestamp_ns
-        """Lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
+        """Inclusive Lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
         self._end_timestamp_ns = end_timestamp_ns
-        """Upper bound for the time window (nanoseconds). Clipped to the sequence maximum if out of range."""
+        """Exclusive upper bound for the time window (nanoseconds). Unbounded (up to the sequence end) if beyond the sequence maximum."""
         self._seq_handler: Optional[SequenceHandler] = None
         """The mosaico sequence handler, lazily initialized on first access."""
         self._streamer: Optional[SequenceDataStreamer] = None

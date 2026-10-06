@@ -146,10 +146,10 @@ class ROSExtractorConfig:
     """
 
     start_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) from where to start extracting data of specified sequence"""
+    """Inclusive timestamp upper-bound (in nanoseconds) from where to start extracting data of specified sequence"""
 
     end_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
+    """Exclusive timestamp lower-bound (in nanoseconds) to finish extracting data of specified sequence"""
 
     overwrite: bool = False
     """If True, delete and recreate the rosbag path if it already exists. Defaults to False."""
@@ -679,13 +679,13 @@ def ros_sequence_extractor():
     parser.add_argument(
         "--start_timestamp_ns",
         default=None,
-        help="Timestamp from where to start extractiong from sequence and create rosbag. None by default",
+        help="Inclusive timestamp lower-bound (in nanoseconds) from which to start extracting the sequence. None by default",
     )
     parser.add_argument(
         "--end_timestamp_ns",
         type=int,
         default=None,
-        help="Timestamp from where to stop extractiong from sequence and create rosbag. None by default",
+        help="Exclusive timestamp upper-bound (in nanoseconds) at which to stop extracting the sequence. None by default",
     )
 
     # Connection Arguments

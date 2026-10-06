@@ -30,7 +30,9 @@ WINDOWS_SEC = [0.03, 0.05, 10.0]
 def _push(client: MosaicoClient, sequence_name: str, topics: dict):
     with client.sequence_create(sequence_name, metadata={}) as swriter:
         for topic, tstamps in topics.items():
-            twriter = swriter.topic_create(topic, metadata={}, ontology_type=Temperature)
+            twriter = swriter.topic_create(
+                topic, metadata={}, ontology_type=Temperature
+            )
             assert twriter is not None
             for ts in tstamps:
                 twriter.push(
