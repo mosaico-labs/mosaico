@@ -39,7 +39,11 @@ from mosaicolabs.enum.session_status import SessionStatus
 from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from ..base_injector import _DEFAULT_TOPIC_ON_ERROR, InjectionConfigBase
+from ..base_injector import (
+    _DEFAULT_TOPIC_ON_ERROR,
+    InjectionConfigBase,
+    InjectionStatus,
+)
 from ..topic_status import to_color
 from ..ui import ProgressManager
 from .adapter_base import MCAPSchemaMetadata
@@ -266,23 +270,25 @@ class MCAPInjector:
                 "No connection to the Mosaico server was made."
             )
 
-    def run(self):
+    def run(self) -> InjectionStatus:
         """
         Main execution entry point for the injection pipeline.
 
         If `self._cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
         without connecting to the server.
 
+        Returns:
+            InjectionStatus: `COMPLETED` if the file was injected, `CANCELLED` if the user
+                interrupted the injection (`KeyboardInterrupt`), `DRY_RUN` in dry-run mode.
+
         Raises:
             Exception: Any fatal error encountered during connection, loading, or upload is
                 logged and then re-raised, so callers can detect failure (e.g. `try`/`except`
                 around `run()`, or a non-zero process exit code from the CLI entry point).
-                `KeyboardInterrupt` is the only exception handled silently, to allow a clean
-                shutdown on user interrupt.
         """
         if self._cfg.dry_run:
             self._dry_run_report()
-            return
+            return InjectionStatus.DRY_RUN
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
 
@@ -363,10 +369,12 @@ class MCAPInjector:
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
-            return
+            return InjectionStatus.CANCELLED
         except Exception as e:
             logger.exception(f"Fatal error during ingestion: '{e}'")
             raise
+
+        return InjectionStatus.COMPLETED
 
     def _print_summary(self, original_size: int, remote_size: int):
         """
@@ -736,13 +744,17 @@ def mcap_injector():
     # --- Execution ---
     injector = MCAPInjector(config)
     try:
-        injector.run()
+        status = injector.run()
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception:
         # Already logged with a full traceback inside run(); exit non-zero so
         # calling scripts/CI can detect the failure.
         sys.exit(1)
+
+    # Interrupted by the user while uploading: same exit code as an interrupt outside `run()`
+    if status is InjectionStatus.CANCELLED:
+        sys.exit(130)
 
 
 if __name__ == "__main__":

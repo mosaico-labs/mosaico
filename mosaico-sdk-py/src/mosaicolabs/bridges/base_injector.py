@@ -19,6 +19,7 @@ Typical usage (through a subclass):
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -30,6 +31,25 @@ from mosaicolabs.enum import (
 
 _DEFAULT_TOPIC_ON_ERROR = TopicLevelErrorPolicy.Raise
 _DEFAULT_SESSION_ON_ERROR = SessionLevelErrorPolicy.Report
+
+
+class InjectionStatus(Enum):
+    """
+    Outcome of an injector's `run()`.
+
+    Errors are not a status: `run()` logs and re-raises them, so callers detect a failure
+    through the exception.
+    """
+
+    COMPLETED = "completed"
+    """The file was injected into the Mosaico server."""
+
+    CANCELLED = "cancelled"
+    """The user interrupted the injection (`KeyboardInterrupt`, e.g. Ctrl-C) before it
+    completed."""
+
+    DRY_RUN = "dry_run"
+    """`dry_run` was set: the file was only analysed and nothing was written to the server."""
 
 
 # --- Configuration ---
