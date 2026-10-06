@@ -9,7 +9,7 @@ use mosaicod_core::{
 };
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_marshal::{self as marshal, ActionResponse, Ontology, requests};
+use mosaicod_marshal::{self as marshal, ActionResponse, requests};
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
@@ -169,13 +169,19 @@ pub async fn filter_clusterize(
     ctx: &facade::Context,
     locator: String,
     clustering_dt_ns: u64,
-    ontology: Ontology,
+    ontology_filter: query::OntologyFilter,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<DoActionStream> {
     info!("filter clusterize for {}", locator);
 
-    let rx =
-        spawn_cluster_stream(ctx, locator, clustering_dt_ns, ontology, timestamp_range).await?;
+    let rx = spawn_cluster_stream(
+        ctx,
+        locator,
+        clustering_dt_ns,
+        ontology_filter,
+        timestamp_range,
+    )
+    .await?;
 
     let stream = rx.map(|res| match res {
         Ok(cluster) => cluster_to_flight_result(cluster, ActionResponse::topic_filter_clusterize),
@@ -192,7 +198,7 @@ async fn spawn_cluster_stream(
     ctx: &facade::Context,
     locator: String,
     clustering_dt_ns: u64,
-    ontology: Ontology,
+    ontology_filter: query::OntologyFilter,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<ReceiverStream<ClusteringResult>> {
     if let Some(ts_range) = &timestamp_range
@@ -202,10 +208,10 @@ async fn spawn_cluster_stream(
     }
 
     // Check at least one ontology filter is present
-    if ontology.is_empty() {
+    if ontology_filter.is_empty() {
         Err(core::Error::bad_request(format!(
             "At least 1 filtering condition is required, found {}",
-            ontology.len()
+            ontology_filter.len()
         )))?;
     }
 
@@ -219,7 +225,6 @@ async fn spawn_cluster_stream(
     // Setup query
     let topic_locator = locator.parse::<types::TopicLocator>()?;
     let timestamp_column = core::constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
-    let ontology_filter = ontology.try_into()?;
 
     // RecordBatch stream filtered by timestamp if any and ontology
     let batch_stream = query_by_timestamp(ctx, &topic_locator, timestamp_range, ontology_filter)

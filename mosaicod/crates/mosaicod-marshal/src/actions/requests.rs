@@ -1,5 +1,4 @@
-use super::ActionError;
-use crate::Ontology;
+use mosaicod_query as query;
 
 // Empty request.
 pub use mosaicod_proto::v1::core::Empty;
@@ -40,17 +39,12 @@ pub use mosaicod_proto::v1::requests::TopicCreate;
 /// `topic_filter_clusterize` action's own request payload.
 pub use mosaicod_proto::v1::requests::TopicClusterizeParams;
 
-/// `TopicClusterizeParams.ontology` carries the query filter DSL's arbitrary,
-/// user-supplied shape as raw JSON bytes (see the note on it in
-/// `proto/mosaico/v1/requests.proto`). Bridges it back to [`crate::Ontology`].
-pub fn topic_clusterize_ontology(value: &TopicClusterizeParams) -> Result<Ontology, ActionError> {
-    let bytes: &[u8] = if value.ontology.is_empty() {
-        b"{}"
-    } else {
-        &value.ontology
-    };
-
-    Ok(serde_json::from_slice(bytes)?)
+/// Converts `TopicClusterizeParams.ontology` into a [`query::OntologyFilter`], an
+/// absent filter is treated as an empty one.
+pub fn topic_clusterize_ontology(
+    value: &TopicClusterizeParams,
+) -> Result<query::OntologyFilter, crate::Error> {
+    crate::ontology_filter_from_proto(value.ontology.clone().unwrap_or_default())
 }
 
 pub use mosaicod_proto::v1::requests::TopicFilterIntersect;
@@ -59,16 +53,13 @@ pub use mosaicod_proto::v1::requests::TopicFilterIntersect;
 // Query
 // ////////////////////////////////////////////////////////////////////////////
 
-/// The query filter DSL (see [`Ontology`]) has an arbitrary, user-supplied
-/// shape with no fixed field set.
+/// `query` action's request payload, carrying a typed query filter.
 pub use mosaicod_proto::v1::requests::Query;
 
-pub fn query_filter(value: &Query) -> Result<serde_json::Value, ActionError> {
-    let bytes: &[u8] = if value.query.is_empty() {
-        b"{}"
-    } else {
-        &value.query
-    };
+/// Typed query filter carried by [`Query`].
+pub use mosaicod_proto::v1::query::Filter as QueryFilter;
 
-    Ok(serde_json::from_slice(bytes)?)
+/// Extracts the query filter, an absent filter is treated as an empty one.
+pub fn query_filter(value: Query) -> QueryFilter {
+    value.filter.unwrap_or_default()
 }

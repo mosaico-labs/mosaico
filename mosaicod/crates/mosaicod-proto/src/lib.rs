@@ -29,4 +29,9 @@ pub mod v1 {
     pub mod flight {
         include!(concat!(env!("OUT_DIR"), "/mosaico.v1.flight.rs"));
     }
+
+    #[allow(clippy::all)]
+    pub mod query {
+        include!(concat!(env!("OUT_DIR"), "/mosaico.v1.query.rs"));
+    }
 }

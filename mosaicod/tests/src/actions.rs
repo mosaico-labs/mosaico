@@ -11,7 +11,9 @@ use mosaicod_ext as ext;
 use prost::Message;
 
 use arrow_flight::Ticket;
-use mosaicod_marshal::{self as marshal, Ontology, requests, responses};
+use mosaicod_marshal::{self as marshal, requests, responses};
+use mosaicod_proto::v1::query as proto;
+use std::collections::HashMap;
 
 use tonic::Streaming;
 
@@ -501,7 +503,7 @@ pub async fn topic_filter_clusterize(
     client: &mut Client,
     locator: &str,
     clustering_dt_ns: u64,
-    ontology: Ontology,
+    ontology: serde_json::Value,
     timestamp_range: Option<marshal::TimestampRange>,
 ) -> Result<Vec<responses::TopicFilterClusterize>, tonic::Status> {
     let action = action(
@@ -509,8 +511,7 @@ pub async fn topic_filter_clusterize(
         &requests::TopicClusterizeParams {
             locator: locator.to_owned(),
             clustering_dt_ns,
-            ontology: serde_json::to_vec(&ontology)
-                .map_err(|e| tonic::Status::internal(e.to_string()))?,
+            ontology: Some(ontology_filter_to_proto(&ontology)),
             timestamp_range,
         },
     );
@@ -556,9 +557,12 @@ pub async fn query(
     client: &mut Client,
     filter: serde_json::Value,
 ) -> Result<Vec<responses::ResponseQueryItem>, tonic::Status> {
-    let query_bytes =
-        serde_json::to_vec(&filter).map_err(|e| tonic::Status::internal(e.to_string()))?;
-    let action = action("query", &requests::Query { query: query_bytes });
+    let action = action(
+        "query",
+        &requests::Query {
+            filter: Some(query_filter_to_proto(&filter)),
+        },
+    );
 
     let mut items: Vec<responses::ResponseQueryItem> = Vec::new();
     let mut stream = client.do_action(action).await?.into_inner();
@@ -571,6 +575,121 @@ pub async fn query(
     }
 
     Ok(items)
+}
+
+/// Translates a query filter written in json
+fn query_filter_to_proto(filter: &serde_json::Value) -> proto::Filter {
+    proto::Filter {
+        sequence: filter.get("sequence").map(|s| proto::SequenceFilter {
+            name: s.get("name").map(json_to_condition),
+            created_at_ns: s.get("created_at_ns").map(json_to_condition),
+            user_metadata: json_to_conditions(s.get("user_metadata")),
+        }),
+        topic: filter.get("topic").map(|t| proto::TopicFilter {
+            name: t.get("name").map(json_to_condition),
+            created_at_ns: t.get("created_at_ns").map(json_to_condition),
+            ontology_tag: t.get("ontology_tag").map(json_to_condition),
+            serialization_format: t.get("serialization_format").map(json_to_condition),
+            user_metadata: json_to_conditions(t.get("user_metadata")),
+        }),
+        ontology: filter.get("ontology").map(ontology_filter_to_proto),
+    }
+}
+
+/// Translates an ontology filter written in the JSON DSL (e.g.
+/// `{"mock.value": {"$gt": 5}}`) into its protobuf form.
+pub fn ontology_filter_to_proto(ontology: &serde_json::Value) -> proto::OntologyFilter {
+    proto::OntologyFilter {
+        exprs: ontology
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(field, op)| proto::OntologyPredicate {
+                field: field.clone(),
+                aggregator: proto::Aggregator::Unspecified as i32,
+                condition: Some(json_to_condition(op)),
+            })
+            .collect(),
+    }
+}
+
+fn json_to_conditions(v: Option<&serde_json::Value>) -> HashMap<String, proto::Condition> {
+    v.and_then(|v| v.as_object())
+        .into_iter()
+        .flatten()
+        .map(|(k, op)| (k.clone(), json_to_condition(op)))
+        .collect()
+}
+
+/// `"$ex"`/`"$nex"` are plain strings, every other operator is `{"$op": value}`.
+fn json_to_condition(op: &serde_json::Value) -> proto::Condition {
+    use proto::Operator;
+
+    let (name, value) = match op {
+        serde_json::Value::String(s) => (s.as_str(), None),
+        serde_json::Value::Object(m) if m.len() == 1 => {
+            let (k, v) = m.iter().next().unwrap();
+            (k.as_str(), Some(v))
+        }
+        _ => ("", None),
+    };
+
+    let op = match name {
+        "$eq" => Operator::Eq,
+        "$neq" => Operator::Neq,
+        "$lt" => Operator::Lt,
+        "$leq" => Operator::Leq,
+        "$gt" => Operator::Gt,
+        "$geq" => Operator::Geq,
+        "$between" => Operator::Between,
+        "$outside" => Operator::Outside,
+        "$in" => Operator::In,
+        "$match" => Operator::Match,
+        "$ex" => Operator::Ex,
+        "$nex" => Operator::Nex,
+        _ => Operator::Unspecified,
+    };
+
+    proto::Condition {
+        op: op as i32,
+        value: value.map(json_to_value),
+    }
+}
+
+fn json_to_value(v: &serde_json::Value) -> proto::Value {
+    use proto::value::Kind;
+
+    let kind = match v {
+        serde_json::Value::Bool(b) => Some(Kind::Boolean(*b)),
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .map(Kind::Integer)
+            .or_else(|| n.as_f64().map(Kind::Float)),
+        serde_json::Value::String(s) => Some(Kind::Text(s.clone())),
+        serde_json::Value::Array(a) => json_to_array(a),
+        serde_json::Value::Null | serde_json::Value::Object(_) => None,
+    };
+
+    proto::Value { kind }
+}
+
+/// Picks the array type from the elements, mixed or nested arrays are not representable.
+fn json_to_array(a: &[serde_json::Value]) -> Option<proto::value::Kind> {
+    use proto::value::Kind;
+
+    if let Some(values) = a.iter().map(|v| v.as_i64()).collect() {
+        return Some(Kind::IntegerArray(proto::IntegerArray { values }));
+    }
+    if let Some(values) = a.iter().map(|v| v.as_f64()).collect() {
+        return Some(Kind::FloatArray(proto::FloatArray { values }));
+    }
+    if let Some(values) = a.iter().map(|v| v.as_str().map(str::to_owned)).collect() {
+        return Some(Kind::TextArray(proto::TextArray { values }));
+    }
+    if let Some(values) = a.iter().map(|v| v.as_bool()).collect() {
+        return Some(Kind::BooleanArray(proto::BooleanArray { values }));
+    }
+    None
 }
 
 /// Helper function to create sequence notifications.
