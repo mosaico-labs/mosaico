@@ -8,14 +8,14 @@
 # 3. Installs the wheel found in mosaico-sdk-py/dist
 # 4. Runs the console scripts' --help and the test suite via `mosaicolabs.testing`
 #
-# Usage: test_sdk_publish.sh [options] [-- <mosaicolabs.testing args>]
-#   --python "3.10 3.13"  Python versions to test (default: "3.10 3.12 3.13")
+# Usage: test_sdk_installation.sh [options] [-- <mosaicolabs.testing args>]
+#   --python              Python versions to test (default: "3.10 3.12 3.13")
 #   --skip-build          Reuse the wheel already in dist/
 #   --skip-tests          Only install and check the console scripts
 #   -h, --help            Show this help
 #
 # Arguments after `--` are forwarded to `mosaicolabs.testing`, e.g.:
-#   test_sdk_publish.sh -- --host localhost --port 6276 -x
+#   test_sdk_installation.sh -- --host localhost --port 6276 -x
 # ==============================================================================
 
 set -euo pipefail
