@@ -485,41 +485,30 @@ impl<T> IntoIterator for OntologyExprGroup<T> {
 /// A container for dynamic user-defined expressions mapping to ontology data models.
 #[derive(Debug, Clone)]
 pub struct OntologyFilter {
-    ontology: HashMap<OntologyField, Op<Value>>,
+    ontology: Vec<OntologyExpr<Value>>,
 }
 
 impl OntologyFilter {
     /// Creates a new Metadata instance from a [`HashMap`].
-    pub fn new(v: HashMap<OntologyField, Op<Value>>) -> Self {
+    pub fn new(v: Vec<OntologyExpr<Value>>) -> Self {
         Self { ontology: v }
     }
 
     /// Creates an empty Metadata instance.
     pub fn empty() -> Self {
         Self {
-            ontology: HashMap::new(),
+            ontology: Vec::new(),
         }
-    }
-
-    /// Retrieves the operation associated with a specific metadata field.
-    pub fn get_op(&self, field: &OntologyField) -> Option<&Op<Value>> {
-        self.ontology.get(field)
     }
 
     /// Returns an iterator over the ontology tags.
     pub fn ontology_tags(&self) -> impl Iterator<Item = &str> + '_ {
-        self.ontology.keys().map(|f| f.ontology_tag())
+        self.ontology.iter().map(|e| e.ontology_field().ontology_tag())
     }
 
     /// Exports filter data as a unique expression group
     pub fn into_expr_group(self) -> OntologyExprGroup<Value> {
-        OntologyExprGroup {
-            group: self
-                .ontology
-                .into_iter()
-                .map(|(o, v)| OntologyExpr(o, v))
-                .collect(),
-        }
+        OntologyExprGroup::new(self.ontology)
     }
 
     pub fn len(&self) -> usize {

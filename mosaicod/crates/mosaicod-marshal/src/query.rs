@@ -190,7 +190,7 @@ fn ontology_filter(o: proto::OntologyFilter) -> Result<query::OntologyFilter, qu
                 err: e,
             })?;
             
-            Ok((query::OntologyField::try_new(p.field)?, op))
+            Ok((query::OntologyField::try_new(p.field)?, op).into())
         })
         .collect::<Result<_, query::Error>>()?;
 
