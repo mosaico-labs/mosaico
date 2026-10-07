@@ -1,0 +1,79 @@
+---
+title: Automatic Ingestion with the Watchdog
+sidebar_position: 15
+description: "How to ingest MCAP and ROS bag files into Mosaico automatically with the Watchdog. Covers what the Watchdog does, how to launch it in single-pass or daemon mode, and two typical use cases: ingesting a folder of existing recordings, and uploading logs as soon as a recording ends."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+The Watchdog watches a folder and ingests every MCAP and ROS bag file it finds into Mosaico, choosing the right bridge for each file. Instead of running an injector by hand for every recording, you point the Watchdog at the folder where your recordings are stored: new files are ingested, and files already ingested are skipped.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/)
+
+[Doc: MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/mcap/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+## What the Watchdog Does
+
+The Watchdog scans a folder, subfolders included, looking for `.mcap`, `.bag` and `.db3` files. Every file it has not seen before is ingested as a new sequence:
+
+* **Bridge selection**: ROS bags (`.bag` and `.db3` files, and `.mcap` files whose channels all use ROS 2 schemas) are ingested with the [ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/), every other `.mcap` file with the [MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/mcap/).
+* **One sequence per file**: each sequence is named after the path of its file inside the folder, e.g. `run_01/drive.mcap` becomes `run_01-drive__mcap`.
+* **Memory of past runs**: files ingested successfully are listed in `.already_loaded.txt`, and files whose ingestion failed in `.quarantine_file.txt`, both inside the watched folder. Restarting the Watchdog never ingests the same file twice, and removing a line from `.quarantine_file.txt` makes the Watchdog try that file again.
+
+The Watchdog runs in one of two modes:
+
+* **Single-pass** (default): scans the folder once, ingests every new file, then exits.
+* **Daemon**: keeps scanning the folder every few seconds and ingests new files as they appear, until it is stopped with Ctrl-C.
+
+## Launching the Watchdog
+
+The Watchdog is installed with the Python SDK as the `mosaicolabs.watchdog` command. Its only required argument is the folder to watch, which must be writable, since the Watchdog keeps its state files there.
+
+```bash title="Launch the Watchdog"
+# Ingest every recording currently in the folder, then exit
+mosaicolabs.watchdog /data/recordings
+
+# Keep watching the folder, ingesting new recordings as they appear
+mosaicolabs.watchdog /data/recordings --mode daemon --host my-mosaico-server --port 6726
+```
+
+The API key, which needs the `write` permission, can be passed with `--api-key` or, to keep it out of your shell history, through the `MOSAICO_API_KEY` environment variable. Run the command with `--help` to see all available options, such as `--glob-pattern` to ingest only some of the files, or `--on-error` to choose what happens when a file cannot be ingested (quarantine it, retry it, or stop the Watchdog).
+
+## Use Cases
+
+### Ingesting Existing Recordings
+
+You have a folder full of recordings, such as a network share or an external drive holding the logs of past test campaigns. Run the Watchdog once, in single-pass mode: it ingests every file, one sequence per recording, and exits. Running it again later only ingests the files added in the meantime, so it can also be scheduled (e.g. with `cron`) to keep Mosaico in sync with the folder.
+
+```bash title="Ingest a folder of recordings"
+mosaicolabs.watchdog /mnt/test_campaigns
+```
+
+### Uploading Logs as Soon as a Recording Ends
+
+A robot, or a recording process such as `ros2 bag record`, writes its logs into a folder while it runs. Run the Watchdog in daemon mode on that folder: every log is uploaded to Mosaico shortly after it is complete, with no manual step between the end of a recording and its availability in Mosaico. To avoid ingesting a file that is still being written, the Watchdog skips the files modified in the last 30 seconds (tunable with `--min-file-age`) and picks them up at a later scan.
+
+```bash title="Upload logs as they are completed"
+mosaicolabs.watchdog /robot/logs --mode daemon
+```
+
+:::note
+Each file becomes its own sequence: if the recorder splits a recording into several files, each part is ingested as a separate sequence.
+:::
