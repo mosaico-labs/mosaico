@@ -11,33 +11,34 @@ DOCKER_DIR="docker/testing"
 # Environment variables (with defaults)
 export RUST_LOG="mosaico=trace"
 export MOSAICOD_DB_URL="postgresql://localhost:6543/mosaico"
-export MOSAICOD_DB_USER=postgres
-export MOSAICOD_DB_PASSWORD=password
+export MOSAICOD_DB_USER="postgres"
+export MOSAICOD_DB_PASSWORD="password"
 export MOSAICOD_STORE_ENDPOINT="file:///tmp"
 export MOSAICOD_STORE_BUCKET="mosaico-auto-testing"
 export RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
 export SQLX_OFFLINE="true"
-export DATABASE_URL="postgresql://${MOSAICOD_DB_USER}:${MOSAICOD_DB_PASSWORD}@$(echo "${MOSAICOD_DB_URL}" | sed 's#postgresql://##')"
+export DATABASE_URL="postgresql://${MOSAICOD_DB_USER}:${MOSAICOD_DB_PASSWORD}@$(printf '%s' "${MOSAICOD_DB_URL}" | sed 's#^postgresql://##')"
 
-# Resolve paths
-FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
+# Resolve paths in a way that works on macOS and Linux.
+FILE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROJECT_DIR="$(cd "${FILE_DIR}/.." && pwd -P)"
+
 MOSAICOD_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}"
 PYTHON_SDK_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
 DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
 
 # Colors (with fallback for non-interactive terminals)
 setup_colors() {
-    if [ -t 1 ]; then
-        COLS=$(tput cols || echo 80)
-        RED=$(tput setaf 1)
-        GREEN=$(tput setaf 2)
-        YELLOW=$(tput setaf 3)
-        BLUE=$(tput setaf 4)
-        MAGENTA=$(tput setaf 5)
-        RESET=$(tput sgr0)
-        BOLD=$(tput bold)
-        DIM=$(tput dim)
+    if [ -t 1 ] && command -v tput >/dev/null 2>&1; then
+        COLS="$(tput cols 2>/dev/null || echo 80)"
+        RED="$(tput setaf 1 2>/dev/null || true)"
+        GREEN="$(tput setaf 2 2>/dev/null || true)"
+        YELLOW="$(tput setaf 3 2>/dev/null || true)"
+        BLUE="$(tput setaf 4 2>/dev/null || true)"
+        MAGENTA="$(tput setaf 5 2>/dev/null || true)"
+        RESET="$(tput sgr0 2>/dev/null || true)"
+        BOLD="$(tput bold 2>/dev/null || true)"
+        DIM="$(tput dim 2>/dev/null || true)"
     else
         COLS=80
         RED=""
@@ -49,7 +50,8 @@ setup_colors() {
         BOLD=""
         DIM=""
     fi
-    if (( COLS < 70 )); then
+
+    if [ "${COLS}" -lt 70 ]; then
         COLS=70
     fi
 }
@@ -58,17 +60,33 @@ setup_colors() {
 MOSAICOD_PID=""
 DOCKER_STARTED=false
 
+# Supports both the modern `docker compose` plugin and legacy
+# `docker-compose`.
+docker_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose "$@"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        docker-compose "$@"
+    else
+        echo "${RED}${BOLD}Error: Docker Compose is not installed.${RESET}" >&2
+        echo "Install Docker Compose or Docker Desktop/Colima." >&2
+        return 1
+    fi
+}
+
 # Cleanup function
 cleanup() {
-    if [ -n "$MOSAICOD_PID" ]; then
-        kill "$MOSAICOD_PID" 2>/dev/null || true
-        wait "$MOSAICOD_PID" 2>/dev/null || true
-        echo "${DIM}mosaicod ($MOSAICOD_PID) terminated.${RESET}"
+    if [ -n "${MOSAICOD_PID}" ]; then
+        kill "${MOSAICOD_PID}" 2>/dev/null || true
+        wait "${MOSAICOD_PID}" 2>/dev/null || true
+        echo "${DIM}mosaicod (${MOSAICOD_PID}) terminated.${RESET}"
     fi
 
-    if [ "$DOCKER_STARTED" = true ]; then
-        cd "${DOCKER_PATH}"
-        eval "docker compose down -v $REDIRECT_TO_NULL || true"
+    if [ "${DOCKER_STARTED}" = true ]; then
+        (
+            cd "${DOCKER_PATH}" &&
+            docker_compose down -v >/dev/null 2>&1 || true
+        )
     fi
 
     MOSAICOD_PID=""
@@ -84,16 +102,25 @@ title() {
     local color="${3:-${MAGENTA}}"
     local padding=$(( (COLS - ${#text} - 2) / 2 ))
     local line
-    printf -v line "%*s" "$COLS" ""
-    line=${line// /$char}
+
+    if [ "${padding}" -lt 0 ]; then
+        padding=0
+    fi
+
+    printf -v line "%*s" "${COLS}" ""
+    line=${line// /${char}}
+
     printf "%s%s%.*s %s %.*s%s\n" \
-        "$color" "$BOLD" \
-        "$padding" "$line" "$text" "$padding" "$line" "${RESET}"
+        "${color}" "${BOLD}" \
+        "${padding}" "${line}" \
+        "${text}" \
+        "${padding}" "${line}" \
+        "${RESET}"
 }
 
 # Error handler
 error_handler() {
-    echo "${RED}${BOLD}Error occurred. Exiting.${RESET}"
+    echo "${RED}${BOLD}Error occurred. Exiting.${RESET}" >&2
     exit 1
 }
 
@@ -101,7 +128,7 @@ trap error_handler ERR
 
 # Show help
 show_help() {
-    cat << EOF
+    cat <<EOF
 Mosaico test runner.
 
 Usage: tests.sh [OPTIONS]
@@ -111,20 +138,28 @@ Options:
     --sdk-python                Run Python SDK unit tests (no Docker required)
     --full-stack                Run full-stack tests (requires Docker + mosaicod build)
     --full-stack-tls            Run full-stack tests with TLS (requires Docker + mosaicod build)
-    --full-stack-api-key        Run full-stack tests on API KEY (requires Docker + mosaicod build)
+    --full-stack-api-key        Run full-stack tests with API KEY (requires Docker + mosaicod build)
     --full-stack-gzip           Run full-stack tests with gzip compression enabled (requires Docker + mosaicod build)
-    --full-stack-all            Run all full-stack tests (requires (Docker + mosaicod build)
+    --full-stack-all            Run all full-stack tests (requires Docker + mosaicod build)
     --all                       Run all tests (default)
-    --help                      Show this help message
+    --verbose, -v               Show verbose output
+    --help, -h                  Show this help message
 EOF
 }
 
 start_docker() {
-    if [ "$DOCKER_STARTED" = false ]; then
-        DOCKER_STARTED=true
+    if [ "${DOCKER_STARTED}" = false ]; then
         title "docker" "." "${BLUE}"
+
         cd "${DOCKER_PATH}"
-        eval "docker compose up -d --wait $REDIRECT_TO_NULL"
+
+        if [ "${VERBOSE}" = true ]; then
+            docker_compose up -d --wait
+        else
+            docker_compose up -d --wait >/dev/null 2>&1
+        fi
+
+        DOCKER_STARTED=true
         echo "Started ${BOLD}docker/testing${RESET} compose file"
     fi
 }
@@ -132,6 +167,7 @@ start_docker() {
 # Install Python dependencies
 install_python_deps() {
     title "poetry" "." "${BLUE}"
+
     cd "${PYTHON_SDK_PATH}"
     poetry install --extras cli
 }
@@ -139,10 +175,11 @@ install_python_deps() {
 # Run mosaicod unit tests
 run_mosaicod_tests() {
     start_docker
+
     title "mosaicod (unit tests)" "-"
     cd "${MOSAICOD_PATH}"
 
-    if $VERBOSE; then
+    if [ "${VERBOSE}" = true ]; then
         cargo test --jobs 6
     else
         echo "Compiling, it may take some time ..."
@@ -153,25 +190,26 @@ run_mosaicod_tests() {
 # Run Python SDK unit tests
 run_sdk_python_tests() {
     title "python sdk (unit tests)" "-"
+
     install_python_deps
+
     cd "${PYTHON_SDK_PATH}"
     poetry run pytest ./src/testing -k unit
 }
 
-
-# Run full_stack tests
+# Run full-stack tests.
 #
 # Usage:
-#  run_full_stack_tests --title "title" --tls
+#   run_full_stack_tests --title "title"
+#   run_full_stack_tests --title "title" --tls
 run_full_stack_tests() {
+    local PYTEST_OPTS_K="integration and not test_tls_connection"
+    local PYTEST_OPTS=""
+    local GENERATE_API_KEY=false
+    local TITLE="N/A"
 
-    PYTEST_OPTS_K="integration and not test_tls_connection"
-    PYTEST_OPTS=""
-    GENERATE_API_KEY=false
-    TITLE="N/A"
-
-    # Reset per-variant server toggles so they don't leak between successive
-    # run_full_stack_tests calls.
+    # Reset per-variant server toggles so they don't leak between
+    # successive run_full_stack_tests calls.
     export MOSAICOD_TLS_ENABLED=false
     export MOSAICOD_GZIP_ENABLED=false
     export MOSAICOD_API_KEY_ENABLED=false
@@ -189,6 +227,7 @@ run_full_stack_tests() {
 
                 shift
                 ;;
+
             --gzip)
                 PYTEST_OPTS_K="integration"
                 PYTEST_OPTS="--gzip"
@@ -197,6 +236,7 @@ run_full_stack_tests() {
 
                 shift
                 ;;
+
             --api-key)
                 PYTEST_OPTS_K="integration"
                 GENERATE_API_KEY=true
@@ -205,10 +245,12 @@ run_full_stack_tests() {
 
                 shift
                 ;;
+
             --title)
                 TITLE="$2"
                 shift 2
                 ;;
+
             *)
                 shift
                 ;;
@@ -217,46 +259,68 @@ run_full_stack_tests() {
 
     cleanup
     start_docker
+
     title "[ ${TITLE} ]" "-"
+
     install_python_deps
 
     # Build mosaicod
     title "mosaicod build" "." "${BLUE}"
     cd "${MOSAICOD_PATH}"
 
-    if $VERBOSE; then
+    if [ "${VERBOSE}" = true ]; then
         cargo build --jobs 6 --bin mosaicod
     else
         echo "Compiling mosaicod, it may take a while ..."
-        cargo build --bin mosaicod 2>&1
+        cargo build --bin mosaicod
     fi
 
-    if $GENERATE_API_KEY; then
-        MOSAICO_API_KEY_READ=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p read)
-        MOSAICO_API_KEY_WRITE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p write)
-        MOSAICO_API_KEY_DELETE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p delete)
-        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p "read|write|delete")
-        PYTEST_OPTS="--api-key-read ${MOSAICO_API_KEY_READ} --api-key-write ${MOSAICO_API_KEY_WRITE} --api-key-delete ${MOSAICO_API_KEY_DELETE} --api-key-manage ${MOSAICO_API_KEY_MANAGE}"
+    # Generate API keys if required.
+    if [ "${GENERATE_API_KEY}" = true ]; then
+        MOSAICO_API_KEY_READ="$(
+            RUST_LOG="" "${MOSAICOD_PATH}/target/debug/mosaicod" api-key create -p read
+        )"
+
+        MOSAICO_API_KEY_WRITE="$(
+            RUST_LOG="" "${MOSAICOD_PATH}/target/debug/mosaicod" api-key create -p write
+        )"
+
+        MOSAICO_API_KEY_DELETE="$(
+            RUST_LOG="" "${MOSAICOD_PATH}/target/debug/mosaicod" api-key create -p delete
+        )"
+
+        MOSAICO_API_KEY_MANAGE="$(
+            RUST_LOG="" "${MOSAICOD_PATH}/target/debug/mosaicod" api-key create -p "read|write|delete"
+        )"
+
+        PYTEST_OPTS="--api-key-read ${MOSAICO_API_KEY_READ} \
+--api-key-write ${MOSAICO_API_KEY_WRITE} \
+--api-key-delete ${MOSAICO_API_KEY_DELETE} \
+--api-key-manage ${MOSAICO_API_KEY_MANAGE}"
     fi
 
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod server --port 6276 > "${MOSAICOD_OUTPUT}" 2>&1 &
+
+    cd "${MOSAICOD_PATH}"
+
+    ./target/debug/mosaicod server --port 6276 >"${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
+
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"
-    echo "Waiting starver to startup ..."
+    echo "Waiting for mosaicod to start ..."
+
     sleep 1
 
     # Run full-stack tests
     title "running full-stack tests" "." "${BLUE}"
-    cd "${PYTHON_SDK_PATH}"
 
+    cd "${PYTHON_SDK_PATH}"
     poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
 }
 
 VERBOSE=false
-REDIRECT_TO_NULL="2>/dev/null"
 
 # Main
 main() {
@@ -269,45 +333,51 @@ main() {
     local run_full_stack_gzip=false
     local run_full_stack_api_key=false
     local run_all=false
-    local run_selected=false # true if at least a run option is selected
+    local run_selected=false
 
     while [ $# -gt 0 ]; do
         case "$1" in
             --verbose|-v)
                 VERBOSE=true
-                REDIRECT_TO_NULL=""
                 shift
                 ;;
+
             --mosaicod)
                 run_mosaicod=true
                 run_selected=true
                 shift
                 ;;
+
             --sdk-python)
                 run_sdk_python=true
                 run_selected=true
                 shift
                 ;;
+
             --full-stack)
                 run_full_stack=true
                 run_selected=true
                 shift
                 ;;
+
             --full-stack-tls)
                 run_full_stack_tls=true
                 run_selected=true
                 shift
                 ;;
+
             --full-stack-gzip)
                 run_full_stack_gzip=true
                 run_selected=true
                 shift
                 ;;
+
             --full-stack-api-key)
                 run_full_stack_api_key=true
                 run_selected=true
                 shift
                 ;;
+
             --full-stack-all)
                 run_full_stack=true
                 run_full_stack_tls=true
@@ -316,25 +386,28 @@ main() {
                 run_selected=true
                 shift
                 ;;
+
             --all)
                 run_all=true
                 run_selected=true
                 shift
                 ;;
+
             --help|-h)
                 show_help
                 exit 0
                 ;;
+
             *)
-                echo "${RED}Unknown option: $1${RESET}"
+                echo "${RED}Unknown option: $1${RESET}" >&2
                 show_help
                 exit 1
                 ;;
         esac
     done
 
-    # If no option was specified
-    if [[ "$run_selected" == "false" ]]; then
+    # If no option was specified, run everything.
+    if [ "${run_selected}" = false ]; then
         run_all=true
     fi
 
@@ -342,6 +415,7 @@ main() {
 
     # Print configuration
     title "[ setup ]" "-"
+
     echo " * MOSAICOD_DB_URL            ${DIM}${MOSAICOD_DB_URL}${RESET}"
     echo " * DATABASE_URL               ${DIM}${DATABASE_URL}${RESET}"
     echo " * SQLX_OFFLINE               ${DIM}${SQLX_OFFLINE}${RESET}"
@@ -349,7 +423,7 @@ main() {
     echo " * MOSAICOD_STORE_BUCKET      ${DIM}${MOSAICOD_STORE_BUCKET}${RESET}"
 
     # Run selected tests
-    if [ "$run_all" = true ]; then
+    if [ "${run_all}" = true ]; then
         run_mosaicod_tests
         run_sdk_python_tests
         run_full_stack_tests --title "full-stack tests"
@@ -357,22 +431,27 @@ main() {
         run_full_stack_tests --title "full-stack tests (API KEY)" --api-key
         run_full_stack_tests --title "full-stack tests (GZIP)" --gzip
     else
-        if [ "$run_mosaicod" = true ]; then
+        if [ "${run_mosaicod}" = true ]; then
             run_mosaicod_tests
         fi
-        if [ "$run_sdk_python" = true ]; then
+
+        if [ "${run_sdk_python}" = true ]; then
             run_sdk_python_tests
         fi
-        if [ "$run_full_stack" = true ]; then
-            run_full_stack_tests --title "full-stack tests" 
+
+        if [ "${run_full_stack}" = true ]; then
+            run_full_stack_tests --title "full-stack tests"
         fi
-        if [ "$run_full_stack_tls" = true ]; then
+
+        if [ "${run_full_stack_tls}" = true ]; then
             run_full_stack_tests --title "full-stack tests (TLS)" --tls
         fi
-        if [ "$run_full_stack_gzip" = true ]; then
+
+        if [ "${run_full_stack_gzip}" = true ]; then
             run_full_stack_tests --title "full-stack tests (GZIP)" --gzip
         fi
-        if [ "$run_full_stack_api_key" = true ]; then
+
+        if [ "${run_full_stack_api_key}" = true ]; then
             run_full_stack_tests --title "full-stack tests (API KEY)" --api-key
         fi
     fi
