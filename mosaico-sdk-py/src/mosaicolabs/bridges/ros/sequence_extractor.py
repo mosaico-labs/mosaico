@@ -4,13 +4,13 @@ ROSSequenceExtractor: extracts a Mosaico sequence and writes it as a ROS bag fil
 Provides [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] and the
 [`ROSExtractorConfig`][mosaicolabs.bridges.ros.ROSExtractorConfig] dataclass, the ROS
 specialization of
-[`SequenceExtractor`][mosaicolabs.bridges.sequence_extractor.SequenceExtractor]. The base
+[`SequenceExtractor`][mosaicolabs.bridges.base_sequence_extractor.SequenceExtractor]. The base
 class drives the pipeline; this module supplies the ROS half of it:
 
 1. Connect to the Mosaico server (base class).
 2. Stream every message in the requested sequence (optionally filtered by topic or
    time window) through
-   [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.MosaicoToROSLoader].
+   [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.loader.MosaicoToROSLoader].
 3. Convert each message to its ROS equivalent via the registered
    [`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge] adapters.
 4. Write the result into a new ROS 1 (`.bag`) or ROS 2 (`.mcap` / `.db3`) bag file.
@@ -58,7 +58,7 @@ class ROSExtractorConfig(ExtractorConfig):
     [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor].
 
     Extends
-    [`ExtractorConfig`][mosaicolabs.bridges.sequence_extractor.ExtractorConfig] with the
+    [`ExtractorConfig`][mosaicolabs.bridges.base_sequence_extractor.ExtractorConfig] with the
     ROS-specific fields: the target distribution, the ROS 2 storage plugin, and the custom
     message definitions needed to encode back into ROS messages.
     """
@@ -109,17 +109,17 @@ class ROSSequenceExtractor(SequenceExtractor):
     Extracts a Mosaico sequence into a ROS 1 or ROS 2 bag file.
 
     The ROS specialization of
-    [`SequenceExtractor`][mosaicolabs.bridges.sequence_extractor.SequenceExtractor], which
+    [`SequenceExtractor`][mosaicolabs.bridges.base_sequence_extractor.SequenceExtractor], which
     owns the pipeline itself (output path, connection, streaming, progress and dry-run
     reporting). This class supplies the three ROS-specific hooks:
 
     * `_open_mosaicoloader`: opens a
-      [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.MosaicoToROSLoader] over the local
+      [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.loader.MosaicoToROSLoader] over the local
       `typestore`.
     * `_open_writer`: opens a `rosbags` ROS 1 or ROS 2 writer, choosing the bag format from
       `cfg.ros_distro` and `cfg.storage_plugin`.
     * `_process_message`: encodes each message with its
-      [`ROSAdapterBase`][mosaicolabs.bridges.ros.ROSAdapterBase] and writes it on the
+      [`ROSAdapterBase`][mosaicolabs.bridges.ros.adapter_base.ROSAdapterBase] and writes it on the
       topic's connection.
 
     On construction it also builds the `Typestore` for the configured distribution and
@@ -213,7 +213,7 @@ class ROSSequenceExtractor(SequenceExtractor):
         """
         Opens a fresh loader for the configured sequence.
 
-        Builds a [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.MosaicoToROSLoader] bound
+        Builds a [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.loader.MosaicoToROSLoader] bound
         to the local `typestore`, so that the custom types registered at construction are
         visible when the loader resolves each topic's adapter.
 
@@ -294,7 +294,7 @@ class ROSSequenceExtractor(SequenceExtractor):
 
         1. **Skip**: drops the message if `t_name` was already ignored by an earlier failure.
         2. **Resolve Adapter**: locates the
-           [`ROSAdapterBase`][mosaicolabs.bridges.ros.ROSAdapterBase] the loader resolved
+           [`ROSAdapterBase`][mosaicolabs.bridges.ros.adapter_base.ROSAdapterBase] the loader resolved
            for this topic.
         3. **Translate**: encodes the payload into a native ROS message, using the ROS
            message type recorded in the topic's `_ros_` metadata.

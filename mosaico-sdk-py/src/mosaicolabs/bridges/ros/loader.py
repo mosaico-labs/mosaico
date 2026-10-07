@@ -454,7 +454,7 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
     This is the ROS specialization of [`MosaicoLoader`][mosaicolabs.bridges.loader_base.MosaicoLoader]
     and the read end of the extraction pipeline: [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]
     iterates it and writes the results into a bag. It is the mirror image of
-    [`ROSLoader`][mosaicolabs.bridges.ros.ROSLoader], which reads a bag *into* Mosaico.
+    [`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader], which reads a bag *into* Mosaico.
 
     On top of the generic sequence handling it adds the two things that are specific to
     targeting ROS:
