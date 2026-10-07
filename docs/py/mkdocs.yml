@@ -62,6 +62,7 @@ nav:
     - Bridges:
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
+    - SDK/watchdog.md
   - API Reference:
     - SDK/API_reference/comm.md
     - SDK/API_reference/enum.md
@@ -96,7 +97,17 @@ nav:
                 - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/override_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/unmodeled.md
-
+        - MCAP-Bridge:
+            - SDK/API_reference/bridges/mcap/mcap.md
+            - Decoders:
+                - SDK/API_reference/bridges/mcap/decoders/base.md
+                - SDK/API_reference/bridges/mcap/decoders/protobuf.md
+                - SDK/API_reference/bridges/mcap/decoders/registry.md
+                - SDK/API_reference/bridges/mcap/decoders/rule.md
+            - Adapters:
+                - SDK/API_reference/bridges/mcap/adapters/base.md
+                - SDK/API_reference/bridges/mcap/adapters/unmodeled.md
+    - SDK/API_reference/watchdog.md
 extra_css:
   - stylesheets/extra.css
 
