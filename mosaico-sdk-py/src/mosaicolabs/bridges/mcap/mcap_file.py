@@ -64,6 +64,12 @@ class MCAPFileReader:
             self._file = None
             self._reader = None
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
     @property
     def reader(self) -> McapReader:
         if self._reader is None:
