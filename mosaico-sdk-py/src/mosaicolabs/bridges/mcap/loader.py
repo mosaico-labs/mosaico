@@ -692,7 +692,7 @@ class MosaicoToMCAPLoader(MosaicoLoader[MCAPAdapterBase]):
     This is the MCAP specialization of [`MosaicoLoader`][mosaicolabs.bridges.loader_base.MosaicoLoader]
     and the read end of the extraction pipeline: [`MCAPSequenceExtractor`][mosaicolabs.bridges.mcap.MCAPSequenceExtractor]
     iterates it and writes the results into a mcap file. It is the mirror image of
-    [`MCAPLoader`][mosaicolabs.bridges.mcap.MCAPLoader], which reads a mcap *into* Mosaico.
+    [`MCAPLoader`][mosaicolabs.bridges.mcap.loader.MCAPLoader], which reads a mcap *into* Mosaico.
 
     On top of the generic sequence handling it adds the one thing that is specific to
     targeting MCAP:
@@ -717,7 +717,7 @@ class MosaicoToMCAPLoader(MosaicoLoader[MCAPAdapterBase]):
         Initializes the loader against a Mosaico sequence.
 
         A thin pass-through to
-        [`MosaicoLoader.__init__`][mosaicolabs.bridges.loader_base.MosaicoLoader.__init__]:
+        [`MosaicoLoader.__init__`][mosaicolabs.bridges.loader_base.MosaicoLoader]:
         MCAP has no per-loader external state to set up (unlike ROS's `Typestore`), so
         nothing MCAP-specific happens here.
 
