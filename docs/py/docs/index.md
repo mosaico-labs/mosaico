@@ -22,7 +22,7 @@ The SDK is built on the following core principles:
 
 ### Middleware Independence
 
-Mosaico is middleware-agnostic. While the SDK provides robust tools for ROS, it exists because robotics data itself is complex, regardless of the collection method. The platform serves as a standardized hub that can ingest data from:
+Mosaico is middleware-agnostic. While the SDK provides robust tools for ROS and MCAP, it exists because robotics data itself is complex, regardless of the collection method. The platform serves as a standardized hub that can ingest data from:
 
 * **Existing Frameworks**: Such as ROS 1, ROS 2, `.mcap` and `.db3` files.
 * **Custom Collectors**: Proprietary data loggers or direct hardware drivers.
@@ -45,7 +45,7 @@ You can push data into Mosaico through two primary pathways, both designed to en
 
 **Native Ontology Ingestion**. This approach allows you to stream data directly from your application, providing the highest level of control over serialization and real-time performance.
 
-**Ecosystem Adapters & Bridges**. Use specialized adapters to translate data from existing middleware and log formats into Mosaico sequences. Mosaico currently supports ROS 1 bags (`.bag`) and more recent formats like `.mcap` and `.db3`.
+**Ecosystem Adapters & Bridges**. Use specialized adapters to translate data from existing middleware and log formats into Mosaico sequences. The [ROS Bridge](SDK/bridges/ros.md) ingests ROS 1 bags (`.bag`) and ROS 2 bags (`.mcap`, `.db3`), while the [MCAP Bridge](SDK/bridges/mcap.md) ingests self-describing MCAP files whose schemas are encoded with `protobuf`.
 
 
 <figure markdown="span">
