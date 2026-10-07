@@ -4,12 +4,14 @@ on:
   push:
     branches: ["main"]
     paths:
+      - ".cargo/config.toml"
       - "**.rs"
       - "**/Cargo.toml"
       - "**/Cargo.lock"
   pull_request:
     branches: ["main"]
     paths:
+      - ".cargo/config.toml"
       - "**.rs"
       - "**/Cargo.toml"
       - "**/Cargo.lock"
@@ -32,7 +34,7 @@ jobs:
         uses: Swatinem/rust-cache@v2.8.2
         with:
           workspaces: "mosaicod -> target"
-      
+
       - name: Backend Lint
         working-directory: mosaicod
         run: |

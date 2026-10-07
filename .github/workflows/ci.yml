@@ -5,6 +5,7 @@ on:
     branches: ["main", "release/v*.*", "release/py/v*.*"]
     paths:
       - ".github/workflows/ci.yml"
+      - ".cargo/config.toml"
       - "**.rs"
       - "**.py"
       - "**/Cargo.toml"
@@ -15,6 +16,7 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/ci.yml"
+      - ".cargo/config.toml"
       - "**.rs"
       - "**.py"
       - "**/Cargo.toml"
@@ -41,7 +43,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-      
+
       - name: Install Dependencies (Linux)
         run: |
           sudo apt-get update
