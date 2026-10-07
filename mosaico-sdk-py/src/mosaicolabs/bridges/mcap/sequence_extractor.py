@@ -10,9 +10,9 @@ class drives the pipeline; this module supplies the MCAP half of it:
 1. Connect to the Mosaico server (base class).
 2. Stream every message in the requested sequence (optionally filtered by topic or
    time window) through
-   [`MosaicoToMCAPLoader`][mosaicolabs.bridges.mcap.MosaicoToMCAPLoader].
+   [`MosaicoToMCAPLoader`][mosaicolabs.bridges.mcap.loader.MosaicoToMCAPLoader].
 3. Convert each message to its native MCAP payload via the registered
-   [`MCAPAdapterBase`][mosaicolabs.bridges.mcap.MCAPAdapterBase] adapters.
+   [`MCAPAdapterBase`][mosaicolabs.bridges.mcap.adapter_base.MCAPAdapterBase] adapters.
 4. Write the result into a new ``.mcap`` file.
 
 The module also exposes `mcap_sequence_extractor()`, an `argparse` entry point that can be
@@ -65,13 +65,13 @@ class MCAPSequenceExtractor(SequenceExtractor):
     reporting). This class supplies the three MCAP-specific hooks:
 
     * `_open_mosaicoloader`: opens a
-      [`MosaicoToMCAPLoader`][mosaicolabs.bridges.mcap.MosaicoToMCAPLoader] for the
+      [`MosaicoToMCAPLoader`][mosaicolabs.bridges.mcap.loader.MosaicoToMCAPLoader] for the
       configured sequence.
     * `_open_writer`: opens an
       [`MCAPFileWriter`][mosaicolabs.bridges.mcap.mcap_file.MCAPFileWriter] for the
       ``.mcap`` file.
     * `_process_message`: encodes each message with its
-      [`MCAPAdapterBase`][mosaicolabs.bridges.mcap.MCAPAdapterBase], resolves its channel
+      [`MCAPAdapterBase`][mosaicolabs.bridges.mcap.adapter_base.MCAPAdapterBase], resolves its channel
       from the topic's recorded ``_mcap_`` metadata, and writes it.
     """
 

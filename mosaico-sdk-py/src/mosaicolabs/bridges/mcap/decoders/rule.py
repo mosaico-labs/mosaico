@@ -71,7 +71,7 @@ RulePath = Tuple[Union[FieldStep, ListStep, MapValuesStep], ...]
 @dataclass(frozen=True)
 class Rule(Generic[T]):
     """
-    A single postprocessing rule, applied by `MCAPMsgDecoderBase.postprocess()` to
+    A single postprocessing rule, applied by `MCAPMsgDecoderBase._postprocess()` to
     fix up one specific field of a decoded message dict so it complies with
     the target PyArrow schema.
 
@@ -84,7 +84,7 @@ class Rule(Generic[T]):
        (`MCAPMsgDecoderBase._field_rule_mapper`) mapping each field path to every `Rule` matched
        for it — a field can satisfy more than one predicate (e.g. a `Timestamp` field that is
        also a `oneof` member), in which case all of them apply, in `PROTOBUF_RULES` order.
-    2. **Postprocessing**, during `decode()`: `MCAPMsgDecoderBase.postprocess()` iterates that
+    2. **Postprocessing**, during `decode()`: `MCAPMsgDecoderBase._postprocess()` iterates that
        mapping and calls `rule.apply(data, path)` for every `(path, rule)` pair, so each
        `callback` runs only on the specific field `path` its rule was matched against — never
        on the rest of the decoded dict. If a field is absent and `callback` raises `KeyError`
@@ -105,7 +105,7 @@ class Rule(Generic[T]):
     def apply(self, data: Dict[str, Any], path: RulePath) -> None:
         """Resolves `path` against `data`, fanning out at every `ListStep`/`MapValuesStep`,
         and invokes `callback(container, key)` once per (container, key) pair `path`
-        resolves to. This is what `MCAPMsgDecoderBase.postprocess()` calls for every rule
+        resolves to. This is what `MCAPMsgDecoderBase._postprocess()` calls for every rule
         registered against a given field path.
 
         `callback` may raise `KeyError` to signal that the field it needs is absent (e.g.

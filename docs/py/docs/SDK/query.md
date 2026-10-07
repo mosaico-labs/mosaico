@@ -573,7 +573,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 ```
 
-The real payoff shows up once no class is available at all. Suppose an unmodeled data schema tagged `"GyroRaw"` was ingested in the platform (for example using the ROS-Bridge, from a custom message type`"my_sensors_msgs/msg/GyroRaw"`). The `GyroRaw` class was defined on the fly by the SDK and made available for that ingestion process only; Once such ingestion process is terminated, there's no `GyroRaw` class left to build a `.Q` proxy from. The tag and field path are enough:
+The real payoff shows up once no class is available at all. Suppose an unmodeled data schema tagged `"GyroRaw"` was ingested in the platform (for example using the ROS Bridge, from a custom message type `"my_sensors_msgs/msg/GyroRaw"`, or using the MCAP Bridge, from a schema named `"my_sensors.GyroRaw"`). The `GyroRaw` class was defined on the fly by the SDK and made available for that ingestion process only; Once such ingestion process is terminated, there's no `GyroRaw` class left to build a `.Q` proxy from. The tag and field path are enough:
 
 ```python
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog

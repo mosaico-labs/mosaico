@@ -6,7 +6,7 @@ description: API Reference for ROS Bridge
 ::: mosaicolabs.bridges.ros.ROSBridge
 ::: mosaicolabs.bridges.ros.register_default_adapter
 ::: mosaicolabs.bridges.ros.loader.ROSLoader
-::: mosaicolabs.bridges.ros.loader.MosaicoLoader
+::: mosaicolabs.bridges.ros.loader.MosaicoToROSLoader
 ::: mosaicolabs.bridges.ros.ROSMessage
 ::: mosaicolabs.bridges.ros.ROSInjectionConfig
 ::: mosaicolabs.bridges.ros.RosbagInjector
