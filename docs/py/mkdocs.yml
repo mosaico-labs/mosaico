@@ -62,6 +62,7 @@ nav:
     - Bridges:
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
+    - SDK/watchdog.md
   - API Reference:
     - SDK/API_reference/comm.md
     - SDK/API_reference/enum.md
@@ -96,6 +97,7 @@ nav:
                 - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/override_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/unmodeled.md
+    - SDK/API_reference/watchdog.md
 
 extra_css:
   - stylesheets/extra.css
