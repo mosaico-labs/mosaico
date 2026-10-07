@@ -60,6 +60,7 @@ nav:
         - SDK/handling/reading.md
     - SDK/query.md
     - Bridges:
+        - SDK/bridges/mcap.md
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
     - SDK/watchdog.md
@@ -85,6 +86,7 @@ nav:
         - SDK/API_reference/models/time.md
     - Bridges:
         - SDK/API_reference/bridges/ml.md
+        - SDK/API_reference/bridges/bridges_common.md
         - ROS-Bridge:
             - SDK/API_reference/bridges/ros/ros.md
             - SDK/API_reference/bridges/ros/custom_ontology.md
@@ -97,8 +99,17 @@ nav:
                 - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/override_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/unmodeled.md
+        - MCAP-Bridge:
+            - SDK/API_reference/bridges/mcap/mcap.md
+            - Decoders:
+                - SDK/API_reference/bridges/mcap/decoders/base.md
+                - SDK/API_reference/bridges/mcap/decoders/protobuf.md
+                - SDK/API_reference/bridges/mcap/decoders/registry.md
+                - SDK/API_reference/bridges/mcap/decoders/rule.md
+            - Adapters:
+                - SDK/API_reference/bridges/mcap/adapters/base.md
+                - SDK/API_reference/bridges/mcap/adapters/unmodeled.md
     - SDK/API_reference/watchdog.md
-
 extra_css:
   - stylesheets/extra.css
 
