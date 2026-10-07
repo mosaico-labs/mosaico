@@ -56,10 +56,6 @@ class ImageFormat(str, Enum):
     """Joint Photographic Experts Group. The standard lossy compression format for 
     natural images, balancing file size and visual quality."""
 
-    JPG = "jpg"
-    """Joint Photographic Expert Group. The standard lossy compression format for 
-    natural images, balancing file size and visual quality."""
-
     TIFF = "tiff"
     """Tagged Image File Format. Preferred for high-bit depth (16-bit) or 
     scientific data where metadata preservation is critical."""
