@@ -64,7 +64,7 @@ class FileSource(Protocol):
         """
         ...
 
-    def open_local(self, ref: FileRef) -> Path:
+    def get_local_path(self, ref: FileRef) -> Path:
         """
         Returns a local path to read the file described by `ref`.
 
@@ -98,7 +98,7 @@ class LocalFileSource:
     def __init__(
         self,
         path_to_monitor: Path,
-        supported_extensions: Tuple[str, ...],
+        accepted_extensions: Tuple[str, ...],
         glob_pattern: Optional[str] = None,
         min_file_age_s: Optional[float] = None,
     ):
@@ -106,7 +106,7 @@ class LocalFileSource:
         Args:
             path_to_monitor (Path): The folder to list. It is resolved to an absolute path
                 once, so later changes of the working directory do not affect it.
-            supported_extensions (Tuple[str, ...]): The extensions to keep, with or without
+            accepted_extensions (Tuple[str, ...]): The extensions to keep, with or without
                 the leading dot (e.g. `InjectorDispatcher.list_supported_ext()`). They are
                 normalized to lower case with a leading dot, and file names are matched
                 case-sensitively, so `drive.MCAP` is not listed.
@@ -128,9 +128,9 @@ class LocalFileSource:
                 f"Cannot instantiate {LocalFileSource.__name__} since passed path `{self._path_to_monitor}` is invalid (does not exist or is not a folder)"
             )
 
-        self._supported_extensions = tuple(
+        self._accepted_extensions = tuple(
             e.lower() if e.startswith(".") else f".{e.lower()}"
-            for e in supported_extensions
+            for e in accepted_extensions
         )
         self._glob_pattern = glob_pattern
         self._min_file_age_s = min_file_age_s
@@ -153,7 +153,7 @@ class LocalFileSource:
         for file_path in all_files:
             # Remove what is not a file or is not among the accepted extensions
             if not file_path.is_file() or not file_path.name.endswith(
-                self._supported_extensions
+                self._accepted_extensions
             ):
                 continue
 
@@ -186,7 +186,7 @@ class LocalFileSource:
 
             yield file_ref
 
-    def open_local(self, ref: FileRef) -> Path:
+    def get_local_path(self, ref: FileRef) -> Path:
         """
         Returns the path of the file described by `ref`, inside the monitored folder.
         Nothing is copied: the path points to the file itself.

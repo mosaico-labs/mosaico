@@ -268,7 +268,7 @@ class Watchdog:
         for attempt in range(1, attempts + 1):
             try:
                 # Download (if in Object Store) and return its absolute file path in the local filesystem
-                file_path = self._file_source.open_local(file_ref)
+                file_path = self._file_source.get_local_path(file_ref)
                 injector_cls = InjectorDispatcher.get_injector(file_path)
                 sequence_name = sequence_name_from_fileref(file_ref)
 
