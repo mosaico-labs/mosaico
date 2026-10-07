@@ -37,7 +37,7 @@ from ..bridges.base_injector import InjectionStatus
 from .dispatcher import InjectorDispatcher
 from .file_source import FileRef, FileSource, LocalFileSource
 from .file_state_store import FileState, FileStateStore
-from .helpers import instanciate_injector, sequence_name_from_fileref
+from .helpers import instantiate_injector, sequence_name_from_fileref
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -71,6 +71,38 @@ class WatchdogConfig:
     """
     The configuration of a `Watchdog`: the folder to watch, how to scan it, what to do on
     errors, and how to reach the Mosaico server.
+
+    Attributes:
+        path_to_monitor (Path): The folder to watch, subfolders included. It must exist and
+            be writable: the state files (`.already_loaded.txt`, `.quarantine_file.txt`) are
+            written inside it.
+        mode (WatchdogMode): `SINGLEPASS` scans once and returns, `DAEMON` keeps scanning
+            until stopped. Default: `WatchdogMode.SINGLEPASS`
+        polling_interval_s (float): Seconds between the start of two scans. Daemon mode
+            only. Default: 5.0
+        glob_pattern (Optional[str]): Only files matching this glob pattern are injected; it
+            is matched at any depth (e.g. `"run_*/*.mcap"`). `None` keeps every file with a
+            supported extension. Default: None
+        min_file_age_s (Optional[float]): Files modified less than this many seconds ago are
+            skipped, since they may still be written; they are considered again at the next
+            scan. `None` disables the check. Default: None
+        on_error (WatchdogError): What to do when the injection of a file fails (see
+            `WatchdogError`). Default: `WatchdogError.QUARANTINE`
+        retry_number (int): How many times a failed file is tried again before being
+            quarantined. Used only when `on_error` is `WatchdogError.RETRY`. Default: 2
+        max_queue_size (int): Maximum number of files waiting to be injected. When the queue
+            is full, the remaining new files wait for the next scan. Daemon mode only: in
+            single-pass mode the queue is unbounded. Default: 100
+        host (str): Hostname or IP of the Mosaico server. Default: "localhost"
+        port (int): Port of the Mosaico server. Default: 6726
+        mosaico_api_key (Optional[str]): API key for the Mosaico server. If provided, it
+            must have the `write` permission. Default: None
+        tls_cert_path (Optional[str]): Path to the TLS certificate file for a secure
+            connection to the Mosaico server. Default: None
+        enable_tls (bool): Use TLS for the connection to the Mosaico server. Default: False
+        log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR",
+            "CRITICAL"). It is also passed to the injectors, which reconfigure logging when
+            they start. Default: "INFO"
 
     Example:
         ```python
@@ -178,7 +210,7 @@ class Watchdog:
 
         self._file_source: FileSource = LocalFileSource(
             path_to_monitor=self._cfg.path_to_monitor,
-            supported_extensions=InjectorDispatcher.list_supported_ext(),
+            accepted_extensions=InjectorDispatcher.list_supported_ext(),
             glob_pattern=self._cfg.glob_pattern,
             min_file_age_s=self._cfg.min_file_age_s,
         )
@@ -243,7 +275,7 @@ class Watchdog:
         """
         Injects one file into the Mosaico server and records the outcome.
 
-        The file gets its local path (`FileSource.open_local()`), its injector
+        The file gets its local path (`FileSource.get_local_path()`), its injector
         (`InjectorDispatcher.get_injector()`) and its sequence name
         (`sequence_name_from_fileref()`), then the injector runs. On success the file is
         marked `loaded`. On failure the `on_error` policy applies: `RAISE` re-raises the error,
@@ -257,6 +289,9 @@ class Watchdog:
             KeyboardInterrupt: If the user interrupted the injection (Ctrl-C). The file is not
                 marked and stays `in_queue`, so the next run tries it again.
             Exception: Any injection error, when `on_error` is `RAISE`.
+            OSError: If the file was injected but `.already_loaded.txt` cannot be written.
+                It is not an injection failure, so the file is neither injected again nor
+                quarantined: it stays `in_queue`.
         """
 
         attempts = (
@@ -272,7 +307,7 @@ class Watchdog:
                 injector_cls = InjectorDispatcher.get_injector(file_path)
                 sequence_name = sequence_name_from_fileref(file_ref)
 
-                injector = instanciate_injector(
+                injector = instantiate_injector(
                     path=file_path,
                     sequence_name=sequence_name,
                     host=self._cfg.host,
@@ -286,19 +321,27 @@ class Watchdog:
 
                 status = injector.run()
 
-                if status is InjectionStatus.CANCELLED:
-                    # Ctrl-C stops everything and does not mark the file as loaded
-                    raise KeyboardInterrupt
-
-                self.file_store_state.mark_loaded(file_ref)
-                return
-
+            # Just to be sure...
+            except KeyboardInterrupt:
+                raise
             except Exception as e:
+                # Catch exceptions raised during ingestion
                 if self._cfg.on_error is WatchdogError.RAISE:
                     raise
                 logger.warning(
                     f"Attempt {attempt}/{attempts} failed for '{file_ref.relative_path}': {e}"
                 )
+                continue
+
+            # Ctrl-C is swallowed inside injector.run(): check status
+            # In this case, I want to return without retrying
+            if status is InjectionStatus.CANCELLED:
+                # Ctrl-C stops everything and does not mark the file as loaded
+                raise KeyboardInterrupt
+
+            # This might raise for not being able to write the file: raise
+            self.file_store_state.mark_loaded(file_ref)
+            return
 
         logger.warning(
             f"File '{file_ref.relative_path}' is quarantined because failed to load in Mosaico too many times."

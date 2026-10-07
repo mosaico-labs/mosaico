@@ -81,7 +81,7 @@ def create_mcap_configs(
     )
 
 
-def instanciate_injector(
+def instantiate_injector(
     path: Path,
     sequence_name: str,
     host: str,

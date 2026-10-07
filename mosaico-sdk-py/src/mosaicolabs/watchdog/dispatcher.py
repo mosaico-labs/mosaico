@@ -52,7 +52,7 @@ class InjectorDispatcher:
         """
         Returns the injector class to load a file with. For `.mcap` files the file is
         opened to read its summary (channels and schemas), so it must be available
-        locally: the Watchdog passes the path returned by `FileSource.open_local()`.
+        locally: the Watchdog passes the path returned by `FileSource.get_local_path()`.
 
         Args:
             absolute_file_path (Path): The local path of the file.

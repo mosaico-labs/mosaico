@@ -3,7 +3,7 @@ File Sources for the Watchdog.
 
 A File Source lists the candidate files of a location, subfolders included, and hides
 whether that location is a local folder or an object store. Each file is described by an
-immutable `FileRef`, which holds no content: `FileSource.open_local()` gives a local path
+immutable `FileRef`, which holds no content: `FileSource.get_local_path()` gives a local path
 when the file has to be read.
 
 - `LocalFileSource`: a local folder.
@@ -35,7 +35,7 @@ class FileRef:
     uri: str = field(compare=False)
     """Where the file is: a `file://` URI for local files (e.g.
     `file:///data/bags/run_01/drive.mcap`), or `s3://bucket/key` for object stores (not
-    implemented yet). Use `FileSource.open_local()` to get a local path."""
+    implemented yet). Use `FileSource.get_local_path()` to get a local path."""
 
     size: int = field(compare=False)
     """File size in bytes, at scan time."""
