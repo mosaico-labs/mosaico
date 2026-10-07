@@ -112,6 +112,16 @@ _IMG_ENCODING_MAP: dict = {
     "64FC1": (np.float64, 1, None),
 }
 
+# Channel permutation between BGR(A) and RGB(A) layouts. Only the color channels
+# are swapped: alpha must stay last. The permutation is its own inverse, so the
+# same index serves both BGR->RGB and RGB->BGR.
+_BGR_CHANNEL_ORDER: dict = {
+    "bgr8": [2, 1, 0],
+    "bgr16": [2, 1, 0],
+    "bgra8": [2, 1, 0, 3],
+    "bgra16": [2, 1, 0, 3],
+}
+
 _DEFAULT_IMG_FORMAT = ImageFormat.PNG
 
 
@@ -543,9 +553,13 @@ class Image(
         )
         arr = arr.reshape(shape)
 
-        # Handle BGR -> RGB
-        if self.encoding in ["bgr8", "bgra8", "bgr16", "bgra16"]:
-            arr = arr[..., ::-1]
+        # Handle BGR(A) -> RGB(A)
+        if self.encoding in _BGR_CHANNEL_ORDER:
+            arr = arr[..., _BGR_CHANNEL_ORDER[self.encoding]]
+
+        # Pillow has no 16-bit multi-channel modes: keep the most significant byte
+        if channels > 1 and arr.dtype == np.uint16:
+            arr = (arr // 256).astype(np.uint8)
 
         return PILImage.fromarray(arr, mode=mode)
 
@@ -599,12 +613,18 @@ class Image(
 
         # Enforce Type
         if arr.dtype != expected_dtype:
-            arr = arr.astype(expected_dtype)
+            # Expand 8-bit color to the full 16-bit range: x257 (= 65535 / 255)
+            # replicates the byte (0xAB -> 0xABAB), so 255 -> 65535 and the
+            # `// 256` in `to_pillow` recovers the original value exactly
+            if arr.ndim == 3 and arr.dtype == np.uint8 and expected_dtype == np.uint16:
+                arr = arr.astype(np.uint16) * 257
+            else:
+                arr = arr.astype(expected_dtype)
 
-        # Handle RGB -> BGR
-        if target_encoding in ["bgr8", "bgra8", "bgr16", "bgra16"]:
+        # Handle RGB(A) -> BGR(A)
+        if target_encoding in _BGR_CHANNEL_ORDER:
             if arr.ndim == 3:
-                arr = arr[..., ::-1]
+                arr = arr[..., _BGR_CHANNEL_ORDER[target_encoding]]
 
         # Ensure contiguous memory for correct stride calc
         arr = np.ascontiguousarray(arr)

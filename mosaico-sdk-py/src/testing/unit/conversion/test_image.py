@@ -223,3 +223,141 @@ def test_invalid_input_fallback():
     # It should have gracefully fallen back to RAW
     assert img_obj.format == ImageFormat.RAW
     assert list(img_obj.data) == bad_data
+
+
+# -----------------------------------------------------------------------------
+# PIL Conversion: channel ordering
+# -----------------------------------------------------------------------------
+
+# A single pixel with asymmetric channel values (B, G, R, A), so that any wrong
+# permutation (e.g. a full reversal) produces a detectable result.
+_B, _G, _R, _A = 10, 20, 30, 200
+
+
+def _single_pixel_image(values: List[int], encoding: str, format: ImageFormat):
+    dtype, channels, _ = _IMG_ENCODING_MAP[encoding]
+    arr = np.array([[values]], dtype=dtype)
+    return Image.from_linear_pixels(
+        data=list(arr.tobytes()),
+        stride=channels * np.dtype(dtype).itemsize,
+        height=1,
+        width=1,
+        encoding=encoding,
+        format=format,
+    )
+
+
+@pytest.mark.parametrize("format", [ImageFormat.PNG, ImageFormat.RAW])
+@pytest.mark.parametrize(
+    "encoding, values, expected_mode, expected_pixel",
+    [
+        ("bgr8", [_B, _G, _R], "RGB", (_R, _G, _B)),
+        ("bgra8", [_B, _G, _R, _A], "RGBA", (_R, _G, _B, _A)),
+        ("rgb8", [_R, _G, _B], "RGB", (_R, _G, _B)),
+        ("rgba8", [_R, _G, _B, _A], "RGBA", (_R, _G, _B, _A)),
+        # 16-bit: Pillow only keeps the most significant byte
+        ("bgr16", [_B << 8, _G << 8, _R << 8], "RGB", (_R, _G, _B)),
+        ("bgra16", [_B << 8, _G << 8, _R << 8, _A << 8], "RGBA", (_R, _G, _B, _A)),
+        ("rgb16", [_R << 8, _G << 8, _B << 8], "RGB", (_R, _G, _B)),
+        ("rgba16", [_R << 8, _G << 8, _B << 8, _A << 8], "RGBA", (_R, _G, _B, _A)),
+    ],
+)
+def test_to_pillow_channel_order(
+    format, encoding, values, expected_mode, expected_pixel
+):
+    """
+    Color channels must be swapped for BGR(A) sources, while alpha stays last.
+    """
+    pil_img = _single_pixel_image(values, encoding, format).to_pillow()
+
+    assert pil_img.mode == expected_mode
+    assert pil_img.getpixel((0, 0)) == expected_pixel
+
+
+@pytest.mark.parametrize("encoding", ["bgra8", "bgra16"])
+def test_to_pillow_preserves_alpha(encoding):
+    """
+    Alpha must be read from the 4th channel of the source, not from the blue one.
+    """
+    dtype, _, _ = _IMG_ENCODING_MAP[encoding]
+    scale = 1 << 8 if dtype == np.uint16 else 1
+    # Fully opaque pixel with a blue value that would be misread as alpha
+    values = [v * scale for v in (5, 0, 0, 255)]
+
+    pil_img = _single_pixel_image(values, encoding, ImageFormat.RAW).to_pillow()
+
+    assert pil_img.getchannel("A").getpixel((0, 0)) == 255
+    assert pil_img.getchannel("B").getpixel((0, 0)) == 5
+
+
+@pytest.mark.parametrize("encoding", ["bgr8", "bgra8"])
+def test_from_pillow_channel_order(encoding):
+    """
+    RGB(A) -> BGR(A) must swap only the color channels, and to_pillow must
+    restore the original PIL image.
+    """
+    from PIL import Image as PILImage
+
+    rgba = (_R, _G, _B, _A)
+    mode = "RGBA" if encoding == "bgra8" else "RGB"
+    src = PILImage.new(mode, (1, 1), rgba[: len(mode)])
+
+    img = Image.from_pillow(
+        src, target_encoding=encoding, output_format=ImageFormat.RAW
+    )
+
+    expected_raw = [_B, _G, _R, _A][: len(mode)]
+    assert list(img.to_linear_pixels()) == expected_raw
+    assert img.to_pillow().getpixel((0, 0)) == src.getpixel((0, 0))
+
+
+@pytest.mark.parametrize("format", [ImageFormat.PNG, ImageFormat.RAW])
+@pytest.mark.parametrize(
+    "encoding, mode",
+    [
+        ("rgb16", "RGB"),
+        ("bgr16", "RGB"),
+        ("rgba16", "RGBA"),
+        ("bgra16", "RGBA"),
+        ("16UC3", "RGB"),
+        ("16UC4", "RGBA"),
+    ],
+)
+def test_from_pillow_16bit_scaling_round_trip(format, encoding, mode):
+    """
+    8-bit PIL color must be expanded to the full 16-bit range, so that
+    to_pillow(from_pillow(x)) == x for 16-bit multi-channel encodings.
+    """
+    from PIL import Image as PILImage
+
+    src = PILImage.new(mode, (1, 1), (_R, _G, _B, _A)[: len(mode)])
+
+    img = Image.from_pillow(src, target_encoding=encoding, output_format=format)
+
+    # Stored values span the full 16-bit range (255 -> 65535)
+    stored = np.frombuffer(bytes(img.to_linear_pixels()), dtype=np.uint16)
+    if encoding in ("bgr16", "bgra16"):
+        expected = [_B, _G, _R, _A]
+    else:
+        expected = [_R, _G, _B, _A]
+    assert stored.tolist() == [v * 257 for v in expected[: len(mode)]]
+
+    assert img.to_pillow().getpixel((0, 0)) == src.getpixel((0, 0))
+
+
+def test_from_pillow_16bit_full_range():
+    """
+    The extremes of the 8-bit range map to the extremes of the 16-bit range.
+    """
+    from PIL import Image as PILImage
+
+    src = PILImage.new("RGBA", (2, 1))
+    src.putpixel((0, 0), (0, 0, 0, 0))
+    src.putpixel((1, 0), (255, 255, 255, 255))
+
+    img = Image.from_pillow(
+        src, target_encoding="rgba16", output_format=ImageFormat.RAW
+    )
+
+    stored = np.frombuffer(bytes(img.to_linear_pixels()), dtype=np.uint16)
+    assert stored.tolist() == [0] * 4 + [65535] * 4

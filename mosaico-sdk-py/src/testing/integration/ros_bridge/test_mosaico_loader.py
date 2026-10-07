@@ -439,3 +439,62 @@ def test_unmodeled_adapter_with_nested_msgdef(mosaico_client):
         assert rosmsg_type == "custom_msgs/msg/CustomImu"
 
         mosaico_client.sequence_delete(ros_sequence_name)
+
+
+# Issue #824: the message at exactly 'timestamp_ns_max' must not be dropped
+_TIME_WINDOW_TSTAMPS = [1_000_000_000 + i * 10_000_000 for i in range(5)]
+_TIME_WINDOW_TSTAMP_MAX = _TIME_WINDOW_TSTAMPS[-1]
+
+
+@pytest.mark.parametrize(
+    "start_timestamp_ns, end_timestamp_ns, expected_tstamps",
+    [
+        (None, None, _TIME_WINDOW_TSTAMPS),
+        (None, _TIME_WINDOW_TSTAMP_MAX + 1, _TIME_WINDOW_TSTAMPS),
+        (0, _TIME_WINDOW_TSTAMP_MAX * 2, _TIME_WINDOW_TSTAMPS),
+        (
+            _TIME_WINDOW_TSTAMP_MAX,
+            _TIME_WINDOW_TSTAMP_MAX * 2,
+            [_TIME_WINDOW_TSTAMP_MAX],
+        ),
+        # An end within the sequence range stays exclusive
+        (None, _TIME_WINDOW_TSTAMP_MAX, _TIME_WINDOW_TSTAMPS[:-1]),
+    ],
+    ids=["unbounded", "max_plus_one", "beyond_bounds", "start_at_max", "end_at_max"],
+)
+def test_time_window_includes_last_message(
+    mosaico_client, start_timestamp_ns, end_timestamp_ns, expected_tstamps
+):
+    ros_sequence_name = "ros-sequence-time-window-last-message"
+    ros_topic_name = "/car/pose"
+
+    with mosaico_client:
+        with mosaico_client.sequence_create(
+            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+        ) as s_writer:
+            t_writer = s_writer.topic_create(ros_topic_name, {}, Pose)
+            for ts in _TIME_WINDOW_TSTAMPS:
+                t_writer.push(
+                    Message(
+                        timestamp_ns=ts,
+                        data=Pose(
+                            position=Point3d(x=1, y=2, z=3),
+                            orientation=Quaternion(x=0, y=0, z=0, w=1),
+                        ),
+                    )
+                )
+
+        # Always delete the sequence, not to interfere with the other tests
+        try:
+            with MosaicoLoader(
+                mosaico_client,
+                get_typestore(Stores.ROS2_JAZZY),
+                ros_sequence_name,
+                start_timestamp_ns=start_timestamp_ns,
+                end_timestamp_ns=end_timestamp_ns,
+            ) as mosaico_loader:
+                tstamps = [msg.timestamp_ns for _, msg in mosaico_loader]
+
+            assert tstamps == expected_tstamps
+        finally:
+            mosaico_client.sequence_delete(ros_sequence_name)

@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.3] - 2026-10-07
+
+### Bug Fixes
+
+- **`Image`**: fixed BGR(A) ↔ RGB(A) channel ordering in `to_pillow()`/`from_pillow()` conversions: only the color channels are now swapped, while the alpha channel stays last (previously `bgra*` encodings were fully reversed, moving alpha to the first position). Improved 16-bit handling: multi-channel 16-bit images are downscaled to 8-bit (most significant byte) when converted to Pillow, and 8-bit color data is expanded to the full 16-bit range (×257) when encoding to 16-bit, making the round-trip lossless. ([#826](https://github.com/mosaico-labs/mosaico/pull/826))
+- **`DataFrameExtractor`**: the message at exactly `timestamp_ns_max` was dropped from the extraction. `timestamp_ns_start` is now an inclusive bound and `timestamp_ns_end` an exclusive one (`t < end`); when `timestamp_ns_end` is `None` or beyond the sequence `timestamp_ns_max`, the last window drains the readers so the final message of the sequence is included. ([#824](https://github.com/mosaico-labs/mosaico/issues/824))
+- **ROS Bridge (`MosaicoLoader`, `ROSExtractorConfig`, sequence extractor CLI)**: aligned with the same bound semantics. An `end_timestamp_ns` beyond the sequence maximum is no longer clipped to `timestamp_ns_max` (which excluded the last message) but leaves the stream unbounded up to the end of the sequence. Docstrings and CLI help texts now state explicitly that the start bound is inclusive and the end bound exclusive.
+- **`SyncTransformer`**: grid ticks are now computed from their index relative to the first observed timestamp (`origin + round(tick * period)`) instead of accumulating an integer-truncated step, eliminating the cumulative timing drift for target frequencies whose period is not an integer number of nanoseconds (e.g. 30 Hz). ([#829](https://github.com/mosaico-labs/mosaico/pull/829), closes [#787](https://github.com/mosaico-labs/mosaico/issues/787))
+
+### Maintenance
+
+- Updated locked dependencies (`poetry.lock`).
+
 
 ## [0.6.1] - 2026-08-27
 

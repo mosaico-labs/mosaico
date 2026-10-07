@@ -52,20 +52,21 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
             policy (SyncPolicy): A strategy implementing the `SyncPolicy` protocol.
             timestamp_column (str): The column name containing the timestamp data.
         """
-        self._step_ns: int = int(1e9 / target_fps)
+        self._period_ns: float = 1e9 / float(str(target_fps))
         self._policy: SyncPolicy = policy
         self._timestamp_column: str = timestamp_column
 
         # Internal state to bridge gaps between chunks
         self._last_values: Dict[str, Tuple[int, Any]] = {}
-        self._next_timestamp_ns: Optional[int] = None
+        self._origin_ns: Optional[int] = None
+        self._tick: int = 0
 
     def fit(self, X: pd.DataFrame, y=None) -> "SyncTransformer":
         """
         Initializes the grid alignment based on the first observed timestamp.
         """
-        if not X.empty and self._next_timestamp_ns is None:
-            self._next_timestamp_ns = int(X[self._timestamp_column].iloc[0])
+        if not X.empty and self._origin_ns is None:
+            self._origin_ns = int(X[self._timestamp_column].iloc[0])
 
         if self._timestamp_column not in X.columns:
             raise ValueError(
@@ -168,7 +169,8 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
 
     def reset(self):
         """Resets the internal temporal state and cached sensor values."""
-        self._next_timestamp_ns = None
+        self._origin_ns = None
+        self._tick = 0
         self._last_values = {}
 
     def _generate_grid(self, X: pd.DataFrame) -> np.ndarray:
@@ -177,19 +179,22 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
             return np.array([], dtype=np.int64)
 
         X_tstamp = X[self._timestamp_column]
-        if self._next_timestamp_ns is None:
-            self._next_timestamp_ns = int(X_tstamp.iloc[0])
+        if self._origin_ns is None:
+            self._origin_ns = int(X_tstamp.iloc[0])
 
         chunk_end_ns = int(X_tstamp.iloc[-1])
 
         # We start exactly from the next expected tick to prevent drift
         grid = np.arange(
-            self._next_timestamp_ns, chunk_end_ns + 1, self._step_ns, dtype=np.int64
+            self._tick,
+            (chunk_end_ns - self._origin_ns + 0.5) / self._period_ns,
+            dtype=np.int64,
         )
+        grid = self._origin_ns + np.floor(grid * self._period_ns + 0.5).astype(np.int64)
 
         # Advance the pointer for the next chunk
         if len(grid) > 0:
-            self._next_timestamp_ns = int(grid[-1] + self._step_ns)
+            self._tick += len(grid)
 
         return grid
 
