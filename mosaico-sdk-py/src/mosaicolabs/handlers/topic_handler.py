@@ -53,7 +53,6 @@ class TopicHandler:
         *,
         connection: ConnectionContext,
         topic_model: Topic,
-        pyarrow_schema: pa.StructType,
         timestamp_ns_min: Optional[int],
         timestamp_ns_max: Optional[int],
     ):
@@ -69,7 +68,6 @@ class TopicHandler:
         Args:
             connection (ConnectionContext): The active FlightClient, bundled with the server config, for remote operations.
             topic_model (Topic): The underlying metadata and system info model for the topic.
-            pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
             timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this topic.
             timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this topic.
         """
@@ -83,7 +81,8 @@ class TopicHandler:
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
         self._timestamp_ns_max: Optional[int] = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
-        self._arrow_schema: pa.StructType = pyarrow_schema
+        self._arrow_schema: Optional[pa.StructType] = None
+        """The Arrow schema of the data ontology, lazily fetched via `get_schema`"""
 
     @classmethod
     def _connect(
@@ -155,20 +154,13 @@ class TopicHandler:
             name=_stzd_topic_name,
             app_metadata=topic_app_metadata,
         )
-        pyschema = cls._get_schema(
-            client=connection.flight_client,
-            sequence_name=sequence_name,
-            topic_name=topic_name,
-        )
 
-        # Retrieve the data ontology schema
-        pyarrow_schema = Message._extract_data_schema(pyschema.schema)
-
+        # The ontology schema is not fetched here: `get_schema` requires the server
+        # to read the topic data from the store, so it is deferred to `ontology_schema`.
         # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(
             connection=connection,
             topic_model=topic_model,
-            pyarrow_schema=pyarrow_schema,
             timestamp_ns_min=topic_app_metadata.timestamp_ns_min,
             timestamp_ns_max=topic_app_metadata.timestamp_ns_max,
         )
@@ -297,9 +289,20 @@ class TopicHandler:
         """
         The Arrow Schema of the ontology type handled by this topic
 
+        The schema is fetched from the server on first access and then cached.
+        Unlike the other metadata properties, retrieving it requires the server
+        to read the topic data from the storage.
+
         Returns:
             pa.StructType: The Arrow Schema as a pa.StructType
         """
+        if self._arrow_schema is None:
+            pyschema = self._get_schema(
+                client=self._connection.flight_client,
+                sequence_name=self._topic.sequence_name,
+                topic_name=self.name,
+            )
+            self._arrow_schema = Message._extract_data_schema(pyschema.schema)
         return self._arrow_schema
 
     def get_data_streamer(
@@ -461,7 +464,7 @@ class TopicHandler:
         sequence_name: str,
         topic_name: str,
         client: fl.FlightClient,
-    ) -> fl.FlightInfo:
+    ) -> fl.SchemaResult:
         """Performs the get_schema call. Raises if flight function does"""
         _stzd_sequence_name = sanitize_sequence_name(sequence_name)
         _stzd_topic_name = sanitize_topic_name(topic_name)
