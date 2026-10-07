@@ -28,32 +28,49 @@ permissions:
 
 jobs:
   full-stack-tests:
-    name: "Tests on (Py ${{ matrix.python-version }})"
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-24.04, macos-latest]
         python-version: ["3.10", "3.13"]
-    runs-on: ubuntu-24.04
+
+    runs-on: ${{ matrix.os }}
+
     env:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+
     steps:
       - uses: actions/checkout@v6
+
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-      
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: poetry
+
       - name: Install Dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu-')
         run: |
           sudo apt-get update
           sudo apt-get install -y libpq-dev
 
-      - name: Install Poetry
-        run: pipx install poetry
-      - uses: actions/setup-python@v6.1.0
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "poetry"
+      - name: Install Dependencies (macOS)
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          brew install libpq colima qemu docker docker-compose
+          echo "$(brew --prefix libpq)/bin" >> "$GITHUB_PATH"
+
+      - name: Start Docker
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          colima start --vm-type qemu
 
       - name: Integration Tests
-        run: |
-          ./scripts/tests --full-stack-all
+        run: ./scripts/tests --full-stack-all
