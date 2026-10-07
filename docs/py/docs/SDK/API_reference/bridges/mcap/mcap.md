@@ -12,6 +12,7 @@ description: API Reference for MCAP Bridge
 ::: mosaicolabs.bridges.mcap.MCAPInjector
 ::: mosaicolabs.bridges.mcap.MCAPSequenceExtractor
 ::: mosaicolabs.bridges.mcap.MCAPExtractorConfig
+::: mosaicolabs.bridges.mcap.MCAPFileReader
 ::: mosaicolabs.bridges.mcap.MCAPFileWriter
 ::: mosaicolabs.bridges.mcap.MCAPSchemaMetadata
 ::: mosaicolabs.bridges.mcap.McapReturnType

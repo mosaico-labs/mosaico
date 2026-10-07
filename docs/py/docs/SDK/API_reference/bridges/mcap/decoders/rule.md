@@ -1,6 +1,6 @@
 ---
-title: Base Decoder
-description: API Reference for Base Decoder
+title: Decoder Rules
+description: API Reference for Decoder Rules
 ---
 
 ::: mosaicolabs.bridges.mcap.decoders.rule

@@ -193,7 +193,7 @@ class ProtobufRulesMatcher:
         each field's `RulePath` to the ordered list of `PROTOBUF_RULES` entries whose
         predicate matches that field (see `match_rules`) — a field can match more than one,
         e.g. a `Timestamp` field that is also a `oneof` member matches `is_field_timestamp`,
-        `is_field_oneof` and `is_field_singular_message`. `MCAPMsgDecoderBase.postprocess()`
+        `is_field_oneof` and `is_field_singular_message`. `MCAPMsgDecoderBase._postprocess()`
         applies them in this same order.
         """
         return cls._descriptor_to_rules(descr, {}, ())
