@@ -1,0 +1,106 @@
+---
+title: Reconstruct MCAP
+sidebar_position: 2
+description: "Runnable example that reconstructs the Labelbox robotics datasets sequences back into MCAP files from Mosaico. Covers the MCAPSequenceExtractor pipeline, the MCAPExtractorConfig options, and how the automatic Unmodeled Adapter rebuilds the original messages with no reverse-translation code required."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Takes sequences previously ingested into Mosaico and writes them back out as native `.mcap` files. It is the inverse operation of the [MCAP Ingestion](./mcap_ingestion) example, which ingests four recordings of the [Labelbox robotics datasets](https://huggingface.co/datasets/Labelbox/robotics-datasets) from Hugging Face. Connection handling, topic filtering, schema recovery, and file writing are all handled automatically.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/mcap/)
+
+[API Reference: MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/API_reference/bridges/mcap/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples reconstruct_mcaps
+```
+
+Run the command with `--help` to see all available options.
+
+The daemon must be running, and it must already contain the sequences ingested by the [MCAP Ingestion](./mcap_ingestion) example. This script only reads back data already on the server, it does not download or ingest anything itself.
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/bridges/mcap/reconstruct.py).
+
+## No Adapter Needed to Reconstruct
+
+The [MCAP Ingestion](./mcap_ingestion) example registers no adapter: every channel is stored as an [Unmodeled ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies). Reconstruction needs no adapter either. When a sequence is ingested, the original schema and channel of each topic are saved as topic metadata, so the extractor can recover them and rebuild the native messages through the same automatic Unmodeled Adapter used at ingestion time.
+
+If a [custom adapter](./mcap_ingestion#writing-a-custom-adapter) is registered for the topic's schema, its `to_mcap()` is used instead.
+
+## Supported Schema Encodings
+
+The MCAP bridge reconstructs the same schema encodings it ingests:
+
+| Schema encoding | Support | Notes |
+| --- | --- | --- |
+| `protobuf` | Full | Used by every channel of this example. |
+| `ros2msg`, `ros2idl`, `ros1msg` | Not supported | Use the ROS bridge instead, see below. |
+
+Support for further encodings will be added in future releases.
+
+:::note
+Reconstruction returns each topic to the schema encoding it was ingested with, as recorded in its metadata: a channel ingested as `protobuf` is written back as `protobuf`. Converting a topic to a different schema encoding is not supported.
+:::
+
+:::info[ROS 2 bags in MCAP format]
+To reconstruct sequences ingested from ROS 2 bags, use the [ROS bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/) instead, as shown in the [Reconstruct ROS bag](../ROS/reconstruct_rosbag) example.
+:::
+
+## Reconstruction Pipeline
+
+`MCAPSequenceExtractor` is the MCAP specialization of the bridge-agnostic `SequenceExtractor`, the same base used by the ROS bridge's `ROSSequenceExtractor`. `MCAPExtractorConfig` uses the shared `ExtractorConfig` fields as they are: connection settings, sequence, topic and time-window filters, output path, `overwrite`, and `dry_run`.
+
+`MCAPSequenceExtractor.run()` mirrors the injector's pipeline in reverse:
+
+**Connect.** Opens a connection to Mosaico using the credentials and TLS settings in `MCAPExtractorConfig`.
+
+**Stream.** `MosaicoToMCAPLoader` reads back every message of the requested sequence, resolving the adapter for each topic as described above.
+
+**Write.** Translates each message back into its native MCAP encoding and writes it into a fresh `.mcap` file under `saving_path/sequence_name`, recreating the original channels and schemas.
+
+```python title="Reconstruct every ingested sequence"
+RECONSTRUCTED_MCAP_FILE_PATH = Path(ASSET_DIR) / "reconstructed"
+
+SEQUENCE_NAMES = [
+    "trio_connecting_cables_to_adapters_recording_0001",
+    "bimanual_xarm6_place_clothing_into_basket_recording_0001",
+    "bimanual_xarm6_remove_hats_and_dirty_laundry_recording_0001",
+    "bimanual_xarm6_watering_house_plant_recording_0001",
+]
+
+for sequence in SEQUENCE_NAMES:
+    configs = MCAPExtractorConfig(
+        saving_path=RECONSTRUCTED_MCAP_FILE_PATH,
+        sequence_name=sequence,
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        log_level=LOG_LEVEL,
+        mosaico_api_key=API_KEY,
+        enable_tls=ENABLE_TLS,
+        overwrite=True,
+    )
+
+    extractor = MCAPSequenceExtractor(configs)
+    extractor.run()
+```
+
+Each sequence is written to `/tmp/mosaico_assets/reconstructed/<sequence_name>/<sequence_name>.mcap`, ready to be opened with any standard MCAP tooling (the `mcap` CLI, Foxglove, ...).
