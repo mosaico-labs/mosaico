@@ -25,9 +25,9 @@ import argparse
 import json
 import os
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Dict, List, Optional, Set, Tuple, Type
 
 from rich.live import Live
 from rosbags.typesys import Stores, get_typestore
@@ -35,8 +35,6 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
-    SerializationFormat,
-    SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
     TopicWriterStatus,
 )
@@ -44,6 +42,11 @@ from mosaicolabs.enum.session_status import SessionStatus
 from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
+from ..base_injector import (
+    _DEFAULT_TOPIC_ON_ERROR,
+    InjectionConfigBase,
+    InjectionStatus,
+)
 from ..topic_status import to_color
 from ..ui import ProgressManager
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
@@ -55,35 +58,56 @@ from .ros_message import ROSMessage
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
-_DEFAULT_TOPIC_ON_ERROR = TopicLevelErrorPolicy.Raise
-_DEFAULT_SESSION_ON_ERROR = SessionLevelErrorPolicy.Report
-
 
 # --- Configuration ---
 @dataclass
-class ROSInjectionConfig:
+class ROSInjectionConfig(InjectionConfigBase):
     """
     The central configuration object for the ROS Bag injection process.
 
     This data class serves as the single source of truth for all injection settings,
     decoupling the orchestration logic from CLI arguments or configuration files.
-    It encapsulates network parameters, file paths, and advanced filtering logic required
-    to drive a successful ingestion session.
+    It extends `InjectionConfigBase`, which holds the settings shared by all bridge
+    injectors (sequence, server connection, error policies, metadata, logging, dry-run),
+    with the ROS-specific options: `ros_distro`, custom message definitions, `topics`
+    filtering and `adapter_overrides`.
 
     Attributes:
         file_path (Path): Absolute or relative path to the input ROS bag file (.mcap, .db3, or .bag).
-        sequence_name (str): The name for the new sequence to be created on the Mosaico server.
+        sequence_name (str): The name of the sequence to create on the Mosaico server
+            (or to update, see `update_if_exists`).
         metadata (dict): User-defined metadata to attach to the sequence (e.g., driver, weather, location).
+            Ignored when an existing sequence is updated.
+        topic_metadata (Optional[Dict[str, dict]]): Mapping of exact topic name to metadata to
+            attach to that topic, alongside the `_ros_` metadata computed from the message schema and
+            the source bag file. Default: None
+        update_if_exists (bool): If `True`, append this bag's topics to an existing sequence with
+            the same name instead of raising an error. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
-        ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
-            See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
         on_error (SessionLevelErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
             Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
+        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
+            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
+            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
+            present in this mapping default to `SerializationFormat.Default`.
+            Default: None
+        log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
+            Default: "INFO"
+        mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
+            If provided it must have the `write` permission.
+            Default: None
+        tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
+            Default: None
+        enable_tls (bool): Enable the TLS communication protocol. Defaults to False.
+        dry_run (bool): If `True`, resolves and reports which topics would be ingested without
+            connecting to the Mosaico server or writing any data. Default: False.
+        ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
+            See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
         registry (Optional[ROSTypeRegistry]): Registry to register `custom_msgs` into; a private
             one is created if `None`. Pass a shared instance to reuse definitions across runs.
@@ -93,24 +117,13 @@ class ROSInjectionConfig:
             Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available topics are loaded.
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
-            Deafult: None
-        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
-            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
-            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
-            present in this mapping default to `SerializationFormat.Default`.
-            Default: None
-        log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
-        mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
-            If provided it must be have the `write` permission.
-            Default: None
-        tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
             Default: None
 
     Example:
         ```python
         from pathlib import Path
         from rosbags.typesys import Stores
-        from mosaicolabs.enum import SessionLevelErrorPolicy
+        from mosaicolabs.enum import SessionLevelErrorPolicy, TopicLevelErrorPolicy
         from mosaicolabs.bridges.ros import ROSInjectionConfig
 
         config = ROSInjectionConfig(
@@ -124,93 +137,11 @@ class ROSInjectionConfig:
         ```
     """
 
-    file_path: Path
-    """
-    The path to the ROS bag file to ingest.
-    """
-
-    sequence_name: str
-    """
-    The name of the sequence to create.
-    """
-
-    metadata: dict = field(default_factory=dict)
-    """
-    Metadata to associate with the sequence.
-    """
-
-    topic_metadata: Optional[Dict[str, dict]] = None
-    """
-    A mapping of exact topic name to metadata to associate with that topic, merged into the
-    metadata computed from the message schema and the source bag file (see `_process_message`).
-    User-supplied values take precedence over the auto-computed ones on key conflicts.
-
-    Only applied to topics that end up being ingested; entries for topics excluded by `topics`
-    filtering are simply unused. Default: None.
-    """
-
-    update_if_exists: bool = False
-    """
-    Controls what happens when a sequence named `sequence_name` already exists on the server.
-
-    If `True`, the injector appends this bag's topics to the existing sequence instead of
-    creating a new one. Use this both when a ROS recording is split across multiple bag files
-    that should all land in the same sequence, and when re-ingesting a derived/reprocessed bag
-    (e.g. offline estimation results) whose topics should be merged into a sequence that was
-    already ingested from the original recording.
-
-    If `False` (default), the injector creates a new sequence and raises an error if a sequence
-    with the same name already exists.
-
-    Each topic's metadata records the source bag file it was ingested from (see
-    `schema_metadata` handling in `_process_message`), so which bag file contributed which
-    topics remains traceable even after multiple updates to the same sequence.
-
-    Caveat: existence is checked and then acted upon in two separate steps (not atomically),
-    so running concurrent injections against the same `sequence_name` can race. Avoid
-    concurrent ingestion into the same sequence name.
-
-    Caveat: resuming after a crash is NOT idempotent. `session_writer.get_topic_writer()`
-    (see `_process_message`) only consults an in-memory cache scoped to the current process's
-    session (`_BaseSessionWriter._topic_writers`); it has no knowledge of topics created by a
-    previous, crashed run. So re-running the same bag with `update_if_exists=True` after a
-    crash will call `topic_create` again for topics that were already fully ingested before
-    the crash, which the server is expected to reject as duplicates (behavior not covered by
-    SDK-level tests as of this writing). There is currently no dedup against the topics already
-    present in the target sequence (available server-side via `MosaicoClient.sequence_handler(
-    sequence_name).topics`, the same mechanism `MosaicoLoader` already uses) before calling
-    `topic_create`. A safe resume would need to check that list first and skip topics already
-    present, rather than only checking the local per-process cache.
-    """
-
-    host: str = "localhost"
-    """
-    The hostname of the Mosaico server.
-    """
-
-    port: int = 6726
-    """
-    The port of the Mosaico server.
-    """
-
     ros_distro: Optional[Stores] = None
     """
     The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
 
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-    """
-
-    on_error: SessionLevelErrorPolicy = _DEFAULT_SESSION_ON_ERROR
-    """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
-
-    topics_on_error: Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]] = (
-        _DEFAULT_TOPIC_ON_ERROR
-    )
-    """
-    The TopicWriter `on_error` behavior ([`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]) when a topic write fails.
-    Default is `TopicLevelErrorPolicy.Raise` for all topics.
-    Set to a `TopicLevelErrorPolicy` to apply the same policy to all topics.
-    Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different topics.
     """
 
     custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
@@ -254,38 +185,6 @@ class ROSInjectionConfig:
 
     adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
-
-    serialization_formats: Optional[Dict[str, SerializationFormat]] = None
-    """A mapping of ROS message type strings (e.g. "sensor_msgs/msg/PointCloud2") to the
-    [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] used when synthesizing an
-    `Unmodeled` ontology for topics that have no registered Mosaico adapter.
-
-    Only applies to non-adapted (unmodeled) message types. Types not present in this mapping
-    default to `SerializationFormat.Default`.
-    """
-
-    log_level: str = "INFO"
-    """The Log Level"""
-
-    mosaico_api_key: Optional[str] = None
-    """
-    The API key for authentication on the mosaico server. Defaults to None.
-    
-    If provided it must be have the `write` permission.
-    """
-
-    tls_cert_path: Optional[str] = None
-    """Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None."""
-
-    enable_tls: bool = False
-    """Enable the TLS commmunication protocol. Defaults to False"""
-
-    dry_run: bool = False
-    """
-    If `True`, resolves and reports which topics would be ingested (and with which adapter),
-    which topics would be rejected (and why), and which `topic_metadata` entries would be
-    unused, without connecting to the Mosaico server or writing any data. Default: False.
-    """
 
 
 # --- Main Injector Class ---
@@ -475,7 +374,7 @@ class RosbagInjector:
                 "No connection to the Mosaico server was made."
             )
 
-    def run(self):
+    def run(self) -> InjectionStatus:
         """
         Main execution entry point for the injection pipeline.
 
@@ -486,16 +385,18 @@ class RosbagInjector:
         If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
         without connecting to the server.
 
+        Returns:
+            InjectionStatus: `COMPLETED` if the file was injected, `CANCELLED` if the user
+                interrupted the injection (`KeyboardInterrupt`), `DRY_RUN` in dry-run mode.
+
         Raises:
             Exception: Any fatal error encountered during connection, loading, or upload is
                 logged and then re-raised, so callers can detect failure (e.g. `try`/`except`
                 around `run()`, or a non-zero process exit code from the CLI entry point).
-                `KeyboardInterrupt` is the only exception handled silently, to allow a clean
-                shutdown on user interrupt.
         """
         if self._cfg.dry_run:
             self._dry_run_report()
-            return
+            return InjectionStatus.DRY_RUN
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
 
@@ -576,10 +477,12 @@ class RosbagInjector:
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
-            return
+            return InjectionStatus.CANCELLED
         except Exception as e:
             logger.exception(f"Fatal error during ingestion: '{e}'")
             raise
+
+        return InjectionStatus.COMPLETED
 
     def _print_summary(self, original_size: int, remote_size: int):
         """
@@ -951,13 +854,17 @@ def ros_injector():
     # --- Execution ---
     injector = RosbagInjector(config)
     try:
-        injector.run()
+        status = injector.run()
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception:
         # Already logged with a full traceback inside run(); exit non-zero so
         # calling scripts/CI can detect the failure.
         sys.exit(1)
+
+    # Interrupted by the user while uploading: same exit code as an interrupt outside `run()`
+    if status is InjectionStatus.CANCELLED:
+        sys.exit(130)
 
 
 if __name__ == "__main__":

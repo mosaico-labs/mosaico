@@ -63,6 +63,7 @@ nav:
         - SDK/bridges/mcap.md
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
+    - SDK/watchdog.md
   - API Reference:
     - SDK/API_reference/comm.md
     - SDK/API_reference/enum.md
@@ -108,7 +109,7 @@ nav:
             - Adapters:
                 - SDK/API_reference/bridges/mcap/adapters/base.md
                 - SDK/API_reference/bridges/mcap/adapters/unmodeled.md
-
+    - SDK/API_reference/watchdog.md
 extra_css:
   - stylesheets/extra.css
 
