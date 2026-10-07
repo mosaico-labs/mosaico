@@ -1,0 +1,208 @@
+---
+title: MCAP Ingestion
+sidebar_position: 1
+description: "Runnable example that downloads four recordings of the Labelbox robotics datasets from Hugging Face and ingests them from protobuf-encoded MCAP files into Mosaico. Covers how self-describing MCAP files are ingested as Unmodeled ontologies, how to query them, how to write a custom MCAPAdapterBase adapter, and running the MCAPInjector pipeline with verification."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Downloads four recordings of the [Labelbox robotics datasets](https://huggingface.co/datasets/Labelbox/robotics-datasets) from Hugging Face and ingests them from `.mcap` files into a structured, queryable Mosaico archive. Asset download, schema decoding, type translation, batching, and catalog verification are all handled automatically, without defining any custom ontology or adapter.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/mcap/)
+
+[API Reference: MCAP Bridge](https://docs.mosaico.dev/python-sdk/SDK/API_reference/bridges/mcap/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples mcap_injection
+```
+
+Run the command with `--help` to see all available options.
+
+The daemon must be running before you start. See the [setup guide](/daemon/install) if you have not started it yet.
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/bridges/mcap/injection.py).
+
+## Supported Schema Encodings
+
+An MCAP file can carry messages serialized with different encodings, declared by the schema of each channel. The MCAP bridge currently supports:
+
+| Schema encoding | Support | Notes |
+| --- | --- | --- |
+| `protobuf` | Full | Used by every channel of this example. |
+| `ros2msg`, `ros2idl`, `ros1msg` | Not supported | Use the ROS bridge instead, see below. |
+
+Channels whose encoding is not supported are skipped and listed in the run report. Support for further encodings will be added in future releases.
+
+:::info[ROS 2 bags in MCAP format]
+To ingest `.mcap` files recorded as ROS 2 bags, use the [ROS bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/) instead, as shown in the [ROS Ingestion](../ROS/ros_ingestion) example.
+:::
+
+## Decoding Self-Describing MCAP Files
+
+MCAP is a self-describing format: every channel points to a schema that embeds the full message definition. The MCAP bridge reads this definition to decode the messages and to derive the matching Mosaico ontology at runtime, so a file can be ingested without generating any code in advance. The schema is also stored in the topic metadata, which is what allows the [Reconstruct MCAP](./reconstruct_mcap) example to rebuild the original file later.
+
+## Every Channel Becomes an Unmodeled Ontology
+
+This example defines no custom ontology and registers no adapter. Every channel of the Labelbox recordings is ingested as an [Unmodeled ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies), generated from the schema embedded in the file. Its ontology tag is the last component of the schema name, for example:
+
+| Schema in the MCAP file | Ontology tag in Mosaico | Example channel |
+| --- | --- | --- |
+| `foxglove.CompressedVideo` | `CompressedVideo` | `/left-wrist-camera/image/compressed` |
+| `foxglove.FrameTransforms` | `FrameTransforms` | `/left-arm-tf` |
+| `imu_data.ImuData` | `ImuData` | `/left-wrist-camera/imu` |
+| `lbx_robotics.msg.ArmState` | `ArmState` | `/left-arm-proprio` |
+
+Unmodeled data is fully queryable: filters are built from the ontology tag and the field path, without needing any Python class. See [Class-Free Queries](https://docs.mosaico.dev/python-sdk/SDK/query/#class-free-queries) in the SDK documentation and the [Query Unmodeled Ontologies](/learn/queryable_fields_queries#querying-an-unmodeled-ontology) guide. For example, `imu_data.ImuData` carries a `linear_acceleration` struct:
+
+```python title="Query an Unmodeled ontology"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+from mosaicolabs.query.queryable_fields import QueryableNumeric
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Find the sequences where an IMU measured a Z acceleration above 15.0
+    results = client.query(
+        QueryOntologyCatalog().with_expression(
+            QueryableNumeric("ImuData.linear_acceleration.z").gt(15.0)
+        )
+    )
+
+    if results:
+        for item in results:
+            print(f"{item.sequence.name}: {[topic.name for topic in item.topics]}")
+```
+
+## Writing a Custom Adapter
+
+Unmodeled ontologies are the default, not a limitation. To map a channel onto a built-in or hand-written ontology instead, subclass `MCAPAdapterBase` and register it with `@register_default_adapter`. The bridge selects the adapter whenever a channel has the same `schema_name` and `schema_encoding`.
+
+The adapter below maps a protobuf `Mosaico.Imu` message onto the built-in `IMU` ontology. `from_dict()` handles the MCAP → Mosaico direction, while `to_mcap()` handles the Mosaico → MCAP direction used by the [Reconstruct MCAP](./reconstruct_mcap) example.
+
+```python title="Custom IMU MCAP adapter"
+from typing import Optional, Tuple, Type
+
+from mosaicolabs import IMU, Header, Time, Vector3d
+from mosaicolabs.bridges.mcap import MCAPAdapterBase, register_default_adapter
+
+# Class generated by protoc from the .proto definition of the message
+from my_project.generated.imu_pb2 import Imu as ImuProtobuf
+
+
+@register_default_adapter
+class MyImuProtobufAdapter(MCAPAdapterBase[IMU, ImuProtobuf]):
+    # Must match the schema name and encoding recorded in the MCAP file
+    schema_name = "Mosaico.Imu"
+    schema_encoding = "protobuf"
+    __mosaico_ontology_type__: Type[IMU] = IMU
+
+    @classmethod
+    def from_dict(cls, mcap_data: dict, publish_time_ns: int) -> IMU:
+
+        mcap_acceleration = mcap_data["linear_acceleration"]
+        mcap_angular_velocity = mcap_data["angular_velocity"]
+
+        return IMU(
+            header=Header(timestamp=Time.from_nanoseconds(publish_time_ns)),
+            acceleration=Vector3d(
+                x=mcap_acceleration["x"],
+                y=mcap_acceleration["y"],
+                z=mcap_acceleration["z"],
+            ),
+            angular_velocity=Vector3d(
+                x=mcap_angular_velocity["x"],
+                y=mcap_angular_velocity["y"],
+                z=mcap_angular_velocity["z"],
+            ),
+        )
+
+    @classmethod
+    def to_mcap(cls, mosaico_data: IMU) -> Tuple[ImuProtobuf, Optional[int]]:
+        out = ImuProtobuf()
+
+        out.linear_acceleration.x = mosaico_data.acceleration.x
+        out.linear_acceleration.y = mosaico_data.acceleration.y
+        out.linear_acceleration.z = mosaico_data.acceleration.z
+        out.angular_velocity.x = mosaico_data.angular_velocity.x
+        out.angular_velocity.y = mosaico_data.angular_velocity.y
+        out.angular_velocity.z = mosaico_data.angular_velocity.z
+
+        publish_time_ns = None
+        if mosaico_data.header and mosaico_data.header.timestamp:
+            publish_time_ns = mosaico_data.header.timestamp.to_nanoseconds()
+
+        return out, publish_time_ns
+```
+
+Import the module defining the adapter before running `MCAPInjector`, so that the adapter is registered. Channels with any other schema keep falling back to an Unmodeled ontology.
+
+## Ingestion Pipeline
+
+The example loops over each recording and runs three phases: download, ingest, verify.
+
+**Download.** `download_asset` fetches the `.mcap` from Hugging Face with a progress bar and caches it locally so re-runs skip the download.
+
+**Ingest.** `MCAPInjector` handles the full write pipeline: it opens the MCAP, routes each message through its adapter, batches the resulting `Message` objects, and transmits them to the daemon. The sequence name is derived from the recording path so each file becomes a separate, independently queryable recording session.
+
+**Verify.** A `list_sequences()` call after ingestion confirms that every ingested sequence is visible in the catalog.
+
+```python title="Download, ingest, and verify"
+BASE_MCAPS_URL = (
+    "https://huggingface.co/datasets/Labelbox/robotics-datasets/resolve/main/data/"
+)
+
+MCAP_FILES_PATH = [
+    "trio/connecting_cables_to_adapters/recording_0001.mcap",
+    "bimanual/xarm6/place_clothing_into_basket/recording_0001.mcap",
+    "bimanual/xarm6/remove_hats_and_dirty_laundry/recording_0001.mcap",
+    "bimanual/xarm6/watering_house_plant/recording_0001.mcap",
+]
+
+ingested_sequences = []
+for mcap_path in MCAP_FILES_PATH:
+    mcap_file_url = BASE_MCAPS_URL + mcap_path
+    out_file_name = mcap_path.replace("/", "_")
+
+    downloaded_time = Time.now()
+    out_mcap_file = download_asset(mcap_file_url, Path(ASSET_DIR), console, out_file_name)
+
+    sequence_name = out_file_name.removesuffix(".mcap")
+    ingested_sequences.append(sequence_name)
+
+    config = MCAPInjectionConfig(
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        file_path=out_mcap_file,
+        sequence_name=sequence_name,
+        metadata={
+            "source_url": mcap_file_url,
+            "ingested_via": "mosaico_example_mcap_injection",
+            "download_time_ns": downloaded_time.to_nanoseconds(),
+            "original_size_bytes": out_mcap_file.stat().st_size,
+        },
+    )
+    MCAPInjector(config).run()
+
+with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
+    for sequence_name in client.list_sequences():
+        if sequence_name in ingested_sequences:
+            print(f"'{sequence_name}' is now queryable.")
+```
+
+Once complete, the ingested sequences can be written back to `.mcap` files with the [Reconstruct MCAP](./reconstruct_mcap) example.

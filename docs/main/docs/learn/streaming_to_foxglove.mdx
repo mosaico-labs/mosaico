@@ -35,7 +35,7 @@ pip install mosaicolabs foxglove-sdk
 
 ## Why a Live WebSocket Sink, Not a File
 
-Writing an MCAP file and opening it in Foxglove is a perfectly valid workflow, but it is a *different* one: it produces a file you load afterwards. `foxglove.start_server()` instead opens a WebSocket server that acts as a live sink — every message you log through it is pushed straight to any connected Foxglove client, the moment you log it. Nothing is buffered to disk, and there is no file to clean up afterwards; the data only ever exists as a live stream, exactly like a robot's UI would display it while running. In Foxglove itself, this is "Open connection" → "Foxglove WebSocket" instead of "Open local file".
+Writing an MCAP file and opening it in Foxglove is a perfectly valid workflow (for Sequences ingested through a bridge, see the [Reconstruct MCAP](/examples/MCAP/reconstruct_mcap) and [Reconstruct ROS bag](/examples/ROS/reconstruct_rosbag) examples), but it is a *different* one: it produces a file you load afterwards. `foxglove.start_server()` instead opens a WebSocket server that acts as a live sink — every message you log through it is pushed straight to any connected Foxglove client, the moment you log it. Nothing is buffered to disk, and there is no file to clean up afterwards; the data only ever exists as a live stream, exactly like a robot's UI would display it while running. In Foxglove itself, this is "Open connection" → "Foxglove WebSocket" instead of "Open local file".
 
 ## Locating the Data
 
