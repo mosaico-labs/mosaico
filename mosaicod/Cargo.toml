@@ -37,7 +37,7 @@ arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
 arrow-schema = "58.1.0"
 parquet = "58.1.0"
-datafusion = { version = "54.0.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection", "nested_expressions"] }
+datafusion = { version = "54.0.0", default-features = false, features = ["compression", "parquet", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.6", features = ["tls-ring", "gzip"] }
 object_store = { version = "0.13.2", features = ["aws", "fs"] }
 
@@ -82,7 +82,7 @@ regex = "1.12.4"
 # Used for testing
 filetime = "0.2.27"
 
-# Used to implement middlewares in mosaicod-server crate 
+# Used to implement middlewares in mosaicod-server crate
 tower = "0.5.3"
 http = "1.4.0"
 
