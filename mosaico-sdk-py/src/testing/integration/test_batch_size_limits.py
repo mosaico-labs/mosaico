@@ -63,7 +63,6 @@ def test_topic_writer_splits_oversized_uploads_into_multiple_batches(
     assert received == {i: payloads[i] for i in range(num_records)}
 
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()
 
 
 def test_topic_writer_drops_single_record_exceeding_server_limit(
@@ -152,4 +151,3 @@ def test_topic_writer_drops_single_record_exceeding_server_limit(
     assert {msg.timestamp_ns for msg in streamer} == {0, 2}
 
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()

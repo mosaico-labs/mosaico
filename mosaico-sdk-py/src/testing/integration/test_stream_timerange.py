@@ -21,85 +21,83 @@ def _exec_test_sequence_data_stream_timerange(
     time_end: Optional[int],
 ):
     """Test that the sequence time-windowed data stream from start to end is correctly unpacked and provided"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
-    # Sequence must exist
-    assert seqhandler is not None
-    # other tests are done elsewhere...
+    with _client:
+        seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+        # Sequence must exist
+        assert seqhandler is not None
+        # other tests are done elsewhere...
 
-    sstream_handl = seqhandler.get_data_streamer(
-        start_timestamp_ns=time_start,  # lower_bound
-        end_timestamp_ns=time_end,  # upper_bound
-    )
-    assert (
-        sstream_handl.timestamp_ns_min is not None
-        and sstream_handl.timestamp_ns_max is not None
-    )
-    # Get the next timestamp, without consuming the related sample
-    next_tstamp = sstream_handl.next_timestamp()
-    assert next_tstamp is not None
-    # assert the valid behavior of next_timestamp(): does not consume anything
-    assert next_tstamp == sstream_handl.next_timestamp()
-    assert sstream_handl.next_timestamp() == sstream_handl.next_timestamp()
-
-    # find the index to start from (which corresponds to timestamp_ns_start)
-    msg_idx_start = (
-        0
-        if time_start is None
-        else bisect.bisect_left(
-            [it.msg.timestamp_ns for it in _make_sequence_data_stream.items],
-            time_start,
+        sstream_handl = seqhandler.get_data_streamer(
+            start_timestamp_ns=time_start,  # lower_bound
+            end_timestamp_ns=time_end,  # upper_bound
         )
-    )
-    msg_count = msg_idx_start
-
-    # find the index to which end (which corresponds to the one right before timestamp_ns_end)
-    msg_idx_stop = (
-        len(_make_sequence_data_stream.items) - 1
-        if time_end is None
-        else (
-            bisect.bisect_left(
-                [it.msg.timestamp_ns for it in _make_sequence_data_stream.items],
-                time_end,
-            )
-            - 1
+        assert (
+            sstream_handl.timestamp_ns_min is not None
+            and sstream_handl.timestamp_ns_max is not None
         )
-    )
-
-    assert (
-        _make_sequence_data_stream.items[msg_idx_start].msg.timestamp_ns
-        == sstream_handl.timestamp_ns_min
-        and _make_sequence_data_stream.items[msg_idx_stop].msg.timestamp_ns
-        == sstream_handl.timestamp_ns_max
-    )
-
-    # Start consuming data stream
-    for topic, message in sstream_handl:
-        assert (time_start is None or message.timestamp_ns >= time_start) and (
-            time_end is None or message.timestamp_ns < time_end
-        )
-        # assert the valid behavior of next_timestamp()
-        assert next_tstamp == message.timestamp_ns
-        cached_item = _make_sequence_data_stream.items[msg_count]
-        # all the received data are consistent with the timing of the native sequence
-        # note: the important thing is the timing: when two measurements have the same timestamp
-        # cannot ensure order
-        if cached_item.topic != topic:
-            assert message.timestamp_ns == cached_item.msg.timestamp_ns
-        else:
-            assert message == cached_item.msg
-        msg_count += 1
-        # Get the next timestamp for the next iteration, without consuming the related sample
+        # Get the next timestamp, without consuming the related sample
         next_tstamp = sstream_handl.next_timestamp()
+        assert next_tstamp is not None
+        # assert the valid behavior of next_timestamp(): does not consume anything
+        assert next_tstamp == sstream_handl.next_timestamp()
+        assert sstream_handl.next_timestamp() == sstream_handl.next_timestamp()
 
-        # Test the correct return of the Message methods
-        assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        # find the index to start from (which corresponds to timestamp_ns_start)
+        msg_idx_start = (
+            0
+            if time_start is None
+            else bisect.bisect_left(
+                [it.msg.timestamp_ns for it in _make_sequence_data_stream.items],
+                time_start,
+            )
+        )
+        msg_count = msg_idx_start
 
-    # check the total number of received sensors is the same of the original sequence
-    assert msg_count == msg_idx_stop + 1
+        # find the index to which end (which corresponds to the one right before timestamp_ns_end)
+        msg_idx_stop = (
+            len(_make_sequence_data_stream.items) - 1
+            if time_end is None
+            else (
+                bisect.bisect_left(
+                    [it.msg.timestamp_ns for it in _make_sequence_data_stream.items],
+                    time_end,
+                )
+                - 1
+            )
+        )
 
-    # free resources
-    _client.close()
+        assert (
+            _make_sequence_data_stream.items[msg_idx_start].msg.timestamp_ns
+            == sstream_handl.timestamp_ns_min
+            and _make_sequence_data_stream.items[msg_idx_stop].msg.timestamp_ns
+            == sstream_handl.timestamp_ns_max
+        )
+
+        # Start consuming data stream
+        for topic, message in sstream_handl:
+            assert (time_start is None or message.timestamp_ns >= time_start) and (
+                time_end is None or message.timestamp_ns < time_end
+            )
+            # assert the valid behavior of next_timestamp()
+            assert next_tstamp == message.timestamp_ns
+            cached_item = _make_sequence_data_stream.items[msg_count]
+            # all the received data are consistent with the timing of the native sequence
+            # note: the important thing is the timing: when two measurements have the same timestamp
+            # cannot ensure order
+            if cached_item.topic != topic:
+                assert message.timestamp_ns == cached_item.msg.timestamp_ns
+            else:
+                assert message == cached_item.msg
+            msg_count += 1
+            # Get the next timestamp for the next iteration, without consuming the related sample
+            next_tstamp = sstream_handl.next_timestamp()
+
+            # Test the correct return of the Message methods
+            assert message.ontology_type() == cached_item.ontology_class
+            assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+
+        # check the total number of received sensors is the same of the original sequence
+        assert msg_count == msg_idx_stop + 1
 
 
 def _exec_test_topic_data_stream_timerange(
@@ -111,95 +109,93 @@ def _exec_test_topic_data_stream_timerange(
 ):
     """Test that the topic data stream is correctly unpacked and provided"""
     # generate for easier inspection and debug (than using next)
-    _cached_topic_data_stream = [
-        dstream
-        for dstream in _make_sequence_data_stream.items
-        if dstream.topic == topic
-    ]
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
-    # just prevent IDE to complain about None
-    assert seqhandler is not None
-    # All other tests for this sequence have been done or will be done... skip.
+    with _client:
+        _cached_topic_data_stream = [
+            dstream
+            for dstream in _make_sequence_data_stream.items
+            if dstream.topic == topic
+        ]
+        seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+        # just prevent IDE to complain about None
+        assert seqhandler is not None
+        # All other tests for this sequence have been done or will be done... skip.
 
-    # This must raise if topic does not exist
-    tophandler = seqhandler.get_topic_handler(topic)
+        # This must raise if topic does not exist
+        tophandler = seqhandler.get_topic_handler(topic)
 
-    # find the index to start from (which corresponds to timestamp_ns_start)
-    msg_idx_start = (
-        0
-        if time_start is None
-        else bisect.bisect_left(
-            [it.msg.timestamp_ns for it in _cached_topic_data_stream],
-            time_start,
-        )
-    )
-    msg_count = msg_idx_start
-
-    # find the index to which end (which corresponds to timestamp_ns_end)
-    msg_idx_stop = (
-        len(_cached_topic_data_stream) - 1
-        if time_end is None
-        else (
-            bisect.bisect_left(
+        # find the index to start from (which corresponds to timestamp_ns_start)
+        msg_idx_start = (
+            0
+            if time_start is None
+            else bisect.bisect_left(
                 [it.msg.timestamp_ns for it in _cached_topic_data_stream],
-                time_end,
+                time_start,
             )
-            - 1
         )
-    )
+        msg_count = msg_idx_start
 
-    # This must raise if topic handler is malformed
-    tstream_handl = tophandler.get_data_streamer(
-        start_timestamp_ns=time_start,
-        end_timestamp_ns=time_end,
-    )
-
-    assert (
-        tstream_handl.timestamp_ns_min is not None
-        and tstream_handl.timestamp_ns_max is not None
-    )
-    assert (
-        _cached_topic_data_stream[msg_idx_start].msg.timestamp_ns
-        == tstream_handl.timestamp_ns_min
-        and _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
-        == tstream_handl.timestamp_ns_max
-    )
-
-    # Topic reader must be valid
-    assert tstream_handl is not None
-    # Get the next timestamp, without consuming the related sample
-    next_tstamp = tstream_handl.next_timestamp()
-    assert next_tstamp is not None
-    # assert the valid behavior of next_timestamp(): does not consume anything
-    assert next_tstamp == tstream_handl.next_timestamp()
-    assert tstream_handl.next_timestamp() == tstream_handl.next_timestamp()
-
-    # Start consuming data stream
-    for message in tstream_handl:
-        assert (time_start is None or message.timestamp_ns >= time_start) and (
-            time_end is None or message.timestamp_ns < time_end
+        # find the index to which end (which corresponds to timestamp_ns_end)
+        msg_idx_stop = (
+            len(_cached_topic_data_stream) - 1
+            if time_end is None
+            else (
+                bisect.bisect_left(
+                    [it.msg.timestamp_ns for it in _cached_topic_data_stream],
+                    time_end,
+                )
+                - 1
+            )
         )
-        # assert the valid behavior of next_timestamp()
-        assert next_tstamp == message.timestamp_ns
-        # get next cached message for the current topic from stream
-        cached_item = _cached_topic_data_stream[msg_count]
-        # all the received data are consistent with the timing of the native sequence
-        # note: the important thing is the timing: when two measurements have the same timestamp
-        # cannot ensure order
-        assert message == cached_item.msg
-        msg_count += 1
-        # Get the next timestamp for the next iteration, without consuming the related sample
+
+        # This must raise if topic handler is malformed
+        tstream_handl = tophandler.get_data_streamer(
+            start_timestamp_ns=time_start,
+            end_timestamp_ns=time_end,
+        )
+
+        assert (
+            tstream_handl.timestamp_ns_min is not None
+            and tstream_handl.timestamp_ns_max is not None
+        )
+        assert (
+            _cached_topic_data_stream[msg_idx_start].msg.timestamp_ns
+            == tstream_handl.timestamp_ns_min
+            and _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
+            == tstream_handl.timestamp_ns_max
+        )
+
+        # Topic reader must be valid
+        assert tstream_handl is not None
+        # Get the next timestamp, without consuming the related sample
         next_tstamp = tstream_handl.next_timestamp()
+        assert next_tstamp is not None
+        # assert the valid behavior of next_timestamp(): does not consume anything
+        assert next_tstamp == tstream_handl.next_timestamp()
+        assert tstream_handl.next_timestamp() == tstream_handl.next_timestamp()
 
-        # Test the correct return of the Message methods
-        assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        # Start consuming data stream
+        for message in tstream_handl:
+            assert (time_start is None or message.timestamp_ns >= time_start) and (
+                time_end is None or message.timestamp_ns < time_end
+            )
+            # assert the valid behavior of next_timestamp()
+            assert next_tstamp == message.timestamp_ns
+            # get next cached message for the current topic from stream
+            cached_item = _cached_topic_data_stream[msg_count]
+            # all the received data are consistent with the timing of the native sequence
+            # note: the important thing is the timing: when two measurements have the same timestamp
+            # cannot ensure order
+            assert message == cached_item.msg
+            msg_count += 1
+            # Get the next timestamp for the next iteration, without consuming the related sample
+            next_tstamp = tstream_handl.next_timestamp()
 
-    # check the total number of received sensors is the same of the original sequence
-    assert msg_count == msg_idx_stop + 1
+            # Test the correct return of the Message methods
+            assert message.ontology_type() == cached_item.ontology_class
+            assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
 
-    # free resources
-    _client.close()
+        # check the total number of received sensors is the same of the original sequence
+        assert msg_count == msg_idx_stop + 1
 
 
 def test_sequence_data_stream_timerange_from_start_to_end(

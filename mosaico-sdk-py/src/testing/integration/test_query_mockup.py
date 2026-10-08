@@ -102,9 +102,6 @@ def test_query_mockup_sequence_by_name(
         [_validate_returned_topic_name(topic.name) for topic in item.topics]
         assert all([t.name in expected_topic_names for t in item.topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_mockup_sequence_metadata(
     mosaico_client: MosaicoClient,
@@ -144,9 +141,6 @@ def test_query_mockup_sequence_metadata(
     assert query_resp is not None
     assert len(query_resp) == 0
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_sequence_from_response(
     mosaico_client: MosaicoClient,
@@ -177,9 +171,6 @@ def test_query_sequence_from_response(
     assert all([it.sequence.name in expected_sequence_names for it in query_resp])
 
     # The other criteria have been tested above...
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_query_topic_from_response(
@@ -225,6 +216,3 @@ def test_query_topic_from_response(
     assert query_resp[0].sequence.name == expected_sequence_name
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == expected_topic_name
-
-    # free resources
-    mosaico_client.close()

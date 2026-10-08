@@ -117,8 +117,6 @@ def test_run_data_correctness(
         assert reconstructed_ms_msg.timestamp_ns == data_steam_item.msg.timestamp_ns
         assert reconstructed_ms_msg.data == data_steam_item.msg.data
 
-    mosaico_client.close()
-
 
 def test_overwrite_false_raise_on_existing_path(
     default_ros_extractor_config,
@@ -168,25 +166,22 @@ def test_valid_msgtype(mosaico_client):
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "geometry_msgs/msg/PoseStamped"}}
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
 
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        # Reading topic
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
-        )
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+    # Reading topic
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
-        assert adapter and adapter.ontology_data_type() is Pose
-        assert (
-            rosmsg_type is not None and rosmsg_type == "geometry_msgs/msg/PoseStamped"
-        )
+    assert adapter and adapter.ontology_data_type() is Pose
+    assert rosmsg_type is not None and rosmsg_type == "geometry_msgs/msg/PoseStamped"
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_client.sequence_delete(ros_sequence_name)

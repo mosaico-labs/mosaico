@@ -94,38 +94,35 @@ def test_schema_fingerprint_consistency_across_all_ontologies(
 
     sequence_name = "schema_fingerprint_consistency_seq"
 
-    with mosaico_client:
-        with mosaico_client.sequence_create(
-            sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
-        ) as seqw:
-            for name, cls in ontology_classes.items():
-                instance = make_dummy_instance(
-                    cls, overrides=_FIELD_OVERRIDES.get(name)
-                )
-                topic_name = f"/schema_check/{name}"
-                tw = seqw.topic_create(topic_name, {}, cls)
-                assert tw is not None, f"Failed to create topic for {name}"
-                tw.push(Message(timestamp_ns=1, data=instance))
-
-        mismatches = []
+    with mosaico_client.sequence_create(
+        sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+    ) as seqw:
         for name, cls in ontology_classes.items():
+            instance = make_dummy_instance(cls, overrides=_FIELD_OVERRIDES.get(name))
             topic_name = f"/schema_check/{name}"
-            th = mosaico_client.topic_handler(sequence_name, topic_name)
-            assert th is not None, f"Failed to open topic handler for {name}"
+            tw = seqw.topic_create(topic_name, {}, cls)
+            assert tw is not None, f"Failed to create topic for {name}"
+            tw.push(Message(timestamp_ns=1, data=instance))
 
-            sent_fingerprint = _compute_schema_fingerprint(cls.__msco_pyarrow_struct__)
-            received_fingerprint = _compute_schema_fingerprint(th.ontology_schema)
+    mismatches = []
+    for name, cls in ontology_classes.items():
+        topic_name = f"/schema_check/{name}"
+        th = mosaico_client.topic_handler(sequence_name, topic_name)
+        assert th is not None, f"Failed to open topic handler for {name}"
 
-            if sent_fingerprint != received_fingerprint:
-                mismatches.append(
-                    f"{name}: sent={sent_fingerprint} vs received={received_fingerprint}\n"
-                    f"  sent schema:     {cls.__msco_pyarrow_struct__}\n"
-                    f"  received schema: {th.ontology_schema}"
-                )
+        sent_fingerprint = _compute_schema_fingerprint(cls.__msco_pyarrow_struct__)
+        received_fingerprint = _compute_schema_fingerprint(th.ontology_schema)
 
-        # Free resources before asserting, so a failure doesn't leak the sequence.
-        mosaico_client.sequence_delete(sequence_name)
+        if sent_fingerprint != received_fingerprint:
+            mismatches.append(
+                f"{name}: sent={sent_fingerprint} vs received={received_fingerprint}\n"
+                f"  sent schema:     {cls.__msco_pyarrow_struct__}\n"
+                f"  received schema: {th.ontology_schema}"
+            )
 
-        assert not mismatches, "Schema fingerprint mismatches found:\n" + "\n".join(
-            mismatches
-        )
+    # Free resources before asserting, so a failure doesn't leak the sequence.
+    mosaico_client.sequence_delete(sequence_name)
+
+    assert not mismatches, "Schema fingerprint mismatches found:\n" + "\n".join(
+        mismatches
+    )

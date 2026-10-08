@@ -92,8 +92,6 @@ def test_filter_clusterize_single_expression_single_topic(
                 QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
             )
 
-    mosaico_client.close()
-
 
 def test_filter_clusterize_multi_expression_single_topic(
     mosaico_client: MosaicoClient,
@@ -136,8 +134,6 @@ def test_filter_clusterize_multi_expression_single_topic(
                 (3 * math.pi - math.pi / 3) * 1.0e9,
                 QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
             )  # 2pi + pi/3 ... 3pi - pi/3
-
-    mosaico_client.close()
 
 
 def test_filter_clusterize_all_multi_expression_multi_topic(
@@ -242,8 +238,6 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
         }
         item_clusterize_all = item.clusterize_all()
         assert item_topic_clusterize == item_clusterize_all
-
-    mosaico_client.close()
 
 
 def test_filter_intersect_single_sequence(
@@ -376,8 +370,6 @@ def test_filter_intersect_single_sequence(
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
         assert clusters == item.intersect()
 
-    mosaico_client.close()
-
 
 def test_filter_intersect_item_topic_no_overlapping(
     mosaico_client: MosaicoClient,
@@ -456,8 +448,6 @@ def test_filter_intersect_item_topic_no_overlapping(
             intersect_dt_ns=int(intersect_dt_ns),
             override_clustering_dt_ns=override_clustering_dt_ns,
         )
-
-    mosaico_client.close()
 
 
 # TODO: enable when backend enables intersection between different sequences
@@ -574,5 +564,3 @@ def _test_filter_intersect_multi_sequence_overlapping(
             acceptance_intervals["intervals"][cluster.id]["end"],
             QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
         )
-
-    mosaico_client.close()

@@ -50,9 +50,6 @@ def test_query_sequence_by_name(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_sequence_by_creation_timestamp(
     mosaico_client: MosaicoClient,
@@ -79,9 +76,6 @@ def test_query_sequence_by_creation_timestamp(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_query_sequence_metadata(
@@ -147,9 +141,6 @@ def test_query_sequence_metadata(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_sequence_from_response(
     mosaico_client: MosaicoClient,
@@ -186,9 +177,6 @@ def test_query_sequence_from_response(
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_sequence_from_response_fail(
     mosaico_client: MosaicoClient,
@@ -218,6 +206,3 @@ def test_query_sequence_from_response_fail(
         NotImplementedError, match="Query builder already contains the key 'name'"
     ):
         query_resp = mosaico_client.query(qsequence.with_name_match(""))
-
-    # free resources
-    mosaico_client.close()

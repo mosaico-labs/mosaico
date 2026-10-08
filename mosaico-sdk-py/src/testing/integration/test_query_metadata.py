@@ -36,8 +36,6 @@ class TestMetadataOperations:
         assert len(query_resp[0].topics) == 1
         assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
 
-        mosaico_client.close()
-
     def test_query_metadata_eq_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -49,8 +47,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $neq operation
     def test_query_metadata_neq(
@@ -77,8 +73,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_neq_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -90,8 +84,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $in_ operation
     def test_query_metadata_in(
@@ -117,8 +109,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_in_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -130,8 +120,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $lt operation
     def test_query_metadata_lt(
@@ -156,8 +144,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_lt_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -169,8 +155,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $leq operation
     def test_query_metadata_leq(
@@ -195,8 +179,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_leq_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -208,8 +190,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $gt operation
     def test_query_metadata_gt(
@@ -234,8 +214,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_gt_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -247,8 +225,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $geq operation
     def test_query_metadata_geq(
@@ -273,8 +249,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_geq_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -286,8 +260,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $between operation
     def test_query_metadata_between(
@@ -312,8 +284,6 @@ class TestMetadataOperations:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_metadata_between_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -325,8 +295,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     # $ex operation
     def test_query_metadata_ex(
@@ -344,8 +312,6 @@ class TestMetadataOperations:
         assert len(query_resp[0].topics) == 1
         assert query_resp[0].topics[0].name == UPLOADED_GPS_TOPIC
 
-        mosaico_client.close()
-
     def test_query_metadata_ex_no_return(
         self,
         mosaico_client: MosaicoClient,
@@ -357,8 +323,6 @@ class TestMetadataOperations:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
 
 class TestMetadataValueRegEx:
@@ -379,8 +343,6 @@ class TestMetadataValueRegEx:
         assert len(query_resp[0].topics) == 1
         assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
 
-        mosaico_client.close()
-
     def test_query_topic_name_regex_end_anchor(
         self,
         mosaico_client: MosaicoClient,
@@ -397,8 +359,6 @@ class TestMetadataValueRegEx:
         assert len(query_resp[0].topics) == len(expected)
         assert all(t.name in expected for t in query_resp[0].topics)
 
-        mosaico_client.close()
-
     def test_query_topic_name_regex_catch_all(
         self,
         mosaico_client: MosaicoClient,
@@ -413,8 +373,6 @@ class TestMetadataValueRegEx:
         assert len(query_resp) == 1
         assert len(query_resp[0].topics) == 4
 
-        mosaico_client.close()
-
     def test_query_sequence_name_regex_start_anchor(
         self,
         mosaico_client: MosaicoClient,
@@ -428,8 +386,6 @@ class TestMetadataValueRegEx:
         assert len(query_resp) == 1
         assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
-        mosaico_client.close()
-
     def test_query_topic_name_match_unsupported_pattern_rejected(
         self,
         mosaico_client: MosaicoClient,
@@ -437,8 +393,6 @@ class TestMetadataValueRegEx:
     ):
         with pytest.raises(ArrowInvalid):
             mosaico_client.query(QueryTopic().with_name_match(""))
-
-        mosaico_client.close()
 
     def test_query_topic_metadata_match(
         self,
@@ -520,8 +474,6 @@ class TestMetadataValueRegEx:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_name
 
-        mosaico_client.close()
-
     def test_query_sequence_metadata_match(
         self,
         mosaico_client: MosaicoClient,
@@ -590,9 +542,6 @@ class TestMetadataValueRegEx:
         assert len(query_resp) == 1
         assert query_resp[0].sequence.name == expected_sequence_name
 
-        # free resources
-        mosaico_client.close()
-
 
 class TestMetadataKeyGlobPattern:
     def test_query_topic_metadata_single_glob_pattern(
@@ -655,8 +604,6 @@ class TestMetadataKeyGlobPattern:
         for topic in query_resp[0].topics:
             assert topic.name in expected_topic_names
 
-        mosaico_client.close()
-
     def test_query_topic_metadata_double_glob_pattern(
         self,
         mosaico_client: MosaicoClient,
@@ -700,8 +647,6 @@ class TestMetadataKeyGlobPattern:
         assert len(query_resp[0].topics) == 1
         assert query_resp[0].topics[0].name == UPLOADED_TEMPERATURE_TOPIC
 
-        mosaico_client.close()
-
     def test_query_topic_metadata_no_match_value(
         self,
         mosaico_client: MosaicoClient,
@@ -714,8 +659,6 @@ class TestMetadataKeyGlobPattern:
 
         assert query_resp is not None and query_resp.is_empty()
 
-        mosaico_client.close()
-
     def test_query_topic_metadata_no_match_key(
         self,
         mosaico_client: MosaicoClient,
@@ -727,8 +670,6 @@ class TestMetadataKeyGlobPattern:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()
 
     def test_query_sequence_metadata_single_glob_pattern(
         self,
@@ -772,8 +713,6 @@ class TestMetadataKeyGlobPattern:
         assert len(query_resp) == 1
         assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
-        mosaico_client.close()
-
     def test_query_sequence_metadata_double_glob_pattern(
         self,
         mosaico_client: MosaicoClient,
@@ -795,8 +734,6 @@ class TestMetadataKeyGlobPattern:
         assert len(query_resp) == 1
         assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
-        mosaico_client.close()
-
     def test_query_sequence_metadata_no_match_value(
         self,
         mosaico_client: MosaicoClient,
@@ -808,8 +745,6 @@ class TestMetadataKeyGlobPattern:
 
         assert query_resp is not None and query_resp.is_empty()
 
-        mosaico_client.close()
-
     def test_query_sequence_metadata_no_match_key(
         self,
         mosaico_client: MosaicoClient,
@@ -820,5 +755,3 @@ class TestMetadataKeyGlobPattern:
         )
 
         assert query_resp is not None and query_resp.is_empty()
-
-        mosaico_client.close()

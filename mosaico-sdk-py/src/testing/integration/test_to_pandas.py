@@ -205,9 +205,6 @@ def test_single_selection_chunks_unbounded(
         timestamp_ns_end=None,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_single_selection_chunks_from_half_to_end(
     mosaico_client: MosaicoClient,
@@ -256,9 +253,6 @@ def test_single_selection_chunks_from_half_to_end(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_single_selection_chunks_from_half(
     mosaico_client: MosaicoClient,
@@ -305,9 +299,6 @@ def test_single_selection_chunks_from_half(
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_single_selection_chunks_to_half(
@@ -357,9 +348,6 @@ def test_single_selection_chunks_to_half(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_single_selection_chunks_extra_bounds(
     mosaico_client: MosaicoClient,
@@ -384,9 +372,6 @@ def test_single_selection_chunks_extra_bounds(
         timestamp_ns_start=0,
         timestamp_ns_end=synthetic_sequence_data_stream.tstamp_ns_end * 2,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_multi_selection_chunks_unbounded(
@@ -417,9 +402,6 @@ def test_multi_selection_chunks_unbounded(
         timestamp_ns_end=None,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_multi_selection_chunks_extra_bounds(
     mosaico_client: MosaicoClient,
@@ -449,9 +431,6 @@ def test_multi_selection_chunks_extra_bounds(
         timestamp_ns_start=0,
         timestamp_ns_end=synthetic_sequence_data_stream.tstamp_ns_end * 2,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_multi_selection_chunks_from_half_to_end(
@@ -492,9 +471,6 @@ def test_multi_selection_chunks_from_half_to_end(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_multi_selection_chunks_from_half(
     mosaico_client: MosaicoClient,
@@ -532,9 +508,6 @@ def test_multi_selection_chunks_from_half(
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_multi_selection_chunks_to_half(
@@ -574,9 +547,6 @@ def test_multi_selection_chunks_to_half(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_single_selection_non_existing_topic(
     mosaico_client: MosaicoClient,
@@ -608,9 +578,6 @@ def test_single_selection_non_existing_topic(
             timestamp_ns_end=timestamp_ns_end,
         ):
             pass
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_single_selection_message(
@@ -648,9 +615,6 @@ def test_single_selection_message(
 
             gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
             assert gps_msg is None
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_multi_selection_message(
@@ -695,9 +659,6 @@ def test_multi_selection_message(
                 gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
                 assert gps_msg is None
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_chunks_unbounded(
     mosaico_client: MosaicoClient,
@@ -719,9 +680,6 @@ def test_sequence_chunks_unbounded(
         timestamp_ns_start=None,
         timestamp_ns_end=None,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_chunks_from_half_to_end(
@@ -753,9 +711,6 @@ def test_sequence_chunks_from_half_to_end(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_chunks_from_half(
     mosaico_client: MosaicoClient,
@@ -784,9 +739,6 @@ def test_sequence_chunks_from_half(
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_chunks_to_half(
@@ -817,9 +769,6 @@ def test_sequence_chunks_to_half(
         timestamp_ns_end=timestamp_ns_end,
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_no_data(
     mosaico_client: MosaicoClient,
@@ -840,6 +789,3 @@ def test_sequence_no_data(
             timestamp_ns_end=None,
         ):
             pass
-
-    # free resources
-    mosaico_client.close()

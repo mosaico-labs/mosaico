@@ -22,28 +22,25 @@ def test_valid_msgtype(mosaico_client):
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "geometry_msgs/msg/PoseStamped"}}
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
 
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        # Reading topic
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
-        )
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+    # Reading topic
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
 
-        assert adapter and adapter.ontology_data_type() is Pose
-        assert (
-            rosmsg_type is not None and rosmsg_type == "geometry_msgs/msg/PoseStamped"
-        )
+    assert adapter and adapter.ontology_data_type() is Pose
+    assert rosmsg_type is not None and rosmsg_type == "geometry_msgs/msg/PoseStamped"
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 def test_invalid_msgtype(mosaico_client):
@@ -52,31 +49,30 @@ def test_invalid_msgtype(mosaico_client):
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": 1234}}
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
 
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
-        )
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
+    resolution = mosaico_loader._resolve_topic(t_handler)
 
-        assert not resolution.is_accepted
-        assert resolution.status is TopicStatus.MALFORMED_METADATA
-        assert (
-            f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type."
-            in resolution.detail
-        )
-        assert resolution.adapter is None
+    assert not resolution.is_accepted
+    assert resolution.status is TopicStatus.MALFORMED_METADATA
+    assert (
+        f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type."
+        in resolution.detail
+    )
+    assert resolution.adapter is None
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 def test_no_msgtype_fallback_to_default_adapter(mosaico_client):
@@ -85,39 +81,36 @@ def test_no_msgtype_fallback_to_default_adapter(mosaico_client):
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {}
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(
-                ros_topic_name, topic_with_ros_metadata, Pose
-            )
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
 
-            # Create and push data
-            pose_data = Pose(
-                position=Point3d(x=1, y=2, z=3),
-                orientation=Quaternion(x=0, y=0, z=0, w=1),
-            )
-
-            t_writer.push(Message(timestamp_ns=12345678, data=pose_data))
-
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
-
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+        # Create and push data
+        pose_data = Pose(
+            position=Point3d(x=1, y=2, z=3),
+            orientation=Quaternion(x=0, y=0, z=0, w=1),
         )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+        t_writer.push(Message(timestamp_ns=12345678, data=pose_data))
 
-        assert adapter and adapter.ontology_data_type() is Pose
-        assert (
-            rosmsg_type is not None and rosmsg_type == adapter.get_default_ros_msg()
-        )  # Here you need to get the default since there are no info on topic's metadata
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+
+    assert adapter and adapter.ontology_data_type() is Pose
+    assert (
+        rosmsg_type is not None and rosmsg_type == adapter.get_default_ros_msg()
+    )  # Here you need to get the default since there are no info on topic's metadata
+
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 class NotAdaptedClass(Serializable): ...
@@ -130,34 +123,33 @@ def test_no_adapter_available(mosaico_client):
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "not_adapted_ontology"}}
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(
-                ros_topic_name, topic_with_ros_metadata, NotAdaptedClass
-            )  # Serializable has no adapter!
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(
+            ros_topic_name, topic_with_ros_metadata, NotAdaptedClass
+        )  # Serializable has no adapter!
 
-            # Create and push data
-            unadapted_data = NotAdaptedClass()
+        # Create and push data
+        unadapted_data = NotAdaptedClass()
 
-            t_writer.push(Message(timestamp_ns=12345678, data=unadapted_data))
+        t_writer.push(Message(timestamp_ns=12345678, data=unadapted_data))
 
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
-        )
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
+    resolution = mosaico_loader._resolve_topic(t_handler)
 
-        assert resolution.adapter is None
-        assert resolution.native_msg_type is None
-        assert resolution.status is TopicStatus.NOT_IN_TYPESTORE
+    assert resolution.adapter is None
+    assert resolution.native_msg_type is None
+    assert resolution.status is TopicStatus.NOT_IN_TYPESTORE
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 def test_not_adapted_msgtype_fallack_to_default_adapter(
@@ -168,37 +160,34 @@ def test_not_adapted_msgtype_fallack_to_default_adapter(
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "not-helpful-msgtype"}}
 
-    with mosaico_client:
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(
-                ros_topic_name, topic_with_ros_metadata, Pose
-            )
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(ros_topic_name, topic_with_ros_metadata, Pose)
 
-            # Create and push data
-            pose_data = Pose(
-                position=Point3d(x=1, y=2, z=3),
-                orientation=Quaternion(x=0, y=0, z=0, w=1),
-            )
-
-            t_writer.push(Message(timestamp_ns=12345678, data=pose_data))
-
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
-
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+        # Create and push data
+        pose_data = Pose(
+            position=Point3d(x=1, y=2, z=3),
+            orientation=Quaternion(x=0, y=0, z=0, w=1),
         )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+        t_writer.push(Message(timestamp_ns=12345678, data=pose_data))
 
-        assert adapter and adapter.ontology_data_type() is Pose
-        assert (
-            rosmsg_type is not None and rosmsg_type == adapter.get_default_ros_msg()
-        )  # Here you need to get the default since topic metadata hints to a non existing adapter but the ontology tag is adapted and can fallback to default
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+
+    assert adapter and adapter.ontology_data_type() is Pose
+    assert (
+        rosmsg_type is not None and rosmsg_type == adapter.get_default_ros_msg()
+    )  # Here you need to get the default since topic metadata hints to a non existing adapter but the ontology tag is adapted and can fallback to default
+
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 UnmodeledFlowSensor = resolve_ontology_class(
@@ -238,45 +227,42 @@ def test_unmodeled_adapter(mosaico_client):
         }
     }
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(
-                ros_topic_name, fluid_pressure_metadata, UnmodeledFlowSensor
-            )
-
-            # Create and Push a message like a default ontology
-            unm_data = UnmodeledFlowSensor(
-                raw_data={"fluid_pressure": 1, "variance": 0}
-            )
-            t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
-
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
-
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(
+            ros_topic_name, fluid_pressure_metadata, UnmodeledFlowSensor
         )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+        # Create and Push a message like a default ontology
+        unm_data = UnmodeledFlowSensor(raw_data={"fluid_pressure": 1, "variance": 0})
+        t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
 
-        assert adapter is not None
-        assert issubclass(adapter, UnmodeledAdapter)
-        assert (
-            adapter.ontology_data_type().ontology_tag()
-            == UnmodeledFlowSensor.ontology_tag()
-        )
-        assert (
-            adapter.ontology_data_type().__schema_fingerprint__
-            == UnmodeledFlowSensor.__schema_fingerprint__
-        )
-        assert adapter.get_default_ros_msg() == "custom_msgs/msg/MyFluidPressure"
-        assert rosmsg_type == "custom_msgs/msg/MyFluidPressure"
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+
+    assert adapter is not None
+    assert issubclass(adapter, UnmodeledAdapter)
+    assert (
+        adapter.ontology_data_type().ontology_tag()
+        == UnmodeledFlowSensor.ontology_tag()
+    )
+    assert (
+        adapter.ontology_data_type().__schema_fingerprint__
+        == UnmodeledFlowSensor.__schema_fingerprint__
+    )
+    assert adapter.get_default_ros_msg() == "custom_msgs/msg/MyFluidPressure"
+    assert rosmsg_type == "custom_msgs/msg/MyFluidPressure"
+
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 UnmodeledTemperature = resolve_ontology_class(
@@ -316,45 +302,44 @@ def test_unmodeled_adapter_with_existing_ontology_tag(mosaico_client):
         }
     }
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(
-                ros_topic_name, fluid_pressure_metadata, UnmodeledTemperature
-            )
-
-            # Create and Push a message like a default ontology
-            unm_data = UnmodeledTemperature(
-                raw_data={"fluid_temperature": 1, "variance": 0}
-            )
-            t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
-
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
-
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(
+            ros_topic_name, fluid_pressure_metadata, UnmodeledTemperature
         )
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
-
-        assert adapter is not None
-        assert issubclass(adapter, UnmodeledAdapter)
-        assert (
-            adapter.ontology_data_type().ontology_tag()
-            == UnmodeledTemperature.ontology_tag()
+        # Create and Push a message like a default ontology
+        unm_data = UnmodeledTemperature(
+            raw_data={"fluid_temperature": 1, "variance": 0}
         )
-        assert (
-            adapter.ontology_data_type().__schema_fingerprint__
-            == UnmodeledTemperature.__schema_fingerprint__
-        )
-        assert adapter.get_default_ros_msg() == "custom_msgs/msg/MyFluidTemperature"
-        assert rosmsg_type == "custom_msgs/msg/MyFluidTemperature"
+        t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
+
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
+
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+
+    assert adapter is not None
+    assert issubclass(adapter, UnmodeledAdapter)
+    assert (
+        adapter.ontology_data_type().ontology_tag()
+        == UnmodeledTemperature.ontology_tag()
+    )
+    assert (
+        adapter.ontology_data_type().__schema_fingerprint__
+        == UnmodeledTemperature.__schema_fingerprint__
+    )
+    assert adapter.get_default_ros_msg() == "custom_msgs/msg/MyFluidTemperature"
+    assert rosmsg_type == "custom_msgs/msg/MyFluidTemperature"
+
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 UnmodeledImu = resolve_ontology_class(
@@ -412,45 +397,42 @@ def test_unmodeled_adapter_with_nested_msgdef(mosaico_client):
         }
     }
 
-    with mosaico_client:
-        # Writing topic
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(ros_topic_name, imu_metadata, UnmodeledImu)
+    # Writing topic
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(ros_topic_name, imu_metadata, UnmodeledImu)
 
-            # Create and push a message with nested struct payload
-            unm_data = UnmodeledImu(
-                raw_data={
-                    "angular_velocity": {"x": 0.1, "y": 0.2, "z": 0.3},
-                    "linear_acceleration": {"x": 1.0, "y": 2.0, "z": 3.0},
-                }
-            )
-            t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
-
-        # Reading topic
-        t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
-
-        mosaico_loader = MosaicoToROSLoader(
-            mosaico_client, get_typestore(ros_distro), ros_sequence_name
+        # Create and push a message with nested struct payload
+        unm_data = UnmodeledImu(
+            raw_data={
+                "angular_velocity": {"x": 0.1, "y": 0.2, "z": 0.3},
+                "linear_acceleration": {"x": 1.0, "y": 2.0, "z": 3.0},
+            }
         )
+        t_writer.push(Message(timestamp_ns=12345678, data=unm_data))
 
-        resolution = mosaico_loader._resolve_topic(t_handler)
-        adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+    # Reading topic
+    t_handler = mosaico_client.topic_handler(ros_sequence_name, ros_topic_name)
 
-        assert adapter is not None
-        assert issubclass(adapter, UnmodeledAdapter)
-        assert (
-            adapter.ontology_data_type().ontology_tag() == UnmodeledImu.ontology_tag()
-        )
-        assert (
-            adapter.ontology_data_type().__schema_fingerprint__
-            == UnmodeledImu.__schema_fingerprint__
-        )
-        assert adapter.get_default_ros_msg() == "custom_msgs/msg/CustomImu"
-        assert rosmsg_type == "custom_msgs/msg/CustomImu"
+    mosaico_loader = MosaicoToROSLoader(
+        mosaico_client, get_typestore(ros_distro), ros_sequence_name
+    )
 
-        mosaico_client.sequence_delete(ros_sequence_name)
+    resolution = mosaico_loader._resolve_topic(t_handler)
+    adapter, rosmsg_type = resolution.adapter, resolution.native_msg_type
+
+    assert adapter is not None
+    assert issubclass(adapter, UnmodeledAdapter)
+    assert adapter.ontology_data_type().ontology_tag() == UnmodeledImu.ontology_tag()
+    assert (
+        adapter.ontology_data_type().__schema_fingerprint__
+        == UnmodeledImu.__schema_fingerprint__
+    )
+    assert adapter.get_default_ros_msg() == "custom_msgs/msg/CustomImu"
+    assert rosmsg_type == "custom_msgs/msg/CustomImu"
+
+    mosaico_client.sequence_delete(ros_sequence_name)
 
 
 # Issue #824: the message at exactly 'timestamp_ns_max' must not be dropped
@@ -480,33 +462,32 @@ def test_time_window_includes_last_message(
     ros_sequence_name = "ros-sequence-time-window-last-message"
     ros_topic_name = "/car/pose"
 
-    with mosaico_client:
-        with mosaico_client.sequence_create(
-            ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
-        ) as s_writer:
-            t_writer = s_writer.topic_create(ros_topic_name, {}, Pose)
-            for ts in _TIME_WINDOW_TSTAMPS:
-                t_writer.push(
-                    Message(
-                        timestamp_ns=ts,
-                        data=Pose(
-                            position=Point3d(x=1, y=2, z=3),
-                            orientation=Quaternion(x=0, y=0, z=0, w=1),
-                        ),
-                    )
+    with mosaico_client.sequence_create(
+        ros_sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as s_writer:
+        t_writer = s_writer.topic_create(ros_topic_name, {}, Pose)
+        for ts in _TIME_WINDOW_TSTAMPS:
+            t_writer.push(
+                Message(
+                    timestamp_ns=ts,
+                    data=Pose(
+                        position=Point3d(x=1, y=2, z=3),
+                        orientation=Quaternion(x=0, y=0, z=0, w=1),
+                    ),
                 )
+            )
 
-        # Always delete the sequence, not to interfere with the other tests
-        try:
-            with MosaicoToROSLoader(
-                mosaico_client,
-                get_typestore(Stores.ROS2_JAZZY),
-                ros_sequence_name,
-                start_timestamp_ns=start_timestamp_ns,
-                end_timestamp_ns=end_timestamp_ns,
-            ) as mosaico_loader:
-                tstamps = [msg.timestamp_ns for _, msg in mosaico_loader]
+    # Always delete the sequence, not to interfere with the other tests
+    try:
+        with MosaicoToROSLoader(
+            mosaico_client,
+            get_typestore(Stores.ROS2_JAZZY),
+            ros_sequence_name,
+            start_timestamp_ns=start_timestamp_ns,
+            end_timestamp_ns=end_timestamp_ns,
+        ) as mosaico_loader:
+            tstamps = [msg.timestamp_ns for _, msg in mosaico_loader]
 
-            assert tstamps == expected_tstamps
-        finally:
-            mosaico_client.sequence_delete(ros_sequence_name)
+        assert tstamps == expected_tstamps
+    finally:
+        mosaico_client.sequence_delete(ros_sequence_name)

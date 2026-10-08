@@ -54,25 +54,26 @@ def issue_824_sequences(host, port, tls_cert_path, api_key_manage, compression):
     Creates the sequences used by this module and ALWAYS deletes them at the end,
     so that they do not interfere with the other integration tests.
     """
-    client = MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
-    # Remove leftovers of a previously interrupted run
-    _delete_sequences(client)
-    try:
-        _push(
-            client, SEQUENCE_NAME, {TOPIC_A: TOPIC_A_TSTAMPS, TOPIC_B: TOPIC_B_TSTAMPS}
-        )
-        _push(client, SINGLE_MSG_SEQUENCE_NAME, {TOPIC_A: [T0_NS]})
-
-        yield
-    finally:
+    ) as client:
+        # Remove leftovers of a previously interrupted run
         _delete_sequences(client)
-        client.close()
+        try:
+            _push(
+                client,
+                SEQUENCE_NAME,
+                {TOPIC_A: TOPIC_A_TSTAMPS, TOPIC_B: TOPIC_B_TSTAMPS},
+            )
+            _push(client, SINGLE_MSG_SEQUENCE_NAME, {TOPIC_A: [T0_NS]})
+
+            yield
+        finally:
+            _delete_sequences(client)
 
 
 def _extract_timestamps(
@@ -102,7 +103,6 @@ def test_sequence_timestamp_ns_max(mosaico_client: MosaicoClient, issue_824_sequ
     seqhandler = mosaico_client.sequence_handler(SEQUENCE_NAME)
     assert seqhandler is not None
     assert seqhandler.timestamp_ns_max == TSTAMP_NS_MAX
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("window_sec", WINDOWS_SEC)
@@ -130,7 +130,6 @@ def test_end_at_or_beyond_max_includes_last_message(
 
     assert tstamps == ALL_TSTAMPS
     assert tstamps.count(TSTAMP_NS_MAX) == 2
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("window_sec", WINDOWS_SEC)
@@ -153,7 +152,6 @@ def test_single_topic_beyond_max_includes_last_message(
 
     expected = TOPIC_A_TSTAMPS if topic == TOPIC_A else TOPIC_B_TSTAMPS
     assert tstamps == expected
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("window_sec", WINDOWS_SEC)
@@ -171,7 +169,6 @@ def test_end_equal_to_max_is_exclusive(
     )
 
     assert tstamps == [ts for ts in ALL_TSTAMPS if ts < TSTAMP_NS_MAX]
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("window_sec", WINDOWS_SEC)
@@ -189,7 +186,6 @@ def test_start_at_max_returns_last_messages(
     )
 
     assert tstamps == [TSTAMP_NS_MAX, TSTAMP_NS_MAX]
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("window_sec", WINDOWS_SEC)
@@ -207,4 +203,3 @@ def test_single_message_sequence(
     )
 
     assert tstamps == [T0_NS]
-    mosaico_client.close()

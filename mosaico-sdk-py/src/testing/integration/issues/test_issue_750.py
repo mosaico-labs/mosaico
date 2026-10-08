@@ -50,4 +50,3 @@ def test_inertia_filter_clusterize(mosaico_client: MosaicoClient):
         assert len(resp_topic.clusterize(clustering_dt_ns=1)) == 3
 
     mosaico_client.sequence_delete("test_inertia_clusterize")
-    mosaico_client.close()

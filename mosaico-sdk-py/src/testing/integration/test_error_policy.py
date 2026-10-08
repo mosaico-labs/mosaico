@@ -75,9 +75,6 @@ def test_sequence_report(mosaico_client: MosaicoClient):
     log.info("Expected one (1) error after this line...")
     assert mosaico_client.sequence_handler(sequence_name) is None
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_topic_level_error_policy_finalize(mosaico_client: MosaicoClient):
     sequence_name = "sequence-to-delete"
@@ -123,7 +120,6 @@ def test_topic_level_error_policy_finalize(mosaico_client: MosaicoClient):
 
     # free resources
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()
 
 
 def test_topic_level_error_policy_finalize_multi_topic(
@@ -196,7 +192,6 @@ def test_topic_level_error_policy_finalize_multi_topic(
 
     # free resources
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()
 
 
 def test_topic_level_error_policy_ignore(mosaico_client: MosaicoClient):
@@ -241,7 +236,6 @@ def test_topic_level_error_policy_ignore(mosaico_client: MosaicoClient):
 
     # free resources
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()
 
 
 def test_topic_level_error_policy_ignore_multi_topic(
@@ -313,7 +307,6 @@ def test_topic_level_error_policy_ignore_multi_topic(
 
     # free resources
     mosaico_client.sequence_delete(sequence_name)
-    mosaico_client.close()
 
 
 def test_topic_level_error_policy_raise(mosaico_client: MosaicoClient):
@@ -343,9 +336,6 @@ def test_topic_level_error_policy_raise(mosaico_client: MosaicoClient):
     shandler = mosaico_client.sequence_handler(sequence_name)
     assert shandler is None
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_abort(mosaico_client: MosaicoClient):
     sequence_name = "sequence-to-delete"
@@ -367,6 +357,3 @@ def test_sequence_abort(mosaico_client: MosaicoClient):
     # Free resources
     shandler = mosaico_client.sequence_handler(sequence_name)
     assert shandler is None
-
-    # free resources
-    mosaico_client.close()
