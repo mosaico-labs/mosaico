@@ -49,6 +49,30 @@ class ExtractorConfig:
     Collects the parameters that do not depend on the output format: how to reach the
     Mosaico server, which sequence to extract, how to filter it by topic and time window,
     and where to write the result.
+
+    Attributes:
+        saving_path (Path): The path where to save the final file.
+        sequence_name (str): The name of the sequence to extract.
+        host (str): The hostname of the Mosaico server. Defaults to `"localhost"`.
+        port (int): The port of the Mosaico server. Defaults to `6726`.
+        topics (Optional[list[str]]): List of topic patterns (shell-style globs, `!` for
+            exclusions) used to filter the topics to extract. If None, all topics are loaded.
+        log_level (str): The log level. Defaults to `"INFO"`.
+        mosaico_api_key (Optional[str]): The API key for authentication on the Mosaico
+            server; it must have (at least) the `read` permission. Defaults to None.
+        tls_cert_path (Optional[str]): Path to the TLS certificate file for a secure
+            connection to the Mosaico server. Defaults to None.
+        enable_tls (bool): Enable standard one-way TLS (server authenticated only).
+            Ignored if `tls_cert_path` is provided. Defaults to False.
+        start_timestamp_ns (Optional[int]): Inclusive lower-bound timestamp (in nanoseconds)
+            from which to start extracting data. Defaults to None.
+        end_timestamp_ns (Optional[int]): Exclusive upper-bound timestamp (in nanoseconds)
+            at which to stop extracting data. Defaults to None.
+        overwrite (bool): If True, delete and recreate the output path if it already
+            exists. Defaults to False.
+        dry_run (bool): If True, report which topics would be extracted or rejected and
+            whether the output path already exists, without writing or deleting any file.
+            Defaults to False.
     """
 
     saving_path: Path
@@ -110,10 +134,10 @@ class ExtractorConfig:
     """
 
     start_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) from where to start extracting data of specified sequence"""
+    """Inclusive timestamp upper-bound (in nanoseconds) from where to start extracting data of specified sequence"""
 
     end_timestamp_ns: Optional[int] = None
-    """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
+    """Exclusive timestamp lower-bound (in nanoseconds) to finish extracting data of specified sequence"""
 
     overwrite: bool = False
     """If True, delete and recreate the output path if it already exists. Defaults to False."""
@@ -509,13 +533,13 @@ def _add_common_arguments(
         "--start_timestamp_ns",
         type=int,
         default=None,
-        help="Timestamp (in nanoseconds) from which to start extracting the sequence. None by default",
+        help="Inclusive timestamp lower-bound (in nanoseconds) from which to start extracting the sequence. None by default",
     )
     parser.add_argument(
         "--end_timestamp_ns",
         type=int,
         default=None,
-        help="Timestamp (in nanoseconds) at which to stop extracting the sequence. None by default",
+        help="Exclusive timestamp upper-bound (in nanoseconds) at which to stop extracting the sequence. None by default",
     )
 
     # Connection Arguments

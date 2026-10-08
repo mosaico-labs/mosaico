@@ -170,7 +170,7 @@ def _filter_topics_from_dict(
     if not requested_topics:
         return available_topics
 
-    resolved_keys = _filter_from_list(available_topics.keys(), requested_topics)
+    resolved_keys = _filter_from_list(list(available_topics.keys()), requested_topics)
 
     return {key: val for key, val in available_topics.items() if key in resolved_keys}
 

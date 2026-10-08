@@ -12,22 +12,22 @@ The **ROS Bridge** module serves as the bidirectional gateway between ROS (Robot
 The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather than simply extracting raw dictionaries from ROS messages, the bridge actively translates them into the standardized **Mosaico Ontology**. For example, a [`geometry_msgs/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html) is validated, normalized, and instantiated as a strongly-typed [`mosaicolabs.models.data.Pose`][mosaicolabs.models.data.Pose] object before ingestion.
 
 !!! example "Try-It Out"
-    You can experiment yourself the ROS Bridge ingestion via the **[ROS Ingestion](https://docs.mosaico.dev/examples/ros_ingestion) Example**.
+    You can experiment yourself the ROS Bridge ingestion via the **[ROS Ingestion](https://docs.mosaico.dev/examples/ROS/ros_ingestion) Example**.
 
 ## Architecture
 
 The module is composed of five collaborating components that handle both directions of the pipeline — ROS bag → Mosaico (ingestion) and Mosaico → ROS bag (extraction) — from raw file/server access down to the shared adaptation layer.
 
-### The Loaders (`ROSLoader` & `MosaicoLoader`)
+### The Loaders (`ROSLoader` & `MosaicoToROSLoader`)
 
 Each direction has its own loader:
 
 * **[`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader]** (ingestion) acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
-* **[`MosaicoLoader`][mosaicolabs.bridges.ros.loader.MosaicoLoader]** (extraction) is the mirror image: it streams messages back out of a Mosaico sequence via [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer], resolving each topic's adapter and original ROS message type instead of parsing one from a bag file.
+* **[`MosaicoToROSLoader`][mosaicolabs.bridges.ros.loader.MosaicoToROSLoader]** (extraction) is the mirror image, and the ROS specialization of the bridge-agnostic [`MosaicoLoader`][mosaicolabs.bridges.loader_base.MosaicoLoader] base class: it streams messages back out of a Mosaico sequence via [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer], resolving each topic's adapter and original ROS message type instead of parsing one from a bag file.
 
 Both loaders share the same topic classification logic (accepted / filtered / adapter-unresolved, plus source-specific rejection reasons), which is what powers `topics`, `rejected_topics`, and `resolve_adapter()` identically on either side.
 
-* **Responsibilities:** raw deserialization (or, for `MosaicoLoader`, remote streaming) and topic filtering (supporting glob patterns like `/cam/*`).
+* **Responsibilities:** raw deserialization (or, for `MosaicoToROSLoader`, remote streaming) and topic filtering (supporting glob patterns like `/cam/*`).
 * **Error Handling:** rejected topics are reported with a specific reason (filtered, no adapter, not in typestore, malformed metadata) rather than aborting the whole run; malformed *messages* on an otherwise-accepted topic are skipped and counted rather than raised.
 
 !!! note "Typestore setup is the caller's responsibility"
@@ -421,8 +421,8 @@ The **[`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]** r
 
 #### Core Workflow Execution: `run()`
 
-1. **Prepare Output Path**: resolves `rosbag_path / sequence_name` and enforces the `overwrite` policy — raises `FileExistsError` if the path exists and `overwrite=False`, otherwise deletes it first.
-2. **Handshake**: connects to the Mosaico server and opens a [`MosaicoLoader`][mosaicolabs.bridges.ros.loader.MosaicoLoader] for the requested sequence (optionally filtered by `topics` and a `start_timestamp_ns`/`end_timestamp_ns` window).
+1. **Prepare Output Path**: resolves `saving_path / sequence_name` and enforces the `overwrite` policy — raises `FileExistsError` if the path exists and `overwrite=False`, otherwise deletes it first.
+2. **Handshake**: connects to the Mosaico server and opens a [`MosaicoToROSLoader`][mosaicolabs.bridges.ros.loader.MosaicoToROSLoader] for the requested sequence (optionally filtered by `topics` and a `start_timestamp_ns`/`end_timestamp_ns` window).
 3. **Adaptive Streaming**: for each `(topic, message)` pair, resolves the topic's adapter and original ROS message type, converts the Mosaico message back to a native ROS message via `to_ros()`, and writes it to the bag. Topics with no resolvable adapter, or whose `to_ros()` call fails, are skipped (logged as a warning) rather than aborting the whole extraction.
 
 #### Configuring the Extraction
@@ -431,8 +431,8 @@ The behavior of the extractor is entirely driven by **[`ROSExtractorConfig`][mos
 
 * **`topics`**: the same glob-based include/exclude filtering as `ROSInjectionConfig.topics` (see [Configuring the Ingestion](#configuring-the-ingestion) above) — applied here against the sequence's topics instead of a bag's.
 * **`ros_distro`** / **`storage_plugin`**: select the target ROS distribution and, for ROS 2, the storage backend (`StoragePlugin.MCAP` or `StoragePlugin.SQLITE3`) for the *output* bag. Together with `ros_distro`, this also determines the output bag format: `Stores.ROS1_NOETIC` writes a ROS 1 `.bag`, anything else writes a ROS 2 bag via the selected `storage_plugin`.
-* **`start_timestamp_ns`** / **`end_timestamp_ns`**: an optional time window to extract. Out-of-range bounds are *clipped* to the sequence's own bounds (with a warning) rather than raising.
-* **`overwrite`**: if the resolved output path (`rosbag_path / sequence_name`) already exists, `overwrite=False` (default) raises `FileExistsError`; `overwrite=True` deletes and recreates it.
+* **`start_timestamp_ns`** / **`end_timestamp_ns`**: an optional time window to extract, with an inclusive start and an exclusive end (`start <= t < end`). Out-of-range bounds are *clipped* to the sequence's own bounds (with a warning) rather than raising: an `end_timestamp_ns` beyond the end of the sequence extracts everything up to, and including, its last message.
+* **`overwrite`**: if the resolved output path (`saving_path / sequence_name`) already exists, `overwrite=False` (default) raises `FileExistsError`; `overwrite=True` deletes and recreates it.
 * **`custom_msgs`**: register custom `.msg` definitions before extraction — needed when encoding an ontology type back to a ROS message whose `msgdef` isn't recoverable from the topic's own metadata (e.g. the sequence wasn't ingested from a ROS bag in the first place). See [The Type Registry](#the-type-registry-rostyperegistry) below for the full explanation.
 
 #### Dry Run (`dry_run`)
@@ -441,7 +441,7 @@ Setting **`dry_run=True`** (or `--dry-run` on the CLI) resolves the sequence's t
 
 ```python
 config = ROSExtractorConfig(
-    rosbag_path=Path("./exports"),
+    saving_path=Path("./exports"),
     sequence_name="on_track_experiment",
     dry_run=True,
 )
@@ -449,7 +449,7 @@ ROSSequenceExtractor(config).run()  # prints a report; nothing is written or del
 ```
 
 ```bash
-mosaicolabs.ros_sequence_extractor on_track_experiment --rosbag_path ./exports --dry-run
+python -m mosaicolabs.bridges.ros.sequence_extractor on_track_experiment --rosbag_path ./exports --dry-run
 ```
 
 #### Practical Example: Programmatic Usage
@@ -460,7 +460,7 @@ from mosaicolabs.bridges.ros import ROSSequenceExtractor, ROSExtractorConfig
 from rosbags.typesys import Stores
 
 config = ROSExtractorConfig(
-    rosbag_path=Path("./exports"),
+    saving_path=Path("./exports"),
     sequence_name="on_track_experiment",
 
     # Topic Filtering (supports glob patterns, same semantics as ROSInjectionConfig.topics)
@@ -483,16 +483,16 @@ extractor.run()
 
 #### CLI Usage
 
-The full list of options can be retrieved by running `mosaicolabs.ros_sequence_extractor -h`.
+The extractor can be run as a module. The full list of options can be retrieved by running `python -m mosaicolabs.bridges.ros.sequence_extractor -h`.
 
 ```bash
 # Basic Usage
-mosaicolabs.ros_sequence_extractor on_track_experiment --rosbag_path ./exports
+python -m mosaicolabs.bridges.ros.sequence_extractor on_track_experiment --rosbag_path ./exports
 
 # Advanced Usage: Filtering topics and targeting a specific ROS distro/format
-mosaicolabs.ros_sequence_extractor on_track_experiment \
+python -m mosaicolabs.bridges.ros.sequence_extractor on_track_experiment \
   --rosbag_path ./exports \
-  --topics /cam/* !/cam/debug* \
+  --topics "/cam/*" "!/cam/debug*" \
   --ros_distro ROS2_HUMBLE \
   --storage_plugin MCAP \
   --overwrite
@@ -500,7 +500,7 @@ mosaicolabs.ros_sequence_extractor on_track_experiment \
 
 ### The Type Registry (`ROSTypeRegistry`)
 
-The **[`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry]** manages ROS `.msg` schemas that aren't otherwise available from the data itself. It's consulted by **both** [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] (via each one's `custom_msgs` config field) when building the `Typestore` they hand to their respective loader — neither `ROSLoader` nor `MosaicoLoader` talks to the registry directly (see [The Loaders](#the-loaders-rosloader-mosaicoloader) above).
+The **[`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry]** manages ROS `.msg` schemas that aren't otherwise available from the data itself. It's consulted by **both** [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector] and [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor] (via each one's `custom_msgs` config field) when building the `Typestore` they hand to their respective loader — neither `ROSLoader` nor `MosaicoToROSLoader` talks to the registry directly (see [The Loaders](#the-loaders-rosloader-mosaicotorosloader) above).
 
 * **Version Isolation (Stores)**: ROS messages often vary across distributions (e.g., a "Header" in ROS 1 Noetic is structurally different from ROS 2 Humble). The registry uses a "Profile" system to store these version-specific definitions separately, preventing cross-distribution conflicts.
 * **Global vs. Scoped Definitions**: within one registry *instance*, you can register definitions **Globally** (available regardless of the distribution requested) or **Scoped** to a specific one.
@@ -508,7 +508,7 @@ The **[`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry]** manages ROS
 You'll need `custom_msgs` in two distinct situations, one per direction:
 
 * **Ingestion**: a bag whose messages don't carry their own schema (this is common for ROS 2 `.db3` bags, and can also happen with proprietary types the standard `rosbags` typestores don't know) can't be deserialized at all without that `.msg` definition being registered first — `ROSLoader` has no schema to fall back on.
-* **Extraction**: encoding an ontology value back into a native ROS message (`to_ros()`) needs the target `msgtype` to be present in the typestore. `MosaicoLoader` tries to auto-register it from the topic's own `_ros_.msgdef` (recorded automatically at ingestion time — see [Metadata: Reserved Keys & Custom Fields](#metadata-reserved-keys-custom-fields)), but that fallback only works if the sequence *was* ingested from a ROS bag in the first place. If the sequence's data came from somewhere else (e.g. written directly via the SDK, with no `_ros_` metadata at all) and its ontology type happens to be one that's `@register_default_adapter`-adapted to/from ROS, extraction has no `msgdef` to fall back on — you must register the `.msg` schema yourself via `custom_msgs` so the typestore has it.
+* **Extraction**: encoding an ontology value back into a native ROS message (`to_ros()`) needs the target `msgtype` to be present in the typestore. `MosaicoToROSLoader` tries to auto-register it from the topic's own `_ros_.msgdef` (recorded automatically at ingestion time — see [Metadata: Reserved Keys & Custom Fields](#metadata-reserved-keys-custom-fields)), but that fallback only works if the sequence *was* ingested from a ROS bag in the first place. If the sequence's data came from somewhere else (e.g. written directly via the SDK, with no `_ros_` metadata at all) and its ontology type happens to be one that's `@register_default_adapter`-adapted to/from ROS, extraction has no `msgdef` to fall back on — you must register the `.msg` schema yourself via `custom_msgs` so the typestore has it.
 
 !!! info "Instance-scoped, not global"
     Unlike some registry patterns, `ROSTypeRegistry` is a plain instantiable class — there is no shared global state. `RosbagInjector`/`ROSSequenceExtractor` each construct their own private instance by default, so one run's custom types can never leak into another run's typestore just because they happened to execute in the same process. This is what `custom_msgs` registers into. To deliberately share a set of definitions across many runs (see below), construct one `ROSTypeRegistry()` yourself and pass that same instance via each config's `registry` field.

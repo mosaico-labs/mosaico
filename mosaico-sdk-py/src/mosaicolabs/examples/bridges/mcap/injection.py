@@ -11,7 +11,7 @@ This script demonstrates a complete workflow:
 
 Run the example via:
 ```bash
-cd mosaico-sdk-py/src/examples/bridges && poetry run python mcap/injection.py
+cd mosaico-sdk-py && poetry run mosaicolabs.examples mcap_injection
 ```
 """
 
@@ -19,7 +19,6 @@ import logging as log
 import sys
 from pathlib import Path
 
-# NOTE: The Before starting Phase 2, the custom adapter must be registered. See __init__.py
 from rich.console import Console
 from rich.panel import Panel
 
@@ -38,7 +37,7 @@ from ...config import (
 )
 from ..helpers import download_asset
 
-# NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico
+# Labelbox robotics datasets (Hugging Face) - Verified compatible with Mosaico
 BASE_MCAPS_URL = (
     "https://huggingface.co/datasets/Labelbox/robotics-datasets/resolve/main/data/"
 )

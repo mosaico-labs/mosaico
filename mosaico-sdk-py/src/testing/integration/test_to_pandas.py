@@ -42,7 +42,7 @@ def _get_topic_timestamps(
 
     # find the index to which end (which corresponds to timestamp_ns_end)
     msg_idx_end = (
-        len(_cached_topic_data_stream) - 1
+        len(_cached_topic_data_stream)
         if time_end is None
         else (
             bisect.bisect_left(
@@ -116,6 +116,14 @@ def _exec_test_chunks(
     window_chunk_sec = total_sec / 2
     expected_num_chunks = ceil(total_sec / window_chunk_sec)
 
+    # The end bound is exclusive, unless it is unset or it goes beyond the sequence end:
+    # in that case the last sequence message must be included (issue #824)
+    expected_time_end = (
+        None
+        if timestamp_ns_end is None or timestamp_ns_end > data_stream.tstamp_ns_end
+        else timestamp_ns_end
+    )
+
     # Get the selected topics
     topics = topics or topic_list
 
@@ -127,7 +135,7 @@ def _exec_test_chunks(
                 data_stream=data_stream,
                 topic=topic,
                 time_start=min_time,
-                time_end=max_time,
+                time_end=expected_time_end,
             )
         )
     topic_timestamps = sorted(topic_timestamps)

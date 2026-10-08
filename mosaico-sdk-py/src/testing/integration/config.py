@@ -1,7 +1,9 @@
 import numpy as np
 
+from mosaicolabs.bridges.mcap.helpers import _sanitize_mcap_name
 from mosaicolabs.models.data import Point3d
 from mosaicolabs.models.sensors import GPS, IMU, Image, Pressure, Temperature
+from testing.unit.bridges.config import ALL_CHANNEL_NAMES
 
 # ----- Sequence setup ----
 
@@ -332,3 +334,16 @@ QUERY_FILTER_SEQUENCES_MOCKUP = {
         ],
     },
 }
+
+# ----- MCAP setup ----
+
+
+UPLOADED_MCAP_PROTOBUF_SEQUENCE_NAME = "test-mcap-protobuf-sequence"
+
+MCAP_PROTOBUF_TOPICS_NAME = [
+    _sanitize_mcap_name(mcap_ch_name) for mcap_ch_name in ALL_CHANNEL_NAMES
+]
+
+UPLOADED_MCAP_MIXED_SEQUENCE_NAME = "test-mcap-mixed-sequence"
+
+MCAP_MIXED_TOPICS_NAME = MCAP_PROTOBUF_TOPICS_NAME

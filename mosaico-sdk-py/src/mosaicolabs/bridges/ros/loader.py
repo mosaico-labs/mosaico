@@ -454,7 +454,7 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
     This is the ROS specialization of [`MosaicoLoader`][mosaicolabs.bridges.loader_base.MosaicoLoader]
     and the read end of the extraction pipeline: [`ROSSequenceExtractor`][mosaicolabs.bridges.ros.ROSSequenceExtractor]
     iterates it and writes the results into a bag. It is the mirror image of
-    [`ROSLoader`][mosaicolabs.bridges.ros.ROSLoader], which reads a bag *into* Mosaico.
+    [`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader], which reads a bag *into* Mosaico.
 
     On top of the generic sequence handling it adds the two things that are specific to
     targeting ROS:
@@ -520,10 +520,11 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
             sequence_name (str): Name of the Mosaico sequence to load.
             topics (Optional[List[str]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
                 exclusions). ``None`` loads all topics.
-            start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
-                to the sequence minimum if out of range.
-            end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
-                the sequence maximum if out of range.
+            start_timestamp_ns (Optional[int]): Inclusive lower bound for the time window (nanoseconds).
+                Clipped to the sequence minimum if out of range.
+            end_timestamp_ns (Optional[int]): Exclusive upper bound for the time window (nanoseconds).
+                If beyond the sequence maximum, the data are loaded up to the end of the sequence
+                (last message included).
         """
 
         super().__init__(

@@ -319,10 +319,10 @@ class MosaicoLoader(BaseLoader[AdapterT], Generic[AdapterT]):
             topics (Optional[List[str]]): Optional topic-name filter patterns (glob-style,
                 ``!``-prefixed for exclusions, evaluated in order with gitignore-like
                 semantics). ``None`` loads all topics.
-            start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
+            start_timestamp_ns (Optional[int]): Inclusive lower bound for the time window (nanoseconds). Clipped
                 to the sequence minimum if out of range.
-            end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
-                the sequence maximum if out of range.
+            end_timestamp_ns (Optional[int]): Exclusive upper bound for the time window (nanoseconds). Clipped to
+                `None` if out of range.
         """
 
         super().__init__(
@@ -336,9 +336,9 @@ class MosaicoLoader(BaseLoader[AdapterT], Generic[AdapterT]):
         self._topic_glob_pattern = topics
         """Optional list of topic-name filter patterns (glob-style, ``!``-prefixed for exclusions)."""
         self._start_timestamp_ns = start_timestamp_ns
-        """Lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
+        """Inclusive lower bound for the time window (nanoseconds). Clipped to the sequence minimum if out of range."""
         self._end_timestamp_ns = end_timestamp_ns
-        """Upper bound for the time window (nanoseconds). Clipped to the sequence maximum if out of range."""
+        """Exclusive upper bound for the time window (nanoseconds). Clipped to the sequence maximum if out of range."""
         self._seq_handler: Optional[SequenceHandler] = None
         """The mosaico sequence handler, lazily initialized on first access."""
         self._streamer: Optional[SequenceDataStreamer] = None

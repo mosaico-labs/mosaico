@@ -29,7 +29,7 @@ def _clip_timestamp(
         logger.warning(
             f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
         )
-        end_ns = min(end_ns, max_ns)
+        end_ns = None
 
     return start_ns, end_ns
 
