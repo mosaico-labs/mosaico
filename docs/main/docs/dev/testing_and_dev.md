@@ -30,7 +30,13 @@ This configuration exports the `MOSAICOD_DB_URL`, database credentials, storage 
 
 ### Update sqlx Queries Cache
 
-If you modify SQL queries, you **must** refresh the offline metadata cache to allow the project to compile. Run the following command to update the cache:
+If you modify SQL queries, you **must** refresh the offline metadata cache to allow the project to compile. This requires the `sqlx` command line tool, which can be installed with:
+
+```bash
+cargo install sqlx-cli
+```
+
+Run the following command to update the cache:
 
 ```bash
 cd mosaicod/crates/mosaicod-db
@@ -112,3 +118,26 @@ The environment can be launched with:
 ```
 
 Use `--help` to see available options.
+
+## Branches and Pull Requests
+
+### Branch Naming
+
+Branches tied to a GitHub issue follow the `issue/<num>` convention described in the [Release Cycle](./release_cycle.md#issuenum) guide.
+
+If a branch is **not** linked to an existing GitHub issue, it must be prefixed with your GitHub username:
+
+```
+<github-username>/<branch-name>
+```
+
+For example: `octocat/fix-typo-in-readme`.
+
+### Backports
+
+Pull requests whose changes must also land on one or more `release/[py|doc]/vX.Y` branches must:
+
+1. Be labeled with `backport-required`.
+2. Include a comment listing the target branches for the backport (e.g. `release/v0.6`, `release/py/v0.6`).
+
+Once the backport pull requests have been merged into all the listed branches, replace the `backport-required` label with `backported`.
