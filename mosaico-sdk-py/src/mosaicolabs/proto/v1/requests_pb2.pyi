@@ -1,5 +1,6 @@
 from mosaicolabs.proto.v1 import core_pb2 as _core_pb2
 from mosaicolabs.proto.v1 import time_pb2 as _time_pb2
+from mosaicolabs.proto.v1 import query_pb2 as _query_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -18,10 +19,10 @@ class NotificationCreate(_message.Message):
     def __init__(self, locator: _Optional[str] = ..., notification_type: _Optional[str] = ..., msg: _Optional[str] = ...) -> None: ...
 
 class Query(_message.Message):
-    __slots__ = ["query"]
-    QUERY_FIELD_NUMBER: _ClassVar[int]
-    query: bytes
-    def __init__(self, query: _Optional[bytes] = ...) -> None: ...
+    __slots__ = ["filter"]
+    FILTER_FIELD_NUMBER: _ClassVar[int]
+    filter: _query_pb2.Filter
+    def __init__(self, filter: _Optional[_Union[_query_pb2.Filter, _Mapping]] = ...) -> None: ...
 
 class ResourceLocator(_message.Message):
     __slots__ = ["locator"]
@@ -51,9 +52,9 @@ class TopicClusterizeParams(_message.Message):
     TIMESTAMP_RANGE_FIELD_NUMBER: _ClassVar[int]
     clustering_dt_ns: int
     locator: str
-    ontology: bytes
+    ontology: _query_pb2.OntologyFilter
     timestamp_range: _time_pb2.TimestampRange
-    def __init__(self, locator: _Optional[str] = ..., clustering_dt_ns: _Optional[int] = ..., ontology: _Optional[bytes] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ...) -> None: ...
+    def __init__(self, locator: _Optional[str] = ..., clustering_dt_ns: _Optional[int] = ..., ontology: _Optional[_Union[_query_pb2.OntologyFilter, _Mapping]] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ...) -> None: ...
 
 class TopicCreate(_message.Message):
     __slots__ = ["locator", "ontology_tag", "serialization_format", "session_uuid", "user_metadata"]

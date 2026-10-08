@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass, field
 from typing import ClassVar, Iterator, List, Optional
 
@@ -14,6 +13,7 @@ from ..comm.do_action_page import (
 )
 from ..enum.flight_action import FlightAction
 from ..logging_config import get_logger
+from ._proto_query import ontology_filter_to_proto
 from .builders import QueryOntologyCatalog, QuerySequence, QueryTopic
 from .expressions import (
     _QueryCatalogExpression,
@@ -45,7 +45,7 @@ def _build_clusterize_payload(
         clustering_dt_ns=clustering_dt_ns
         if clustering_dt_ns is not None
         else item_topic.DEFAULT_CLUSTERING_DT,
-        ontology=json.dumps(merged_exprs).encode("utf-8"),
+        ontology=ontology_filter_to_proto(merged_exprs),
     )
 
     if include_timestamp_range and timestamp_range is not None:

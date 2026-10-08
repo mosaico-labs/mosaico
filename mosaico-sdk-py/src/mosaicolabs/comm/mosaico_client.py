@@ -7,7 +7,6 @@ and serves as a factory for creating resource handlers (sequences, topics)
 and executing queries.
 """
 
-import json
 import os
 from typing import Any, Dict, List, Optional, Type, Union
 
@@ -30,6 +29,7 @@ from ..logging_config import get_logger
 from ..platform.server_config import ServerInfo
 from ..proto.v1 import flight_pb2, requests_pb2
 from ..query import Query, QueryResponse
+from ..query._proto_query import filter_to_proto
 from ..query.protocols import QueryableProtocol
 from .connection import (
     ConnectionContext,
@@ -1035,9 +1035,7 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                request=requests_pb2.Query(
-                    query=json.dumps(query_dict).encode("utf-8")
-                ),
+                request=requests_pb2.Query(filter=filter_to_proto(query_dict)),
                 expected_type=_DoActionQueryResponse,
             )
 
