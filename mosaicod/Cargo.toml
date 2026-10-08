@@ -37,7 +37,7 @@ arrow-cast = { version = "58.1.0", default-features = false }
 arrow-flight = { version = "58.1.0", default-features = false }
 arrow-schema = { version = "58.1.0", default-features = false }
 parquet = { version = "58.1.0", default-features = false, features = ["arrow", "async", "object_store", "zstd", "simdutf8"] }
-datafusion = { version = "54.0.0", default-features = false, features = ["parquet", "sql", "recursive_protection", "nested_expressions"] }
+datafusion = { version = "54.0.0", default-features = false, features = ["parquet", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.6", default-features = false, features = ["router", "transport", "codegen", "tls-ring", "gzip"] }
 object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
 
