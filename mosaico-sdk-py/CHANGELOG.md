@@ -14,6 +14,7 @@ This release introduces the new **MCAP Bridge** (injection of MCAP files into Mo
 - **Topic platform metadata is no longer read from the Arrow schema metadata**: topic/sequence information (ontology tag, serialization format, timestamp range, message count, user metadata) is now read from the Flight `app_metadata` returned by `GetFlightInfo`, so client-provided schema/field metadata is no longer overwritten. `TopicHandler.serialization_format` (and the `serialization_format` field of the `Topic` model) now returns a `SerializationFormat` enum instead of a plain string. ([#759](https://github.com/mosaico-labs/mosaico/pull/759))
 - **ROS loaders and injector reworked**: `ROSLoader`, `MosaicoLoader` and `ROSSequenceExtractor` now inherit from common `BaseLoader`/`SequenceBaseExtractor` bases shared with the MCAP Bridge, `TopicStatus` was replaced by the `CommonTopicStatus`/`ROSTopicStatus` hierarchy, the loaders accept either a typestore or a ROS distro, and `ProgressManager` moved to a dedicated `ui` module. Code subclassing or directly instantiating these classes may need to be updated. ([#706](https://github.com/mosaico-labs/mosaico/pull/706), [#794](https://github.com/mosaico-labs/mosaico/pull/794), [#837](https://github.com/mosaico-labs/mosaico/pull/837))
 - **Examples moved**: the examples now live under `mosaicolabs.examples.bridges.{ros,mcap}` (e.g. `mosaicolabs.examples.ros_injection.main` is now `mosaicolabs.examples.bridges.ros.injection`). The `mosaicolabs.examples` CLI entry names `ros_injection` and `reconstruct_rosbags` are unchanged. ([#800](https://github.com/mosaico-labs/mosaico/pull/800))
+- **ROSExtractorConfig field rename**: field `rosbag_path` has been renamed to `saving_path`
 
 ### Features
 
@@ -46,8 +47,6 @@ This release introduces the new **MCAP Bridge** (injection of MCAP files into Mo
 
 ### Bug Fixes
 
-- Fixed **map fields being converted to lists of tuples** instead of dicts when streaming data (`TopicDataStreamer`, `SequenceDataStreamer`) and when decoding messages from record batches. ([#816](https://github.com/mosaico-labs/mosaico/pull/816))
-- Fixed the Protobuf MCAP decoder turning **`Any` fields and fixed `bytes` fields into base64 strings**. ([#832](https://github.com/mosaico-labs/mosaico/pull/832))
 - Fixed typestore handling and custom message registration in the ROS Bridge components. ([#706](https://github.com/mosaico-labs/mosaico/pull/706))
 - Client-provided Arrow schema/field metadata is no longer overwritten by the platform metadata. ([#759](https://github.com/mosaico-labs/mosaico/pull/759))
 
