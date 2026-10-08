@@ -1,14 +1,25 @@
 import base64
 import json
 import sys
-from typing import List, Optional
+from collections.abc import Iterable
+from functools import partial
+from typing import List, Optional, TextIO
 
 import typer
+from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
+from mosaicolabs_cli.output import (
+    OutputRenderer,
+    Record,
+    render_csv,
+    render_json_collection,
+    render_jsonl,
+    resolve_output,
+)
+from mosaicolabs_cli.output_format import OutputFormat
 from mosaicolabs_cli.utils.config import (
-    OutputFormat,
     _flatten_metadata,
     console,
     error_console,
@@ -29,6 +40,41 @@ def _require_profile(ctx: typer.Context):
             "Set a default profile or specify one using --profile."
         )
         raise SystemExit(1)
+
+
+def _render_table(records: Iterable[Record], stream: TextIO) -> None:
+    table = Table(
+        title="Mosaico Topic ls Results",
+        title_style="bold magenta",
+        header_style="bold cyan",
+        box=None,
+        padding=(0, 2),
+    )
+    table.add_column("Locator", style="white bold", no_wrap=True)
+    table.add_column("Start Time", justify="right", style="yellow")
+    table.add_column("End Time", justify="right", style="blue")
+
+    for record in records:
+        table.add_row(
+            record["locator"], record["timestamp_ns_min"], record["timestamp_ns_max"]
+        )
+    console = Console(file=stream)
+    if table.row_count:
+        console.print(table)
+    else:
+        console.print("No topics found matching the criteria.")
+
+
+_renderer = OutputRenderer[Iterable[Record]](
+    {
+        OutputFormat.TABLE: _render_table,
+        OutputFormat.CSV: partial(
+            render_csv, fields=("locator", "timestamp_ns_min", "timestamp_ns_max")
+        ),
+        OutputFormat.JSON: partial(render_json_collection, collection="topics"),
+        OutputFormat.JSONL: render_jsonl,
+    }
+)
 
 
 @app.command(name="ls")
@@ -58,8 +104,9 @@ def list_topics(
     """
     List topics.
     """
+    output = resolve_output(output)
     spinner = console.status("[bold cyan]Querying topics...")
-    if sys.stdout.isatty():
+    if output == OutputFormat.TABLE and sys.stdout.isatty():
         spinner.start()
     from mosaicolabs import MosaicoClient, QueryTopic
 
@@ -87,24 +134,19 @@ def list_topics(
 
             results = client.query(query)
 
-            if not results:
-                spinner.stop()
-                console.print("No topics found matching the criteria.")
-                raise typer.Exit()
-
             limited_results = results[:limit] if limit else results
 
-            rows = []
+            records: list[Record] = []
             for item in limited_results:
                 for topic in item.topics:
                     handler = client.topic_handler(item.sequence.name, topic.name)
                     if handler:
-                        rows.append(
-                            (
-                                f"{item.sequence.name}{topic.name}",
-                                str(handler.timestamp_ns_min),
-                                str(handler.timestamp_ns_max),
-                            )
+                        records.append(
+                            {
+                                "locator": f"{item.sequence.name}{topic.name}",
+                                "timestamp_ns_min": str(handler.timestamp_ns_min),
+                                "timestamp_ns_max": str(handler.timestamp_ns_max),
+                            }
                         )
                     else:
                         error_console.print(
@@ -113,29 +155,7 @@ def list_topics(
     finally:
         spinner.stop()
 
-    if not output:
-        output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
-
-    if output == OutputFormat.TABLE:
-        table = Table(
-            title="Mosaico Topic ls Results",
-            title_style="bold magenta",
-            header_style="bold cyan",
-            box=None,
-            padding=(0, 2),
-        )
-        table.add_column("Locator", style="white bold", no_wrap=True)
-        table.add_column("Start Time", justify="right", style="yellow")
-        table.add_column("End Time", justify="right", style="blue")
-
-        for row in rows:
-            table.add_row(*row)
-
-        console.print(table)
-
-    else:
-        for locator_str, ts_min, ts_max in rows:
-            print(f"{locator_str},{ts_min},{ts_max}")
+    _renderer.render(records, output)
 
 
 @app.command(name="stat")
