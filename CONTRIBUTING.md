@@ -36,6 +36,20 @@ Once the discussion is finalized and a corresponding **Issue** is created, you c
 
 The backend (`mosaicod`), Python SDK (`mosaico-sdk-py`), and documentation (`doc`) each live in their own directory. For build and setup instructions, see the [official documentation](https://docs.mosaico.dev/daemon).
 
+### Python SDK setup
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.11.23 or newer, then run from the repository root:
+
+```bash
+cd mosaico-sdk-py
+uv sync --locked --extra cli
+uv run --locked --extra cli pre-commit install
+cd ..
+./scripts/tests --sdk-python
+```
+
+The SDK supports Python 3.10 or newer. uv creates the local `.venv`, installs the SDK in editable mode, and includes development tools. Keep `--extra cli` on SDK runs so the optional CLI dependencies remain installed. Commit changes to `pyproject.toml` and `uv.lock` together. See the [development guide](docs/main/docs/dev/testing_and_dev.md) for dependency updates and documentation builds.
+
 ## Proposing Major Changes
 
 If you intend to modify critical portions of the project (e.g., the core Rust engine, complex algorithms, or fundamental SDK architecture), we strongly recommend [contacting the maintainers](mailto:foss@mosaico.dev) or opening a [discussion](https://github.com/mosaico-labs/mosaico/discussions).

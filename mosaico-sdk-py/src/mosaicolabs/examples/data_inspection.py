@@ -4,12 +4,12 @@ This example can be run after running the ingestion example (examples/bridges/ro
 
 Ingest data via:
 ```bash
-cd mosaico-sdk-py && poetry run mosaicolabs.examples ros_injection
+cd mosaico-sdk-py && uv run --locked --extra cli mosaicolabs.examples ros_injection
 ```
 
 Then, list sequences via:
 ```bash
-poetry run python data_inspection.py
+uv run --locked --extra cli mosaicolabs.examples data_inspection
 ```
 """
 

@@ -1,8 +1,8 @@
-[tool.poetry]
+[project]
 name = "mosaicolabs"
 version = "0.8.0-dev"
 description = "Python SDK for Mosaico Data-Platform"
-authors = ["Mosaico Labs <info@mosaico.dev>"]
+authors = [{ name = "Mosaico Labs", email = "info@mosaico.dev" }]
 readme = "README.md"
 license = "Apache-2.0"
 keywords = [
@@ -14,35 +14,40 @@ keywords = [
     "ros",
 ]
 
-packages = [
-    { include = "mosaicolabs", from = "src" },
-    { include = "mosaicolabs_cli", from = "src" },
+requires-python = ">=3.10,<4"
+dependencies = [
+    "pyarrow>=22.0.0",
+    "numpy>=2.0.0,<2.5.0",
+    "pillow>=11.3.0,<13.0.0",
+    "pandas>=2.3.3,<4.0.0",
+    "pydantic>=2.12.5,<3.0.0",
+    "rich>=14.3.3,<16.0.0",
+    "rosbags>=0.11.2,<0.12.0",
+    "typing-extensions>=4.15.0,<5.0.0",
+    "av>=17.0.0,<18.0.0",
+    "click>=8.3.1,<9.0.0",
+    "mcap-protobuf-support>=0.5.4,<0.6.0",
+    "mcap>=1.4.0,<2.0.0",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10,<4"
-pyarrow = ">=22.0.0"
-numpy = ">=2.0.0,<2.5.0"
-pillow = ">=11.3.0,<13.0.0"
-pandas = ">=2.3.3,<4.0.0"
-pydantic = "^2.12.5"
-rich = ">=14.3.3,<16.0.0"
-rosbags = "^0.11.2"
-typing-extensions = "^4.15.0"
-av = "^17.0.0"
-click = "^8.3.1"
-typer = { version = ">=0.25.1,<0.28.0", optional = true }
-tomli = { version = "^2.0.0", python = "<3.11", optional = true }
-mcap-protobuf-support = "^0.5.4"
-mcap = "^1.4.0"
+[project.optional-dependencies]
+cli = [
+    "typer>=0.25.1,<0.28.0",
+    "tomli>=2.0.0,<3.0.0; python_version < '3.11'",
+]
 
-[tool.poetry.extras]
-cli = ["typer", "tomli"]
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+    "ruff>=0.15.8,<0.17.0",
+    "pre-commit>=4.5.1,<5.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=8.4.2"
-ruff = ">=0.15.8,<0.17.0"
-pre-commit = "^4.5.1"
+[tool.uv]
+required-version = ">=0.11.23"
+
+[tool.uv.build-backend]
+module-name = ["mosaicolabs", "mosaicolabs_cli"]
 
 [tool.ruff]
 line-length = 88
@@ -68,10 +73,10 @@ combine-as-imports = true
 # Since you're using rosbags, relying on its abilities to read ROS messages is the standard approach.
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.11.23,<0.12.0"]
+build-backend = "uv_build"
 
-[tool.poetry.scripts]
+[project.scripts]
 "mosaicolabs.ros_injector" = "mosaicolabs.bridges.ros.injector:ros_injector"
 "mosaicolabs.mcap_injector" = "mosaicolabs.bridges.mcap.injector:mcap_injector"
 "mosaicolabs.watchdog" = "mosaicolabs.watchdog.watchdog:main"

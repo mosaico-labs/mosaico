@@ -88,7 +88,8 @@ git -C "$PROJECT_DIR" checkout main
 # release/py/vX.Y — Python SDK
 git -C "$PROJECT_DIR" checkout -b "release/py/v$VERSION"
 sed -i.bak "s/^version = \".*\"/version = \"$RC_VERSION\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
-git -C "$PROJECT_DIR" add "$PYPROJECT_PATH"
+uv lock --project "${PROJECT_DIR}/${PY_DIR}" || exit 1
+git -C "$PROJECT_DIR" add "$PYPROJECT_PATH" "${PROJECT_DIR}/${PY_DIR}/uv.lock"
 git -C "$PROJECT_DIR" commit -m "Cut release branch for mosaico Python SDK v$VERSION (RC)"
 git -C "$PROJECT_DIR" checkout main
 

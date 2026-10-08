@@ -87,6 +87,29 @@ cd mosaicod
 cargo lint
 ```
 
+## Developing the Python SDK
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.11.23 or newer, then set up the SDK with Python 3.10 or newer:
+
+```bash
+cd mosaico-sdk-py
+uv sync --locked --extra cli
+uv run --locked --extra cli pre-commit install
+uv run --locked --extra cli mosaico --help
+```
+
+uv creates a local `.venv` and installs the SDK, CLI extra, and development tools from `uv.lock`. Include `--extra cli` when running SDK commands so synchronization keeps the optional CLI dependencies installed. An existing Poetry environment can be replaced by running the same sync command; Poetry is no longer required.
+
+Use `uv add PACKAGE` for runtime dependencies, `uv add --dev PACKAGE` for development tools, and `uv lock --upgrade-package PACKAGE` for a targeted update. Commit both `pyproject.toml` and `uv.lock` when changing dependencies. Build distributable packages with `uv build` from the SDK directory.
+
+The Python documentation has its own environment and lockfile and requires Python 3.11 or newer:
+
+```bash
+cd docs/py # From the repository root
+uv sync --locked
+uv run --locked mkdocs build
+```
+
 ## Testing
 
 The project includes a comprehensive suite of unit and integration tests to validate functionality and prevent regressions.
@@ -94,7 +117,7 @@ The project includes a comprehensive suite of unit and integration tests to vali
 The test suite can be executed with:
 
 ```bash
-./scripts/test
+./scripts/tests
 ```
 
 Use `--help` to see available options.

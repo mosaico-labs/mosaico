@@ -4,19 +4,20 @@ This repository contains the source code and Markdown files for the official Mos
 
 ## Setup and Installation
 
-This project uses Poetry for dependency management and MkDocs to generate the static site. Ensure you have Python 3.10 or higher and Poetry installed on your system.
+This project uses uv for dependency management and MkDocs to generate the static site. Ensure you have Python 3.11 or higher and [uv](https://docs.astral.sh/uv/getting-started/installation/) (0.11.23 or newer) installed on your system.
 
 To set up the environment, clone the repository and run:
 
 ```bash
-# Inside this directory `/doc`
-poetry install
+# From the repository root
+cd docs/py
+uv sync --locked
 ```
 ## Run locally
 
 To start a local instance of the documentation run
 ```bash
-poetry run mkdocs serve
+uv run --locked mkdocs serve
 ```
 
 ## Local Development
@@ -24,7 +25,7 @@ poetry run mkdocs serve
 To start the local development server and preview your changes in real-time, execute:
 
 ```bash
-poetry run mkdocs serve --livereload -w ../../mosaico-sdk-py/src
+uv run --locked mkdocs serve --livereload -w ../../mosaico-sdk-py/src
 ```
 
 The documentation will be available for viewing at [http://localhost:8000](https://localhost:8000).

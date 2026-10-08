@@ -47,20 +47,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          python-version: '3.13'
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+          version: "0.11.23"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: docs/py/uv.lock
 
       - name: Install dependencies
         working-directory: docs/py
-        run: poetry install --no-root
+        run: uv sync --locked
 
       - name: Build MkDocs
         working-directory: docs/py
-        run: poetry run mkdocs build
+        run: uv run --locked mkdocs build
 
       - name: Upload to Bucket
         env:

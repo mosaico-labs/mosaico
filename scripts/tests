@@ -131,9 +131,9 @@ start_docker() {
 
 # Install Python dependencies
 install_python_deps() {
-    title "poetry" "." "${BLUE}"
+    title "uv" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
-    poetry install --extras cli
+    uv sync --locked --extra cli
 }
 
 # Run mosaicod unit tests
@@ -155,7 +155,7 @@ run_sdk_python_tests() {
     title "python sdk (unit tests)" "-"
     install_python_deps
     cd "${PYTHON_SDK_PATH}"
-    poetry run pytest ./src/testing -k unit
+    uv run --locked --extra cli pytest ./src/testing -k unit
 }
 
 
@@ -252,7 +252,7 @@ run_full_stack_tests() {
     title "running full-stack tests" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
 
-    poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
+    uv run --locked --extra cli pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
 }
 
 VERBOSE=false

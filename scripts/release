@@ -101,13 +101,15 @@ release_py() {
 
     # Commit 1 - Promote to stable and tag
     sed -i.bak "s/^version = \".*\"/version = \"$stable\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
-    git add "$PYPROJECT_PATH"
+    uv lock --project "$PY_PATH" || exit 1
+    git add "$PYPROJECT_PATH" "$PY_PATH/uv.lock"
     git commit -m "Release mosaico Python SDK v$stable"
     git tag -a "py/v$stable" -m "Mosaico Python SDK release v$stable"
 
     # Commit 2 - Bump to next RC
     sed -i.bak "s/^version = \".*\"/version = \"$next\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
-    git add "$PYPROJECT_PATH"
+    uv lock --project "$PY_PATH" || exit 1
+    git add "$PYPROJECT_PATH" "$PY_PATH/uv.lock"
     git commit -m "Bump mosaico Python SDK version to $next"
 }
 

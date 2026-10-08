@@ -7,13 +7,17 @@ on:
     paths:
       - "**.py"
       - "**/pyproject.toml"
-      - "**/poetry.lock"
+      - "**/uv.lock"
+      - "scripts/tests"
+      - ".github/workflows/py-ci.yml"
   pull_request:
     branches: ["main"]
     paths:
       - "**.py"
       - "**/pyproject.toml"
-      - "**/poetry.lock"
+      - "**/uv.lock"
+      - "scripts/tests"
+      - ".github/workflows/py-ci.yml"
   workflow_dispatch:
 
 permissions:
@@ -26,11 +30,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.11.23"
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: mosaico-sdk-py/uv.lock
+
       - name: Python SDK Lint
+        working-directory: mosaico-sdk-py
         run: |
-          pipx install ruff
-          ruff format --check mosaico-sdk-py
-          ruff check mosaico-sdk-py
+          uv run --locked --only-group dev ruff format --check .
+          uv run --locked --only-group dev ruff check .
 
 
   unit-tests:
@@ -45,13 +57,21 @@ jobs:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
       - uses: actions/checkout@v6
-      - name: Install Poetry
-        run: pipx install poetry
-      - name: Setup Python
-        uses: actions/setup-python@v6.1.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
+          version: "0.11.23"
           python-version: ${{ matrix.python-version }}
-          cache: "poetry"
+          enable-cache: true
+          cache-dependency-glob: mosaico-sdk-py/uv.lock
       - name: Unit Tests
         run: ./scripts/tests --sdk-python
 
+      - name: Build and smoke-test the distribution
+        run: |
+          uv build mosaico-sdk-py
+          wheels=(mosaico-sdk-py/dist/*.whl)
+          uv run --isolated --no-project --with "${wheels[0]}" python -c 'import mosaicolabs'
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.examples --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.ros_injector --help
