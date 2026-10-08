@@ -26,9 +26,6 @@ def test_invalid_timestamp_column(
         with pytest.raises(ValueError, match="Unable to find time column"):
             _ = stransformer.transform(chunk)
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sync_unbounded(
     mosaico_client: MosaicoClient,
@@ -83,5 +80,3 @@ def test_sync_unbounded(
         selected = synched_df.loc[:, val_cols]
         # For every column in val_cols, there exists at least one non-NaN value.
         assert selected.notna().any().all()
-    # free resources
-    mosaico_client.close()

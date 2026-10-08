@@ -40,9 +40,6 @@ def test_read_non_existing_sequence_and_topic(mosaico_client: MosaicoClient):
         is None
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_writer_bad_metadata(mosaico_client: MosaicoClient):
     with pytest.raises(ValueError, match="Metadata must be a dictionary"):
@@ -52,8 +49,6 @@ def test_sequence_writer_bad_metadata(mosaico_client: MosaicoClient):
             on_error=SessionLevelErrorPolicy.Delete,
         ) as _:
             pass
-
-    mosaico_client.close()
 
 
 def test_topic_writer_bad_metadata(mosaico_client: MosaicoClient):
@@ -69,8 +64,6 @@ def test_topic_writer_bad_metadata(mosaico_client: MosaicoClient):
                 ontology_type=IMU,
             )
 
-    mosaico_client.close()
-
 
 def test_sequence_writer_not_in_context(mosaico_client: MosaicoClient):
     swriter = mosaico_client.sequence_create(
@@ -82,8 +75,6 @@ def test_sequence_writer_not_in_context(mosaico_client: MosaicoClient):
         match="SequenceWriter or SequenceUpdater must be used within a 'with' block.",
     ):
         swriter._check_entered()
-
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize(
@@ -127,9 +118,6 @@ def test_sequence_invalid_char_in_name(
         ) as _:
             pass
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_empty_name(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
@@ -150,9 +138,6 @@ def test_sequence_empty_name(mosaico_client: MosaicoClient):
         ) as _:
             pass
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_startswith_double_slash(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
@@ -164,9 +149,6 @@ def test_sequence_startswith_double_slash(mosaico_client: MosaicoClient):
             "//sequence-name", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
-
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize(
@@ -204,9 +186,6 @@ def test_topic_invalid_char_in_name(mosaico_client: MosaicoClient, non_alphanum:
         ) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_topic_empty_name(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
@@ -227,9 +206,6 @@ def test_topic_empty_name(mosaico_client: MosaicoClient):
         ) as sw:
             sw.topic_create("/", {}, IMU)
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_topic_startswith_double_slash(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
@@ -241,9 +217,6 @@ def test_topic_startswith_double_slash(mosaico_client: MosaicoClient):
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create("//invalid/topic/name", {}, IMU)
-
-    # free resources
-    mosaico_client.close()
 
 
 class NotSerializable:
@@ -290,8 +263,6 @@ def test_topic_push_not_serializable(mosaico_client: MosaicoClient):
             # Generate a specific Exception which is not raised by above functions
             # (we want to be sure the test runs till here)
             raise ChildProcessError
-    # free resources
-    mosaico_client.close()
 
 
 def test_non_existing_topic_handler(
@@ -307,9 +278,6 @@ def test_non_existing_topic_handler(
         ValueError, match="Topic 'non-existing-topic-name' not available in sequence"
     ):
         seqhandler.get_topic_handler("non-existing-topic-name")
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_streamer_non_existing_topics(
@@ -327,9 +295,6 @@ def test_sequence_streamer_non_existing_topics(
                 "non-existing-topic-name",
             ]
         )
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_invalid_metadata_key(mosaico_client: MosaicoClient):
@@ -503,5 +468,3 @@ def test_sequence_invalid_metadata_key(mosaico_client: MosaicoClient):
             SessionLevelErrorPolicy.Delete,
         ):
             pass
-
-    mosaico_client.close()

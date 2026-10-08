@@ -34,8 +34,6 @@ def test_app_metadata_in_data_sequence(
     assert seqhandler is not None
     assert seqhandler.timestamp_ns_min == synthetic_sequence_data_stream.tstamp_ns_start
     assert seqhandler.timestamp_ns_max == synthetic_sequence_data_stream.tstamp_ns_end
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
@@ -53,8 +51,6 @@ def test_app_metadata_in_dataless_sequence(
     assert seqhandler is not None
     assert seqhandler.timestamp_ns_min is None
     assert seqhandler.timestamp_ns_max is None
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
@@ -87,9 +83,6 @@ def test_topic_name_in_endpoint_from_topic_handler(
         and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_app_metadata.sequence_name}"
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_topic_names_in_endpoints_from_sequence_handler(
     mosaico_client: MosaicoClient,
@@ -120,9 +113,6 @@ def test_topic_names_in_endpoints_from_sequence_handler(
             topic_app_metadata.sequence_name == UPLOADED_SEQUENCE_NAME
             and f"Expected matching topic name {UPLOADED_SEQUENCE_NAME} != {topic_app_metadata.sequence_name}"
         )
-
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
@@ -166,9 +156,6 @@ def test_topics_app_metadata_timestamps(
         _cached_topic_data_stream[-1].msg.timestamp_ns
         == topic_app_metadata.timestamp_ns_max
     )
-
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
@@ -232,9 +219,6 @@ def test_topic_streamer_app_metadata_timestamps(
         == _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
     )
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_msg_count(
     mosaico_client: MosaicoClient,
@@ -262,5 +246,3 @@ def test_msg_count(
     s_handler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     assert s_handler is not None
     assert s_handler.get_data_streamer().msg_count == total_topics_msg_count
-
-    mosaico_client.close()

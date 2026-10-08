@@ -55,6 +55,3 @@ def test_query_bug_218_fail(
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
-
-    # free resources
-    mosaico_client.close()

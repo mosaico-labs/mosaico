@@ -73,9 +73,6 @@ def test_sequence_data_stream(
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == len(synthetic_sequence_data_stream.items)
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_data_stream_multiple_call(
     mosaico_client: MosaicoClient,
@@ -100,9 +97,6 @@ def test_sequence_data_stream_multiple_call(
     with pytest.raises(ValueError, match="Reader closed for sequence"):
         for _, _ in sstream_handl_1:
             pass
-
-    # free resources
-    mosaico_client.close()
 
 
 # Repeat for each topic
@@ -179,9 +173,6 @@ def test_topic_data_stream(
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == len(_cached_topic_data_stream)
 
-    # free resources
-    mosaico_client.close()
-
 
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
@@ -224,9 +215,6 @@ def test_topic_data_stream_multiple_call(
         for _ in tstream_handl_1:
             pass
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_data_stream_filter_topics(
     mosaico_client: MosaicoClient,
@@ -265,6 +253,3 @@ def test_sequence_data_stream_filter_topics(
 
     # ALL the desired topics are returned
     assert len(filtered_topics) == len(ret_topics)
-
-    # free resources
-    mosaico_client.close()

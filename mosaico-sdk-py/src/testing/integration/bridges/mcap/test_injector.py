@@ -35,4 +35,3 @@ def test_mcap_injection_succeds(
         is True
     )
     mosaico_client.sequence_delete(default_mcap_mixed_injector_config.sequence_name)
-    mosaico_client.close()

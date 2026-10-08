@@ -74,7 +74,6 @@ def test_query_ontology_nested_string(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     mosaico_client.sequence_delete("test_sequence_query_nested_string")
-    mosaico_client.close()
 
 
 def test_query_ontology_top_level_string(
@@ -121,8 +120,6 @@ def test_query_ontology_top_level_string(
     # all the expected topics, and only them
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
     mosaico_client.sequence_delete("test_sequence_query_string")
-
-    mosaico_client.close()
 
 
 def test_query_ontology(
@@ -190,9 +187,6 @@ def test_query_ontology(
     _validate_returned_topic_name(query_resp[0].topics[0].name)
     assert query_resp[0].topics[0].name == expected_topic_name
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_ontology_between(
     mosaico_client: MosaicoClient,
@@ -238,9 +232,6 @@ def test_query_ontology_between(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_mixed_query_ontology(
     mosaico_client: MosaicoClient,
@@ -283,9 +274,6 @@ def test_mixed_query_ontology(
     _validate_returned_topic_name(query_resp[0].topics[0].name)
     assert query_resp[0].topics[0].name == expected_topic_name
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_mixed_query_no_return(
     mosaico_client: MosaicoClient,
@@ -301,9 +289,6 @@ def test_mixed_query_no_return(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 0
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_query_multi_tag_ontology(
@@ -328,6 +313,3 @@ def test_query_multi_tag_ontology(
         assert UPLOADED_IMU_CAMERA_TOPIC in topic_names
         assert UPLOADED_IMU_FRONT_TOPIC in topic_names
         assert len(item.topics) == 3
-
-    # free resources
-    mosaico_client.close()

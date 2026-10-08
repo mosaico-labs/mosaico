@@ -47,9 +47,6 @@ def test_query_topic_by_name(
     # The topics are stored with the resource name (seq/topic) so since this query by using
     # the topic name only succeeded, the operator works
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_topic_by_creation_timestamp(
     mosaico_client: MosaicoClient,
@@ -73,9 +70,6 @@ def test_query_topic_by_creation_timestamp(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
@@ -107,9 +101,6 @@ def test_query_topic_by_sensor_tag(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
@@ -181,9 +172,6 @@ def test_query_topic_multi_criteria(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_query_topic_metadata(
@@ -343,10 +331,6 @@ def test_query_topic_metadata(
         ]
     )
 
-    # Test with nested field
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_topic_lexicographic_comparison(
     mosaico_client: MosaicoClient,
@@ -424,9 +408,6 @@ def test_query_topic_lexicographic_comparison(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
 def test_query_topic_from_response(
@@ -463,9 +444,6 @@ def test_query_topic_from_response(
     _validate_returned_topic_name(query_resp[0].topics[0].name)
     assert query_resp[0].topics[0].name == topic_name
 
-    # free resources
-    mosaico_client.close()
-
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
 def test_query_topic_from_response_fail(
@@ -486,6 +464,3 @@ def test_query_topic_from_response_fail(
         NotImplementedError, match="Query builder already contains the key 'name'"
     ):
         query_resp = mosaico_client.query(qtopic.with_name_match(""))
-
-    # free resources
-    mosaico_client.close()

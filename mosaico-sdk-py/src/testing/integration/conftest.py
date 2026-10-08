@@ -32,14 +32,14 @@ from .config import (
 @pytest.fixture(scope="function")
 def mosaico_client(host, port, tls_cert_path, compression, api_key_manage):
     """Open a client connection FOR EACH function using this fixture"""
-
-    return MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
+    ) as client:
+        yield client
 
 
 @pytest.fixture(
@@ -100,68 +100,61 @@ def inject_synthetic_sequence(
     compression,
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
-
-    with _client.sequence_create(
-        sequence_name=UPLOADED_SEQUENCE_NAME,
-        metadata=UPLOADED_SEQUENCE_METADATA,
-    ) as swriter:
-        for ds_item in synthetic_sequence_data_stream.items:
-            twriter = swriter.get_topic_writer(topic_name=ds_item.topic)
-            if twriter is None:
-                twriter = swriter.topic_create(
-                    topic_name=ds_item.topic,
-                    metadata=topic_to_metadata_dict[ds_item.topic],
-                    ontology_type=ds_item.ontology_class,
-                )
+    ) as _client:
+        with _client.sequence_create(
+            sequence_name=UPLOADED_SEQUENCE_NAME,
+            metadata=UPLOADED_SEQUENCE_METADATA,
+        ) as swriter:
+            for ds_item in synthetic_sequence_data_stream.items:
+                twriter = swriter.get_topic_writer(topic_name=ds_item.topic)
                 if twriter is None:
-                    raise Exception(
-                        f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_NAME}'"
+                    twriter = swriter.topic_create(
+                        topic_name=ds_item.topic,
+                        metadata=topic_to_metadata_dict[ds_item.topic],
+                        ontology_type=ds_item.ontology_class,
                     )
+                    if twriter is None:
+                        raise Exception(
+                            f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_NAME}'"
+                        )
 
-            twriter.push(ds_item.msg)
-
-    # free resources
-    _client.close()
+                twriter.push(ds_item.msg)
 
 
 @pytest.fixture(scope="session")
 def inject_mockup_sequences(host, port, tls_cert_path, api_key_manage, compression):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
-    for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
-        with _client.sequence_create(
-            sequence_name=sname,
-            metadata=sdata["metadata"],
-        ) as swriter:
-            for tdata in sdata["topics"]:
-                tname = tdata["name"]
-                twriter = swriter.get_topic_writer(topic_name=tname)
-                if twriter is None:
-                    twriter = swriter.topic_create(
-                        topic_name=tname,
-                        metadata=tdata["metadata"],
-                        ontology_type=tdata["ontology_type"],
-                    )
+    ) as _client:
+        for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
+            with _client.sequence_create(
+                sequence_name=sname,
+                metadata=sdata["metadata"],
+            ) as swriter:
+                for tdata in sdata["topics"]:
+                    tname = tdata["name"]
+                    twriter = swriter.get_topic_writer(topic_name=tname)
                     if twriter is None:
-                        raise Exception(
-                            f"Unable to create topic '{tname}' in sequence '{sname}'"
+                        twriter = swriter.topic_create(
+                            topic_name=tname,
+                            metadata=tdata["metadata"],
+                            ontology_type=tdata["ontology_type"],
                         )
-
-    # free resources
-    _client.close()
+                        if twriter is None:
+                            raise Exception(
+                                f"Unable to create topic '{tname}' in sequence '{sname}'"
+                            )
 
 
 @pytest.fixture(
@@ -220,35 +213,31 @@ def inject_synthetic_sequence_w_lists(
     compression,
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
-
-    with _client.sequence_create(
-        sequence_name=UPLOADED_SEQUENCE_W_LIST_NAME,
-        metadata={},
-    ) as swriter:
-        for ds_item in synthetic_sequence_w_list_data_stream.items:
-            twriter = swriter.get_topic_writer(topic_name=ds_item.topic)
-            if twriter is None:
-                twriter = swriter.topic_create(
-                    topic_name=ds_item.topic,
-                    metadata=topic_to_listmetadata_dict[ds_item.topic],
-                    ontology_type=ds_item.ontology_class,
-                )
+    ) as _client:
+        with _client.sequence_create(
+            sequence_name=UPLOADED_SEQUENCE_W_LIST_NAME,
+            metadata={},
+        ) as swriter:
+            for ds_item in synthetic_sequence_w_list_data_stream.items:
+                twriter = swriter.get_topic_writer(topic_name=ds_item.topic)
                 if twriter is None:
-                    raise Exception(
-                        f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_W_LIST_NAME}'"
+                    twriter = swriter.topic_create(
+                        topic_name=ds_item.topic,
+                        metadata=topic_to_listmetadata_dict[ds_item.topic],
+                        ontology_type=ds_item.ontology_class,
                     )
+                    if twriter is None:
+                        raise Exception(
+                            f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_W_LIST_NAME}'"
+                        )
 
-            twriter.push(ds_item.msg)
-
-    # free resources
-    _client.close()
+                twriter.push(ds_item.msg)
 
 
 @pytest.fixture(scope="session")
@@ -256,37 +245,34 @@ def inject_mockup_sequences_filter(
     host, port, tls_cert_path, api_key_manage, compression
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
+    with MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
         api_key=api_key_manage,
         compression=compression,
-    )
-    for sname, sdata in QUERY_FILTER_SEQUENCES_MOCKUP.items():
-        with _client.sequence_create(
-            sequence_name=sname,
-            metadata={},
-        ) as swriter:
-            for tdata in sdata["topics"]:
-                tname = tdata["name"]
-                twriter = swriter.get_topic_writer(topic_name=tname)
-                if twriter is None:
-                    twriter = swriter.topic_create(
-                        topic_name=tname,
-                        metadata={},
-                        ontology_type=tdata["ontology_type"],
-                    )
+    ) as _client:
+        for sname, sdata in QUERY_FILTER_SEQUENCES_MOCKUP.items():
+            with _client.sequence_create(
+                sequence_name=sname,
+                metadata={},
+            ) as swriter:
+                for tdata in sdata["topics"]:
+                    tname = tdata["name"]
+                    twriter = swriter.get_topic_writer(topic_name=tname)
                     if twriter is None:
-                        raise Exception(
-                            f"Unable to create topic '{tname}' in sequence '{sname}'"
+                        twriter = swriter.topic_create(
+                            topic_name=tname,
+                            metadata={},
+                            ontology_type=tdata["ontology_type"],
                         )
+                        if twriter is None:
+                            raise Exception(
+                                f"Unable to create topic '{tname}' in sequence '{sname}'"
+                            )
 
-                for timestamp, payload in tdata["data"]:
-                    twriter.push(Message(timestamp_ns=timestamp, data=payload))
-
-    # free resources
-    _client.close()
+                    for timestamp, payload in tdata["data"]:
+                        twriter.push(Message(timestamp_ns=timestamp, data=payload))
 
 
 @pytest.fixture(scope="session")

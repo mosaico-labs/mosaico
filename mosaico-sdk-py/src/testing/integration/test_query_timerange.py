@@ -56,9 +56,6 @@ def test_query_ontology_with_timestamp_trivial(
     assert imu_front_clusters[0].timerange.start == expected_timerange[0]
     assert imu_front_clusters[0].timerange.end == expected_timerange[1]
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_ontology_with_timestamp_imu(
     mosaico_client: MosaicoClient,
@@ -106,9 +103,6 @@ def test_query_ontology_with_timestamp_imu(
     assert len(imu_front_clusters) == 1
     assert imu_front_clusters[0].timerange.start == expected_timerange[0]
     assert imu_front_clusters[0].timerange.end == expected_timerange[1]
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_query_mixed_ontology_with_timestamp(
@@ -167,9 +161,6 @@ def test_query_mixed_ontology_with_timestamp(
     assert gps_clusters[0].timerange.start == expected_timerange[0]
     assert gps_clusters[0].timerange.end == expected_timerange[1]
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_query_multi_criteria_with_timestamp(
     mosaico_client: MosaicoClient,
@@ -207,6 +198,3 @@ def test_query_multi_criteria_with_timestamp(
     assert len(imu_front_clusters) == 1
     assert imu_front_clusters[0].timerange.start == expected_timerange[0]
     assert imu_front_clusters[0].timerange.end == expected_timerange[1]
-
-    # free resources
-    mosaico_client.close()

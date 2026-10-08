@@ -28,6 +28,3 @@ def test_list_sequences(
 
     assert len(slist) == len(expected_sequences_list)
     assert all([sname in expected_sequences_list for sname in slist])
-
-    # free resources
-    mosaico_client.close()

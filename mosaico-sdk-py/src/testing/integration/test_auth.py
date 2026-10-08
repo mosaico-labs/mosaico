@@ -220,8 +220,6 @@ def test_write_only_api_key(
         # Delete a Sequence: must fail
         _test_delete_fail(client)
 
-    mosaico_client.close()
-
 
 def test_delete_api_key(
     with_auth,
@@ -245,8 +243,6 @@ def test_delete_api_key(
         # --- Try deleting ---
         # Delete a Sequence: must fail
         _test_delete_pass(client, mosaico_client)
-
-    mosaico_client.close()
 
 
 def test_manage_api_key(
@@ -312,5 +308,3 @@ def test_delete_policy(
 
         # free resources
         mosaico_client.sequence_delete("unauthorized_sequence_abort")
-
-    mosaico_client.close()

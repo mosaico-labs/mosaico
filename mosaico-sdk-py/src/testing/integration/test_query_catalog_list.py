@@ -164,9 +164,6 @@ def test_query_basic_list(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_mixed_query_ontology_w_basic_list(
     mosaico_client: MosaicoClient,
@@ -261,8 +258,6 @@ def test_mixed_query_ontology_w_basic_list(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
-    mosaico_client.close()
-
 
 def test_query_list_of_struct(
     mosaico_client: MosaicoClient,
@@ -327,9 +322,6 @@ def test_query_list_of_struct(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-
-    # free resources
-    mosaico_client.close()
 
 
 def test_mixed_query_ontology_w_struct_list(
@@ -444,7 +436,6 @@ def test_mixed_query_ontology_w_struct_list(
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
-    mosaico_client.close()
 
 
 def test_mixed_query_no_return(
@@ -459,6 +450,3 @@ def test_mixed_query_no_return(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 0
-
-    # free resources
-    mosaico_client.close()

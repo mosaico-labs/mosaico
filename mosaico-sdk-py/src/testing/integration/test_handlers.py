@@ -24,8 +24,6 @@ def test_sequence_metadata_recvd(
     assert seqhandler is not None
     # Deserialized metadata must be the same
     assert seqhandler.user_metadata == UPLOADED_SEQUENCE_METADATA
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_reload(
@@ -51,9 +49,6 @@ def test_sequence_reload(
     assert seqhandler.timestamp_ns_min == original_timestamp_ns_min
     assert seqhandler.timestamp_ns_max == original_timestamp_ns_max
 
-    # free resources
-    mosaico_client.close()
-
 
 def test_sequence_exists(
     mosaico_client: MosaicoClient,
@@ -62,8 +57,6 @@ def test_sequence_exists(
     """Test that the sent and reconstructed sequence metadata are the same as original ones"""
     # Sequence must exist
     assert mosaico_client.sequence_exists(UPLOADED_SEQUENCE_NAME)
-    # free resources
-    mosaico_client.close()
 
 
 def test_sequence_does_not_exist(
@@ -72,8 +65,6 @@ def test_sequence_does_not_exist(
     """Test that the sent and reconstructed sequence metadata are the same as original ones"""
     # Sequence must not exist
     assert not mosaico_client.sequence_exists("non_existent_sequence")
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic_name", topic_list)
@@ -87,8 +78,6 @@ def test_topic_exists(
     assert mosaico_client.topic_exists(
         sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
     )
-    # free resources
-    mosaico_client.close()
 
 
 def test_topic_does_not_exist(
@@ -100,8 +89,6 @@ def test_topic_does_not_exist(
     assert not mosaico_client.topic_exists(
         sequence_name=UPLOADED_SEQUENCE_NAME, topic_name="non_existent_topic"
     )
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic_name", topic_list)
@@ -119,8 +106,6 @@ def test_topic_metadata_recvd(
     _validate_returned_topic_name(tophandler.name)
     # Deserialized metadata must be the same
     assert tophandler.user_metadata == topic_to_metadata_dict[topic_name]
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic_name", topic_list)
@@ -161,8 +146,6 @@ def test_topic_handler_slash_in_name(
     _validate_returned_topic_name(tophandler.name)
     mosaico_client.clear_topic_handlers_cache()
 
-    mosaico_client.close()
-
 
 def test_sequence_handler_slash_in_name(
     mosaico_client: MosaicoClient,
@@ -191,8 +174,6 @@ def test_sequence_handler_slash_in_name(
     assert seqhandler is not None
     mosaico_client.clear_sequence_handlers_cache()
 
-    mosaico_client.close()
-
 
 @pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_handlers(
@@ -216,8 +197,6 @@ def test_topic_handlers(
     _validate_returned_topic_name(tophandler.name)
     # TopicHandlers must be the same
     assert tophandler._topic == tophandler_from_seq._topic
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
@@ -236,8 +215,6 @@ def test_topic_handlers_in_dataless_sequence(
         )
         # The topic handler is available anyway
         assert tophandler is not None
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
@@ -257,8 +234,6 @@ def test_sequence_reader_in_dataless_sequence(
         match="The sequence might contain no data",
     ):
         seqhandler.get_data_streamer()
-    # free resources
-    mosaico_client.close()
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
@@ -281,5 +256,3 @@ def test_topic_readers_in_dataless_sequence(
             match="The topic might contain no data",
         ):
             tophandler.get_data_streamer()
-    # free resources
-    mosaico_client.close()
