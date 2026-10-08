@@ -38,8 +38,8 @@ jobs:
       - name: Backend Lint
         working-directory: mosaicod
         run: |
-          cargo fmt -- --check
-          cargo clippy -- -D warnings
+          SQLX_OFFLINE=true cargo fmt -- --check
+          SQLX_OFFLINE=true cargo clippy -- -D warnings
 
   unit-tests:
     name: "Backend: unit tests"
