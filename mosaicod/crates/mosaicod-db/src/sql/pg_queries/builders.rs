@@ -8,7 +8,7 @@ pub struct ChunkQueryBuilder {
 
 impl ChunkQueryBuilder {
     pub fn build(
-        filter: query::OntologyExprGroup<query::Value>,
+        filter: query::OntologyPredicateGroup<query::Value>,
         on_topic_ids: Vec<i64>,
     ) -> Result<(String, Vec<query::Value>), query::Error> {
         let mut qb = query::ClausesCompiler::new();

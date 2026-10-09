@@ -1,4 +1,4 @@
-use super::{Error, IsSupportedOp, OntologyExprGroup, OntologyField, Op, Value};
+use super::{Error, IsSupportedOp, OntologyPredicateGroup, OntologyField, Op, Value};
 
 const EMPTY_CLAUSE: &str = "()";
 
@@ -105,7 +105,7 @@ impl ClausesCompiler {
     // es: field = topic.user_metadata
     pub fn ontology_expr_group<F, V>(
         mut self,
-        filter: OntologyExprGroup<V>,
+        filter: OntologyPredicateGroup<V>,
         formatter: &mut F,
     ) -> Self
     where

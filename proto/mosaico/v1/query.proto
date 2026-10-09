@@ -24,11 +24,11 @@ message Value {
 enum Operator {
     OPERATOR_UNSPECIFIED = 0;
     OPERATOR_EQ = 1;
-    OPERATOR_NEQ = 2;
+    OPERATOR_NE = 2;
     OPERATOR_LT = 3;
-    OPERATOR_LEQ = 4;
+    OPERATOR_LE = 4;
     OPERATOR_GT = 5;
-    OPERATOR_GEQ = 6;
+    OPERATOR_GE = 6;
     OPERATOR_BETWEEN = 7;
     OPERATOR_OUTSIDE = 8;
     OPERATOR_IN = 9;
@@ -85,7 +85,7 @@ message OntologyPredicate {
 }
 
 message OntologyFilter {
-    repeated OntologyPredicate exprs = 1;
+    repeated OntologyPredicate predicates = 1;
 }
 
 // Filter

@@ -77,11 +77,11 @@ fn op<T: PartialOrd + IsSupportedOp>(
 
     let op = match operator {
         Operator::Eq => query::Op::Eq(scalar(val?)?),
-        Operator::Neq => query::Op::Neq(scalar(val?)?),
+        Operator::Ne => query::Op::Neq(scalar(val?)?),
         Operator::Lt => query::Op::Lt(scalar(val?)?),
-        Operator::Leq => query::Op::Leq(scalar(val?)?),
+        Operator::Le => query::Op::Leq(scalar(val?)?),
         Operator::Gt => query::Op::Gt(scalar(val?)?),
-        Operator::Geq => query::Op::Geq(scalar(val?)?),
+        Operator::Ge => query::Op::Geq(scalar(val?)?),
         Operator::Match => query::Op::Match(scalar(val?)?),
         Operator::Ex => query::Op::Ex,
         Operator::Nex => query::Op::Nex,
@@ -152,7 +152,7 @@ fn user_metadata(
 // Filters
 // ////////////////////////////////////////////////////////////////////////////
 
-fn sequence_filter(
+fn sequence_filter_from_proto(
     seq_filter: proto::SequenceFilter,
 ) -> Result<query::SequenceFilter, query::Error> {
     Ok(query::SequenceFilter {
@@ -162,20 +162,45 @@ fn sequence_filter(
     })
 }
 
-fn topic_filter(t: proto::TopicFilter) -> Result<query::TopicFilter, query::Error> {
+fn topic_filter_from_proto(t: proto::TopicFilter) -> Result<query::TopicFilter, query::Error> {
     Ok(query::TopicFilter {
         name: optional_op("topic.name", t.name, text)?,
         created_at: optional_op("topic.created_at", t.created_at_ns, timestamp)?,
         ontology_tag: optional_op("topic.ontology_tag", t.ontology_tag, text)?,
-        serialization_format: optional_op("topic.serialization_format", t.serialization_format, text)?,
+        serialization_format: optional_op(
+            "topic.serialization_format",
+            t.serialization_format,
+            text,
+        )?,
         user_metadata: user_metadata(t.user_metadata)?,
     })
 }
 
-fn ontology_filter(o: proto::OntologyFilter) -> Result<query::OntologyFilter, query::Error> {
-    // TODO aggregator
+fn to_err(e: query::Error) -> super::Error {
+    super::Error::DeserializationError(e.to_string())
+}
+
+pub fn query_filter_from_proto(f: proto::Filter) -> Result<query::Filter, super::Error> {
+    Ok(query::Filter {
+        sequence: f
+            .sequence
+            .map(sequence_filter_from_proto)
+            .transpose()
+            .map_err(to_err)?,
+        topic: f
+            .topic
+            .map(topic_filter_from_proto)
+            .transpose()
+            .map_err(to_err)?,
+        ontology: f.ontology.map(ontology_filter_from_proto).transpose()?,
+    })
+}
+
+pub fn ontology_filter_from_proto(
+    o: proto::OntologyFilter,
+) -> Result<query::OntologyFilter, super::Error> {
     let ontology = o
-        .exprs
+        .predicates
         .into_iter()
         .map(|p| {
             let condition = p.condition.ok_or_else(|| {
@@ -189,38 +214,13 @@ fn ontology_filter(o: proto::OntologyFilter) -> Result<query::OntologyFilter, qu
                 field: p.field.clone(),
                 err: e,
             })?;
-            
+
             Ok((query::OntologyField::try_new(p.field)?, op).into())
         })
-        .collect::<Result<_, query::Error>>()?;
+        .collect::<Result<_, query::Error>>()
+        .map_err(to_err)?;
 
     Ok(query::OntologyFilter::new(ontology))
-}
-
-fn to_err(e: query::Error) -> super::Error {
-    super::Error::DeserializationError(e.to_string())
-}
-
-pub fn query_filter_from_proto(f: proto::Filter) -> Result<query::Filter, super::Error> {
-    Ok(query::Filter {
-        sequence: f
-            .sequence
-            .map(sequence_filter)
-            .transpose()
-            .map_err(to_err)?,
-        topic: f.topic.map(topic_filter).transpose().map_err(to_err)?,
-        ontology: f
-            .ontology
-            .map(ontology_filter)
-            .transpose()
-            .map_err(to_err)?,
-    })
-}
-
-pub fn ontology_filter_from_proto(
-    o: proto::OntologyFilter,
-) -> Result<query::OntologyFilter, super::Error> {
-    ontology_filter(o).map_err(to_err)
 }
 
 #[cfg(test)]
@@ -454,14 +454,14 @@ mod tests {
         let filter = query_filter_from_proto(proto::Filter::default()).unwrap();
         assert!(filter.is_empty());
     }
-    
+
     #[test]
     fn test_text_field_rejects_ordering_operator() {
         let filter = proto::TopicFilter {
             name: Some(text_condition(proto::Operator::Gt, "topic")),
             ..Default::default()
         };
-        let err = topic_filter(filter).unwrap_err();
+        let err = topic_filter_from_proto(filter).unwrap_err();
         assert!(matches!(
             err,
             query::Error::OpError { ref field, err: query::OpError::UnsupportedOperation } if field == "topic.name"

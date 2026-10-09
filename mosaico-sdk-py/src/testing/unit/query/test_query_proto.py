@@ -69,11 +69,11 @@ def test_unsupported_value(value):
     "op, value, expected_op",
     [
         ("$eq", 1, query_pb2.OPERATOR_EQ),
-        ("$neq", 1, query_pb2.OPERATOR_NEQ),
+        ("$neq", 1, query_pb2.OPERATOR_NE),
         ("$lt", 1, query_pb2.OPERATOR_LT),
-        ("$leq", 1, query_pb2.OPERATOR_LEQ),
+        ("$leq", 1, query_pb2.OPERATOR_LE),
         ("$gt", 1, query_pb2.OPERATOR_GT),
-        ("$geq", 1, query_pb2.OPERATOR_GEQ),
+        ("$geq", 1, query_pb2.OPERATOR_GE),
         ("$between", [1, 2], query_pb2.OPERATOR_BETWEEN),
         ("$outside", [1, 2], query_pb2.OPERATOR_OUTSIDE),
         ("$in", [1, 2, 3], query_pb2.OPERATOR_IN),
@@ -115,15 +115,18 @@ def test_ontology_filter_keeps_every_expression():
         }
     )
 
-    assert [e.field for e in msg.exprs] == ["imu.acceleration.x", "imu.acceleration.y"]
-    assert msg.exprs[0].condition.op == query_pb2.OPERATOR_GT
-    assert msg.exprs[1].condition.op == query_pb2.OPERATOR_BETWEEN
-    assert msg.exprs[1].condition.value.WhichOneof("kind") == "float_array"
-    assert all(e.aggregator == query_pb2.AGGREGATOR_UNSPECIFIED for e in msg.exprs)
+    assert [e.field for e in msg.predicates] == [
+        "imu.acceleration.x",
+        "imu.acceleration.y",
+    ]
+    assert msg.predicates[0].condition.op == query_pb2.OPERATOR_GT
+    assert msg.predicates[1].condition.op == query_pb2.OPERATOR_BETWEEN
+    assert msg.predicates[1].condition.value.WhichOneof("kind") == "float_array"
+    assert all(e.aggregator == query_pb2.AGGREGATOR_UNSPECIFIED for e in msg.predicates)
 
 
 def test_ontology_filter_empty():
-    assert len(ontology_filter_to_proto({}).exprs) == 0
+    assert len(ontology_filter_to_proto({}).predicates) == 0
 
 
 def test_filter_all_domains():
@@ -154,7 +157,7 @@ def test_filter_all_domains():
     assert msg.topic.user_metadata["sensor.model"].op == query_pb2.OPERATOR_EX
     assert not msg.topic.HasField("serialization_format")
 
-    assert [e.field for e in msg.ontology.exprs] == ["imu.acceleration.x"]
+    assert [e.field for e in msg.ontology.predicates] == ["imu.acceleration.x"]
 
 
 def test_filter_only_present_domains_are_set():
@@ -191,8 +194,8 @@ def test_filter_from_query_builders():
     msg = filter_to_proto(query.to_dict())
 
     assert msg.sequence.user_metadata["driver"].value.text == "luigi"
-    assert msg.topic.user_metadata["sensor.rate"].op == query_pb2.OPERATOR_GEQ
+    assert msg.topic.user_metadata["sensor.rate"].op == query_pb2.OPERATOR_GE
     assert msg.topic.user_metadata["sensor.rate"].value.integer == 10
-    assert len(msg.ontology.exprs) == 1
-    assert msg.ontology.exprs[0].field == f"{IMU.ontology_tag()}.acceleration.x"
-    assert msg.ontology.exprs[0].condition.value.float == 5.0
+    assert len(msg.ontology.predicates) == 1
+    assert msg.ontology.predicates[0].field == f"{IMU.ontology_tag()}.acceleration.x"
+    assert msg.ontology.predicates[0].condition.value.float == 5.0
