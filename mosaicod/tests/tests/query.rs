@@ -1,8 +1,9 @@
 #![allow(unused_crate_dependencies)]
 use mosaicod_db as db;
 use mosaicod_marshal::responses;
+use mosaicod_proto::v1::query as proto_query;
 use serde_json::json;
-use tests::{actions, common};
+use tests::{actions, common, filter};
 
 async fn setup_topics_with_metadata(
     client: &mut common::Client,
@@ -68,13 +69,13 @@ async fn test_query_user_metadata_in_integer(pool: sqlx::Pool<db::DatabaseType>)
 
     let items = actions::query(
         &mut client,
-        json!({
-            "topic": {
-                "user_metadata": {
-                    "x": { "$in": [1, 6, -1] }
-                }
-            }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::is_in([1, 6, -1]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -113,13 +114,13 @@ async fn test_query_user_metadata_match_string(pool: sqlx::Pool<db::DatabaseType
 
     let items = actions::query(
         &mut client,
-        json!({
-            "topic": {
-                "user_metadata": {
-                    "vehicle": { "$match": "truck*" }
-                }
-            }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("vehicle", filter::matches("truck*"))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -146,9 +147,16 @@ async fn test_query_in_with_dict_body_is_rejected(pool: sqlx::Pool<db::DatabaseT
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$in": {"key": 1} } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([(
+                    "x",
+                    filter::cond(proto_query::Operator::In, None),
+                )]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -167,9 +175,16 @@ async fn test_query_in_with_nested_list_elements_is_rejected(pool: sqlx::Pool<db
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$in": [[1, 2], [3, 4]] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([(
+                    "x",
+                    filter::cond(proto_query::Operator::In, None),
+                )]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -188,9 +203,13 @@ async fn test_query_match_with_array_value_is_rejected(pool: sqlx::Pool<db::Data
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$match": [1, 2, 3] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::matches([1, 2, 3]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -209,9 +228,13 @@ async fn test_query_match_on_integer_is_rejected(pool: sqlx::Pool<db::DatabaseTy
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$match": 42 } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::matches(42))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -230,9 +253,13 @@ async fn test_query_match_on_boolean_is_rejected(pool: sqlx::Pool<db::DatabaseTy
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "flag": { "$match": true } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("flag", filter::matches(true))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -260,9 +287,13 @@ async fn test_query_in_with_booleans_is_allowed(pool: sqlx::Pool<db::DatabaseTyp
 
     let item = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "is_on_the_way": { "$in": [true, false] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("is_on_the_way", filter::is_in([true, false]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -290,9 +321,13 @@ async fn test_query_in_with_empty_list_is_rejected(pool: sqlx::Pool<db::Database
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$in": [] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::is_in(Vec::<i64>::new()))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await;
 
@@ -318,9 +353,13 @@ async fn test_query_in_on_list_valued_field(pool: sqlx::Pool<db::DatabaseType>) 
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$in": [1, 6] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::is_in([1, 6]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -353,9 +392,13 @@ async fn test_query_in_on_dict_valued_field_errors_at_runtime(pool: sqlx::Pool<d
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x": { "$in": [1, 6] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::is_in([1, 6]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -364,9 +407,13 @@ async fn test_query_in_on_dict_valued_field_errors_at_runtime(pool: sqlx::Pool<d
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "x.nested": { "$in": [1, 6] } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x.nested", filter::is_in([1, 6]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -391,9 +438,16 @@ async fn test_query_match_with_dict_body_is_rejected(pool: sqlx::Pool<db::Databa
 
     let err = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": {"key": "val"} } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([(
+                    "vehicle",
+                    filter::cond(proto_query::Operator::Match, None),
+                )]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -420,9 +474,13 @@ async fn test_query_match_invalid_regex_errors_at_runtime(pool: sqlx::Pool<db::D
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "((unclosed" } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("vehicle", filter::matches("((unclosed"))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await;
 
@@ -452,9 +510,13 @@ async fn test_query_match_on_list_valued_field_returns_value(pool: sqlx::Pool<db
 
     let items = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "truck" } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("vehicle", filter::matches("truck"))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -485,9 +547,13 @@ async fn test_query_match_on_dict_valued_field_returns_empty(pool: sqlx::Pool<db
 
     let items = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "scania" } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("vehicle", filter::matches("scania"))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -521,9 +587,13 @@ async fn test_query_match_empty_pattern_rejected(pool: sqlx::Pool<db::DatabaseTy
 
     let res = actions::query(
         &mut client,
-        json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "" } } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("vehicle", filter::matches(""))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -550,9 +620,13 @@ async fn test_query_topic_name_match_percent(pool: sqlx::Pool<db::DatabaseType>)
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "locator": { "$match": "%" } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                name: Some(filter::matches("%")),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -587,9 +661,13 @@ async fn test_query_topic_name_match_all(pool: sqlx::Pool<db::DatabaseType>) {
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "name": { "$match": "*" } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                name: Some(filter::matches("*")),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -616,9 +694,13 @@ async fn test_query_topic_name_match_empty_is_rejected(pool: sqlx::Pool<db::Data
 
     let result = actions::query(
         &mut client,
-        json!({
-            "topic": { "name": { "$match": "" } }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                name: Some(filter::matches("")),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -655,9 +737,13 @@ async fn test_query_invalid_keys(pool: sqlx::Pool<db::DatabaseType>) {
 
         let res = actions::query(
             &mut client,
-            json!({
-                "topic": { "user_metadata": { key_path: { "$eq": "ferrari" } } }
-            }),
+            proto_query::Filter {
+                topic: Some(proto_query::TopicFilter {
+                    user_metadata: filter::metadata([(key_path.as_str(), filter::eq("ferrari"))]),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
         )
         .await
         .unwrap_err();
@@ -690,13 +776,13 @@ async fn test_query_user_metadata_outside_integer(pool: sqlx::Pool<db::DatabaseT
     // outside([5, 50]): matches x < 5 || x > 50.
     let items = actions::query(
         &mut client,
-        json!({
-            "topic": {
-                "user_metadata": {
-                    "x": { "$outside": [5, 50] }
-                }
-            }
-        }),
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([("x", filter::outside([5, 50]))]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();

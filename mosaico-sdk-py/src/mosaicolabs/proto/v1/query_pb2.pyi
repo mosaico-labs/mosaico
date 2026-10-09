@@ -22,13 +22,13 @@ DESCRIPTOR: _descriptor.FileDescriptor
 OPERATOR_BETWEEN: Operator
 OPERATOR_EQ: Operator
 OPERATOR_EX: Operator
-OPERATOR_GEQ: Operator
+OPERATOR_GE: Operator
 OPERATOR_GT: Operator
 OPERATOR_IN: Operator
-OPERATOR_LEQ: Operator
+OPERATOR_LE: Operator
 OPERATOR_LT: Operator
 OPERATOR_MATCH: Operator
-OPERATOR_NEQ: Operator
+OPERATOR_NE: Operator
 OPERATOR_NEX: Operator
 OPERATOR_OUTSIDE: Operator
 OPERATOR_UNSPECIFIED: Operator
@@ -70,10 +70,10 @@ class IntegerArray(_message.Message):
     def __init__(self, values: _Optional[_Iterable[int]] = ...) -> None: ...
 
 class OntologyFilter(_message.Message):
-    __slots__ = ["exprs"]
-    EXPRS_FIELD_NUMBER: _ClassVar[int]
-    exprs: _containers.RepeatedCompositeFieldContainer[OntologyPredicate]
-    def __init__(self, exprs: _Optional[_Iterable[_Union[OntologyPredicate, _Mapping]]] = ...) -> None: ...
+    __slots__ = ["predicates"]
+    PREDICATES_FIELD_NUMBER: _ClassVar[int]
+    predicates: _containers.RepeatedCompositeFieldContainer[OntologyPredicate]
+    def __init__(self, predicates: _Optional[_Iterable[_Union[OntologyPredicate, _Mapping]]] = ...) -> None: ...
 
 class OntologyPredicate(_message.Message):
     __slots__ = ["aggregator", "condition", "field"]

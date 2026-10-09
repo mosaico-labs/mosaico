@@ -4,11 +4,11 @@ from mosaicolabs.proto.v1 import query_pb2
 
 _OPERATORS = {
     "$eq": query_pb2.OPERATOR_EQ,
-    "$neq": query_pb2.OPERATOR_NEQ,
+    "$neq": query_pb2.OPERATOR_NE,
     "$lt": query_pb2.OPERATOR_LT,
-    "$leq": query_pb2.OPERATOR_LEQ,
+    "$leq": query_pb2.OPERATOR_LE,
     "$gt": query_pb2.OPERATOR_GT,
-    "$geq": query_pb2.OPERATOR_GEQ,
+    "$geq": query_pb2.OPERATOR_GE,
     "$between": query_pb2.OPERATOR_BETWEEN,
     "$outside": query_pb2.OPERATOR_OUTSIDE,
     "$in": query_pb2.OPERATOR_IN,
@@ -69,7 +69,7 @@ def ontology_filter_to_proto(exprs: Dict[str, Any]) -> query_pb2.OntologyFilter:
     into an `OntologyFilter`.
     """
     return query_pb2.OntologyFilter(
-        exprs=[
+        predicates=[
             query_pb2.OntologyPredicate(
                 field=field, condition=_condition_to_proto(expr)
             )

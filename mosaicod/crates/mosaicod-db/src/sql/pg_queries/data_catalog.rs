@@ -173,7 +173,7 @@ pub async fn column_chunk_textual_create_batch(
 /// Optionally the query can be filtered across a list of topics (`on_topics`).
 pub async fn chunks_from_filters(
     exec: &mut impl AsExec,
-    filter: query::OntologyExprGroup<query::Value>,
+    filter: query::OntologyPredicateGroup<query::Value>,
     on_topics: Option<&Vec<schema::TopicRecord>>, // (cabba) TODO: pass only topic names or ids?
 ) -> Result<Vec<schema::ChunkRecord>, Error> {
     // Collect topic ids, if any

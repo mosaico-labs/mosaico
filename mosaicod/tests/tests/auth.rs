@@ -2,7 +2,7 @@
 
 use mosaicod_core::types::{self, auth::Permission};
 use mosaicod_db as db;
-use serde_json::json;
+use mosaicod_proto::v1::query as proto_query;
 use tests::{self, actions, common};
 
 async fn make_client(key: &types::auth::Token, port: u16) -> common::Client {
@@ -16,7 +16,7 @@ async fn make_client(key: &types::auth::Token, port: u16) -> common::Client {
 /// A read action (query) that is rejected before execution when the key lacks
 /// read permission. Returns the resulting status code (if any).
 async fn try_read(client: &mut common::Client) -> Option<tonic::Code> {
-    actions::query(client, json!({}))
+    actions::query(client, proto_query::Filter::default())
         .await
         .err()
         .map(|e| e.code())
