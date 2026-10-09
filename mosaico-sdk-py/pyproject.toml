@@ -19,6 +19,9 @@ packages = [
     { include = "mosaicolabs_cli", from = "src" },
 ]
 
+[tool.poetry.build]
+script = "build.py"
+
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
 pyarrow = ">=22.0.0"
@@ -44,6 +47,7 @@ cli = ["typer", "tomli"]
 pytest = ">=8.4.2"
 ruff = ">=0.15.8,<0.17.0"
 pre-commit = "^4.5.1"
+grpcio-tools = ">=1.60"
 
 [tool.ruff]
 line-length = 88
@@ -74,7 +78,7 @@ combine-as-imports = true
 # Since you're using rosbags, relying on its abilities to read ROS messages is the standard approach.
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core>=2.0.0,<3.0.0", "grpcio-tools>=1.60"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
