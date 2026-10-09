@@ -18,7 +18,7 @@ async fn test_session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result
 
     let sequence_name = "test_sequence";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -40,7 +40,7 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
 
     let sequence_name = "test_sequence";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -49,7 +49,7 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+    let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", "")
         .await
         .unwrap();
     assert!(uuid.is_valid());
@@ -112,7 +112,7 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -121,7 +121,7 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
     assert!(topic_uuid.is_valid());
@@ -158,13 +158,8 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     let fake_session_uuid = types::Uuid::new();
-    let res = actions::topic_create(
-        &mut client,
-        &fake_session_uuid,
-        "test_sequence/topic2",
-        None,
-    )
-    .await;
+    let res =
+        actions::topic_create(&mut client, &fake_session_uuid, "test_sequence/topic2", "").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     server.shutdown().await;
@@ -178,7 +173,7 @@ async fn test_session_delete_idempotent(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -207,14 +202,14 @@ async fn test_session_delete_unlocked_with_data(pool: sqlx::Pool<db::DatabaseTyp
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/unfinalized_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
     let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -244,7 +239,7 @@ async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseTyp
     let topic_name_a = &format!("{}/topic_a", sequence_name);
     let topic_name_b = &format!("{}/topic_b", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -252,10 +247,10 @@ async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseTyp
         .await
         .unwrap();
 
-    let topic_uuid_a = actions::topic_create(&mut client, &session_uuid, topic_name_a, None)
+    let topic_uuid_a = actions::topic_create(&mut client, &session_uuid, topic_name_a, "")
         .await
         .unwrap();
-    let topic_uuid_b = actions::topic_create(&mut client, &session_uuid, topic_name_b, None)
+    let topic_uuid_b = actions::topic_create(&mut client, &session_uuid, topic_name_b, "")
         .await
         .unwrap();
 
@@ -295,7 +290,7 @@ async fn test_session_delete_preserves_sequence(pool: sqlx::Pool<db::DatabaseTyp
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 

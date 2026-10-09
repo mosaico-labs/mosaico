@@ -6,7 +6,6 @@ for an *existing* sequence. It allows users to inspect metadata, list topics,
 and access reading interfaces (`SequenceDataStreamer`).
 """
 
-import json
 from typing import Any, Dict, List, Optional, Tuple
 
 import pyarrow.flight as fl
@@ -23,7 +22,7 @@ from ..platform.app_metadata import (
     TopicAppMetadata,
     TopicAppMetadataError,
 )
-from ..platform.helpers import _decode_app_metadata
+from ..proto.v1 import flight_pb2
 from .config import SessionWriterConfig
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
@@ -154,8 +153,7 @@ class SequenceHandler:
             return None
 
         # Retrieve the Sequence metadata
-        decoded_app_metadata = _decode_app_metadata(flight_info.app_metadata)
-        seq_app_metadata = SequenceAppMetadata._from_app_metadata(decoded_app_metadata)
+        seq_app_metadata = SequenceAppMetadata._from_flight_info(flight_info)
 
         # Extract the Topics app metadata
         tstamps_ns_min = []
@@ -587,11 +585,7 @@ class SequenceHandler:
         _stzd_sequence_name = sanitize_sequence_name(sequence_name)
 
         descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": _stzd_sequence_name,
-                }
-            )
+            flight_pb2.GetFlightInfoCmd(locator=_stzd_sequence_name).SerializeToString()
         )
         # Get FlightInfo
         flight_info = client.get_flight_info(descriptor)

@@ -1,30 +1,34 @@
+use crate::Error;
 use mosaicod_core::types;
-use serde::{Deserialize, Serialize};
+pub use mosaicod_proto::v1::core::Format;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum Format {
-    Default,
-    Ragged,
-    Image,
-}
-
-impl From<types::Format> for Format {
-    fn from(value: types::Format) -> Self {
-        match value {
-            types::Format::Default => Self::Default,
-            types::Format::Ragged => Self::Ragged,
-            types::Format::Image => Self::Image,
-        }
+pub(crate) fn format_to_proto(value: types::Format) -> Format {
+    match value {
+        types::Format::Default => Format::Default,
+        types::Format::Ragged => Format::Ragged,
+        types::Format::Image => Format::Image,
     }
 }
 
-impl From<Format> for types::Format {
-    fn from(value: Format) -> Self {
-        match value {
-            Format::Default => types::Format::Default,
-            Format::Ragged => types::Format::Ragged,
-            Format::Image => types::Format::Image,
+pub fn format_to_i32(value: types::Format) -> i32 {
+    format_to_proto(value) as i32
+}
+
+fn try_format_from_proto(value: Format) -> Result<types::Format, Error> {
+    Ok(match value {
+        Format::Unspecified => {
+            return Err(Error::DeserializationError(
+                "unknown serialization format".to_owned(),
+            ));
         }
-    }
+        Format::Default => types::Format::Default,
+        Format::Ragged => types::Format::Ragged,
+        Format::Image => types::Format::Image,
+    })
+}
+
+pub fn try_format_from_i32(value: i32) -> Result<types::Format, Error> {
+    Format::try_from(value)
+        .map_err(|_| Error::DeserializationError(format!("unknown serialization format: {value}")))
+        .map(try_format_from_proto)?
 }

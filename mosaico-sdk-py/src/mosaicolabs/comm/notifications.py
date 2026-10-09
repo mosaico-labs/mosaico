@@ -1,9 +1,10 @@
 import datetime
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from mosaicolabs.helpers.helpers import unpack_topic_full_path
+from mosaicolabs.proto.v1 import responses_pb2
 
 
 def _parse_datetime_str(s: str) -> datetime.datetime:
@@ -74,17 +75,17 @@ class Notification:
     topic_name: Optional[str] = None
 
     @classmethod
-    def _from_dict(cls, data: Dict[str, Any]) -> "Notification":
+    def _from_proto(cls, msg: responses_pb2.NotificationItem) -> "Notification":
         """
-        Create a Notification object from a dictionary.
+        Create a Notification object from a decoded protobuf message.
 
         Args:
-            data (Dict[str, Any]): The dictionary to create the Notification object from.
+            msg (responses_pb2.NotificationItem): The decoded notification item.
 
         Returns:
             Notification: A Notification object.
         """
-        sequence_name = data["name"]
+        sequence_name = msg.name
         unpacked = unpack_topic_full_path(sequence_name)
         topic_name = None
         if unpacked is not None:
@@ -93,7 +94,7 @@ class Notification:
         return cls(
             sequence_name=sequence_name,
             topic_name=topic_name,
-            type=NotificationType(data["notification_type"]),
-            message=data["msg"],
-            created_datetime=_parse_datetime_str(data["created_datetime"]),
+            type=NotificationType(msg.notification_type),
+            message=msg.msg,
+            created_datetime=_parse_datetime_str(msg.created_datetime),
         )

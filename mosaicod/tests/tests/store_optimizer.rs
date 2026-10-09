@@ -49,7 +49,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -60,10 +60,9 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
     let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
@@ -229,7 +228,7 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -240,10 +239,9 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     let topic_record = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator)
         .await
@@ -367,7 +365,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -378,10 +376,9 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     let topic_record = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator)
         .await
@@ -539,7 +536,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -550,10 +547,9 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     let batches = vec![
         ext::arrow::testing::dummy_binary_batch(1_000, 0, 5, 16_000, 16_000),
@@ -583,7 +579,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
         .parse::<types::TopicLocator>()
         .unwrap();
     let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator2.to_string(), None)
+        actions::topic_create(&mut client, &session.1, &topic_locator2.to_string(), "")
             .await
             .unwrap();
 
@@ -766,7 +762,7 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -777,10 +773,9 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     let topic_record = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator)
         .await
@@ -931,7 +926,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let metadata = r#"{"meta": "test"}"#;
 
-    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+    actions::sequence_create(&mut client, sequence_name, metadata)
         .await
         .unwrap();
 
@@ -950,10 +945,9 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_locator = "test_sequence/topic"
         .parse::<types::TopicLocator>()
         .unwrap();
-    let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
-            .await
-            .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), "")
+        .await
+        .unwrap();
 
     actions::do_put(
         &mut client,
@@ -975,7 +969,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
         .parse::<types::TopicLocator>()
         .unwrap();
     let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator2.to_string(), None)
+        actions::topic_create(&mut client, &session.1, &topic_locator2.to_string(), "")
             .await
             .unwrap();
 
@@ -999,7 +993,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
         .parse::<types::TopicLocator>()
         .unwrap();
     let topic_uuid =
-        actions::topic_create(&mut client, &session.1, &topic_locator3.to_string(), None)
+        actions::topic_create(&mut client, &session.1, &topic_locator3.to_string(), "")
             .await
             .unwrap();
 

@@ -1,6 +1,9 @@
+import json
+
 import pytest
 
 from mosaicolabs import IMU, Pressure, Temperature, TimestampRange
+from mosaicolabs.proto.v1 import responses_pb2
 from mosaicolabs.query import (
     QueryResponseItem,
     QueryResponseItemTopic,
@@ -17,11 +20,11 @@ from mosaicolabs.query.response import (
 
 @pytest.fixture
 def empty_query_topic() -> QueryResponseItemTopic:
-    qri = QueryResponseItemTopic._from_dict(
-        {
-            "locator": "seq1/empty",
-            "ontology_tag": "",
-        }
+    qri = QueryResponseItemTopic._from_proto(
+        responses_pb2.QueryItemTopic(
+            locator="seq1/empty",
+            ontology_tag="",
+        )
     )
 
     return qri
@@ -29,11 +32,11 @@ def empty_query_topic() -> QueryResponseItemTopic:
 
 @pytest.fixture
 def imu_query_topic() -> QueryResponseItemTopic:
-    qri = QueryResponseItemTopic._from_dict(
-        {
-            "locator": "seq1/front_imu",
-            "ontology_tag": f"{IMU.ontology_tag()}",
-        }
+    qri = QueryResponseItemTopic._from_proto(
+        responses_pb2.QueryItemTopic(
+            locator="seq1/front_imu",
+            ontology_tag=f"{IMU.ontology_tag()}",
+        )
     )
 
     expr1 = IMU.Q.acceleration.x.gt(5.0)
@@ -45,11 +48,11 @@ def imu_query_topic() -> QueryResponseItemTopic:
 
 @pytest.fixture
 def pressure_query_topic() -> QueryResponseItemTopic:
-    qrit = QueryResponseItemTopic._from_dict(
-        {
-            "locator": "seq1/gasoline_tank_press",
-            "ontology_tag": f"{Pressure.ontology_tag()}",
-        }
+    qrit = QueryResponseItemTopic._from_proto(
+        responses_pb2.QueryItemTopic(
+            locator="seq1/gasoline_tank_press",
+            ontology_tag=f"{Pressure.ontology_tag()}",
+        )
     )
 
     expr1 = Pressure.Q.value.between([1.0, 5.0])
@@ -61,16 +64,16 @@ def pressure_query_topic() -> QueryResponseItemTopic:
 @pytest.fixture
 def temperature_query_sequence() -> QueryResponseItem:
 
-    qri = QueryResponseItem._from_dict(
-        {
-            "sequence": "seq2",
-            "topics": [
-                {
-                    "locator": "seq2/car_temp",
-                    "ontology_tag": f"{Temperature.ontology_tag()}",
-                },
+    qri = QueryResponseItem._from_proto(
+        responses_pb2.QueryItem(
+            sequence="seq2",
+            topics=[
+                responses_pb2.QueryItemTopic(
+                    locator="seq2/car_temp",
+                    ontology_tag=f"{Temperature.ontology_tag()}",
+                ),
             ],
-        }
+        )
     )
 
     expr1 = Temperature.Q.value.lt(3.0)
@@ -91,17 +94,13 @@ def test_create_clusterize_payload(imu_query_topic):
     # Creating payload default
     clusterize_payload = _build_clusterize_payload(imu_query_topic)
 
-    expected_payload = {
-        "locator": "seq1/front_imu",
-        "clustering_dt_ns": 0,
-        "ontology": {
-            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
-            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
-        },
-        "timestamp_range": None,
+    assert clusterize_payload.locator == "seq1/front_imu"
+    assert clusterize_payload.clustering_dt_ns == 0
+    assert json.loads(clusterize_payload.ontology) == {
+        f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+        f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
     }
-
-    assert clusterize_payload == expected_payload
+    assert not clusterize_payload.HasField("timestamp_range")
 
     # Creating payload with clustering_dt_ns
     clustering_dt_ns = 200
@@ -109,36 +108,30 @@ def test_create_clusterize_payload(imu_query_topic):
         imu_query_topic, clustering_dt_ns
     )
 
-    expected_payload = {
-        "locator": "seq1/front_imu",
-        "clustering_dt_ns": 200,
-        "ontology": {
-            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
-            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
-        },
-        "timestamp_range": None,
+    assert clusterize_payload_w_dt_ns.locator == "seq1/front_imu"
+    assert clusterize_payload_w_dt_ns.clustering_dt_ns == 200
+    assert json.loads(clusterize_payload_w_dt_ns.ontology) == {
+        f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+        f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
     }
-
-    assert clusterize_payload_w_dt_ns == expected_payload
+    assert not clusterize_payload_w_dt_ns.HasField("timestamp_range")
 
     # Creating payload with clustering_dt_ns and timestamp_range
     clusterize_payload_w_dt_ns_w_timestamp = _build_clusterize_payload(
         imu_query_topic,
         clustering_dt_ns,
-        TimestampRange._from_dict({"start_ns": 1, "end_ns": 10}),
+        TimestampRange(start=1, end=10),
     )
 
-    expected_payload = {
-        "locator": "seq1/front_imu",
-        "clustering_dt_ns": 200,
-        "ontology": {
-            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
-            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
-        },
-        "timestamp_range": {"start_ns": 1, "end_ns": 10},
+    assert clusterize_payload_w_dt_ns_w_timestamp.locator == "seq1/front_imu"
+    assert clusterize_payload_w_dt_ns_w_timestamp.clustering_dt_ns == 200
+    assert json.loads(clusterize_payload_w_dt_ns_w_timestamp.ontology) == {
+        f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+        f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
     }
-
-    assert clusterize_payload_w_dt_ns_w_timestamp == expected_payload
+    assert clusterize_payload_w_dt_ns_w_timestamp.HasField("timestamp_range")
+    assert clusterize_payload_w_dt_ns_w_timestamp.timestamp_range.start_ns == 1
+    assert clusterize_payload_w_dt_ns_w_timestamp.timestamp_range.end_ns == 10
 
 
 def test_create_clusterize_empty_payload(empty_query_topic):
@@ -146,14 +139,10 @@ def test_create_clusterize_empty_payload(empty_query_topic):
     # Creating payload and comparison (without clustering_dt_ns and timestamp_range)
     clusterize_payload = _build_clusterize_payload(empty_query_topic)
 
-    expected_payload = {
-        "locator": "seq1/empty",
-        "clustering_dt_ns": 0,
-        "ontology": {},
-        "timestamp_range": None,
-    }
-
-    assert clusterize_payload == expected_payload
+    assert clusterize_payload.locator == "seq1/empty"
+    assert clusterize_payload.clustering_dt_ns == 0
+    assert json.loads(clusterize_payload.ontology) == {}
+    assert not clusterize_payload.HasField("timestamp_range")
 
 
 def test_create_intersect_payload(
@@ -171,35 +160,25 @@ def test_create_intersect_payload(
         intersect_dt_ns,
     )
 
-    expected_payload = {
-        "topics": [
-            {
-                "locator": "seq1/front_imu",
-                "clustering_dt_ns": 0,
-                "ontology": {
-                    f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
-                    f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
-                },
-            },
-            {
-                "locator": "seq1/gasoline_tank_press",
-                "clustering_dt_ns": 0,
-                "ontology": {
-                    f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
-                },
-            },
-            {
-                "locator": "seq2/car_temp",
-                "clustering_dt_ns": 0,
-                "ontology": {
-                    f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
-                },
-            },
-        ],
-        "intersect_dt_ns": intersect_dt_ns,
-    }
-
-    assert intersect_payload == expected_payload
+    assert intersect_payload.intersect_dt_ns == intersect_dt_ns
+    assert [t.locator for t in intersect_payload.topics] == [
+        "seq1/front_imu",
+        "seq1/gasoline_tank_press",
+        "seq2/car_temp",
+    ]
+    assert [t.clustering_dt_ns for t in intersect_payload.topics] == [0, 0, 0]
+    assert [json.loads(t.ontology) for t in intersect_payload.topics] == [
+        {
+            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
+        },
+        {
+            f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
+        },
+        {
+            f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
+        },
+    ]
 
     # Creating payload with clustering_map and clustering_dt_ns default overridden
     clustering_map = {
@@ -216,35 +195,29 @@ def test_create_intersect_payload(
         override_clustering_dt_ns,
     )
 
-    expected_payload = {
-        "topics": [
-            {
-                "locator": "seq1/front_imu",
-                "clustering_dt_ns": 10,
-                "ontology": {
-                    f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
-                    f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
-                },
-            },
-            {
-                "locator": "seq1/gasoline_tank_press",
-                "clustering_dt_ns": 50,
-                "ontology": {
-                    f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
-                },
-            },
-            {
-                "locator": "seq2/car_temp",
-                "clustering_dt_ns": 300,  # not present in map and default overridden
-                "ontology": {
-                    f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
-                },
-            },
-        ],
-        "intersect_dt_ns": intersect_dt_ns,
-    }
-
-    assert intersect_payload == expected_payload
+    assert intersect_payload.intersect_dt_ns == intersect_dt_ns
+    assert [t.locator for t in intersect_payload.topics] == [
+        "seq1/front_imu",
+        "seq1/gasoline_tank_press",
+        "seq2/car_temp",
+    ]
+    assert [t.clustering_dt_ns for t in intersect_payload.topics] == [
+        10,
+        50,
+        300,  # not present in map and default overridden
+    ]
+    assert [json.loads(t.ontology) for t in intersect_payload.topics] == [
+        {
+            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
+        },
+        {
+            f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
+        },
+        {
+            f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
+        },
+    ]
 
 
 def test_create_intersect_empty_payload(
@@ -260,25 +233,11 @@ def test_create_intersect_empty_payload(
         intersect_dt_ns,
     )
 
-    expected_payload = {
-        "topics": [
-            {
-                "locator": "seq1/empty",
-                "clustering_dt_ns": 0,
-                "ontology": {},
-            },
-            {
-                "locator": "seq1/empty",
-                "clustering_dt_ns": 0,
-                "ontology": {},
-            },
-            {
-                "locator": "seq1/empty",
-                "clustering_dt_ns": 0,
-                "ontology": {},
-            },
-        ],
-        "intersect_dt_ns": intersect_dt_ns,
-    }
-
-    assert intersect_payload == expected_payload
+    assert intersect_payload.intersect_dt_ns == intersect_dt_ns
+    assert [t.locator for t in intersect_payload.topics] == [
+        "seq1/empty",
+        "seq1/empty",
+        "seq1/empty",
+    ]
+    assert [t.clustering_dt_ns for t in intersect_payload.topics] == [0, 0, 0]
+    assert [json.loads(t.ontology) for t in intersect_payload.topics] == [{}, {}, {}]

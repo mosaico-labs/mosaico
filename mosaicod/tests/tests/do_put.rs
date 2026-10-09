@@ -17,7 +17,7 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
 
     let sequence_name = "test_sequence";
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -26,7 +26,7 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+    let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", "")
         .await
         .unwrap();
     assert!(uuid.is_valid());
@@ -63,7 +63,7 @@ async fn test_do_put_nonexistent_topic_uuid(pool: sqlx::Pool<db::DatabaseType>) 
         .await;
 
     let sequence_name = "test_sequence";
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
 
@@ -93,13 +93,13 @@ async fn test_do_put_on_locked_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/locked", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -129,16 +129,16 @@ async fn test_do_put_descriptor_mismatch(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_a = &format!("{}/topic_a", sequence_name);
     let topic_b = &format!("{}/topic_b", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let uuid_a = actions::topic_create(&mut client, &session_uuid, topic_a, None)
+    let uuid_a = actions::topic_create(&mut client, &session_uuid, topic_a, "")
         .await
         .unwrap();
-    let _uuid_b = actions::topic_create(&mut client, &session_uuid, topic_b, None)
+    let _uuid_b = actions::topic_create(&mut client, &session_uuid, topic_b, "")
         .await
         .unwrap();
 
@@ -159,13 +159,13 @@ async fn test_do_put_no_schema_empty_batches(pool: sqlx::Pool<db::DatabaseType>)
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/no_batches", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -185,13 +185,13 @@ async fn test_do_put_schema_with_empty_batches(pool: sqlx::Pool<db::DatabaseType
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/no_batches", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 

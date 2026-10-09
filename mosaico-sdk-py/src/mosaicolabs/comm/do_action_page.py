@@ -10,12 +10,14 @@ server responses are automatically deserialized into the correct Python objects,
 providing stronger typing and validation than raw dictionaries.
 """
 
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
+from typing import ClassVar, Dict, Optional, Type, TypeVar
 
 import pyarrow.flight as fl
+from google.protobuf.message import Message
+
+from mosaicolabs.proto.v1 import responses_pb2
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
@@ -33,8 +35,8 @@ T_DoActionPageResponse = TypeVar(
 class _DoActionPageResponse(ABC):
     """
     Abstract base class for Flight Action responses. Differently from `_DoActionResponse`,
-    this class handles responses composed of list of dictionaries rather than just a single dictionary.
-    Indeed it defines from_list() rather than from_dict().
+    this class handles responses composed of a list of decoded protobuf messages rather
+    than just a single one. Indeed it defines from_proto_list() rather than from_proto().
 
     This class handles the automatic registration of subclasses. When a subclass
     is defined with a list of `actions`, it is automatically added to the `_registry`.
@@ -45,6 +47,10 @@ class _DoActionPageResponse(ABC):
 
     # Subclasses must define which actions they handle
     actions: ClassVar[list[FlightAction]] = []
+
+    # Subclasses must define the protobuf message type each streamed response
+    # item is wire-encoded as.
+    wire_type: ClassVar[Type[Message]]
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -81,14 +87,15 @@ class _DoActionPageResponse(ABC):
 
     @classmethod
     @abstractmethod
-    def from_list(
-        cls: Type[T_DoActionPageResponse], data: list[Dict[str, Any]]
+    def from_proto_list(
+        cls: Type[T_DoActionPageResponse], messages: list[Message]
     ) -> T_DoActionPageResponse:
         """
-        Abstract method to deserialize a list of dictionaries into an instance.
+        Abstract method to deserialize a list of decoded protobuf messages into an instance.
 
         Args:
-            data (list[Dict[str, Any]]): The raw dictionary from the server response.
+            messages (list[Message]): The decoded protobuf response messages, one per
+                streamed `do_action` result.
 
         Returns:
             T_DoActionPageResponse: An instance of the class.
@@ -99,7 +106,7 @@ class _DoActionPageResponse(ABC):
 def _do_action_page(
     client: fl.FlightClient,
     action: FlightAction,
-    payload: dict[str, Any],
+    request: Message,
     expected_type: Type[T_DoActionPageResponse],
 ) -> Optional[T_DoActionPageResponse]:
     """
@@ -109,7 +116,7 @@ def _do_action_page(
     Args:
         client (fl.FlightClient): The connected Flight client.
         action (FlightAction): The specific action to execute.
-        payload (dict[str, Any]): The parameters for the action (serialized to JSON).
+        request (Message): The protobuf request message for the action.
         expected_type (Optional[Type]): The expected response class. If provided,
                                         the result is checked against this type.
 
@@ -120,61 +127,19 @@ def _do_action_page(
 
     Raises:
         TypeError: If returned responses do not have the expected FlightAction type.
-        Exception: For Flight errors or JSON decoding failures.
+        Exception: For Flight errors or protobuf decoding failures.
     """
     action_name = action.value
     logger.debug(f"Sending Flight action: '{action_name}'")
 
     try:
-        # Serialize payload
-        body = json.dumps(payload).encode("utf-8")
-        logger.debug(f"Action request body: '{body}'")
+        # Serialize the request as raw protobuf binary.
+        body = request.SerializeToString()
+        logger.debug(f"Action request body: '{body!r}'")
 
         # Execute Flight call
         action_results = client.do_action(fl.Action(action_name, body))
 
-        # Process the result stream (usually contains 0 or N item)
-        returned_responses: list[dict[str, Any]] = []
-
-        for result in action_results:
-            if result.body:
-                # result.body is a PyArrow Buffer; to_pybytes() is zero-copy or low-overhead
-                buffer = result.body.to_pybytes()
-
-                # If no data was received
-                if not buffer:
-                    return None
-
-                # Decode and Parse exactly once
-                result_str = buffer.decode("utf-8")
-                result_dict: dict[str, Any] = json.loads(result_str)
-
-                # --- Validation ---
-                # Verify the server response is not empty
-                r_act = result_dict.get("action")
-                if r_act is None or r_act == "empty":
-                    logger.debug(
-                        f"Action '{action_name}' response had no 'action' field."
-                    )
-                    return None
-
-                # Verify the server is responding to the correct action and that all actions are the same
-                if r_act != action_name:
-                    logger.warning(
-                        f"Unexpected action in response: got '{r_act}', expected '{action_name}'"
-                    )
-                    return None
-
-                r_data = result_dict.get("response")
-                if r_data is None:
-                    logger.debug(
-                        f"Action '{action_name}' response had no 'response' field."
-                    )
-                    return None
-
-                returned_responses.append(r_data)
-
-        # --- Deserialization ---
         # Ensure the registered class matches what the caller expects
         response_cls = _DoActionPageResponse.get_class_for_action(action)
         if response_cls is not expected_type:
@@ -182,8 +147,22 @@ def _do_action_page(
                 f"Action '{action_name}' returned an unexpected type. "
                 f"Got '{response_cls.__name__}', but expected '{expected_type.__name__}'"
             )
-        # Parse data
-        return expected_type.from_list(returned_responses)
+
+        # Process the result stream (usually contains 0 or N item)
+        messages: list[Message] = []
+
+        for result in action_results:
+            if result.body is not None:
+                # result.body is a PyArrow Buffer; to_pybytes() is zero-copy or
+                # low-overhead. It may be zero-length: a message whose fields
+                # are all at their default value serializes to zero bytes,
+                # which still decodes to a valid (if trivial) message — it
+                # must not be mistaken for "no result arrived".
+                buffer = result.body.to_pybytes()
+                messages.append(expected_type.wire_type.FromString(buffer))
+
+        # --- Deserialization ---
+        return expected_type.from_proto_list(messages)
 
     except Exception as e:
         logger.exception(f"Flight action '{action_name}' failed: '{e}'")
@@ -196,17 +175,14 @@ class _DoActionPageResponseFilterClusterize(_DoActionPageResponse):
     """Response containing the metadata of the 'topic_filter_clusterize' DoActionPage."""
 
     actions: ClassVar[list[FlightAction]] = [FlightAction.TOPIC_FILTER_CLUSTERIZE]
+    wire_type: ClassVar[Type[Message]] = responses_pb2.TopicFilterClusterize
     clusters: list[TopicCluster]
 
     @classmethod
-    def from_list(
-        cls, data: list[dict[str, Any]]
+    def from_proto_list(
+        cls, messages: list[responses_pb2.TopicFilterClusterize]
     ) -> "_DoActionPageResponseFilterClusterize":
-
-        clusters = []
-        for resp in data:
-            clusters.append(TopicCluster._from_dict(resp))
-
+        clusters = [TopicCluster._from_proto(msg) for msg in messages]
         return cls(clusters=clusters)
 
 

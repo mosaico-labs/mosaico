@@ -51,13 +51,13 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
 
-    actions::sequence_create(&mut client, sequence_name, None)
+    actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
         .await
         .unwrap();
 
@@ -85,8 +85,8 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
         .await
         .unwrap();
 
-    let app_metadata: marshal::flight::TopicAppMetadata =
-        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    let app_metadata =
+        marshal::flight::topic_info_from_bytes(&info.endpoint[0].clone().app_metadata).unwrap();
 
     assert_eq!(app_metadata.data_info.total_row_count, 300000);
 

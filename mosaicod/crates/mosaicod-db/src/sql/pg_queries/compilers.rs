@@ -271,11 +271,17 @@ mod internal {
                     )
                 }
                 query::Op::Ex => query::CompiledClause::new(
-                    format!("jsonb_path_exists({}, '{}')", self.field, field,),
+                    format!(
+                        "COALESCE(jsonb_path_exists({}, '{}'), false)",
+                        self.field, field,
+                    ),
                     Vec::new(),
                 ),
                 query::Op::Nex => query::CompiledClause::new(
-                    format!("NOT jsonb_path_exists({}, '{}')", self.field, field,),
+                    format!(
+                        "COALESCE(NOT jsonb_path_exists({}, '{}'), true)",
+                        self.field, field,
+                    ),
                     Vec::new(),
                 ),
                 query::Op::Between(range) => {
@@ -463,6 +469,41 @@ mod tests {
         assert_eq!(qr.values[0], query::Value::Integer(1));
         assert_eq!(qr.values[1], query::Value::Integer(6));
         assert_eq!(qr.values[2], query::Value::Integer(-1));
+    }
+
+    #[test]
+    fn user_metadata_ex_nex_are_null_safe() {
+        // A row with no `user_metadata` at all has the column itself as SQL
+        // NULL (not `'{}'::jsonb`); `jsonb_path_exists(NULL, ...)` evaluates
+        // to NULL, which must not make the row silently fail `Ex`/`Nex`.
+        let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([
+            ("accuracy_m".to_owned(), query::Op::Ex),
+            ("other_field".to_owned(), query::Op::Nex),
+        ]);
+
+        let placeholder = query::Placeholder::new();
+        let mut jqc = JsonQueryCompiler::new(placeholder);
+        let fmt = jqc.with_field("topic.user_metadata".to_owned());
+
+        let mut cc = ClausesCompiler::new();
+        for (k, v) in mdata {
+            cc = cc.expr(&k, v, fmt);
+        }
+        let qr = cc.compile().expect("problem building query");
+
+        dbg!(&qr);
+
+        let ex_found = qr.clauses.iter().any(|c| {
+            c.contains(r#"COALESCE(jsonb_path_exists(topic.user_metadata, '$.accuracy_m'), false)"#)
+        });
+        assert!(ex_found, "ex clause not found in {:?}", qr.clauses);
+
+        let nex_found = qr.clauses.iter().any(|c| {
+            c.contains(
+                r#"COALESCE(NOT jsonb_path_exists(topic.user_metadata, '$.other_field'), true)"#,
+            )
+        });
+        assert!(nex_found, "nex clause not found in {:?}", qr.clauses);
     }
 
     #[test]

@@ -19,7 +19,7 @@ pub async fn get_schema(
     match desc.r#type() {
         DescriptorType::Cmd => {
             let cmd = marshal::flight::get_schema_cmd(&desc.cmd)?;
-            let resource_name = cmd.resource_locator;
+            let resource_name = cmd.locator;
 
             info!("requesting schema for resource {}", resource_name);
 

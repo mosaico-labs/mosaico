@@ -11,10 +11,14 @@ RUN apt-get update && \
   build-essential \
   ca-certificates 
 
-COPY Cargo.toml Cargo.lock ./
-COPY crates ./crates
-COPY tests ./tests
-COPY bin ./bin
+COPY mosaicod/Cargo.toml mosaicod/Cargo.lock ./
+COPY mosaicod/crates ./crates
+COPY mosaicod/tests ./tests
+COPY mosaicod/bin ./bin
+# mosaicod-proto's build.rs reads `.proto` files from the repo-root `proto/`
+# folder (three levels up from crates/mosaicod-proto) — mirror that layout
+# here since the build context is now the repo root, not `mosaicod/`.
+COPY proto /proto
 
 RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 

@@ -36,7 +36,7 @@ async fn do_get_flight_info(
     desc: FlightDescriptor,
     cmd: types::flight::GetFlightInfoCmd,
 ) -> grpc_common::Result<FlightInfo> {
-    let resource_name = &cmd.resource_locator;
+    let resource_name = &cmd.locator;
 
     info!("requesting info for resource {}", resource_name);
 
@@ -80,8 +80,8 @@ async fn sequence_flight_info(
         .try_collect::<Vec<FlightEndpoint>>()
         .await?;
 
-    // Get sequence metadata and convert it to flight appmetadata.
-    let app_metadata: flight::SequenceAppMetadata = sequence_info.metadata.into();
+    // Get sequence metadata and convert it to bytes.
+    let app_metadata = flight::sequence_metadata_to_bytes(sequence_info.metadata)?;
 
     let mut flight_info = FlightInfo::new()
         .with_descriptor(desc)
@@ -121,22 +121,18 @@ async fn build_topic_endpoint(
     topic_info: facade::topic::TopicInfo,
     timestamp_range: Option<types::TimestampRange>,
 ) -> grpc_common::Result<FlightEndpoint> {
-    let topic_locator = topic_info.metadata.properties.resource_locator.clone();
+    let topic_locator = topic_info.metadata.properties.locator.clone();
 
     let ticket = types::flight::TicketTopic {
         locator: topic_locator.clone(),
         timestamp_range,
     };
 
-    let app_mdata = flight::TopicAppMetadata::new(
-        topic_info.metadata,
-        topic_info.data_info,
-        topic_info.time_window_info,
-    );
+    let app_mdata = flight::topic_info_to_bytes(topic_info)?;
 
     let endpoint = FlightEndpoint::new()
         .with_ticket(Ticket {
-            ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
+            ticket: flight::ticket_topic_to_bytes(ticket).into(),
         })
         .with_app_metadata(app_mdata);
 

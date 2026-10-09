@@ -77,7 +77,7 @@ async fn do_put_topic_data(
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
 ) -> grpc_common::Result<()> {
-    let locator = cmd.resource_locator;
+    let locator = cmd.locator;
     let uuid_str = &cmd.key;
 
     info!(

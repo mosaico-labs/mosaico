@@ -5,18 +5,19 @@ This module provides the `SequenceDataStreamer`, which reads an entire sequence
 by merging multiple topic streams into a single, time-ordered iterator.
 """
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import pyarrow.flight as fl
 
 from ..comm.connection import ConnectionContext
 from ..logging_config import get_logger
 from ..models.core import Message
+from ..platform._proto_time import to_proto as timestamp_range_to_proto
 from ..platform.app_metadata import (
     TopicAppMetadata,
     TopicAppMetadataError,
 )
+from ..proto.v1 import flight_pb2
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
 
@@ -385,13 +386,12 @@ class SequenceDataStreamer:
         client: fl.FlightClient,
     ) -> fl.FlightInfo:
         """Performs the get_flight_info call. Raises if flight function does"""
-        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
-        if start_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
-        if end_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+        timestamp_range = timestamp_range_to_proto(start_timestamp_ns, end_timestamp_ns)
+        cmd = flight_pb2.GetFlightInfoCmd(locator=sequence_name)
+        if timestamp_range is not None:
+            cmd.timestamp_range.CopyFrom(timestamp_range)
 
-        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
+        descriptor = fl.FlightDescriptor.for_command(cmd.SerializeToString())
         return client.get_flight_info(descriptor)
 
     def _as_batch_provider(self) -> Dict[str, "TopicDataStreamer"]:
