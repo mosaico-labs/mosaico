@@ -11,7 +11,8 @@ use mosaicod_ext as ext;
 use prost::Message;
 
 use arrow_flight::Ticket;
-use mosaicod_marshal::{self as marshal, Ontology, requests, responses};
+use mosaicod_marshal::{self as marshal, requests, responses};
+use mosaicod_proto::v1::query as proto_query;
 
 use tonic::Streaming;
 
@@ -501,7 +502,7 @@ pub async fn topic_filter_clusterize(
     client: &mut Client,
     locator: &str,
     clustering_dt_ns: u64,
-    ontology: Ontology,
+    ontology: proto_query::OntologyFilter,
     timestamp_range: Option<marshal::TimestampRange>,
 ) -> Result<Vec<responses::TopicFilterClusterize>, tonic::Status> {
     let action = action(
@@ -509,8 +510,7 @@ pub async fn topic_filter_clusterize(
         &requests::TopicClusterizeParams {
             locator: locator.to_owned(),
             clustering_dt_ns,
-            ontology: serde_json::to_vec(&ontology)
-                .map_err(|e| tonic::Status::internal(e.to_string()))?,
+            ontology: Some(ontology),
             timestamp_range,
         },
     );
@@ -554,11 +554,14 @@ pub async fn topic_filter_intersect(
 
 pub async fn query(
     client: &mut Client,
-    filter: serde_json::Value,
+    filter: proto_query::Filter,
 ) -> Result<Vec<responses::ResponseQueryItem>, tonic::Status> {
-    let query_bytes =
-        serde_json::to_vec(&filter).map_err(|e| tonic::Status::internal(e.to_string()))?;
-    let action = action("query", &requests::Query { query: query_bytes });
+    let action = action(
+        "query",
+        &requests::Query {
+            filter: Some(filter),
+        },
+    );
 
     let mut items: Vec<responses::ResponseQueryItem> = Vec::new();
     let mut stream = client.do_action(action).await?.into_inner();

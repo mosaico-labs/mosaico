@@ -4,7 +4,7 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
-use super::{Error, IndexSpecifier, OntologyExprGroup, OntologyField, Op, Value};
+use super::{Error, IndexSpecifier, OntologyPredicateGroup, OntologyField, Op, Value};
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -167,7 +167,7 @@ impl TimeseriesResult {
         Ok(self)
     }
 
-    pub fn filter<V>(self, filter: OntologyExprGroup<V>) -> Result<Self, Error>
+    pub fn filter<V>(self, filter: OntologyPredicateGroup<V>) -> Result<Self, Error>
     where
         V: Into<Value>,
     {
@@ -736,7 +736,7 @@ fn all_op_struct_to_df_expr<V: Into<Value>>(
 }
 
 fn expr_group_to_df_expr<V>(
-    filter: OntologyExprGroup<V>,
+    filter: OntologyPredicateGroup<V>,
     schema: &Schema,
 ) -> Result<Option<Expr>, Error>
 where
@@ -871,7 +871,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expr_grp = OntologyExprGroup::new(vec![
+        let expr_grp = OntologyPredicateGroup::new(vec![
             (
                 OntologyField::try_new("tag.value".to_owned()).unwrap(),
                 Op::Between(Range::try_new(3, 5).unwrap()),

@@ -4,9 +4,9 @@ use arrow::array::{
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
-use serde_json::json;
+use mosaicod_proto::v1::query as proto_query;
 use std::sync::Arc;
-use tests::{actions, common};
+use tests::{actions, common, filter};
 use tonic::Code;
 
 use arrow::array::ArrayRef;
@@ -375,7 +375,10 @@ async fn test_ontology_neq_excludes_range_containing_value(pool: sqlx::Pool<db::
     // neq 5: value 5 is inside topic_a's range [1,7] -> excluded; 5 < 100 so topic_b matches
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 5 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(5))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -392,7 +395,10 @@ async fn test_ontology_neq_excludes_range_containing_value(pool: sqlx::Pool<db::
     // neq 50: both ranges entirely exclude 50 (max=7 < 50, min=100 > 50)
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 50 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(50))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -428,9 +434,15 @@ async fn test_ontology_exist_returns_topic_with_column(pool: sqlx::Pool<db::Data
     )
     .await;
 
-    let items = actions::query(&mut client, json!({ "ontology": { "mock.value": "$ex" } }))
-        .await
-        .unwrap();
+    let items = actions::query(
+        &mut client,
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ex())])),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
     let locators = topic_locators(&items);
 
     assert!(
@@ -463,9 +475,15 @@ async fn test_ontology_exist_works_on_text_column(pool: sqlx::Pool<db::DatabaseT
     )
     .await;
 
-    let items = actions::query(&mut client, json!({ "ontology": { "mock.name": "$ex" } }))
-        .await
-        .unwrap();
+    let items = actions::query(
+        &mut client,
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.name", filter::ex())])),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
     let locators = topic_locators(&items);
 
     assert!(
@@ -503,9 +521,15 @@ async fn test_ontology_not_exist_returns_chunks_with_nulls(pool: sqlx::Pool<db::
     )
     .await;
 
-    let items = actions::query(&mut client, json!({ "ontology": { "mock.value": "$nex" } }))
-        .await
-        .unwrap();
+    let items = actions::query(
+        &mut client,
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::nex())])),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
     let locators = topic_locators(&items);
 
     assert!(
@@ -545,7 +569,10 @@ async fn test_ontology_in_returns_chunks_overlapping_any_value(pool: sqlx::Pool<
     // [5, 103]: 5 is in [1,7] and 103 is in [100,106] -> both match
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$in": [5, 103] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::is_in([5, 103]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -562,7 +589,10 @@ async fn test_ontology_in_returns_chunks_overlapping_any_value(pool: sqlx::Pool<
     // [50]: not in [1,7] and not in [100,106] -> no match
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$in": [50] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::is_in([50]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -600,7 +630,10 @@ async fn test_ontology_in_single_value_acts_like_eq(pool: sqlx::Pool<db::Databas
     // [2]: in [1,3] but not in [10,30]
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$in": [2] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::is_in([2]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -635,7 +668,10 @@ async fn test_ontology_match_filters_by_regex(pool: sqlx::Pool<db::DatabaseType>
     // "truck*" should match only topic_truck
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$match": "truck*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.name", filter::matches("truck*"))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -673,7 +709,10 @@ async fn test_ontology_match_excludes_topics_without_column(pool: sqlx::Pool<db:
     // "?*" is the pattern to match a non-empty name.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$match": "?*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.name", filter::matches("?*"))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -711,7 +750,10 @@ async fn test_ontology_in_unnest_no_false_positives(pool: sqlx::Pool<db::Databas
     // topic_b must NOT be included even though 100 <= 200 and 106 >= 3.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$in": [3, 200] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::is_in([3, 200]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -756,7 +798,13 @@ async fn test_ontology_in_text_values(pool: sqlx::Pool<db::DatabaseType>) {
     // ["truck", "dog"]: each value hits exactly one topic
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$in": ["truck", "dog"] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.name",
+                filter::is_in(["truck", "dog"]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -773,7 +821,10 @@ async fn test_ontology_in_text_values(pool: sqlx::Pool<db::DatabaseType>) {
     // ["zebra"]: no topic has this value
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$in": ["zebra"] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.name", filter::is_in(["zebra"]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -802,7 +853,10 @@ async fn test_ontology_neq_boundary_values(pool: sqlx::Pool<db::DatabaseType>) {
     // neq 5: is in [5,10] -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 5 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(5))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -814,7 +868,10 @@ async fn test_ontology_neq_boundary_values(pool: sqlx::Pool<db::DatabaseType>) {
     // neq 10: is in [5,10] -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 10 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(10))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -826,7 +883,10 @@ async fn test_ontology_neq_boundary_values(pool: sqlx::Pool<db::DatabaseType>) {
     // neq 4 : range [5,10] -> included
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 4 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(4))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -838,7 +898,10 @@ async fn test_ontology_neq_boundary_values(pool: sqlx::Pool<db::DatabaseType>) {
     // neq 11: range [5,10] -> included
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 11 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(11))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -850,7 +913,10 @@ async fn test_ontology_neq_boundary_values(pool: sqlx::Pool<db::DatabaseType>) {
     // neq 8: range [5,10] -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$neq": 8 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::ne(8))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -887,12 +953,13 @@ async fn test_ontology_combined_in_and_geq(pool: sqlx::Pool<db::DatabaseType>) {
     // $in [2, 6, 21] AND $geq 5: $in selects all three, $geq 5 prunes topic_low (max=3 < 5)
     let items = actions::query(
         &mut client,
-        json!({
-            "ontology": {
-                "mock.value": { "$in": [2, 6, 21] },
-                "mock.value": { "$geq": 5 }
-            }
-        }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([
+                ("mock.value", filter::is_in([2, 6, 21])),
+                ("mock.value", filter::ge(5)),
+            ])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -941,7 +1008,10 @@ async fn test_ontology_any_eq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": 5 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(5))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -980,7 +1050,10 @@ async fn test_ontology_any_neq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$neq": 5 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::ne(5))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -997,7 +1070,10 @@ async fn test_ontology_any_neq(pool: sqlx::Pool<db::DatabaseType>) {
     // [5,5,5] has no element equal to 3 -> all elements satisfy != 3 -> at least one does
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$neq": 3 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::ne(3))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1031,10 +1107,13 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     .await;
 
     macro_rules! query_locs {
-        ($client:expr, $op:literal, $val:expr) => {{
+        ($client:expr, $cond:expr) => {{
             let items = actions::query(
                 $client,
-                json!({ "ontology": { "mock.list_test[?]": { $op: $val } } }),
+                proto_query::Filter {
+                    ontology: Some(filter::ontology_filter([("mock.list_test[?]", $cond)])),
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();
@@ -1043,7 +1122,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     // $gt v: any element > v — DataFusion: array_max(arr) > v
-    let locs = query_locs!(&mut client, "$gt", 25);
+    let locs = query_locs!(&mut client, filter::gt(25));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 25: max(a)=3, excluded"
@@ -1053,7 +1132,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$gt 25: max(b)=30 > 25, included"
     );
 
-    let locs = query_locs!(&mut client, "$gt", 30);
+    let locs = query_locs!(&mut client, filter::gt(30));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 30: excluded"
@@ -1064,7 +1143,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // $geq v: any element >= v — DataFusion: array_max(arr) >= v
-    let locs = query_locs!(&mut client, "$geq", 30);
+    let locs = query_locs!(&mut client, filter::ge(30));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$geq 30: max(a)=3, excluded"
@@ -1074,7 +1153,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$geq 30: max(b)=30 >= 30, included"
     );
 
-    let locs = query_locs!(&mut client, "$geq", 31);
+    let locs = query_locs!(&mut client, filter::ge(31));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$geq 31: excluded"
@@ -1085,7 +1164,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // $lt v: any element < v — DataFusion: array_min(arr) < v
-    let locs = query_locs!(&mut client, "$lt", 2);
+    let locs = query_locs!(&mut client, filter::lt(2));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$lt 2: min(a)=1 < 2, included"
@@ -1095,7 +1174,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$lt 2: min(b)=10, excluded"
     );
 
-    let locs = query_locs!(&mut client, "$lt", 1);
+    let locs = query_locs!(&mut client, filter::lt(1));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$lt 1: min(a)=1 not < 1, excluded"
@@ -1103,7 +1182,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(!locs.contains(&format!("{seq}/topic_b")), "$lt 1: excluded");
 
     // $leq v: any element <= v — DataFusion: array_min(arr) <= v
-    let locs = query_locs!(&mut client, "$leq", 1);
+    let locs = query_locs!(&mut client, filter::le(1));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$leq 1: min(a)=1 <= 1, included"
@@ -1113,7 +1192,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$leq 1: min(b)=10, excluded"
     );
 
-    let locs = query_locs!(&mut client, "$leq", 0);
+    let locs = query_locs!(&mut client, filter::le(0));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$leq 0: excluded"
@@ -1124,7 +1203,7 @@ async fn test_ontology_any_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // Sanity: both topics have elements > 0
-    let locs = query_locs!(&mut client, "$gt", 0);
+    let locs = query_locs!(&mut client, filter::gt(0));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$gt 0: topic_a included"
@@ -1159,7 +1238,13 @@ async fn test_ontology_any_between(pool: sqlx::Pool<db::DatabaseType>) {
     // [5, 9]: gap between both topics — neither has an element in [5, 9]
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$between": [5, 9] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::between([5, 9]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1176,7 +1261,13 @@ async fn test_ontology_any_between(pool: sqlx::Pool<db::DatabaseType>) {
     // [5, 15]: only topic_b has element 10 in range
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$between": [5, 15] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::between([5, 15]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1193,7 +1284,13 @@ async fn test_ontology_any_between(pool: sqlx::Pool<db::DatabaseType>) {
     // [2, 12]: both have an element in range (2 for a, 10 for b)
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$between": [2, 12] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::between([2, 12]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1232,7 +1329,13 @@ async fn test_ontology_any_in(pool: sqlx::Pool<db::DatabaseType>) {
     // Neither topic has 5 or 7
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$in": [5, 7] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::is_in([5, 7]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1249,7 +1352,13 @@ async fn test_ontology_any_in(pool: sqlx::Pool<db::DatabaseType>) {
     // topic_a has 2, topic_b has neither 2 nor 99
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$in": [2, 99] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::is_in([2, 99]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1266,7 +1375,13 @@ async fn test_ontology_any_in(pool: sqlx::Pool<db::DatabaseType>) {
     // Both match: topic_a has 3, topic_b has 10
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$in": [3, 10] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::is_in([3, 10]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1306,7 +1421,10 @@ async fn test_ontology_all_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // $eq 7
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$eq": 7 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::eq(7))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1323,7 +1441,10 @@ async fn test_ontology_all_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // $eq 2: no list is uniformly 2
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$eq": 2 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::eq(2))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1362,7 +1483,10 @@ async fn test_ontology_all_neq(pool: sqlx::Pool<db::DatabaseType>) {
     // $neq 9: neither topic contains 9
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$neq": 9 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::ne(9))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1379,7 +1503,10 @@ async fn test_ontology_all_neq(pool: sqlx::Pool<db::DatabaseType>) {
     // $neq 2: topic_a contains 2 -> excluded; topic_b has no 2 -> included
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$neq": 2 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::ne(2))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1396,7 +1523,10 @@ async fn test_ontology_all_neq(pool: sqlx::Pool<db::DatabaseType>) {
     // $neq 5: topic_a has no 5 -> included; topic_b contains 5 -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$neq": 5 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::ne(5))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1434,10 +1564,13 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     .await;
 
     macro_rules! query_locs {
-        ($client:expr, $op:literal, $val:expr) => {{
+        ($client:expr, $cond:expr) => {{
             let items = actions::query(
                 $client,
-                json!({ "ontology": { "mock.list_test[!]": { $op: $val } } }),
+                proto_query::Filter {
+                    ontology: Some(filter::ontology_filter([("mock.list_test[!]", $cond)])),
+                    ..Default::default()
+                },
             )
             .await
             .unwrap();
@@ -1446,7 +1579,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     // $gt v: all elements > v — DataFusion: array_min(arr) > v
-    let locs = query_locs!(&mut client, "$gt", 9);
+    let locs = query_locs!(&mut client, filter::gt(9));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 9: min(a)=1, excluded"
@@ -1456,7 +1589,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$gt 9: min(b)=10 > 9, included"
     );
 
-    let locs = query_locs!(&mut client, "$gt", 10);
+    let locs = query_locs!(&mut client, filter::gt(10));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 10: excluded"
@@ -1467,7 +1600,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // $geq v: all elements >= v — DataFusion: array_min(arr) >= v
-    let locs = query_locs!(&mut client, "$geq", 10);
+    let locs = query_locs!(&mut client, filter::ge(10));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$geq 10: min(a)=1, excluded"
@@ -1477,7 +1610,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$geq 10: min(b)=10 >= 10, included"
     );
 
-    let locs = query_locs!(&mut client, "$geq", 1);
+    let locs = query_locs!(&mut client, filter::ge(1));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$geq 1: min(a)=1 >= 1, included"
@@ -1488,7 +1621,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // $lt v: all elements < v
-    let locs = query_locs!(&mut client, "$lt", 5);
+    let locs = query_locs!(&mut client, filter::lt(5));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$lt 5: max(a)=3 < 5, included"
@@ -1498,7 +1631,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$lt 5: max(b)=30, excluded"
     );
 
-    let locs = query_locs!(&mut client, "$lt", 3);
+    let locs = query_locs!(&mut client, filter::lt(3));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$lt 3: max(a)=3 not < 3, excluded"
@@ -1506,7 +1639,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(!locs.contains(&format!("{seq}/topic_b")), "$lt 3: excluded");
 
     // $leq v: all elements <= v
-    let locs = query_locs!(&mut client, "$leq", 3);
+    let locs = query_locs!(&mut client, filter::le(3));
     assert!(
         locs.contains(&format!("{seq}/topic_a")),
         "$leq 3: max(a)=3 <= 3, included"
@@ -1516,7 +1649,7 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
         "$leq 3: max(b)=30, excluded"
     );
 
-    let locs = query_locs!(&mut client, "$leq", 0);
+    let locs = query_locs!(&mut client, filter::le(0));
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$leq 0: excluded"
@@ -1529,7 +1662,13 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     // $between [a, b]: all elements in [a, b]
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$between": [1, 3] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::between([1, 3]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1545,7 +1684,13 @@ async fn test_ontology_all_ordering(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$between": [5, 35] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::between([5, 35]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1585,7 +1730,10 @@ async fn test_ontology_at_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // [0] $eq 10: first element — topic_a matches, topic_b excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[0]": { "$eq": 10 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[0]", filter::eq(10))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1602,7 +1750,10 @@ async fn test_ontology_at_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // [1] $eq 50: second element — topic_b matches, topic_a excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[1]": { "$eq": 50 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[1]", filter::eq(50))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1619,7 +1770,10 @@ async fn test_ontology_at_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // [2] $eq 30: third element — topic_a matches, topic_b excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[2]": { "$eq": 30 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[2]", filter::eq(30))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1658,7 +1812,10 @@ async fn test_ontology_at_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     // [1] $gt 45: topic_a[1]=20 not > 45; topic_b[1]=50 > 45
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[1]": { "$gt": 45 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[1]", filter::gt(45))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1675,7 +1832,10 @@ async fn test_ontology_at_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     // [0] $leq 10: topic_a[0]=10 <= 10; topic_b[0]=40 not <= 10
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[0]": { "$leq": 10 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[0]", filter::le(10))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1692,7 +1852,13 @@ async fn test_ontology_at_ordering(pool: sqlx::Pool<db::DatabaseType>) {
     // [2] $between [25, 35]: topic_a[2]=30 in [25,35]; topic_b[2]=60 not
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[2]": { "$between": [25, 35] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[2]",
+                filter::between([25, 35]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1732,7 +1898,13 @@ async fn test_ontology_at_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // topic_a[2]=30 is inside [25,35] -> excluded; topic_b[2]=60 > 35 -> included.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[2]": { "$outside": [25, 35] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[2]",
+                filter::outside([25, 35]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1749,7 +1921,13 @@ async fn test_ontology_at_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // [1] $outside [45, 55]: topic_a[1]=20 < 45 -> included; topic_b[1]=50 inside -> excluded.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[1]": { "$outside": [45, 55] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[1]",
+                filter::outside([45, 55]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1766,7 +1944,13 @@ async fn test_ontology_at_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // [0] $outside [5, 100]: both first elements are inside the wide range -> both excluded.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[0]": { "$outside": [5, 100] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[0]",
+                filter::outside([5, 100]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1805,7 +1989,10 @@ async fn test_ontology_list_db_pruning(pool: sqlx::Pool<db::DatabaseType>) {
     // Values at the element range boundaries are found
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": 1 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(1))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1816,7 +2003,10 @@ async fn test_ontology_list_db_pruning(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": 30 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(30))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1829,7 +2019,10 @@ async fn test_ontology_list_db_pruning(pool: sqlx::Pool<db::DatabaseType>) {
     // v=0: 1 <= 0 is false -> chunk excluded at DB level
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": 0 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(0))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1841,7 +2034,10 @@ async fn test_ontology_list_db_pruning(pool: sqlx::Pool<db::DatabaseType>) {
     // v=99: 30 >= 99 is false -> chunk excluded at DB level
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": 99 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(99))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1882,7 +2078,13 @@ async fn test_ontology_any_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "a*": topic_a has "apple" -> included; topic_b has none starting with 'a' -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "a*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::matches("a*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1899,7 +2101,13 @@ async fn test_ontology_any_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "d*": topic_b has "dog" -> included; topic_a has none starting with 'd' -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "d*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::matches("d*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1916,7 +2124,13 @@ async fn test_ontology_any_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "*a*": both have an element containing 'a' ("banana"/"apple" for a, "cat" for b)
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "*a*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::matches("*a*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1933,7 +2147,13 @@ async fn test_ontology_any_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "z*": no element in either topic starts with 'z' -> both excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "z*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::matches("z*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1979,7 +2199,13 @@ async fn test_ontology_all_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "a": topic_a all match; topic_b has "cat"/"dog" that don't -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "a*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::matches("a*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -1996,7 +2222,13 @@ async fn test_ontology_all_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "?*": matches any non-empty string -> all elements in both topics match
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "?*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::matches("?*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2013,7 +2245,13 @@ async fn test_ontology_all_match(pool: sqlx::Pool<db::DatabaseType>) {
     // "z*": no element starts with 'z' -> NOT all elements match -> both excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "z*" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::matches("z*"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2060,7 +2298,10 @@ async fn test_ontology_list_of_struct_any(pool: sqlx::Pool<db::DatabaseType>) {
     // x > 3.0: topic_b (x=5.0) included, topic_a (x=1.0) excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.readings[?].x": { "$gt": 3.0 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.readings[?].x", filter::gt(3.0))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2077,7 +2318,10 @@ async fn test_ontology_list_of_struct_any(pool: sqlx::Pool<db::DatabaseType>) {
     // y < 20.0: topic_a (y=10.0) included, topic_b (y=50.0) excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.readings[?].y": { "$lt": 20.0 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.readings[?].y", filter::lt(20.0))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2103,7 +2347,10 @@ async fn test_ontology_duplicate_specifier_is_rejected(pool: sqlx::Pool<db::Data
 
     let err = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.a[?].b[!].c": { "$eq": 1 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.a[?].b[!].c", filter::eq(1))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -2122,7 +2369,10 @@ async fn test_ontology_invalid_specifier_syntax_is_rejected(pool: sqlx::Pool<db:
 
     let err = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.readings[abc]": { "$eq": 1 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.readings[abc]", filter::eq(1))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -2170,7 +2420,10 @@ async fn test_ontology_nested_list_is_unsupported(pool: sqlx::Pool<db::DatabaseT
 
     let err = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$gt": 0 } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::gt(0))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -2205,7 +2458,13 @@ async fn test_ontology_plain_list_eq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$eq": [3, 4, 5] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::eq([3, 4, 5]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2221,7 +2480,13 @@ async fn test_ontology_plain_list_eq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$eq": [99, 100, 200] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::eq([99, 100, 200]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2255,7 +2520,13 @@ async fn test_ontology_plain_list_neq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$neq": [3, 5, 7] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::ne([3, 5, 7]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2272,7 +2543,13 @@ async fn test_ontology_plain_list_neq(pool: sqlx::Pool<db::DatabaseType>) {
     // [99,100,200] matches neither list -> $neq includes all
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$neq": [99, 100, 200] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::ne([99, 100, 200]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2309,7 +2586,10 @@ async fn test_ontology_plain_list_eq_over_max_size_is_rejected(pool: sqlx::Pool<
     let big_list: Vec<i64> = (0..1025).collect();
     let err = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$eq": big_list } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test", filter::eq(big_list))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap_err();
@@ -2347,7 +2627,13 @@ async fn test_ontology_plain_list_bool_eq(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$eq": [true, false, true] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::eq([true, false, true]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2364,7 +2650,13 @@ async fn test_ontology_plain_list_bool_eq(pool: sqlx::Pool<db::DatabaseType>) {
     // $neq inverts the result.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test": { "$neq": [true, false, true] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test",
+                filter::ne([true, false, true]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2415,7 +2707,10 @@ async fn test_ontology_list_bool_specifiers(pool: sqlx::Pool<db::DatabaseType>) 
     // [?] $eq true -> at least one element is true: topic_a, topic_b
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$eq": true } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[?]", filter::eq(true))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2436,7 +2731,10 @@ async fn test_ontology_list_bool_specifiers(pool: sqlx::Pool<db::DatabaseType>) 
     // [!] $eq true -> every element is true: only topic_b
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$eq": true } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.list_test[!]", filter::eq(true))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2480,7 +2778,13 @@ async fn test_ontology_list_of_struct_bool(pool: sqlx::Pool<db::DatabaseType>) {
     // readings[?].active $eq true -> topic_a included, topic_b excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.readings[?].active": { "$eq": true } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.readings[?].active",
+                filter::eq(true),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2525,7 +2829,10 @@ async fn test_ontology_scalar_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // topic_b: 100 > 7 -> included.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$outside": [1, 7] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::outside([1, 7]))])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2542,7 +2849,13 @@ async fn test_ontology_scalar_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // outside([0, 200]): both ranges are fully inside [0, 200] -> both excluded.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$outside": [0, 200] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.value",
+                filter::outside([0, 200]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2559,7 +2872,13 @@ async fn test_ontology_scalar_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // outside([50, 60]): topic_a all < 50, topic_b all > 60 -> both included.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.value": { "$outside": [50, 60] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.value",
+                filter::outside([50, 60]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2600,7 +2919,13 @@ async fn test_ontology_any_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // outside([0, 30]): no element below 0 or above 30 in either topic -> both excluded.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$outside": [0, 30] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::outside([0, 30]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2617,7 +2942,13 @@ async fn test_ontology_any_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // outside([0, 25]): only topic_b has 30 > 25.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$outside": [0, 25] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::outside([0, 25]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2634,7 +2965,13 @@ async fn test_ontology_any_outside(pool: sqlx::Pool<db::DatabaseType>) {
     // outside([2, 30]): only topic_a has 1 < 2.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$outside": [2, 30] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[?]",
+                filter::outside([2, 30]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
@@ -2686,7 +3023,13 @@ async fn test_ontology_all_outside(pool: sqlx::Pool<db::DatabaseType>) {
 
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$outside": [5, 35] } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.list_test[!]",
+                filter::outside([5, 35]),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();

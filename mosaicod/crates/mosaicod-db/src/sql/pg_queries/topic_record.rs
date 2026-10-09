@@ -488,6 +488,7 @@ mod tests {
     use mosaicod_core::types::MetadataBlob;
     use mosaicod_marshal as marshal;
     use sqlx::Pool;
+    use std::collections::HashMap;
 
     async fn setup_fake_db(database: crate::Database) {
         let mut cx = database.connection();
@@ -587,6 +588,36 @@ mod tests {
         .unwrap();
     }
 
+    fn sequence_filter(
+        name: Option<query::Op<query::Text>>,
+        key: &str,
+        op: query::Op<query::Value>,
+    ) -> query::Filter {
+        query::Filter {
+            sequence: Some(query::SequenceFilter {
+                name,
+                created_at: None,
+                user_metadata: HashMap::from([(key.to_owned(), op)]),
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn topic_filter(
+        name: Option<query::Op<query::Text>>,
+        key: &str,
+        op: query::Op<query::Value>,
+    ) -> query::Filter {
+        query::Filter {
+            topic: Some(query::TopicFilter {
+                name,
+                user_metadata: HashMap::from([(key.to_owned(), op)]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
     #[sqlx::test]
     async fn test_topic_from_query_filter_match_regex(pool: Pool<DatabaseType>) {
         let database = testing::Database::new(pool);
@@ -596,8 +627,11 @@ mod tests {
         let mut cx = database.connection();
 
         // This returns a match because of the default json path LAX mode (no need for [*]).
-        let filter = r#"{"sequence": {"locator": {"$eq": "my_sequence"}, "user_metadata": {"key1": {"$match": "value2"}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = sequence_filter(
+            Some(query::Op::Eq("my_sequence".into())),
+            "key1",
+            query::Op::Match(query::Value::Text("value2".into())),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -606,16 +640,22 @@ mod tests {
         assert_eq!(res[0].locator_name, "my_sequence/topic");
         assert_eq!(res[1].locator_name, "my_sequence/topic2");
 
-        let filter = r#"{"sequence": {"locator": {"$eq": "my_sequence"}, "user_metadata": {"key1": {"$match": "value, value2"}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = sequence_filter(
+            Some(query::Op::Eq("my_sequence".into())),
+            "key1",
+            query::Op::Match(query::Value::Text("value, value2".into())),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
         assert!(res.is_empty());
 
         // Test single * to match anything....
-        let filter = r#"{"sequence": {"user_metadata": {"key4": {"$match": "*"}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = sequence_filter(
+            None,
+            "key4",
+            query::Op::Match(query::Value::Text("*".into())),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -634,8 +674,11 @@ mod tests {
         let mut cx = database.connection();
 
         // Search for "key6" at third level existence inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*.*.key6": {"$ex": null}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "*.*.key6",
+            query::Op::Ex,
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -644,8 +687,11 @@ mod tests {
         assert_eq!(res[0].locator_name, "my_sequence2/topic");
 
         // Search for "key5" with value 100 at second level inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*.key5": {"$eq": 100}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "*.key5",
+            query::Op::Eq(query::Value::Integer(100)),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -654,8 +700,11 @@ mod tests {
         assert_eq!(res[0].locator_name, "my_sequence/topic");
 
         // Search for list element with "value2" inside sequence's user metadata.
-        let filter = r#"{"sequence": {"locator": {"$match": "my_sequence"}, "user_metadata": {"key1[*]": { "$eq": "value2"}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = sequence_filter(
+            Some(query::Op::Match("my_sequence*".into())),
+            "key1[*]",
+            query::Op::Eq(query::Value::Text("value2".into())),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -665,8 +714,11 @@ mod tests {
         assert_eq!(res[1].locator_name, "my_sequence/topic2");
 
         // Search for "key8" as list item inside sequence's user metadata. This works beacuse Postgres uses LAX mode by default.
-        let filter = r#"{"sequence": {"locator": {"$match": "my_sequence"}, "user_metadata": {"*[*].key8": { "$eq": true}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = sequence_filter(
+            Some(query::Op::Match("my_sequence*".into())),
+            "*[*].key8",
+            query::Op::Eq(query::Value::Boolean(true)),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -675,8 +727,15 @@ mod tests {
         assert_eq!(res[0].locator_name, "my_sequence2/topic");
 
         // Search for any key with value in [1, 100, 200] at first level inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*": {"$in": [1, 100, 200]}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "*",
+            query::Op::In(vec![
+                query::Value::Integer(1),
+                query::Value::Integer(100),
+                query::Value::Integer(200),
+            ]),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -695,14 +754,12 @@ mod tests {
 
         let mut cx = database.connection();
 
-        // Triple * is not allowed.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"***.key5": {"$eq": 100}}}}"#;
-        let err = marshal::query_filter_from_string(filter).unwrap_err();
-        assert!(matches!(err, marshal::Error::DeserializationError(_)));
-
         // Search for "key5" at every level inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**.key5": {"$eq": 100}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "**.key5",
+            query::Op::Eq(query::Value::Integer(100)),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -712,8 +769,11 @@ mod tests {
         assert_eq!(res[1].locator_name, "my_sequence/topic2");
 
         // Search for "key6" inside an array in topics' metadata. This returns 2 results because Postgres operates in LAX mode by default.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**[*].key6": {"$ex": null}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "**[*].key6",
+            query::Op::Ex,
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -723,8 +783,15 @@ mod tests {
         assert_eq!(res[1].locator_name, "my_sequence2/topic");
 
         // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**": {"$in": ["value5", "value6", true]}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "**",
+            query::Op::In(vec![
+                query::Value::Text("value5".into()),
+                query::Value::Text("value6".into()),
+                query::Value::Boolean(true),
+            ]),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();
@@ -734,8 +801,11 @@ mod tests {
         assert_eq!(res[1].locator_name, "my_sequence2/topic");
 
         // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
-        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**[*]": {"$eq": false}}}}"#;
-        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let filter = topic_filter(
+            Some(query::Op::Match("/topic*".into())),
+            "**[*]",
+            query::Op::Eq(query::Value::Boolean(false)),
+        );
         let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
             .await
             .unwrap();

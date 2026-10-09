@@ -8,11 +8,11 @@ use tracing::{info, trace};
 /// Executes a query and returns matching groups.
 pub async fn execute(
     ctx: &facade::Context,
-    query: serde_json::Value,
+    query: marshal::requests::QueryFilter,
 ) -> grpc_common::Result<ActionResponse> {
     info!("performing a query");
 
-    let filter = marshal::query_filter_from_serde_value(query)?;
+    let filter = marshal::query_filter_from_proto(query)?;
 
     trace!("query filter: {:?}", filter);
 

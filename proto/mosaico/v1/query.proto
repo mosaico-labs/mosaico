@@ -1,0 +1,96 @@
+syntax = "proto3";
+
+package mosaico.v1.query;
+
+// Values
+message IntegerArray { repeated int64 values = 1; }
+message FloatArray   { repeated double values = 1; }
+message TextArray    { repeated string values = 1; }
+message BooleanArray { repeated bool values = 1; }
+
+message Value {
+    oneof kind {
+        int64 integer = 1;
+        double float = 2;
+        string text = 3;
+        bool boolean = 4;
+        IntegerArray integer_array = 5;
+        FloatArray float_array = 6;
+        TextArray text_array = 7;
+        BooleanArray boolean_array = 8; 
+    }
+}
+
+enum Operator {
+    OPERATOR_UNSPECIFIED = 0;
+    OPERATOR_EQ = 1;
+    OPERATOR_NE = 2;
+    OPERATOR_LT = 3;
+    OPERATOR_LE = 4;
+    OPERATOR_GT = 5;
+    OPERATOR_GE = 6;
+    OPERATOR_BETWEEN = 7;
+    OPERATOR_OUTSIDE = 8;
+    OPERATOR_IN = 9;
+    OPERATOR_MATCH = 10;
+    OPERATOR_EX = 11;
+    OPERATOR_NEX = 12;
+}
+
+message Condition {
+    Operator op = 1;
+    Value value = 2;
+}
+
+enum Aggregator {
+    AGGREGATOR_UNSPECIFIED = 0;
+    AGGREGATOR_MAX = 1;
+    AGGREGATOR_MIN = 2;
+    AGGREGATOR_COUNT = 3;
+    AGGREGATOR_RANGE = 4;
+    AGGREGATOR_FIRST = 5;
+    AGGREGATOR_LAST = 6;
+    AGGREGATOR_STD = 7;
+    AGGREGATOR_MEAN = 8;
+    AGGREGATOR_DIFF = 9;
+    AGGREGATOR_RATE = 10;
+    AGGREGATOR_P50 = 11;
+    AGGREGATOR_P90 = 12;
+    AGGREGATOR_P99 = 13;
+}
+
+// Sequence
+message SequenceFilter {
+    Condition name = 1;
+    Condition created_at_ns = 2;
+    map<string, Condition> user_metadata = 3;
+}
+
+// Topic
+message TopicFilter {
+    Condition name = 1;
+    Condition created_at_ns = 2;
+    Condition ontology_tag = 3;
+    Condition serialization_format = 4;
+    map<string, Condition> user_metadata = 5;
+}
+
+
+// Ontology
+message OntologyPredicate {
+    // "<ontology_tag>.<path>", e.g. "imu.acceleration.x", "joint.positions[?]"
+    string field = 1;
+    Aggregator aggregator = 2;
+    Condition condition = 3;
+}
+
+message OntologyFilter {
+    repeated OntologyPredicate predicates = 1;
+}
+
+// Filter
+message Filter {
+    SequenceFilter sequence = 1;
+    TopicFilter topic = 2;
+    OntologyFilter ontology = 3;
+}

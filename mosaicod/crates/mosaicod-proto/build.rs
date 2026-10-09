@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         proto_root.join("mosaico/v1/requests.proto"),
         proto_root.join("mosaico/v1/responses.proto"),
         proto_root.join("mosaico/v1/flight.proto"),
+        proto_root.join("mosaico/v1/query.proto"),
     ];
 
     for proto_file in &proto_files {
