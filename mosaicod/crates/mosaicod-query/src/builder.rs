@@ -103,7 +103,7 @@ impl ClausesCompiler {
     }
 
     // es: field = topic.user_metadata
-    pub fn ontology_expr_group<F, V>(
+    pub fn ontology_predicate_group<F, V>(
         mut self,
         filter: OntologyPredicateGroup<V>,
         formatter: &mut F,
@@ -116,8 +116,8 @@ impl ClausesCompiler {
             return self;
         }
 
-        for expr in filter.into_iter() {
-            let (ontology_field, op) = expr.into_parts();
+        for predicate in filter.into_iter() {
+            let (ontology_field, op) = predicate.into_parts();
             let field = formatter.ontology_column_fmt(&ontology_field);
             self = self.expr(&field, op, formatter);
         }

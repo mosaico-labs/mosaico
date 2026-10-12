@@ -13,12 +13,12 @@
 //!     An [`Op`] defines *how* to compare data. It represents specific conditions like equality
 //!     (`Eq`), ranges (`Between`), set membership (`In`), or existence (`Ex`).
 //!
-//! -   _Expression_ ([`Expr`]): the single constraint.
-//!     An expression is formed by binding a specific identifier (a field name or [`OntologyField`])
+//! -   _Predicate_ ([`OntologyPredicate`]): the single constraint.
+//!     A predicate is formed by binding a specific identifier (a field name or [`OntologyField`])
 //!     to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
 //!
 //! -   _Filter_: the composite query.
-//!     A [`Filter`] is a collection of expressions grouped by domain (Sequence, Topic, Ontology,
+//!     A [`Filter`] is a collection of predicates grouped by domain (Sequence, Topic, Ontology,
 //!     ...).
 //!     It represents the complete set of criteria required to match a specific resource.
 //!
@@ -410,7 +410,7 @@ impl std::fmt::Display for OntologyField {
 }
 
 /// A single constraint.
-/// An expression is formed by binding a specific identifier (a field name or [`OntologyField`])
+/// A predicate is formed by binding a specific identifier (a field name or [`OntologyField`])
 /// to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
 #[derive(Debug, Clone)]
 pub struct OntologyPredicate<T>(OntologyField, Op<T>);
@@ -435,7 +435,7 @@ impl<T> From<(OntologyField, Op<T>)> for OntologyPredicate<T> {
     }
 }
 
-/// An expression group is defined as a series of ontology fields
+/// A predicate group is defined as a series of ontology fields
 /// with associated operations.
 #[derive(Debug, Clone)]
 pub struct OntologyPredicateGroup<T> {
@@ -447,18 +447,18 @@ impl<T> OntologyPredicateGroup<T> {
         Self { group }
     }
 
-    /// Exports filter data as several expression groupss grouped by ontology tag
+    /// Exports filter data as several predicate groups grouped by ontology tag
     /// So if the
     pub fn split_by_ontology_tag(self) -> Vec<OntologyPredicateGroup<T>> {
         let mut map: HashMap<String, OntologyPredicateGroup<T>> = HashMap::new();
-        for expr in self.group {
-            let tag = expr.ontology_field().ontology_tag();
+        for predicate in self.group {
+            let tag = predicate.ontology_field().ontology_tag();
             match map.entry(tag.to_owned()) {
                 Entry::Vacant(vacant) => {
-                    vacant.insert(Self::new(vec![expr]));
+                    vacant.insert(Self::new(vec![predicate]));
                 }
                 Entry::Occupied(mut occupied) => {
-                    occupied.get_mut().group.push(expr);
+                    occupied.get_mut().group.push(predicate);
                 }
             }
         }
@@ -482,7 +482,7 @@ impl<T> IntoIterator for OntologyPredicateGroup<T> {
     }
 }
 
-/// A container for dynamic user-defined expressions mapping to ontology data models.
+/// A container for dynamic user-defined predicates mapping to ontology data models.
 #[derive(Debug, Clone)]
 pub struct OntologyFilter {
     ontology: Vec<OntologyPredicate<Value>>,
@@ -508,8 +508,8 @@ impl OntologyFilter {
             .map(|e| e.ontology_field().ontology_tag())
     }
 
-    /// Exports filter data as a unique expression group
-    pub fn into_expr_group(self) -> OntologyPredicateGroup<Value> {
+    /// Exports filter data as a unique predicate group
+    pub fn into_predicate_group(self) -> OntologyPredicateGroup<Value> {
         OntologyPredicateGroup::new(self.ontology)
     }
 
@@ -655,7 +655,7 @@ mod tests {
     }
 
     #[test]
-    fn expr_grp_split() {
+    fn predicate_grp_split() {
         let grp = OntologyPredicateGroup {
             group: vec![
                 (

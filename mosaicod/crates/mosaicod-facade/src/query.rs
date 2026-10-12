@@ -47,7 +47,7 @@ impl Query {
         // Each group becomes a query to find the corresponding chunks, this is done
         // since there is a mutual mapping between ontology and chunks (a chunk holds data of a
         // single ontology model).
-        // Each expression group is processed concurrently using unordered futures, and returns a
+        // Each predicate group is processed concurrently using unordered futures, and returns a
         // `SequenceTopicGroups`.
         // At the end sequence topic groups are merged (sequences are intersected and topic are
         // joined) before return.
@@ -55,19 +55,22 @@ impl Query {
         if let Some(ontology_filter) = on_filt {
             let start = Instant::now();
 
-            let ontology_tag_expr_groups =
-                ontology_filter.into_expr_group().split_by_ontology_tag();
-            let expression_groups_count = ontology_tag_expr_groups.len();
+            let ontology_tag_predicate_groups = ontology_filter
+                .into_predicate_group()
+                .split_by_ontology_tag();
+            let predicate_groups_count = ontology_tag_predicate_groups.len();
 
-            for ontology_tag_exprs in ontology_tag_expr_groups {
-                if ontology_tag_exprs.group.is_empty() {
+            for ontology_tag_predicates in ontology_tag_predicate_groups {
+                if ontology_tag_predicates.group.is_empty() {
                     continue;
                 }
                 trace!(
-                    "starting search for ontology tag `{}` (expression groups: {})",
+                    "starting search for ontology tag `{}` (predicate groups: {})",
                     // grp is ensured to contain at least one element (previous check)
-                    ontology_tag_exprs.group[0].ontology_field().ontology_tag(),
-                    expression_groups_count,
+                    ontology_tag_predicates.group[0]
+                        .ontology_field()
+                        .ontology_tag(),
+                    predicate_groups_count,
                 );
 
                 let ts_engine = ts_gw.clone();
@@ -90,7 +93,7 @@ impl Query {
                     let mut cx = db_clone.connection();
                     let chunks = db::chunks_from_filters(
                         &mut cx,
-                        ontology_tag_exprs.clone(),
+                        ontology_tag_predicates.clone(),
                         Some(&on_topics),
                     )
                     .await?;
@@ -136,7 +139,7 @@ impl Query {
                             .read(chunk.data_file(), serialization_format, None)
                             .await?;
 
-                        let qr = qr.filter(ontology_tag_exprs.to_owned())?;
+                        let qr = qr.filter(ontology_tag_predicates.to_owned())?;
 
                         // Set this to true to print a log message that the chunk will be discarded
                         let mut is_discarded = false;
@@ -175,9 +178,9 @@ impl Query {
                 let elapsed = start.elapsed();
 
                 debug!(
-                    "expression groups search required {}us ({:.2}us/group, {} concurrent)",
+                    "predicate groups search required {}us ({:.2}us/group, {} concurrent)",
                     elapsed.as_micros(),
-                    elapsed.as_micros() as f64 / expression_groups_count.max(1) as f64,
+                    elapsed.as_micros() as f64 / predicate_groups_count.max(1) as f64,
                     max_concurrent
                 );
             }

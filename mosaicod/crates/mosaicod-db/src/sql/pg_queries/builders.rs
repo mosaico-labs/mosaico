@@ -31,7 +31,7 @@ impl ChunkQueryBuilder {
             placeholder_counter: pidx,
         };
 
-        qb = qb.ontology_expr_group(filter, &mut qb_chunk);
+        qb = qb.ontology_predicate_group(filter, &mut qb_chunk);
 
         let qr = qb.compile()?;
         let joined_clauses = qr.clauses.join(" INTERSECT ");
