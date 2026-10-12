@@ -10,7 +10,7 @@ set -e
 # --- Configuration ---
 PYTHON_SDK_DIR="mosaico-sdk-py"
 PACKAGE_NAME="mosaicolabs" # The name for pip install
-PYTHON_VERSIONS=("3.10" "3.12" "3.13")
+PYTHON_VERSIONS=("3.10" "3.11" "3.12" "3.13" "3.14")
 TEST_PYPI_URL="https://test.pypi.org/simple/"
 
 # Resolve paths
@@ -47,20 +47,32 @@ run_local_tests() {
         fi
 
         VENV_NAME=".venv_local_test_$VER"
+        # Remove any leftover venv from a previous crashed/interrupted run so
+        # pip never sees a stale "already installed" package and skips reinstalling.
+        rm -rf "$VENV_NAME"
         "python$VER" -m venv "$VENV_NAME"
         "$VENV_NAME/bin/pip" install --upgrade pip
-        
-        if "$VENV_NAME/bin/pip" install --no-cache-dir ${PYTHON_SDK_PATH}/dist/*.whl; then
+
+        SUCCESS=true
+        if "$VENV_NAME/bin/pip" install --no-cache-dir --force-reinstall ${PYTHON_SDK_PATH}/dist/*.whl; then
             echo -e "${GREEN}Verifying CLI scripts...${NC}"
-            "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null
-            "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null
-            echo -e "${GREEN}Python $VER: LOCAL SUCCESS${NC}"
+            if "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null \
+                && "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null; then
+                echo -e "${GREEN}Python $VER: LOCAL SUCCESS${NC}"
+            else
+                echo -e "${RED}Python $VER: LOCAL CLI CHECK FAILED${NC}"
+                SUCCESS=false
+            fi
         else
             echo -e "${RED}Python $VER: LOCAL INSTALLATION FAILED${NC}"
-            rm -rf "$VENV_NAME"
+            SUCCESS=false
+        fi
+
+        # Always clean up, regardless of success, before possibly exiting.
+        rm -rf "$VENV_NAME"
+        if [ "$SUCCESS" = false ]; then
             exit 1
         fi
-        rm -rf "$VENV_NAME"
     done
     echo -e "${GREEN} Local tests completed successfully!${NC}\n"
 }
@@ -122,21 +134,34 @@ run_remote_tests() {
         fi
 
         VENV_NAME=".venv_remote_test_$VER"
+        # Remove any leftover venv from a previous crashed/interrupted run so
+        # pip never sees a stale "already installed" package and skips reinstalling.
+        rm -rf "$VENV_NAME"
         "python$VER" -m venv "$VENV_NAME"
-        
-        if "$VENV_NAME/bin/pip" install --no-cache-dir \
+
+        SUCCESS=true
+        if "$VENV_NAME/bin/pip" install --no-cache-dir --force-reinstall \
             --index-url "$TEST_PYPI_URL" \
             --extra-index-url https://pypi.org/simple \
             "$PACKAGE_NAME==$TEMP_VERSION"; then
-            
-            "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null
-            "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null
-            echo -e "${GREEN}Python $VER: REMOTE SUCCESS${NC}"
+
+            if "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null \
+                && "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null; then
+                echo -e "${GREEN}Python $VER: REMOTE SUCCESS${NC}"
+            else
+                echo -e "${RED}Python $VER: REMOTE CLI CHECK FAILED${NC}"
+                SUCCESS=false
+            fi
         else
             echo -e "${RED}Python $VER: REMOTE INSTALLATION FAILED${NC}"
+            SUCCESS=false
+        fi
+
+        # Always clean up, regardless of success, before possibly exiting.
+        rm -rf "$VENV_NAME"
+        if [ "$SUCCESS" = false ]; then
             exit 1
         fi
-        rm -rf "$VENV_NAME"
     done
     echo -e "${GREEN} Remote staging complete for $TEMP_VERSION!${NC}"
 }
