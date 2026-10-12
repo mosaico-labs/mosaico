@@ -1,12 +1,14 @@
 import os
+import stat
 import sys
-from enum import Enum
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import typer
 from rich.console import Console
 
+from mosaicolabs_cli.output_format import OutputFormat as OutputFormat
 from mosaicolabs_cli.utils.env import MosaicoEnv
 
 # Fallback mechanism for TOML parsing based on Python version
@@ -21,11 +23,6 @@ error_console = Console(stderr=True)
 DEFAULT_CONFIG_FOLDER = ".mosaico"
 DEFAULT_CONFIG_FILENAME = "config.toml"
 DEFAULT_CONFIG_PATH = Path.home() / DEFAULT_CONFIG_FOLDER / DEFAULT_CONFIG_FILENAME
-
-
-class OutputFormat(str, Enum):
-    TABLE = "table"
-    CSV = "csv"
 
 
 def get_config_path() -> Path:
@@ -72,6 +69,47 @@ def serialize_to_toml(data: dict) -> str:
             lines.append(f"{key} = {val_str}")
         lines.append("")
     return "\n".join(lines)
+
+
+def write_config(data: dict, path: Optional[Path] = None) -> Path:
+    """Atomically write configuration with owner-only access on POSIX systems."""
+    if path is None:
+        path = get_config_path()
+
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    temporary_path: Optional[Path] = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            delete=False,
+        ) as temporary_file:
+            temporary_file.write(serialize_to_toml(data))
+            temporary_path = Path(temporary_file.name)
+
+        if os.name == "posix":
+            temporary_path.chmod(0o600)
+        temporary_path.replace(path)
+    finally:
+        if temporary_path is not None and temporary_path.exists():
+            temporary_path.unlink()
+
+    return path
+
+
+def config_permissions(path: Optional[Path] = None) -> Optional[int]:
+    """Return POSIX permission bits for an existing config file."""
+    if os.name != "posix":
+        return None
+
+    if path is None:
+        path = get_config_path()
+    if not path.exists():
+        return None
+
+    return stat.S_IMODE(path.stat().st_mode)
 
 
 def _flatten_metadata(data: Dict[str, Any], prefix: str = "") -> List[str]:
