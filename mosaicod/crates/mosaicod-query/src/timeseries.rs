@@ -101,12 +101,9 @@ impl TimeseriesEngine {
         )
         .await?;
 
-        let select = format!(
-            "SELECT * FROM data ORDER BY {}",
-            constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP
-        );
-
-        let df = ctx.sql(&select).await?;
+        let df = ctx.table("data").await?.sort(vec![
+            col(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, false),
+        ])?;
 
         Ok(TimeseriesResult { data_frame: df })
     }

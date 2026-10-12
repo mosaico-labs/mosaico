@@ -13,4 +13,4 @@ name = "mosaicod_config"
 mosaicod-core = { workspace = true }
 etcetera = { workspace = true }
 serde = { workspace = true }
-toml = "1.1.5"
+toml = { version = "1.1.5", default-features = false, features = ["serde", "parse"] }
