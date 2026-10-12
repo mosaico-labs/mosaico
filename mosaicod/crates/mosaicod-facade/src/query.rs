@@ -56,7 +56,7 @@ impl Query {
             let start = Instant::now();
 
             let ontology_tag_predicate_groups = ontology_filter
-                .into_predicate_group()
+                .into_ontology_predicate_group()
                 .split_by_ontology_tag();
             let predicate_groups_count = ontology_tag_predicate_groups.len();
 

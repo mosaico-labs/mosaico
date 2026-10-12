@@ -509,7 +509,7 @@ impl OntologyFilter {
     }
 
     /// Exports filter data as a unique predicate group
-    pub fn into_predicate_group(self) -> OntologyPredicateGroup<Value> {
+    pub fn into_ontology_predicate_group(self) -> OntologyPredicateGroup<Value> {
         OntologyPredicateGroup::new(self.ontology)
     }
 

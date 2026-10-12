@@ -1,4 +1,4 @@
-use mosaicod_proto::v1::query as proto;
+use mosaicod_proto::v1::query as proto_query;
 use mosaicod_query::{self as query, IsSupportedOp};
 use std::collections::HashMap;
 
@@ -6,8 +6,8 @@ use std::collections::HashMap;
 // Values
 // ////////////////////////////////////////////////////////////////////////////
 
-fn value(value: proto::Value) -> Result<query::Value, query::OpError> {
-    use proto::value::Kind;
+fn value(value: proto_query::Value) -> Result<query::Value, query::OpError> {
+    use proto_query::value::Kind;
     Ok(match value.kind.ok_or(query::OpError::WrongType)? {
         Kind::Integer(v) => query::Value::Integer(v),
         Kind::Float(v) => query::Value::Float(v),
@@ -61,11 +61,11 @@ fn range<T: PartialOrd>(
 // Conditions
 // ////////////////////////////////////////////////////////////////////////////
 
-fn op<T: PartialOrd + IsSupportedOp>(
-    condition: proto::Condition,
+fn condition_from_proto<T: PartialOrd + IsSupportedOp>(
+    condition: proto_query::Condition,
     scalar: fn(query::Value) -> Result<T, query::OpError>,
 ) -> Result<query::Op<T>, query::OpError> {
-    use proto::Operator;
+    use proto_query::Operator;
 
     let operator =
         Operator::try_from(condition.op).map_err(|_| query::OpError::UnsupportedOperation)?;
@@ -104,13 +104,13 @@ fn op<T: PartialOrd + IsSupportedOp>(
 }
 
 /// Converts an optional field condition.
-fn optional_op<T: PartialOrd + IsSupportedOp>(
+fn optional_condition_from_proto<T: PartialOrd + IsSupportedOp>(
     field: &str,
-    condition: Option<proto::Condition>,
+    condition: Option<proto_query::Condition>,
     scalar: fn(query::Value) -> Result<T, query::OpError>,
 ) -> Result<Option<query::Op<T>>, query::Error> {
     condition
-        .map(|c| op(c, scalar))
+        .map(|c| condition_from_proto(c, scalar))
         .transpose()
         .map_err(|err| query::Error::OpError {
             field: field.to_owned(),
@@ -128,7 +128,7 @@ fn valid_key(key: &str) -> bool {
 }
 
 fn user_metadata(
-    m: HashMap<String, proto::Condition>,
+    m: HashMap<String, proto_query::Condition>,
 ) -> Result<HashMap<String, query::Op<query::Value>>, query::Error> {
     m.into_iter()
         .map(|(k, c)| {
@@ -138,12 +138,12 @@ fn user_metadata(
                 )));
             }
 
-            let op = op(c, Ok).map_err(|e| query::Error::OpError {
+            let condition = condition_from_proto(c, Ok).map_err(|e| query::Error::OpError {
                 field: k.clone(),
                 err: e,
             })?;
 
-            Ok((k, op))
+            Ok((k, condition))
         })
         .collect()
 }
@@ -153,21 +153,27 @@ fn user_metadata(
 // ////////////////////////////////////////////////////////////////////////////
 
 fn sequence_filter_from_proto(
-    seq_filter: proto::SequenceFilter,
+    seq_filter: proto_query::SequenceFilter,
 ) -> Result<query::SequenceFilter, query::Error> {
     Ok(query::SequenceFilter {
-        name: optional_op("sequence.name", seq_filter.name, text)?,
-        created_at: optional_op("sequence.created_at", seq_filter.created_at_ns, timestamp)?,
+        name: optional_condition_from_proto("sequence.name", seq_filter.name, text)?,
+        created_at: optional_condition_from_proto(
+            "sequence.created_at",
+            seq_filter.created_at_ns,
+            timestamp,
+        )?,
         user_metadata: user_metadata(seq_filter.user_metadata)?,
     })
 }
 
-fn topic_filter_from_proto(t: proto::TopicFilter) -> Result<query::TopicFilter, query::Error> {
+fn topic_filter_from_proto(
+    t: proto_query::TopicFilter,
+) -> Result<query::TopicFilter, query::Error> {
     Ok(query::TopicFilter {
-        name: optional_op("topic.name", t.name, text)?,
-        created_at: optional_op("topic.created_at", t.created_at_ns, timestamp)?,
-        ontology_tag: optional_op("topic.ontology_tag", t.ontology_tag, text)?,
-        serialization_format: optional_op(
+        name: optional_condition_from_proto("topic.name", t.name, text)?,
+        created_at: optional_condition_from_proto("topic.created_at", t.created_at_ns, timestamp)?,
+        ontology_tag: optional_condition_from_proto("topic.ontology_tag", t.ontology_tag, text)?,
+        serialization_format: optional_condition_from_proto(
             "topic.serialization_format",
             t.serialization_format,
             text,
@@ -180,7 +186,7 @@ fn to_err(e: query::Error) -> super::Error {
     super::Error::DeserializationError(e.to_string())
 }
 
-pub fn query_filter_from_proto(f: proto::Filter) -> Result<query::Filter, super::Error> {
+pub fn query_filter_from_proto(f: proto_query::Filter) -> Result<query::Filter, super::Error> {
     Ok(query::Filter {
         sequence: f
             .sequence
@@ -197,25 +203,26 @@ pub fn query_filter_from_proto(f: proto::Filter) -> Result<query::Filter, super:
 }
 
 pub fn ontology_filter_from_proto(
-    o: proto::OntologyFilter,
+    o: proto_query::OntologyFilter,
 ) -> Result<query::OntologyFilter, super::Error> {
     let ontology = o
         .predicates
         .into_iter()
         .map(|p| {
-            let condition = p.condition.ok_or_else(|| {
+            let proto_condition = p.condition.ok_or_else(|| {
                 query::Error::DeserializationError(format!(
                     "missing condition for ontology field `{}`",
                     p.field
                 ))
             })?;
 
-            let op = op(condition, Ok).map_err(|e| query::Error::OpError {
-                field: p.field.clone(),
-                err: e,
-            })?;
+            let condition =
+                condition_from_proto(proto_condition, Ok).map_err(|e| query::Error::OpError {
+                    field: p.field.clone(),
+                    err: e,
+                })?;
 
-            Ok((query::OntologyField::try_new(p.field)?, op).into())
+            Ok((query::OntologyField::try_new(p.field)?, condition).into())
         })
         .collect::<Result<_, query::Error>>()
         .map_err(to_err)?;
@@ -227,25 +234,28 @@ pub fn ontology_filter_from_proto(
 mod tests {
     use super::*;
 
-    fn condition(op: proto::Operator, kind: Option<proto::value::Kind>) -> proto::Condition {
-        proto::Condition {
+    fn condition(
+        op: proto_query::Operator,
+        kind: Option<proto_query::value::Kind>,
+    ) -> proto_query::Condition {
+        proto_query::Condition {
             op: op as i32,
-            value: kind.map(|k| proto::Value { kind: Some(k) }),
+            value: kind.map(|k| proto_query::Value { kind: Some(k) }),
         }
     }
 
-    fn integers(values: Vec<i64>) -> Option<proto::value::Kind> {
-        Some(proto::value::Kind::IntegerArray(proto::IntegerArray {
-            values,
-        }))
+    fn integers(values: Vec<i64>) -> Option<proto_query::value::Kind> {
+        Some(proto_query::value::Kind::IntegerArray(
+            proto_query::IntegerArray { values },
+        ))
     }
 
-    fn int_condition(op: proto::Operator, val: i64) -> proto::Condition {
-        condition(op, Some(proto::value::Kind::Integer(val)))
+    fn int_condition(op: proto_query::Operator, val: i64) -> proto_query::Condition {
+        condition(op, Some(proto_query::value::Kind::Integer(val)))
     }
 
-    fn text_condition(op: proto::Operator, val: &str) -> proto::Condition {
-        condition(op, Some(proto::value::Kind::Text(val.to_owned())))
+    fn text_condition(op: proto_query::Operator, val: &str) -> proto_query::Condition {
+        condition(op, Some(proto_query::value::Kind::Text(val.to_owned())))
     }
 
     #[test]
@@ -261,23 +271,23 @@ mod tests {
         let mut input_map = HashMap::new();
         input_map.insert(
             "valid_key_123".to_string(),
-            int_condition(proto::Operator::Eq, 42),
+            int_condition(proto_query::Operator::Eq, 42),
         );
         input_map.insert(
             "another-valid key*".to_string(),
-            text_condition(proto::Operator::Eq, "hello"),
+            text_condition(proto_query::Operator::Eq, "hello"),
         );
         input_map.insert(
             "another.*.key".to_string(),
-            text_condition(proto::Operator::Eq, "hello"),
+            text_condition(proto_query::Operator::Eq, "hello"),
         );
         input_map.insert(
             "**.glob_key".to_string(),
-            text_condition(proto::Operator::Eq, "hello"),
+            text_condition(proto_query::Operator::Eq, "hello"),
         );
         input_map.insert(
             "**[*].glob_array_key".to_string(),
-            text_condition(proto::Operator::Eq, "hello"),
+            text_condition(proto_query::Operator::Eq, "hello"),
         );
 
         let result = user_metadata(input_map);
@@ -310,7 +320,7 @@ mod tests {
     #[test]
     fn test_convert_user_metadata_invalid_key_empty() {
         let mut input_map = HashMap::new();
-        input_map.insert("".to_string(), int_condition(proto::Operator::Eq, 42));
+        input_map.insert("".to_string(), int_condition(proto_query::Operator::Eq, 42));
 
         let result = user_metadata(input_map);
         assert!(result.is_err());
@@ -328,7 +338,7 @@ mod tests {
         let mut input_map = HashMap::new();
         input_map.insert(
             "invalid--key".to_string(),
-            int_condition(proto::Operator::Eq, 42),
+            int_condition(proto_query::Operator::Eq, 42),
         );
 
         let result = user_metadata(input_map);
@@ -346,7 +356,7 @@ mod tests {
         let mut input_map = HashMap::new();
         input_map.insert(
             "invalid_key.***.status".to_string(),
-            int_condition(proto::Operator::Eq, 42),
+            int_condition(proto_query::Operator::Eq, 42),
         );
 
         let result = user_metadata(input_map);
@@ -365,7 +375,10 @@ mod tests {
 
         for key in invalid_keys {
             let mut input_map = HashMap::new();
-            input_map.insert(key.to_string(), int_condition(proto::Operator::Eq, 100));
+            input_map.insert(
+                key.to_string(),
+                int_condition(proto_query::Operator::Eq, 100),
+            );
 
             let result = user_metadata(input_map);
             assert!(
@@ -378,15 +391,15 @@ mod tests {
 
     #[test]
     fn test_between_requires_two_bounds() {
-        let ok = op(
-            condition(proto::Operator::Between, integers(vec![1, 5])),
+        let ok = condition_from_proto(
+            condition(proto_query::Operator::Between, integers(vec![1, 5])),
             Ok,
         )
         .unwrap();
         assert!(matches!(ok, query::Op::Between(_)));
 
-        let err = op(
-            condition(proto::Operator::Between, integers(vec![1, 5, 9])),
+        let err = condition_from_proto(
+            condition(proto_query::Operator::Between, integers(vec![1, 5, 9])),
             Ok,
         );
         assert!(matches!(err, Err(query::OpError::WrongType)));
@@ -394,8 +407,8 @@ mod tests {
 
     #[test]
     fn test_between_rejects_empty_range() {
-        let err = op(
-            condition(proto::Operator::Between, integers(vec![5, 1])),
+        let err = condition_from_proto(
+            condition(proto_query::Operator::Between, integers(vec![5, 1])),
             Ok,
         );
         assert!(matches!(err, Err(query::OpError::EmptyRange)));
@@ -403,28 +416,33 @@ mod tests {
 
     #[test]
     fn test_in_requires_an_array() {
-        let ok = op(condition(proto::Operator::In, integers(vec![1, 2])), Ok).unwrap();
+        let ok = condition_from_proto(
+            condition(proto_query::Operator::In, integers(vec![1, 2])),
+            Ok,
+        )
+        .unwrap();
         assert_eq!(
             ok,
             query::Op::In(vec![query::Value::Integer(1), query::Value::Integer(2)])
         );
 
-        let err = op(int_condition(proto::Operator::In, 42), Ok);
+        let err = condition_from_proto(int_condition(proto_query::Operator::In, 42), Ok);
         assert!(matches!(err, Err(query::OpError::WrongType)));
     }
 
     #[test]
     fn test_unspecified_and_unknown_operators_are_rejected() {
-        let unspecified = op(int_condition(proto::Operator::Unspecified, 42), Ok);
+        let unspecified =
+            condition_from_proto(int_condition(proto_query::Operator::Unspecified, 42), Ok);
         assert!(matches!(
             unspecified,
             Err(query::OpError::UnsupportedOperation)
         ));
 
-        let unknown = op(
-            proto::Condition {
+        let unknown = condition_from_proto(
+            proto_query::Condition {
                 op: 99,
-                ..int_condition(proto::Operator::Eq, 42)
+                ..int_condition(proto_query::Operator::Eq, 42)
             },
             Ok,
         );
@@ -433,32 +451,32 @@ mod tests {
 
     #[test]
     fn test_missing_operand_is_rejected() {
-        let err = op(condition(proto::Operator::Eq, None), Ok);
+        let err = condition_from_proto(condition(proto_query::Operator::Eq, None), Ok);
         assert!(matches!(err, Err(query::OpError::WrongType)));
 
         // `ex`/`nex` take no operand.
         assert_eq!(
-            op(condition(proto::Operator::Ex, None), Ok).unwrap(),
+            condition_from_proto(condition(proto_query::Operator::Ex, None), Ok).unwrap(),
             query::Op::Ex
         );
     }
 
     #[test]
     fn test_text_field_rejects_non_text_operand() {
-        let err = op(int_condition(proto::Operator::Eq, 42), text);
+        let err = condition_from_proto(int_condition(proto_query::Operator::Eq, 42), text);
         assert!(matches!(err, Err(query::OpError::WrongType)));
     }
 
     #[test]
     fn test_empty_filter_converts_to_empty_domain_filter() {
-        let filter = query_filter_from_proto(proto::Filter::default()).unwrap();
+        let filter = query_filter_from_proto(proto_query::Filter::default()).unwrap();
         assert!(filter.is_empty());
     }
 
     #[test]
     fn test_text_field_rejects_ordering_operator() {
-        let filter = proto::TopicFilter {
-            name: Some(text_condition(proto::Operator::Gt, "topic")),
+        let filter = proto_query::TopicFilter {
+            name: Some(text_condition(proto_query::Operator::Gt, "topic")),
             ..Default::default()
         };
         let err = topic_filter_from_proto(filter).unwrap_err();

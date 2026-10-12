@@ -157,7 +157,7 @@ pub async fn query_by_timestamp(
         result = result.filter_by_timestamp_range(ts_range)?;
     }
 
-    result = result.filter(ontology_filter.into_predicate_group())?;
+    result = result.filter(ontology_filter.into_ontology_predicate_group())?;
 
     Ok(result.stream().await?)
 }
