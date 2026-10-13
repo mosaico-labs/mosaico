@@ -541,6 +541,72 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ??? question "API Reference"
     [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy]
 
+### Aggregators
+
+Regular and aggregated expressions are evaluated at two different levels:
+
+* A **regular expression** works on the **single samples**: the condition is checked on each sample of the field, and a topic matches if at least one of its samples satisfies it.
+* An **aggregated expression** works on the **whole topic**: the aggregator first combines all the samples of the field in the topic into a single value (e.g. their maximum), and the condition is checked once on that value.
+
+For example:
+
+* `IMU.Q.acceleration.x.lt(20.0)` matches the topics where **at least one** sample of `acceleration.x` is below `20.0`;
+* `IMU.Q.acceleration.x.max().lt(20.0)` matches the topics whose maximum `acceleration.x` is below `20.0`, i.e. where **every** sample is below `20.0`.
+
+```
+<Ontology>.Q.<field_path>.<aggregator>().<operator>(value)
+```
+
+| Aggregator | Description | Data Types |
+| --- | --- | --- |
+| [`.max()`][mosaicolabs.query.queryable_fields.QueryableNumeric.max] | Maximum value of the field over the topic | Numeric, String, Boolean |
+| [`.min()`][mosaicolabs.query.queryable_fields.QueryableNumeric.min] | Minimum value of the field over the topic | Numeric, String, Boolean |
+| [`.range()`][mosaicolabs.query.queryable_fields.QueryableNumeric.range] | Spread of the field over the topic, i.e. `max() - min()` | Numeric |
+
+On **String** fields, `.max()` and `.min()` compare values lexicographically. On **Boolean** fields, `.max().eq(True)` matches the topics where **at least one** sample is `True`, while `.min().eq(True)` matches the topics where **every** sample is `True`.
+
+An aggregator returns the same queryable field, so it's followed by the usual comparison operators of the field type (`.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()`). The only exception is `.match()`, which is not available after an aggregator.
+
+**Example** Finding the IMU recordings whose acceleration never exceeded 15 m/s², while the vertical axis stayed nearly constant
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    qresponse = client.query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.x.max().lt(15.0),   # Every sample below 15 m/s²
+            IMU.Q.acceleration.z.range().lt(0.5),  # Vertical acceleration nearly constant
+        )
+    )
+
+    if qresponse is not None:
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+Regular and aggregated expressions can target the same field in the same query:
+
+```python
+QueryOntologyCatalog(
+    IMU.Q.acceleration.x.gt(5.0),         # At least one sample above 5 m/s²...
+    IMU.Q.acceleration.x.max().lt(20.0),  # ...and never above 20 m/s²
+)
+```
+
+Aggregated expressions are resolved by the server on the statistics stored for each data chunk at ingestion time, without scanning the recorded data.
+
+!!! note "Aggregators and temporal windows"
+    An aggregator describes the topic as a whole, not single samples, so it selects **which topics** match but not **when** they match.
+    When computing the [temporal windows](#temporal-windows) of a response (`clusterize`, `intersect`), only the regular expressions are used to find the matching time ranges; if a topic was matched by aggregated expressions only, every sample of the topic is used to build its windows.
+
+The following constraints apply to aggregators:
+
+* **No list fields**: aggregators can't be applied after a list quantifier or index (`.any()`, `.all()`, `[i]`) and raise a `TypeError`.
+* **One aggregator per expression**: aggregators can't be chained, e.g. `.max().min()` raises a `TypeError`.
+* **No pattern matching**: `.match()` is not available after an aggregator and raises a `ValueError`.
+
 ## Class-Free Queries
 
 The `.Q` proxy is injected onto a `Serializable` *class*, so building a filter with it requires having that class in hand. That assumption breaks down for [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data (see [Advanced: Ingesting Unmodeled Ontologies](./ontology.md#advanced-ingesting-unmodeled-ontologies)): you may know exactly which ontology tag and field you want to filter on, without ever having resolved - or wanting to resolve - a Python class for it, especially when a tag has multiple schema variants and you don't care which one you're querying against.
@@ -603,6 +669,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
 | [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()` | `int`, `float` |
 | [`QueryableString`][mosaicolabs.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()` | `str` |
 | [`QueryableBool`][mosaicolabs.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
+
+[Aggregators](#aggregators) work the same way, e.g. `QueryableNumeric("GyroRaw.gyro.x").max().gt(0.5)`: `QueryableNumeric` supports `.max()`, `.min()` and `.range()`, while `QueryableString` and `QueryableBool` support `.max()` and `.min()`.
 
 ### Querying List Fields (Class-Free)
 
@@ -862,4 +930,18 @@ While fully functional, the current implementation (v0.x) has a **Single Occurre
         IMU.Q.angular_velocity.x.between([0, 1]),   # Correct way to do ranges
     )
 
+    ```
+* **Note**: An [aggregated expression](#aggregators) is a separate occurrence from the regular one on the same field path, so each field path may appear once without aggregator and once per aggregator.
+    ```python
+    # VALID: One regular and one aggregated expression on the same field path
+    QueryOntologyCatalog(
+        IMU.Q.acceleration.x.gt(0.5),
+        IMU.Q.acceleration.x.max().lt(1.0),
+    )
+
+    # INVALID: The same aggregator is used twice on the same field path
+    QueryOntologyCatalog(
+        IMU.Q.acceleration.x.max().gt(0.5),
+        IMU.Q.acceleration.x.max().lt(1.0), # <- Error! Duplicate field path and aggregator
+    )
     ```

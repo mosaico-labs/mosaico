@@ -91,9 +91,45 @@ impl Query {
                     let _permit = permit; // sentinel lock
 
                     let mut cx = db_clone.connection();
+
+                    let (aggregated_predicates, plain_predicates) =
+                        ontology_tag_predicates.split_by_aggregator();
+
+                    let mut on_topics = on_topics;
+                    let mut no_topic_filter = no_topic_filter;
+
+                    // Aggregated predicates are resolved on the chunk stats stored in the db,
+                    // the resulting topics restrict the search of the plain predicates.
+                    if !aggregated_predicates.group.is_empty() {
+                        let ids = db::topic_ids_from_aggregated_filters(
+                            &mut cx,
+                            aggregated_predicates,
+                            Some(&on_topics),
+                        )
+                        .await?;
+
+                        trace!("found {} topics for aggregated filter", ids.len());
+
+                        if ids.is_empty() {
+                            return Ok(types::SequenceTopicGroupSet::empty());
+                        }
+
+                        let topics = db::topic_find_by_ids(&mut cx, &ids).await?;
+
+                        // Only aggregated predicates
+                        if plain_predicates.group.is_empty() {
+                            let groups =
+                                db::sequences_group_from_topics(&mut cx, topics.iter()).await?;
+                            return Ok(groups.into());
+                        }
+
+                        on_topics = Arc::new(topics);
+                        no_topic_filter = false;
+                    }
+
                     let chunks = db::chunks_from_filters(
                         &mut cx,
-                        ontology_tag_predicates.clone(),
+                        plain_predicates.clone(),
                         Some(&on_topics),
                     )
                     .await?;
@@ -139,7 +175,7 @@ impl Query {
                             .read(chunk.data_file(), serialization_format, None)
                             .await?;
 
-                        let qr = qr.filter(ontology_tag_predicates.to_owned())?;
+                        let qr = qr.filter(plain_predicates.to_owned())?;
 
                         // Set this to true to print a log message that the chunk will be discarded
                         let mut is_discarded = false;

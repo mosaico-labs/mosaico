@@ -1,6 +1,6 @@
 import datetime
 import inspect
-from typing import Any, Tuple, Type, Union
+from typing import Any, Optional, Tuple, Type, Union
 
 from ...proto.v1 import query_pb2
 from ..expressions import _QueryExpression
@@ -242,10 +242,52 @@ class _QueryableNumeric(_QueryableComparable):
     accepted operand values to `int`/`float`. This is the mixin behind numeric
     `.Q` proxy fields (e.g. `IMU.Q.acceleration.x`) and the class-free
     [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric].
+
+    The aggregators `.max()`, `.min()` and `.range()` turn the field into a single
+    value computed over the whole topic, instead of the single samples, e.g.
+    `IMU.Q.acceleration.x.max().lt(20)` matches the topics where every
+    `acceleration.x` sample is below 20.
     """
 
     __slots__ = ()
     __mixin_supported_types__: tuple[type, ...] = (int, float)
+
+    # --- Aggregators ---
+    def max(self) -> Any:
+        """
+        Aggregates the field to its maximum value over the topic.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
+
+    def min(self) -> Any:
+        """
+        Aggregates the field to its minimum value over the topic.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
+
+    def range(self) -> Any:
+        """
+        Aggregates the field to its range (`max - min`) over the topic.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_RANGE)
 
 
 # TODO: Top be better implemented. Disable for now
@@ -349,6 +391,33 @@ class _QueryableBool:
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
         return getattr(self, "_cmp")(query_pb2.OPERATOR_EQ, value)
+
+    # --- Aggregators ---
+    def max(self) -> Any:
+        """
+        Aggregates the field to its maximum value over the topic, i.e. `True`
+        if at least one record is `True`.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
+
+    def min(self) -> Any:
+        """
+        Aggregates the field to its minimum value over the topic, i.e. `True`
+        if every record is `True`.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
 
 # -------------------------------------------------------------------------
@@ -556,6 +625,31 @@ class _QueryableString:
         return getattr(self, "_outside")(
             *values, allowed_types=self.__mixin_supported_types__
         )
+
+    # --- Aggregators ---
+    def max(self) -> Any:
+        """
+        Aggregates the field to its lexicographically greatest value over the topic.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
+
+    def min(self) -> Any:
+        """
+        Aggregates the field to its lexicographically smallest value over the topic.
+
+        Returns:
+            The same queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated or is a list field.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
 
 # -------------------------------------------------------------------------
@@ -922,7 +1016,7 @@ class _QueryableField:
     [`_make_queryable_field_type()`][mosaicolabs.query.generation.mixins._make_queryable_field_type].
     """
 
-    __slots__ = ("_full_path", "_expr_cls")
+    __slots__ = ("_full_path", "_expr_cls", "_aggregator")
 
     def __init__(self, full_path: str, expr_cls: Type[_QueryExpression]):
         """
@@ -935,6 +1029,7 @@ class _QueryableField:
         """
         self._full_path = full_path
         self._expr_cls = expr_cls
+        self._aggregator: Optional[query_pb2.Aggregator] = None
 
     # --- Core Implementation ---
 
@@ -942,7 +1037,27 @@ class _QueryableField:
         """
         Internal helper to create an atomic comparison expression.
         """
-        return self._expr_cls(self._full_path, op, value)
+        if self._aggregator is None:
+            return self._expr_cls(self._full_path, op, value)
+
+        return self._expr_cls(self._full_path, op, value, aggregator=self._aggregator)
+
+    def _aggregate(self, aggregator: query_pb2.Aggregator) -> "_QueryableField":
+        """
+        Internal helper to create a copy of the field whose operators compare
+        `aggregator` computed over the topic, instead of the single records.
+        """
+        if self._aggregator is not None:
+            raise TypeError(
+                f"Field '{self._full_path}' is already aggregated with '{self._aggregator}()'."
+            )
+        if "[" in self._full_path:
+            raise TypeError(
+                f"Aggregators are not supported on list fields: '{self._full_path}'."
+            )
+
+        self._aggregator = aggregator
+        return self
 
     def _transform_value(self, value: Any) -> Any:
         """

@@ -70,6 +70,25 @@ pub enum OpError {
     MalformedPattern(String),
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum AggregatorError {
+    /// Unsupported aggregator
+    #[error("unsupported aggregator")]
+    UnsupportedAggregator,
+
+    /// Unsupported operation
+    #[error("unsupported operation for the given aggregator")]
+    UnsupportedOperation,
+
+    /// Aggregators can not be applied to list fields
+    #[error("aggregators are not supported on list fields")]
+    UnsupportedListField,
+
+    /// The aggregator can not be computed on the field value type
+    #[error("unsupported value type for the given aggregator")]
+    UnsupportedValueType,
+}
+
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
 /// to coexist in dynamic containers like [`Metadata`].
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -413,7 +432,7 @@ impl std::fmt::Display for OntologyField {
 /// A predicate is formed by binding a specific identifier (a field name or [`OntologyField`])
 /// to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
 #[derive(Debug, Clone)]
-pub struct OntologyPredicate<T>(OntologyField, Op<T>);
+pub struct OntologyPredicate<T>(OntologyField, Op<T>, Option<Aggregator>);
 
 impl<T> OntologyPredicate<T> {
     pub fn ontology_field(&self) -> &OntologyField {
@@ -424,14 +443,18 @@ impl<T> OntologyPredicate<T> {
         &self.1
     }
 
-    pub fn into_parts(self) -> (OntologyField, Op<T>) {
-        (self.0, self.1)
+    pub fn aggregator(&self) -> &Option<Aggregator> {
+        &self.2
+    }
+
+    pub fn into_parts(self) -> (OntologyField, Op<T>, Option<Aggregator>) {
+        (self.0, self.1, self.2)
     }
 }
 
-impl<T> From<(OntologyField, Op<T>)> for OntologyPredicate<T> {
-    fn from(value: (OntologyField, Op<T>)) -> Self {
-        Self(value.0, value.1)
+impl<T> From<(OntologyField, Op<T>, Option<Aggregator>)> for OntologyPredicate<T> {
+    fn from(value: (OntologyField, Op<T>, Option<Aggregator>)) -> Self {
+        Self(value.0, value.1, value.2)
     }
 }
 
@@ -464,6 +487,15 @@ impl<T> OntologyPredicateGroup<T> {
         }
 
         map.into_values().collect()
+    }
+
+    /// Splits the group in two: the predicates with an aggregator and the plain ones.
+    pub fn split_by_aggregator(self) -> (OntologyPredicateGroup<T>, OntologyPredicateGroup<T>) {
+        let (aggregated, plain) = self
+            .group
+            .into_iter()
+            .partition(|predicate| predicate.aggregator().is_some());
+        (Self::new(aggregated), Self::new(plain))
     }
 }
 
@@ -577,6 +609,96 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum Aggregator {
+    Max,
+    Min,
+    Count,
+    Range,
+    First,
+    Last,
+    Std,
+    Mean,
+    Diff,
+    Rate,
+    P50,
+    P90,
+    P99,
+}
+
+impl Aggregator {
+    pub fn is_supported_aggregator<T>(&self, op: &Op<T>) -> bool {
+        match self {
+            Self::Max | Self::Min | Self::Range | Self::First | Self::Last | Self::Std => matches!(
+                op,
+                Op::Eq(_)
+                    | Op::Neq(_)
+                    | Op::Lt(_)
+                    | Op::Leq(_)
+                    | Op::Gt(_)
+                    | Op::Geq(_)
+                    | Op::In(_)
+                    | Op::Between(_)
+                    | Op::Outside(_)
+            ),
+            Self::Count
+            | Self::Mean
+            | Self::Diff
+            | Self::Rate
+            | Self::P50
+            | Self::P90
+            | Self::P99 => matches!(
+                op,
+                Op::Eq(_)
+                    | Op::Neq(_)
+                    | Op::Lt(_)
+                    | Op::Leq(_)
+                    | Op::Gt(_)
+                    | Op::Geq(_)
+                    | Op::In(_)
+                    | Op::Between(_)
+            ),
+        }
+    }
+
+    /// Returns true if the aggregator can be computed on fields holding values
+    /// of the same type of the `op` operands
+    pub fn is_supported_value(&self, op: &Op<Value>) -> bool {
+        let value = match op {
+            Op::Eq(v)
+            | Op::Neq(v)
+            | Op::Lt(v)
+            | Op::Leq(v)
+            | Op::Gt(v)
+            | Op::Geq(v)
+            | Op::Match(v) => Some(v),
+            Op::Between(r) | Op::Outside(r) => Some(&r.min),
+            Op::In(items) => items.first(),
+            Op::Ex | Op::Nex => None,
+        };
+
+        match value {
+            // Text is ordered lexicographically, only extremes are defined
+            Some(Value::Text(_) | Value::TextArray(_)) => matches!(self, Self::Max | Self::Min),
+            _ => true,
+        }
+    }
+
+    /// Checks that the aggregator can be applied to `field` with `op`
+    pub fn validate(&self, field: &OntologyField, op: &Op<Value>) -> Result<(), AggregatorError> {
+        if !self.is_supported_aggregator(op) {
+            return Err(AggregatorError::UnsupportedOperation);
+        }
+        if !self.is_supported_value(op) {
+            return Err(AggregatorError::UnsupportedValueType);
+        }
+        if field.field_path().specifier().is_some() {
+            return Err(AggregatorError::UnsupportedListField);
+        }
+        Ok(())
+    }
+}
+
 /// The root object representing a complete search query.
 ///
 /// A query allows filtering across three distinct domains:
@@ -661,21 +783,25 @@ mod tests {
                 (
                     OntologyField::try_new("image.width".into()).unwrap(),
                     Op::Eq(Value::Integer(1200)),
+                    Some(Aggregator::Max),
                 )
                     .into(),
                 (
                     OntologyField::try_new("image.height".into()).unwrap(),
                     Op::Eq(Value::Integer(800)),
+                    Some(Aggregator::Max),
                 )
                     .into(),
                 (
                     OntologyField::try_new("imu.acceleration.x".into()).unwrap(),
                     Op::Geq(Value::Float(8.0)),
+                    Some(Aggregator::Max),
                 )
                     .into(),
                 (
                     OntologyField::try_new("imu.angular_velocity.x".into()).unwrap(),
                     Op::Leq(Value::Float(3.0)),
+                    Some(Aggregator::Max),
                 )
                     .into(),
             ],

@@ -117,7 +117,15 @@ impl ClausesCompiler {
         }
 
         for predicate in filter.into_iter() {
-            let (ontology_field, op) = predicate.into_parts();
+            let (ontology_field, op, aggr) = predicate.into_parts();
+            // Aggregated predicates are resolved on the db chunk stats, not row by row
+            if aggr.is_some() {
+                self.error = Some(Error::AggregatorError {
+                    field: ontology_field.field_str(),
+                    err: super::AggregatorError::UnsupportedAggregator,
+                });
+                return self;
+            }
             let field = formatter.ontology_column_fmt(&ontology_field);
             self = self.expr(&field, op, formatter);
         }

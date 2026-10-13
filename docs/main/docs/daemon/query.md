@@ -86,6 +86,41 @@ A **plain list** column (no specifier) can be compared as a whole with `$eq` / `
 **Nested lists (a list of lists) are not supported.** Querying a field whose column is a list whose elements are themselves lists returns an *unsupported operation* error. Only list columns of scalars or of structs can be queried, whether as a plain list or through an index specifier (`[i]`, `[?]`, `[!]`).
 :::
 
+#### Aggregators
+
+Regular and aggregated predicates are evaluated at two different levels:
+
+* A **regular predicate** works on the **single samples**: the condition is checked on each sample of the field, and a topic matches if at least one of its samples satisfies it.
+* An **aggregated predicate** works on the **whole topic**: the aggregator first combines all the samples of the field in the topic into a single value (e.g. their maximum), and the condition is checked once on that value.
+
+For example, with the condition `imu.acceleration.x < 20.0`:
+
+* as a regular predicate, it matches the topics where **at least one** sample is below `20.0`;
+* with `AGGREGATOR_MAX`, it matches the topics whose maximum is below `20.0`, i.e. where **every** sample is below `20.0`.
+
+The aggregator is set in the `aggregator` field of each `OntologyPredicate` (see `proto/mosaico/v1/query.proto`); a predicate without aggregator keeps the regular behavior. Regular and aggregated predicates can target the same field in the same query, and are combined with implicit AND logic as any other predicate.
+
+| Aggregator | Description | Data types | Operators |
+| --- | --- | --- | --- |
+| `AGGREGATOR_MAX` | Maximum value of the field over the topic | Numeric, text, boolean | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
+| `AGGREGATOR_MIN` | Minimum value of the field over the topic | Numeric, text, boolean | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
+| `AGGREGATOR_RANGE` | Spread of the field over the topic, i.e. `max - min` | Numeric | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
+
+
+Aggregated predicates are resolved on the statistics computed for each chunk at ingestion time (the same min/max bounds used to prune chunks), so they never scan the data stored in the object store.
+
+:::warning
+The following predicates are rejected with an *invalid argument* error:
+* An aggregator on a list field, i.e. a field path with an index specifier (`[i]`, `[?]`, `[!]`).
+* An operator not listed for the aggregator in the table above, e.g. `$match`, `$ex` or `$nex`.
+* `AGGREGATOR_RANGE` on a text field.
+* Any aggregator defined in the protocol but not listed in the table above, which are not supported yet.
+:::
+
+:::note
+Aggregators describe a topic as a whole, not single samples: they select **which topics** match, but not **when**. Aggregated predicates are not supported by the topic `clusterize` and `intersect` actions, which compute the time ranges where the regular predicates are satisfied.
+:::
+
 ## Supported Operators
 
 The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:

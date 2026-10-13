@@ -25,7 +25,10 @@ impl From<String> for Error {
 
 impl From<mosaicod_db::Error> for Error {
     fn from(err: mosaicod_db::Error) -> Self {
-        Self::Internal(Box::new(err))
+        match err {
+            mosaicod_db::Error::QueryError(e) => Self::Query(e),
+            err => Self::Internal(Box::new(err)),
+        }
     }
 }
 

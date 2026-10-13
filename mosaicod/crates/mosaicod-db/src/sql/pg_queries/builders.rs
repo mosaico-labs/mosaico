@@ -1,6 +1,143 @@
+use mosaicod_core::types;
 use mosaicod_query as query;
 
 // (cabba) TODO: this code is dog shit, we need to fix it ASAP
+
+/// Builds the query returning the ids of the topics whose aggregated values satisfy
+/// every predicate in filter.
+pub struct TopicAggregateQueryBuilder;
+
+impl TopicAggregateQueryBuilder {
+    pub fn build(
+        filter: query::OntologyPredicateGroup<query::Value>,
+        on_topic_ids: Vec<i64>,
+    ) -> Result<(String, Vec<query::Value>), query::Error> {
+        let placeholder = query::Placeholder::new();
+        let mut values = Vec::new();
+
+        // Check if some topic ids from topic filter
+        let topic_clause = if on_topic_ids.is_empty() {
+            String::new()
+        } else {
+            let p = placeholder.clone().consume();
+            values.push(query::Value::IntegerArray(on_topic_ids));
+            format!("AND chunk_t.topic_id = ANY(${p})")
+        };
+
+        let mut having_compiler = super::SqlQueryCompiler::new(placeholder);
+        let mut clauses = Vec::new();
+
+        for predicate in filter.into_iter() {
+            let (field, op, aggr) = predicate.into_parts();
+            let kind = StatsKind::from_op(&op);
+
+            let aggregate = aggr
+                .and_then(|aggr| aggregate_expr(aggr, kind))
+                .ok_or_else(|| query::Error::AggregatorError {
+                    field: field.field_str(),
+                    err: query::AggregatorError::UnsupportedAggregator,
+                })?;
+
+            let (having, mut having_values) =
+                query::CompileClause::compile_clause(&mut having_compiler, &aggregate, op)?
+                    .into_parts();
+            values.append(&mut having_values);
+
+            clauses.push(format!(
+                "SELECT chunk_t.topic_id FROM chunk_t
+                JOIN {table} __stats__ USING(chunk_id)
+                JOIN column_t __column__ USING(column_id)
+                WHERE {column} = '{field}' {topic_clause}
+                GROUP BY chunk_t.topic_id
+                HAVING {having}",
+                table = kind.table(),
+                column = column_table_name(),
+                field = field.field_str(),
+            ));
+        }
+
+        Ok((clauses.join(" INTERSECT "), values))
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum StatsKind {
+    Numeric,
+    Textual,
+}
+
+impl StatsKind {
+    fn from_value(v: &query::Value) -> Self {
+        match v {
+            query::Value::Integer(_)
+            | query::Value::Float(_)
+            | query::Value::Boolean(_)
+            | query::Value::IntegerArray(_)
+            | query::Value::FloatArray(_)
+            | query::Value::BooleanArray(_) => Self::Numeric,
+            query::Value::Text(_) | query::Value::TextArray(_) => Self::Textual,
+        }
+    }
+
+    fn from_op(op: &query::Op<query::Value>) -> Self {
+        let value = match op {
+            query::Op::Eq(v)
+            | query::Op::Neq(v)
+            | query::Op::Leq(v)
+            | query::Op::Geq(v)
+            | query::Op::Lt(v)
+            | query::Op::Gt(v)
+            | query::Op::Match(v) => Some(v),
+            query::Op::Between(r) | query::Op::Outside(r) => Some(&r.min),
+            query::Op::In(items) => items.first(),
+            query::Op::Ex | query::Op::Nex => None,
+        };
+
+        value.map_or(Self::Numeric, Self::from_value)
+    }
+
+    fn table(self) -> &'static str {
+        match self {
+            Self::Numeric => "column_chunk_numeric_t",
+            Self::Textual => "column_chunk_textual_t",
+        }
+    }
+
+    fn max_value(self) -> String {
+        match self {
+            Self::Numeric => format!(
+                "NULLIF(__stats__.max_value, {:e}::float8)",
+                types::NUMERIC_MAX_PLACEHOLDER
+            ),
+            Self::Textual => r#"NULLIF(__stats__.max_value, '') COLLATE "C""#.to_owned(),
+        }
+    }
+
+    fn min_value(self) -> String {
+        match self {
+            Self::Numeric => format!(
+                "NULLIF(__stats__.min_value, {:e}::float8)",
+                types::NUMERIC_MIN_PLACEHOLDER
+            ),
+            Self::Textual => r#"NULLIF(__stats__.min_value, '') COLLATE "C""#.to_owned(),
+        }
+    }
+}
+
+/// SQL expression computing `aggr` over the chunk stats of a topic,
+/// `None` if `aggr` is not supported on `kind`.
+fn aggregate_expr(aggr: query::Aggregator, kind: StatsKind) -> Option<String> {
+    match (aggr, kind) {
+        (query::Aggregator::Max, _) => Some(format!("MAX({})", kind.max_value())),
+        (query::Aggregator::Min, _) => Some(format!("MIN({})", kind.min_value())),
+        (query::Aggregator::Range, StatsKind::Numeric) => Some(format!(
+            "(MAX({}) - MIN({}))",
+            kind.max_value(),
+            kind.min_value()
+        )),
+        _ => None,
+    }
+}
 
 pub struct ChunkQueryBuilder {
     placeholder_counter: usize,
@@ -71,38 +208,13 @@ fn build_clause_union(where_clauses: &str) -> String {
 }
 
 fn build_clause(where_clauses: String, v: &query::Value) -> String {
-    match v {
-        query::Value::Integer(_)
-        | query::Value::Float(_)
-        | query::Value::Boolean(_)
-        | query::Value::IntegerArray(_)
-        | query::Value::FloatArray(_)
-        | query::Value::BooleanArray(_) => {
-            let select = r#"
-            SELECT chunk_id FROM chunk_t
-            JOIN column_chunk_numeric_t __stats__ USING(chunk_id)
-            JOIN column_t __column__ USING(column_id)
-            "#;
-
-            format!("{select} WHERE {where_clauses}")
-        }
-        query::Value::Text(_) | query::Value::TextArray(_) => {
-            // Stats are computed bytewise in Rust, compare them with the same rules
-            // in Postgres
-            let select = r#"
-            SELECT chunk_id FROM chunk_t
-            JOIN (
-                SELECT chunk_id, column_id, 
-                    min_value COLLATE "C" AS min_value,
-                    max_value COLLATE "C" AS max_value
-                FROM column_chunk_textual_t
-            ) __stats__ USING(chunk_id)
-            JOIN column_t __column__ USING(column_id)
-            "#;
-
-            format!("{select} WHERE {where_clauses}")
-        }
-    }
+    format!(
+        "SELECT chunk_id FROM chunk_t
+        JOIN {} __stats__ USING(chunk_id)
+        JOIN column_t __column__ USING(column_id)
+        WHERE {where_clauses}",
+        StatsKind::from_value(v).table()
+    )
 }
 
 fn column_table_name() -> String {

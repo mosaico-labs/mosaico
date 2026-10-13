@@ -190,29 +190,63 @@ pub async fn chunks_from_filters(
 
     let mut r = sqlx::query(&query);
 
-    for v in values.into_iter() {
-        match v {
-            query::Value::Integer(v) => r = r.bind(v),
-            query::Value::Float(v) => r = r.bind(v),
-            query::Value::Text(v) => r = r.bind(v),
-            // Cast boolean value to numeric, since for now there is no custom column for boolean values
-            query::Value::Boolean(v) => r = r.bind(if v { 1.0 } else { 0.0 }),
-            query::Value::IntegerArray(v) => r = r.bind(v),
-            query::Value::FloatArray(v) => r = r.bind(v),
-            query::Value::TextArray(v) => r = r.bind(v),
-            // Cast boolean array to numeric, since for now there is no custom column for boolean values
-            query::Value::BooleanArray(v) => {
-                r = r.bind(
-                    v.into_iter()
-                        .map(|b| if b { 1.0 } else { 0.0 })
-                        .collect::<Vec<f64>>(),
-                )
-            }
-        }
+    for v in values {
+        r = bind_value(r, v);
     }
 
     let r = r.map(cast_chunk_data).fetch_all(exec.as_exec()).await?;
     r.into_iter().collect()
+}
+
+type PgQuery<'q> = sqlx::query::Query<'q, sqlx::Postgres, sqlx::postgres::PgArguments>;
+
+/// Binds a query value to the next placeholder, casting it to the matching Postgres type.
+fn bind_value(r: PgQuery<'_>, v: query::Value) -> PgQuery<'_> {
+    match v {
+        query::Value::Integer(v) => r.bind(v),
+        query::Value::Float(v) => r.bind(v),
+        query::Value::Text(v) => r.bind(v),
+        // Cast boolean value to numeric, since for now there is no custom column for boolean values
+        query::Value::Boolean(v) => r.bind(if v { 1.0 } else { 0.0 }),
+        query::Value::IntegerArray(v) => r.bind(v),
+        query::Value::FloatArray(v) => r.bind(v),
+        query::Value::TextArray(v) => r.bind(v),
+        // Cast boolean array to numeric, since for now there is no custom column for boolean values
+        query::Value::BooleanArray(v) => r.bind(
+            v.into_iter()
+                .map(|b| if b { 1.0 } else { 0.0 })
+                .collect::<Vec<f64>>(),
+        ),
+    }
+}
+
+/// Returns the ids of the topics whose aggregated values satisfy every predicate
+/// in `filter`. Optionally the search can be restricted to a list of topics (`on_topics`).
+pub async fn topic_ids_from_aggregated_filters(
+    exec: &mut impl AsExec,
+    filter: query::OntologyPredicateGroup<query::Value>,
+    on_topics: Option<&Vec<schema::TopicRecord>>,
+) -> Result<Vec<i32>, Error> {
+    let ids: Vec<i64> = if let Some(topics) = on_topics {
+        topics.iter().map(|t| t.topic_id as i64).collect()
+    } else {
+        Vec::new()
+    };
+
+    let (query, values) = super::TopicAggregateQueryBuilder::build(filter, ids)?;
+
+    trace!("aggregated topic SQL query values: {:?}", values);
+    trace!("aggregated topic SQL query: {}", query);
+
+    let mut r = sqlx::query(&query);
+    for v in values {
+        r = bind_value(r, v);
+    }
+
+    let rows = r.fetch_all(exec.as_exec()).await?;
+    rows.iter()
+        .map(|row| row.try_get("topic_id").map_err(Error::from))
+        .collect()
 }
 
 fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {

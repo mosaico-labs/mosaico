@@ -160,7 +160,8 @@ class QueryResponseItemTopic:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
-            ValueError: if the flight client is not set
+            ValueError: if the flight client is not set, or if the query has only
+                aggregated expressions
 
         Example: clusterize topics returning from `Query` object
             ```python

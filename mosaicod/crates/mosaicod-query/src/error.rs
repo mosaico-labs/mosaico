@@ -10,6 +10,12 @@ pub enum Error {
     #[error("operation error :: field `{field}` has {err}")]
     OpError { field: String, err: super::OpError },
 
+    #[error("aggregator error on field `{field}`: {err}")]
+    AggregatorError {
+        field: String,
+        err: super::AggregatorError,
+    },
+
     #[error("bad field `{field}`: {msg}")]
     BadField { field: String, msg: String },
 
@@ -86,6 +92,9 @@ impl core::error::PublicError for Error {
         match self {
             Self::BadField { field: _, msg: _ } => core::Error::bad_request(self.to_string()),
             Self::OpError { field, err } => core::Error::bad_request(format!("{field} : {err}")),
+            Self::AggregatorError { field, err } => {
+                core::Error::bad_request(format!("{field} : {err}"))
+            }
             Self::StoreError(e) => e.error(),
             Self::DeserializationError(msg) => core::Error::bad_request(msg.to_owned()),
             Self::DataFusion(_) | Self::BadPath(_) | Self::NullMinMaxTimestamps => {

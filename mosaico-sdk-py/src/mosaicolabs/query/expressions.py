@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from ..proto.v1 import query_pb2
 
@@ -47,22 +47,24 @@ class _QueryExpression:
         transform it into the protobuf `Condition` message expected by the platform.
 
     Attributes:
-        key: The complete, dot-separated path to the target field on the platform.
-        op: The protobuf operator (e.g., `OPERATOR_EQ`, `OPERATOR_GT`, `OPERATOR_BETWEEN`).
-        value: The comparison value or data structure (e.g., a constant, a list for `OPERATOR_IN`, or a range for `OPERATOR_BETWEEN`).
+        full_path (str): The complete, dot-separated path to the target field on the platform.
+        op (query_pb2.Operator): The protobuf operator (e.g., `OPERATOR_EQ`, `OPERATOR_GT`, `OPERATOR_BETWEEN`).
+        value (Any): The comparison value or data structure (e.g., a constant, a list for `OPERATOR_IN`, or a range for `OPERATOR_BETWEEN`).
+        aggregator (Optional[query_pb2.Aggregator]): The aggregator applied to the field before the comparison (e.g., `"max"`), if any.
     """
 
-    def __init__(self, full_path: str, op: query_pb2.Operator, value: Any):
-        """
-        Initializes an atomic comparison.
-
-        Args:
-            full_path (str): The dot-separated path of the target field.
-            op (query_pb2.Operator): The protobuf comparison operator.
-            value (Any): The constant value for the comparison, `None` for `OPERATOR_EX` / `OPERATOR_NEX`.
-        """
-        # self.key is the full path of the target field, e.g., "GPS.status"
+    def __init__(
+        self,
+        full_path: str,
+        op: query_pb2.Operator,
+        value: Any,
+        aggregator: Optional[query_pb2.Aggregator] = None,
+    ):
+        # self.key is the full path used in the final query dict, e.g., "GPS.status".
+        # Aggregated expressions get the aggregator as suffix, e.g., "GPS.status.max()",
+        # so that plain and aggregated expressions on the same field don't collide
         self.key = full_path
+        self.aggregator = aggregator
 
         self.op = op
         self.value = value
@@ -158,5 +160,7 @@ class _QueryCatalogExpression(_QueryExpression):
     def _to_predicate(self) -> query_pb2.OntologyPredicate:
         """Converts the expression into an `OntologyPredicate` message."""
         return query_pb2.OntologyPredicate(
-            field=self.key, condition=self._to_condition()
+            field=self.key,
+            condition=self._to_condition(),
+            aggregator=self.aggregator,
         )

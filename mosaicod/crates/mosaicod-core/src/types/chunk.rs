@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
-const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
+pub const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
+pub const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
 
 /// Store [`Stats`] for each field of a given ontology model
 #[derive(Debug)]

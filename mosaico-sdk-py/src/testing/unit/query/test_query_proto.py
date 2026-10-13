@@ -128,6 +128,32 @@ def test_ontology_filter_keeps_every_expression():
     assert msg.ontology.predicates[1].condition.op == query_pb2.OPERATOR_BETWEEN
 
 
+def test_ontology_filter_aggregated_predicates():
+    """The aggregator suffix of the key is moved into the `aggregator` field."""
+    msg = Query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.x.gt(0.0),
+            IMU.Q.acceleration.x.max().gt(5.0),
+            IMU.Q.acceleration.x.min().lt(1.0),
+            IMU.Q.acceleration.y.range().between([1.0, 2.0]),
+        )
+    )._to_proto()
+
+    assert [(e.field, e.aggregator) for e in msg.ontology.predicates] == [
+        ("IMU.acceleration.x", query_pb2.AGGREGATOR_UNSPECIFIED),
+        ("IMU.acceleration.x", query_pb2.AGGREGATOR_MAX),
+        ("IMU.acceleration.x", query_pb2.AGGREGATOR_MIN),
+        ("IMU.acceleration.y", query_pb2.AGGREGATOR_RANGE),
+    ]
+    assert msg.ontology.predicates[1].condition.op == query_pb2.OPERATOR_GT
+    assert msg.ontology.predicates[1].condition.value.float == 5.0
+
+
+def test_ontology_filter_unknown_aggregator():
+    with pytest.raises(AttributeError, match="object has no operator 'badaggr'"):
+        IMU.Q.acceleration.x.badaggr().gt(5.0)
+
+
 def test_filter_all_domains():
     msg = Query(
         QuerySequence()
@@ -183,3 +209,42 @@ def test_filter_round_trip():
         )
     )._to_proto()
     assert query_pb2.Filter.FromString(msg.SerializeToString()) == msg
+
+
+#####################################
+############# BUILDERS ##############
+#####################################
+
+
+def test_filter_from_query_builders():
+    """The dictionaries produced by the builders convert without errors."""
+    query = Query(
+        QuerySequence().with_user_metadata("driver", eq="luigi"),
+        QueryTopic().with_user_metadata("sensor.rate", geq=10),
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+    )
+
+    msg = query._to_proto()
+    assert msg.sequence.user_metadata["driver"].value.text == "luigi"
+    assert msg.topic.user_metadata["sensor.rate"].op == query_pb2.OPERATOR_GE
+    assert msg.topic.user_metadata["sensor.rate"].value.integer == 10
+    assert len(msg.ontology.predicates) == 1
+    assert msg.ontology.predicates[0].field == f"{IMU.ontology_tag()}.acceleration.x"
+    assert msg.ontology.predicates[0].condition.value.float == 5.0
+
+
+def test_filter_from_query_builders_with_aggregators():
+    """Plain and aggregated expressions on the same field coexist in the same query."""
+    query = Query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.x.gt(0.0),
+            IMU.Q.acceleration.x.max().gt(5.0),
+        )
+    )
+
+    msg = query._to_proto()
+    field = f"{IMU.ontology_tag()}.acceleration.x"
+    assert [(e.field, e.aggregator) for e in msg.ontology.predicates] == [
+        (field, query_pb2.AGGREGATOR_UNSPECIFIED),
+        (field, query_pb2.AGGREGATOR_MAX),
+    ]
