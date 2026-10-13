@@ -3,7 +3,8 @@
 # ======================================================================
 import pytest
 
-from mosaicolabs.query import QuerySequence, QueryTopic
+from mosaicolabs.proto.v1 import query_pb2
+from mosaicolabs.query import Query, QuerySequence, QueryTopic
 
 
 class TestQueryTopicMetadataAPI:
@@ -15,22 +16,25 @@ class TestQueryTopicMetadataAPI:
             .with_user_metadata("field.nested", leq=0.1234)
             .with_user_metadata("another-field.nested", match="#str_value[a-z]")
         )
-        # Define Expected Output
-        expected_dict = {
-            "user_metadata": {
-                "some-field": {"$eq": "some_value"},
-                "field.nested": {"$leq": 0.1234},
-                "another-field.nested": {"$match": "#str_value[a-z]"},
-            },
-        }
         # Assert the result
-        result = qt.to_dict()
+        result = Query(qt)._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["user_metadata"])
-
-        # Check topic flatness (the simple part)
-        assert result["user_metadata"] == expected_dict["user_metadata"]
+        # Only the topic domain is set, with user metadata only
+        assert not result.HasField("sequence")
+        assert not result.HasField("ontology")
+        assert not result.topic.HasField("name")
+        assert dict(result.topic.user_metadata) == {
+            "some-field": query_pb2.Condition(
+                op=query_pb2.OPERATOR_EQ, value=query_pb2.Value(text="some_value")
+            ),
+            "field.nested": query_pb2.Condition(
+                op=query_pb2.OPERATOR_LE, value=query_pb2.Value(float=0.1234)
+            ),
+            "another-field.nested": query_pb2.Condition(
+                op=query_pb2.OPERATOR_MATCH,
+                value=query_pb2.Value(text="#str_value[a-z]"),
+            ),
+        }
 
     def test_wrong_operator(self):
         # Simulate the User Query
@@ -98,22 +102,24 @@ class TestQuerySequenceMetadataAPI:
             .with_user_metadata("field.nested", leq=0.1234)
             .with_user_metadata("another-field.nested", match="*str_value?")
         )
-        # Define Expected Output
-        expected_dict = {
-            "user_metadata": {
-                "some-field": {"$eq": "some_value"},
-                "field.nested": {"$leq": 0.1234},
-                "another-field.nested": {"$match": "*str_value?"},
-            },
-        }
         # Assert the result
-        result = qt.to_dict()
+        result = Query(qt)._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["user_metadata"])
-
-        # Check topic flatness (the simple part)
-        assert result["user_metadata"] == expected_dict["user_metadata"]
+        # Only the sequence domain is set, with user metadata only
+        assert not result.HasField("topic")
+        assert not result.HasField("ontology")
+        assert not result.sequence.HasField("name")
+        assert dict(result.sequence.user_metadata) == {
+            "some-field": query_pb2.Condition(
+                op=query_pb2.OPERATOR_EQ, value=query_pb2.Value(text="some_value")
+            ),
+            "field.nested": query_pb2.Condition(
+                op=query_pb2.OPERATOR_LE, value=query_pb2.Value(float=0.1234)
+            ),
+            "another-field.nested": query_pb2.Condition(
+                op=query_pb2.OPERATOR_MATCH, value=query_pb2.Value(text="*str_value?")
+            ),
+        }
 
     def test_wrong_operator(self):
         # Simulate the User Query

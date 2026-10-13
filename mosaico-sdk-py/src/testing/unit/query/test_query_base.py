@@ -2,6 +2,7 @@ from typing import Optional, Type
 
 import pytest
 
+from mosaicolabs.proto.v1 import query_pb2
 from mosaicolabs.query import (
     Query,
     QueryOntologyCatalog,
@@ -45,15 +46,15 @@ def test_query_base_succeeds(query_type: Type[QueryableProtocol]):
 
     # Single expression
     qexprt = query_type.__supported_query_expressions__[0]
-    query_type._from_expressions(qexprt("tag.key", "$eq", 0))
+    query_type._from_expressions(qexprt("tag.key", query_pb2.OPERATOR_EQ, 0))
 
     # Multiple expressions
     qexprt = query_type.__supported_query_expressions__[0]
     query_type._from_expressions(
-        qexprt("tag.key", "$eq", 0),
-        qexprt("tag.another_key", "$eq", 1),
-        qexprt("tag.key.field", "$eq", 2),
-        qexprt("tag.another_key.field", "$eq", 3),
+        qexprt("tag.key", query_pb2.OPERATOR_EQ, 0),
+        qexprt("tag.another_key", query_pb2.OPERATOR_EQ, 1),
+        qexprt("tag.key.field", query_pb2.OPERATOR_EQ, 2),
+        qexprt("tag.another_key.field", query_pb2.OPERATOR_EQ, 3),
     )
 
 
@@ -88,7 +89,7 @@ def test_query_base_fails_on_duplicate_type(query_type: Type[QueryableProtocol])
 def test_query_base_fails_on_bad_expression_type(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents wrong expressions in query builders."""
     for query_expr_type in _QUERY_EXPRESSION_TYPES:
-        qexpr = query_expr_type("key.field", "$eq", 0)
+        qexpr = query_expr_type("key.field", query_pb2.OPERATOR_EQ, 0)
         if query_expr_type not in query_type.__supported_query_expressions__:
             with pytest.raises(TypeError, match="Invalid expression type"):
                 query_type._from_expressions(qexpr)
@@ -99,27 +100,38 @@ def test_query_base_fails_on_bad_expression_type(query_type: Type[QueryableProto
 
 @pytest.mark.parametrize(
     "query_type",
-    _QUERY_TYPES,
+    [QueryTopic, QuerySequence],
 )
 def test_query_base_fails_on_duplicate_key(query_type: Type[QueryableProtocol]):
-    """Tests the validation that prevents two instances of the same query builder."""
+    """Tests the validation that prevents two expressions on the same field,
+    since the `TopicFilter` / `SequenceFilter` messages hold a single condition per field.
+    """
 
-    # Fail on __init__
     qexprt = query_type.__supported_query_expressions__[0]
-    qexpr = qexprt("tag.duplicate-key", "$eq", 0)
+    qexpr = qexprt("name", query_pb2.OPERATOR_EQ, "a")
     with pytest.raises(
         NotImplementedError, match="Query builder already contains the key"
     ):
-        qdc = query_type._from_expressions(qexpr, qexpr)
+        query_type._from_expressions(qexpr, qexpr)
 
-    qdc = query_type()
-    # Fail on with_expression
-    if hasattr(qdc, "with_expression"):
-        with pytest.raises(
-            NotImplementedError, match="Query builder already contains the key"
-        ):
-            # implement a fake expression, just for generating duplicate keys
-            qdc.with_expression(qexpr).with_expression(qexpr)  # type: ignore
+
+def test_query_ontology_allows_duplicate_key():
+    """The `OntologyFilter` message holds a list of predicates: the same field
+    can be constrained more than once.
+    """
+
+    qexpr_gt = _QueryCatalogExpression("tag.key", query_pb2.OPERATOR_GT, 0)
+    qexpr_lt = _QueryCatalogExpression("tag.key", query_pb2.OPERATOR_LT, 10)
+
+    for qoc in [
+        QueryOntologyCatalog(qexpr_gt, qexpr_lt),
+        QueryOntologyCatalog().with_expression(qexpr_gt).with_expression(qexpr_lt),
+    ]:
+        predicates = Query(qoc)._to_proto().ontology.predicates
+        assert [(p.field, p.condition.op) for p in predicates] == [
+            ("tag.key", query_pb2.OPERATOR_GT),
+            ("tag.key", query_pb2.OPERATOR_LT),
+        ]
 
 
 def test_query_succeed_on_metadata_multi_key():
@@ -195,27 +207,6 @@ def test_invalid_construction_query_from_response():
         ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"
     ):
         qresp.to_query_topic()
-
-
-@pytest.mark.parametrize(
-    "query_type",
-    _QUERY_TYPES,
-)
-def test_query_base_fails_on_bad_operator_format(query_type: Type[QueryableProtocol]):
-    """Tests the validation that checks the operator syntax."""
-
-    qexpr = query_type.__supported_query_expressions__[0]
-    # Fail on __init__
-    with pytest.raises(ValueError):
-        # implement a fake expression, just for generating duplicate keys
-        query_type._from_expressions(
-            qexpr("key", "eq", 0),
-        )
-    if hasattr(query_type, "with_expression"):
-        with pytest.raises(ValueError):
-            query_type().with_expression(
-                qexpr("key", "eq", 0),
-            )
 
 
 _ALL_TESTING_TYPES = [int, float, str, bool]

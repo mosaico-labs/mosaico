@@ -26,6 +26,7 @@ from mosaicolabs.models.data import (
     Unsigned64,
     Velocity,
 )
+from mosaicolabs.proto.v1 import query_pb2
 from mosaicolabs.query import Query, QueryOntologyCatalog
 from mosaicolabs.query.expressions import (
     _QueryCatalogExpression,
@@ -106,24 +107,42 @@ class TestQueryTransformAPI:
         test_numeric_value = 12345.67
         expr_trans_nested = Transform.Q.translation.y.gt(test_numeric_value)
         assert isinstance(expr_trans_nested, _QueryCatalogExpression)
-        assert expr_trans_nested.to_dict() == {
-            f"{Transform.ontology_tag()}.translation.y": {"$gt": test_numeric_value}
-        }
+        assert (
+            expr_trans_nested.key,
+            expr_trans_nested.op,
+            expr_trans_nested.value,
+        ) == (
+            f"{Transform.ontology_tag()}.translation.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_trans_nested = Transform.Q.translation.y.eq(test_numeric_value)
         assert isinstance(expr_trans_nested, _QueryCatalogExpression)
-        assert expr_trans_nested.to_dict() == {
-            f"{Transform.ontology_tag()}.translation.y": {"$eq": test_numeric_value}
-        }
+        assert (
+            expr_trans_nested.key,
+            expr_trans_nested.op,
+            expr_trans_nested.value,
+        ) == (
+            f"{Transform.ontology_tag()}.translation.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_trans_between = Transform.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_trans_between, _QueryCatalogExpression)
-        assert expr_trans_between.to_dict() == {
-            f"{Transform.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (
+            expr_trans_between.key,
+            expr_trans_between.op,
+            expr_trans_between.value,
+        ) == (
+            f"{Transform.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -133,23 +152,29 @@ class TestQueryTransformAPI:
             .with_expression(Transform.Q.translation.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Transform.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Transform.ontology_tag()}.translation.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Transform.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Transform.ontology_tag()}.translation.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryPoseAPI:
@@ -216,24 +241,30 @@ class TestQueryPoseAPI:
         test_numeric_value = 12345.67
         expr_nested = Pose.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Pose.ontology_tag()}.position.y": {"$gt": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Pose.ontology_tag()}.position.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = Pose.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Pose.ontology_tag()}.position.y": {"$eq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Pose.ontology_tag()}.position.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = Pose.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Pose.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Pose.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -243,23 +274,29 @@ class TestQueryPoseAPI:
             .with_expression(Pose.Q.position.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Pose.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Pose.ontology_tag()}.position.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Pose.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Pose.ontology_tag()}.position.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryVelocityAPI:
@@ -326,24 +363,30 @@ class TestQueryVelocityAPI:
         test_numeric_value = 12345.67
         expr_nested = Velocity.Q.linear.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Velocity.ontology_tag()}.linear.y": {"$gt": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Velocity.ontology_tag()}.linear.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = Velocity.Q.linear.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Velocity.ontology_tag()}.linear.y": {"$eq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Velocity.ontology_tag()}.linear.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = Velocity.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Velocity.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Velocity.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -353,25 +396,29 @@ class TestQueryVelocityAPI:
             .with_expression(Velocity.Q.linear.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Velocity.ontology_tag()}.header.timestamp.seconds": {
-                    "$gt": 12345.67
-                },
-                f"{Velocity.ontology_tag()}.linear.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Velocity.ontology_tag()}.header.timestamp.seconds",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Velocity.ontology_tag()}.linear.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryAccelerationAPI:
@@ -444,24 +491,30 @@ class TestQueryAccelerationAPI:
         test_numeric_value = 12345.67
         expr_nested = Acceleration.Q.linear.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Acceleration.ontology_tag()}.linear.y": {"$gt": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Acceleration.ontology_tag()}.linear.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = Acceleration.Q.linear.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Acceleration.ontology_tag()}.linear.y": {"$eq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Acceleration.ontology_tag()}.linear.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = Acceleration.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Acceleration.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Acceleration.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -471,23 +524,29 @@ class TestQueryAccelerationAPI:
             .with_expression(Acceleration.Q.linear.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Acceleration.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Acceleration.ontology_tag()}.linear.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Acceleration.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Acceleration.ontology_tag()}.linear.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryMotionStateAPI:
@@ -583,28 +642,30 @@ class TestQueryMotionStateAPI:
         test_numeric_value = 12345.67
         expr_nested = MotionState.Q.pose.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{MotionState.ontology_tag()}.pose.position.y": {
-                "$gt": test_numeric_value
-            },
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{MotionState.ontology_tag()}.pose.position.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = MotionState.Q.pose.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{MotionState.ontology_tag()}.pose.position.y": {
-                "$eq": test_numeric_value
-            },
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{MotionState.ontology_tag()}.pose.position.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = MotionState.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{MotionState.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{MotionState.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -614,23 +675,29 @@ class TestQueryMotionStateAPI:
             .with_expression(MotionState.Q.velocity.linear.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{MotionState.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{MotionState.ontology_tag()}.velocity.linear.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{MotionState.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{MotionState.ontology_tag()}.velocity.linear.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryForceTorqueAPI:
@@ -699,24 +766,30 @@ class TestQueryForceTorqueAPI:
         test_numeric_value = 12345.67
         expr_nested = ForceTorque.Q.force.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{ForceTorque.ontology_tag()}.force.y": {"$gt": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{ForceTorque.ontology_tag()}.force.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = ForceTorque.Q.torque.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{ForceTorque.ontology_tag()}.torque.y": {"$eq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{ForceTorque.ontology_tag()}.torque.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = ForceTorque.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{ForceTorque.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{ForceTorque.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -726,23 +799,29 @@ class TestQueryForceTorqueAPI:
             .with_expression(ForceTorque.Q.torque.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{ForceTorque.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{ForceTorque.ontology_tag()}.torque.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{ForceTorque.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{ForceTorque.ontology_tag()}.torque.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryROIAPI:
@@ -801,24 +880,30 @@ class TestQueryROIAPI:
         test_numeric_value = 12345.67
         expr_nested = ROI.Q.offset.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{ROI.ontology_tag()}.offset.y": {"$gt": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{ROI.ontology_tag()}.offset.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_ = ROI.Q.width.eq(test_numeric_value)
         assert isinstance(expr_, _QueryCatalogExpression)
-        assert expr_.to_dict() == {
-            f"{ROI.ontology_tag()}.width": {"$eq": test_numeric_value},
-        }
+        assert (expr_.key, expr_.op, expr_.value) == (
+            f"{ROI.ontology_tag()}.width",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         expr_between = ROI.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{ROI.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{ROI.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -828,23 +913,29 @@ class TestQueryROIAPI:
             .with_expression(ROI.Q.offset.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{ROI.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{ROI.ontology_tag()}.offset.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{ROI.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{ROI.ontology_tag()}.offset.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 @pytest.mark.parametrize(
@@ -892,7 +983,7 @@ class TestQueryBaseTypesAPI:
         elif base_type.model_fields["data"].annotation is str:
             assert issubclass(type(String.Q.data), _QueryableString)
 
-    def test_full_sdk_query_to_dict_structure(self, base_type):
+    def test_full_sdk_query_proto_structure(self, base_type):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -902,17 +993,26 @@ class TestQueryBaseTypesAPI:
         q = Query(
             QueryOntologyCatalog().with_expression(base_type.Q.data.eq(val))
         )  # eq() is provided by all the _QueryableField
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{base_type.ontology_tag()}.data": {"$eq": val},
-            },
-        }
         # Assert the result
-        result = q.to_dict()
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        result = q._to_proto()
+
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
+
+        # One predicate per expression, the value kind follows the 'data' type
+        value_kind = {bool: "boolean", int: "integer", float: "float", str: "text"}[
+            type(val)
+        ]
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{base_type.ontology_tag()}.data",
+                query_pb2.OPERATOR_EQ,
+                query_pb2.Value(**{value_kind: val}),
+            ),
+        ]
 
         # For the other types are the same. Skip testing for now...

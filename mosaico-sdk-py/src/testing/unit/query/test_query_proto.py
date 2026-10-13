@@ -3,11 +3,10 @@ import pytest
 from mosaicolabs import IMU
 from mosaicolabs.proto.v1 import query_pb2
 from mosaicolabs.query import Query, QueryOntologyCatalog, QuerySequence, QueryTopic
-from mosaicolabs.query._proto_query import (
-    _condition_to_proto,
+from mosaicolabs.query.expressions import (
+    _QueryCatalogExpression,
+    _QueryTopicExpression,
     _value_to_proto,
-    filter_to_proto,
-    ontology_filter_to_proto,
 )
 
 #####################################
@@ -66,40 +65,46 @@ def test_unsupported_value(value):
 
 
 @pytest.mark.parametrize(
-    "op, value, expected_op",
+    "expr, op, value",
     [
-        ("$eq", 1, query_pb2.OPERATOR_EQ),
-        ("$neq", 1, query_pb2.OPERATOR_NE),
-        ("$lt", 1, query_pb2.OPERATOR_LT),
-        ("$leq", 1, query_pb2.OPERATOR_LE),
-        ("$gt", 1, query_pb2.OPERATOR_GT),
-        ("$geq", 1, query_pb2.OPERATOR_GE),
-        ("$between", [1, 2], query_pb2.OPERATOR_BETWEEN),
-        ("$outside", [1, 2], query_pb2.OPERATOR_OUTSIDE),
-        ("$in", [1, 2, 3], query_pb2.OPERATOR_IN),
-        ("$match", "abc*", query_pb2.OPERATOR_MATCH),
+        (IMU.Q.acceleration.x.eq(1.0), query_pb2.OPERATOR_EQ, 1.0),
+        (IMU.Q.acceleration.x.neq(1.0), query_pb2.OPERATOR_NE, 1.0),
+        (IMU.Q.acceleration.x.lt(1.0), query_pb2.OPERATOR_LT, 1.0),
+        (IMU.Q.acceleration.x.leq(1.0), query_pb2.OPERATOR_LE, 1.0),
+        (IMU.Q.acceleration.x.gt(1.0), query_pb2.OPERATOR_GT, 1.0),
+        (IMU.Q.acceleration.x.geq(1.0), query_pb2.OPERATOR_GE, 1.0),
+        (
+            IMU.Q.acceleration.x.between(1.0, 2.0),
+            query_pb2.OPERATOR_BETWEEN,
+            [1.0, 2.0],
+        ),
+        (IMU.Q.acceleration.x.in_(1.0, 2.0), query_pb2.OPERATOR_IN, [1.0, 2.0]),
     ],
 )
-def test_condition_with_value(op, value, expected_op):
-    msg = _condition_to_proto({op: value})
-    assert msg.op == expected_op
-    assert msg.HasField("value")
+def test_condition_with_value(expr, op, value):
+    msg = expr._to_condition()
+    assert msg.op == op
     assert msg.value == _value_to_proto(value)
 
 
 @pytest.mark.parametrize(
-    "op, expected_op",
-    [("$ex", query_pb2.OPERATOR_EX), ("$nex", query_pb2.OPERATOR_NEX)],
+    "exists, op",
+    [(True, query_pb2.OPERATOR_EX), (False, query_pb2.OPERATOR_NEX)],
 )
-def test_condition_without_value(op, expected_op):
-    msg = _condition_to_proto({op: None})
-    assert msg.op == expected_op
+def test_condition_without_value(exists, op):
+    qt = QueryTopic().with_user_metadata("sensor.model", ex=exists)
+    msg = qt.expressions()[0]._to_condition()
+    assert msg.op == op
     assert not msg.HasField("value")
 
 
-def test_condition_unknown_operator():
-    with pytest.raises(ValueError, match="Unsupported query operator"):
-        _condition_to_proto({"$wrong": 1})
+def test_predicate():
+    msg = IMU.Q.acceleration.x.gt(5.0)._to_predicate()
+    assert msg.field == f"{IMU.ontology_tag()}.acceleration.x"
+    assert msg.aggregator == query_pb2.AGGREGATOR_UNSPECIFIED
+    assert msg.condition == query_pb2.Condition(
+        op=query_pb2.OPERATOR_GT, value=query_pb2.Value(float=5.0)
+    )
 
 
 #####################################
@@ -108,43 +113,33 @@ def test_condition_unknown_operator():
 
 
 def test_ontology_filter_keeps_every_expression():
-    msg = ontology_filter_to_proto(
-        {
-            "imu.acceleration.x": {"$gt": 5.0},
-            "imu.acceleration.y": {"$between": [1.0, 2.0]},
-        }
-    )
+    msg = Query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.x.gt(5.0),
+            IMU.Q.acceleration.y.between(1.0, 2.0),
+        )
+    )._to_proto()
 
-    assert [e.field for e in msg.predicates] == [
-        "imu.acceleration.x",
-        "imu.acceleration.y",
+    assert [p.field for p in msg.ontology.predicates] == [
+        f"{IMU.ontology_tag()}.acceleration.x",
+        f"{IMU.ontology_tag()}.acceleration.y",
     ]
-    assert msg.predicates[0].condition.op == query_pb2.OPERATOR_GT
-    assert msg.predicates[1].condition.op == query_pb2.OPERATOR_BETWEEN
-    assert msg.predicates[1].condition.value.WhichOneof("kind") == "float_array"
-    assert all(e.aggregator == query_pb2.AGGREGATOR_UNSPECIFIED for e in msg.predicates)
-
-
-def test_ontology_filter_empty():
-    assert len(ontology_filter_to_proto({}).predicates) == 0
+    assert msg.ontology.predicates[0].condition.op == query_pb2.OPERATOR_GT
+    assert msg.ontology.predicates[1].condition.op == query_pb2.OPERATOR_BETWEEN
 
 
 def test_filter_all_domains():
-    msg = filter_to_proto(
-        {
-            "sequence": {
-                "name": {"$eq": "my_sequence"},
-                "user_metadata": {"driver": {"$eq": "luigi"}},
-            },
-            "topic": {
-                "name": {"$match": "/camera*"},
-                "created_at_ns": {"$geq": 1000},
-                "ontology_tag": {"$eq": "imu"},
-                "user_metadata": {"sensor.model": {"$ex": None}},
-            },
-            "ontology": {"imu.acceleration.x": {"$lt": 3.0}},
-        }
-    )
+    msg = Query(
+        QuerySequence()
+        .with_name("my_sequence")
+        .with_user_metadata("driver", eq="luigi"),
+        QueryTopic()
+        .with_name_match("/camera*")
+        .with_created_timestamp(time_start=1000)
+        .with_ontology_tag("imu")
+        .with_user_metadata("sensor.model", ex=True),
+        QueryOntologyCatalog(IMU.Q.acceleration.x.lt(3.0)),
+    )._to_proto()
 
     assert msg.sequence.name.op == query_pb2.OPERATOR_EQ
     assert msg.sequence.name.value.text == "my_sequence"
@@ -152,50 +147,39 @@ def test_filter_all_domains():
     assert not msg.sequence.HasField("created_at_ns")
 
     assert msg.topic.name.op == query_pb2.OPERATOR_MATCH
+    assert msg.topic.created_at_ns.op == query_pb2.OPERATOR_GE
     assert msg.topic.created_at_ns.value.integer == 1000
     assert msg.topic.ontology_tag.value.text == "imu"
     assert msg.topic.user_metadata["sensor.model"].op == query_pb2.OPERATOR_EX
     assert not msg.topic.HasField("serialization_format")
 
-    assert [e.field for e in msg.ontology.predicates] == ["imu.acceleration.x"]
+    assert [p.field for p in msg.ontology.predicates] == [
+        f"{IMU.ontology_tag()}.acceleration.x"
+    ]
 
 
 def test_filter_only_present_domains_are_set():
-    msg = filter_to_proto({"topic": {"name": {"$eq": "/a"}}})
+    msg = Query(QueryTopic().with_name("/a"))._to_proto()
     assert msg.HasField("topic")
     assert not msg.HasField("sequence")
     assert not msg.HasField("ontology")
 
 
 def test_filter_unknown_field_is_rejected():
-    """Unknown keys must fail instead of being silently dropped."""
+    """Unknown fields must fail instead of being silently dropped."""
+    qt = QueryTopic._from_expressions(
+        _QueryTopicExpression("locator", query_pb2.OPERATOR_EQ, "x")
+    )
     with pytest.raises(AttributeError):
-        filter_to_proto({"topic": {"locator": {"$eq": "x"}}})
+        Query(qt)._to_proto()
 
 
 def test_filter_round_trip():
-    msg = filter_to_proto({"ontology": {"imu.acceleration.x": {"$in": [1, 2]}}})
+    msg = Query(
+        QueryOntologyCatalog(
+            _QueryCatalogExpression(
+                f"{IMU.ontology_tag()}.acceleration.x", query_pb2.OPERATOR_IN, [1, 2]
+            )
+        )
+    )._to_proto()
     assert query_pb2.Filter.FromString(msg.SerializeToString()) == msg
-
-
-#####################################
-############# BUILDERS ##############
-#####################################
-
-
-def test_filter_from_query_builders():
-    """The dictionaries produced by the builders convert without errors."""
-    query = Query(
-        QuerySequence().with_user_metadata("driver", eq="luigi"),
-        QueryTopic().with_user_metadata("sensor.rate", geq=10),
-        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
-    )
-
-    msg = filter_to_proto(query.to_dict())
-
-    assert msg.sequence.user_metadata["driver"].value.text == "luigi"
-    assert msg.topic.user_metadata["sensor.rate"].op == query_pb2.OPERATOR_GE
-    assert msg.topic.user_metadata["sensor.rate"].value.integer == 10
-    assert len(msg.ontology.predicates) == 1
-    assert msg.ontology.predicates[0].field == f"{IMU.ontology_tag()}.acceleration.x"
-    assert msg.ontology.predicates[0].condition.value.float == 5.0

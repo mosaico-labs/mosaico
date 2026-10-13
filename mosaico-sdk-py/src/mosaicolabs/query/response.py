@@ -4,7 +4,7 @@ from typing import ClassVar, Iterator, List, Optional
 from pyarrow.flight import FlightClient
 
 from mosaicolabs.helpers import unpack_topic_full_path
-from mosaicolabs.proto.v1 import requests_pb2, responses_pb2
+from mosaicolabs.proto.v1 import query_pb2, requests_pb2, responses_pb2
 
 from ..comm.do_action_page import (
     _do_action_page,
@@ -13,7 +13,6 @@ from ..comm.do_action_page import (
 )
 from ..enum.flight_action import FlightAction
 from ..logging_config import get_logger
-from ._proto_query import ontology_filter_to_proto
 from .builders import QueryOntologyCatalog, QuerySequence, QueryTopic
 from .expressions import (
     _QueryCatalogExpression,
@@ -35,17 +34,14 @@ def _build_clusterize_payload(
 ) -> requests_pb2.TopicClusterizeParams:
     """Creates the payload for the topic filter clusterize do_action_page"""
 
-    # Merging expressions within a single dict
-    merged_exprs = {
-        k: v for expr in item_topic._query_exprs for k, v in expr.to_dict().items()
-    }
-
     params = requests_pb2.TopicClusterizeParams(
         locator=item_topic.locator,
         clustering_dt_ns=clustering_dt_ns
         if clustering_dt_ns is not None
         else item_topic.DEFAULT_CLUSTERING_DT,
-        ontology=ontology_filter_to_proto(merged_exprs),
+        ontology=query_pb2.OntologyFilter(
+            predicates=[expr._to_predicate() for expr in item_topic._query_exprs]
+        ),
     )
 
     if include_timestamp_range and timestamp_range is not None:
@@ -680,7 +676,7 @@ class QueryResponse:
             ```
 
         Returns:
-            QuerySequence: A builder initialized with an '$in' filter on the sequence names.
+            QuerySequence: A builder initialized with an `OPERATOR_IN` filter on the sequence names.
 
         Raises:
             ValueError: If the response is empty.
@@ -692,7 +688,7 @@ class QueryResponse:
         return QuerySequence._from_expressions(
             _QuerySequenceExpression(
                 full_path="name",
-                op="$in",
+                op=query_pb2.OPERATOR_IN,
                 value=[it.sequence.name for it in self.items],
             )
         )
@@ -724,7 +720,7 @@ class QueryResponse:
             ```
 
         Returns:
-            QueryTopic: A builder initialized with an '$in' filter on the topic names.
+            QueryTopic: A builder initialized with an `OPERATOR_IN` filter on the topic names.
 
         Raises:
             ValueError: If the response is empty.
@@ -737,7 +733,7 @@ class QueryResponse:
         return QueryTopic._from_expressions(
             _QueryTopicExpression(
                 "name",
-                "$in",
+                query_pb2.OPERATOR_IN,
                 [t.name for it in self.items for t in it.topics],
             )
         )

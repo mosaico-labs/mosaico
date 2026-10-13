@@ -2,6 +2,7 @@ import datetime
 import inspect
 from typing import Any, Tuple, Type, Union
 
+from ...proto.v1 import query_pb2
 from ..expressions import _QueryExpression
 
 # -------------------------------------------------------------------------
@@ -56,13 +57,15 @@ class _QueryableComparable:
                 in `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_EQ`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_EQ, getattr(self, "_transform_value")(value)
+        )
 
     def neq(self, value: Any) -> "_QueryExpression":
         """
@@ -73,13 +76,15 @@ class _QueryableComparable:
                 in `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$neq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_NE`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$neq", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_NE, getattr(self, "_transform_value")(value)
+        )
 
     def lt(self, value: Any) -> "_QueryExpression":
         """
@@ -90,13 +95,15 @@ class _QueryableComparable:
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LT`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$lt", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_LT, getattr(self, "_transform_value")(value)
+        )
 
     def leq(self, value: Any) -> "_QueryExpression":
         """
@@ -107,13 +114,15 @@ class _QueryableComparable:
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LE`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$leq", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_LE, getattr(self, "_transform_value")(value)
+        )
 
     def gt(self, value: Any) -> "_QueryExpression":
         """
@@ -124,13 +133,15 @@ class _QueryableComparable:
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GT`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$gt", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_GT, getattr(self, "_transform_value")(value)
+        )
 
     def geq(self, value: Any) -> "_QueryExpression":
         """
@@ -141,13 +152,15 @@ class _QueryableComparable:
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GE`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$geq", getattr(self, "_transform_value")(value))
+        return getattr(self, "_cmp")(
+            query_pb2.OPERATOR_GE, getattr(self, "_transform_value")(value)
+        )
 
     def in_(self, *values: Any) -> "_QueryExpression":
         """
@@ -161,7 +174,7 @@ class _QueryableComparable:
 
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_IN`).
 
         Raises:
             ValueError: If no values are provided.
@@ -184,7 +197,7 @@ class _QueryableComparable:
 
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_BETWEEN`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -207,7 +220,7 @@ class _QueryableComparable:
                 Both must be either `float` or `int`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_OUTSIDE`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -247,11 +260,11 @@ class _QueryableNumeric(_QueryableComparable):
 
 #     def ex(self):
 #         """Checks for existence of the key in the dictionary field."""
-#         return getattr(self, "_cmp")("$ex", None)
+#         return getattr(self, "_cmp")(query_pb2.OPERATOR_EX, None)
 
 #     def nex(self):
 #         """Checks for non-existence of the key in the dictionary field."""
-#         return getattr(self, "_cmp")("$nex", None)
+#         return getattr(self, "_cmp")(query_pb2.OPERATOR_NEX, None)
 
 
 # -------------------------------------------------------------------------
@@ -329,13 +342,13 @@ class _QueryableBool:
             value (Any): `True` or `False`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_EQ`).
 
         Raises:
             TypeError: If `value` isn't a `bool`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_EQ, value)
 
 
 # -------------------------------------------------------------------------
@@ -365,17 +378,17 @@ class _QueryableString:
             value (Any): The string to compare against.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_EQ`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_EQ, value)
 
     # def neq(self, value: Any) -> "_QueryExpression":
     #     getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-    #     return getattr(self, "_cmp")("$neq", value)
+    #     return getattr(self, "_cmp")(query_pb2.OPERATOR_NE, value)
 
     def match(self, value: Any) -> "_QueryExpression":
         """
@@ -400,13 +413,13 @@ class _QueryableString:
             value (Any): The glob pattern to match against.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$match`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_MATCH`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$match", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_MATCH, value)
 
     def lt(self, value: Any) -> "_QueryExpression":
         """
@@ -417,13 +430,13 @@ class _QueryableString:
             value (Any): The exclusive upper bound.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LT`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$lt", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_LT, value)
 
     def leq(self, value: Any) -> "_QueryExpression":
         """
@@ -434,13 +447,13 @@ class _QueryableString:
             value (Any): The inclusive upper bound.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LE`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$leq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_LE, value)
 
     def gt(self, value: Any) -> "_QueryExpression":
         """
@@ -451,13 +464,13 @@ class _QueryableString:
             value (Any): The exclusive lower bound.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GT`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$gt", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_GT, value)
 
     def geq(self, value: Any) -> "_QueryExpression":
         """
@@ -468,13 +481,13 @@ class _QueryableString:
             value (Any): The inclusive lower bound.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GE`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$geq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_GE, value)
 
     def in_(self, *values: str) -> "_QueryExpression":
         """
@@ -486,7 +499,7 @@ class _QueryableString:
                 tuple (`in_([v1, v2])`).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_IN`).
 
         Raises:
             ValueError: If no values are provided.
@@ -509,7 +522,7 @@ class _QueryableString:
                 Both must be of type `str`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_BETWEEN`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -533,7 +546,7 @@ class _QueryableString:
                 Both must be of type `str`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_OUTSIDE`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -575,7 +588,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric, string, or boolean value.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_EQ`).
 
         Raises:
             TypeError: If `value` isn't numeric, string, or boolean.
@@ -586,7 +599,7 @@ class _QueryableDynamicValue:
             + _QueryableString.__mixin_supported_types__
             + _QueryableBool.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$eq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_EQ, value)
 
     def neq(self, value: Any) -> "_QueryExpression":
         """
@@ -596,7 +609,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric, string, or boolean value.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$neq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_NE`).
 
         Raises:
             TypeError: If `value` isn't numeric, string, or boolean.
@@ -607,7 +620,7 @@ class _QueryableDynamicValue:
             + _QueryableString.__mixin_supported_types__
             + _QueryableBool.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$neq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_NE, value)
 
     def match(self, value: Any) -> "_QueryExpression":
         """
@@ -632,7 +645,7 @@ class _QueryableDynamicValue:
             value (Any): The glob pattern to match against.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$match`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_MATCH`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -641,7 +654,7 @@ class _QueryableDynamicValue:
         getattr(self, "_validate_value_type")(
             value, _QueryableString.__mixin_supported_types__
         )
-        return getattr(self, "_cmp")("$match", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_MATCH, value)
 
     def in_(self, *values: Any) -> "_QueryExpression":
         """
@@ -653,7 +666,7 @@ class _QueryableDynamicValue:
                 tuple (`in_([v1, v2])`).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_IN`).
 
         Raises:
             ValueError: If no values are provided.
@@ -668,7 +681,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LT`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -678,7 +691,7 @@ class _QueryableDynamicValue:
             _QueryableComparable.__mixin_supported_types__
             + _QueryableString.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$lt", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_LT, value)
 
     def leq(self, value: Any) -> "_QueryExpression":
         """
@@ -688,7 +701,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_LE`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -698,7 +711,7 @@ class _QueryableDynamicValue:
             _QueryableComparable.__mixin_supported_types__
             + _QueryableString.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$leq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_LE, value)
 
     def gt(self, value: Any) -> "_QueryExpression":
         """
@@ -708,7 +721,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GT`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -718,7 +731,7 @@ class _QueryableDynamicValue:
             _QueryableComparable.__mixin_supported_types__
             + _QueryableString.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$gt", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_GT, value)
 
     def geq(self, value: Any) -> "_QueryExpression":
         """
@@ -728,7 +741,7 @@ class _QueryableDynamicValue:
             value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_GE`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -738,7 +751,7 @@ class _QueryableDynamicValue:
             _QueryableComparable.__mixin_supported_types__
             + _QueryableString.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$geq", value)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_GE, value)
 
     def between(self, *values: Any) -> "_QueryExpression":
         """
@@ -753,7 +766,7 @@ class _QueryableDynamicValue:
                 or tuple (`between([lo, hi])`), with `lower <= upper`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_BETWEEN`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -775,7 +788,7 @@ class _QueryableDynamicValue:
                 or tuple (`outside([lo, hi])`), with `lower <= upper`.
 
         Returns:
-            _QueryExpression: The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`OPERATOR_OUTSIDE`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -789,8 +802,8 @@ class _QueryableDynamicValue:
         Checks whether the dictionary key backing this field exists.
 
         Args:
-            value (bool): `True` to require the key's existence (`$ex`), `False` to
-                require its absence (`$nex`).
+            value (bool): `True` to require the key's existence (`OPERATOR_EX`), `False` to
+                require its absence (`OPERATOR_NEX`).
 
         Returns:
             _QueryExpression: The atomic existence (or non-existence) expression.
@@ -803,9 +816,9 @@ class _QueryableDynamicValue:
             _QueryableBool.__mixin_supported_types__,
         )
         if value:
-            return getattr(self, "_cmp")("$ex", None)
+            return getattr(self, "_cmp")(query_pb2.OPERATOR_EX, None)
         else:
-            return getattr(self, "_cmp")("$nex", None)
+            return getattr(self, "_cmp")(query_pb2.OPERATOR_NEX, None)
 
 
 class _DynamicFieldFactoryMixin:
@@ -925,7 +938,7 @@ class _QueryableField:
 
     # --- Core Implementation ---
 
-    def _cmp(self, op: str, value: Any) -> _QueryExpression:
+    def _cmp(self, op: query_pb2.Operator, value: Any) -> _QueryExpression:
         """
         Internal helper to create an atomic comparison expression.
         """
@@ -993,7 +1006,7 @@ class _QueryableField:
         getattr(self, "_validate_value_type")(values, allowed_types)
 
         transformed = [getattr(self, "_transform_value")(v) for v in values]
-        return getattr(self, "_cmp")("$in", transformed)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_IN, transformed)
 
     def _between(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
         """
@@ -1020,7 +1033,7 @@ class _QueryableField:
             )
 
         transformed = [getattr(self, "_transform_value")(v) for v in values]
-        return getattr(self, "_cmp")("$between", transformed)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_BETWEEN, transformed)
 
     def _outside(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
         """
@@ -1047,7 +1060,7 @@ class _QueryableField:
             )
 
         transformed = [getattr(self, "_transform_value")(v) for v in values]
-        return getattr(self, "_cmp")("$outside", transformed)
+        return getattr(self, "_cmp")(query_pb2.OPERATOR_OUTSIDE, transformed)
 
     def __getattr__(self, name: str):
         """This is called when an attribute is not found normally. Raise a helpful error."""

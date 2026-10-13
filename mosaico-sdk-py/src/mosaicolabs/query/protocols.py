@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
+from ..proto.v1 import query_pb2
 from .expressions import _QueryExpression
 
 
@@ -11,12 +12,10 @@ class QueryableProtocol(Protocol):
     """
     Structural protocol for classes that integrate into a multi-domain [`Query`][mosaicolabs.query.builders.Query].
 
-    A class implicitly satisfies this protocol if it provides a unique identification tag
-    via `name()` and a serialization method via `to_dict()`. This
-    protocol ensures that the root [`Query`][mosaicolabs.query.builders.Query]
-    or the  can
-    orchestrate complex requests without knowing the specific internal logic of
-    each sub-query.
+    A class implicitly satisfies this protocol if it can fill its own field of the
+    protobuf `Filter` message via `_apply_to()`. This protocol ensures that the root
+    [`Query`][mosaicolabs.query.builders.Query] can orchestrate complex requests
+    without knowing the specific internal logic of each sub-query.
 
     ### Reference Implementations
     The following classes are standard examples of this protocol:
@@ -41,17 +40,10 @@ class QueryableProtocol(Protocol):
         """
         ...
 
-    def name(self) -> str:
+    def _apply_to(self, msg: query_pb2.Filter):
         """
-        Returns the unique key identifying this sub-query within the root request.
-
-        Examples include `"topic"`, `"sequence"`, or `"ontology"`.
-        """
-        ...
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the internal expressions into a platform-compatible dictionary.
+        Fills the field of the `Filter` message targeted by this sub-query
+        (`sequence`, `topic` or `ontology`).
         """
         ...
 

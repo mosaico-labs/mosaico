@@ -29,7 +29,6 @@ from ..logging_config import get_logger
 from ..platform.server_config import ServerInfo
 from ..proto.v1 import flight_pb2, requests_pb2
 from ..query import Query, QueryResponse
-from ..query._proto_query import filter_to_proto
 from ..query.protocols import QueryableProtocol
 from .connection import (
     ConnectionContext,
@@ -1010,24 +1009,11 @@ class MosaicoClient:
             ```
         """
         if queries:
-            self._queries = list(queries)
-            # Validate for duplicate query types to prevent overwrite logic errors
-            types_seen = {}
-            for q in queries:
-                t = type(q)
-                if t in types_seen:
-                    raise ValueError(
-                        f"Duplicate query type detected: '{t.__name__}'. "
-                        "Multiple instances of the same type will override each other when encoded.",
-                    )
-                else:
-                    types_seen[t] = True
-        elif query is not None:
-            self._queries = query._queries
-        else:
+            # Validates duplicate query types
+            query = Query(*queries)
+        elif query is None:
             raise ValueError("Expected input queries or a 'Query' object")
-
-        query_dict: dict[str, Any] = {q.name(): q.to_dict() for q in self._queries}
+        self._queries = query._queries
 
         ACTION = FlightAction.QUERY
 
@@ -1035,7 +1021,7 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._connection.flight_client,
                 action=ACTION,
-                request=requests_pb2.Query(filter=filter_to_proto(query_dict)),
+                request=requests_pb2.Query(filter=query._to_proto()),
                 expected_type=_DoActionQueryResponse,
             )
 

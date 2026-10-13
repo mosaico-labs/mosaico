@@ -1,4 +1,31 @@
-from typing import Any, Dict
+from typing import Any
+
+from ..proto.v1 import query_pb2
+
+
+def _value_to_proto(value: Any) -> query_pb2.Value:
+    """Converts a comparison value into a `Value` message."""
+    # `bool` must be checked before `int`, since it is a subclass of it
+    if isinstance(value, bool):
+        return query_pb2.Value(boolean=value)
+    if isinstance(value, int):
+        return query_pb2.Value(integer=value)
+    if isinstance(value, float):
+        return query_pb2.Value(float=value)
+    if isinstance(value, str):
+        return query_pb2.Value(text=value)
+    if isinstance(value, (list, tuple)) and value:
+        # Lists are homogeneous, the queryable fields reject mixed types
+        first = value[0]
+        if isinstance(first, bool):
+            return query_pb2.Value(boolean_array=query_pb2.BooleanArray(values=value))
+        if isinstance(first, int):
+            return query_pb2.Value(integer_array=query_pb2.IntegerArray(values=value))
+        if isinstance(first, float):
+            return query_pb2.Value(float_array=query_pb2.FloatArray(values=value))
+        if isinstance(first, str):
+            return query_pb2.Value(text_array=query_pb2.TextArray(values=value))
+    raise TypeError(f"Unsupported query value: {value!r}")
 
 
 class _QueryExpression:
@@ -15,39 +42,38 @@ class _QueryExpression:
     1.  **Generation**: A user calls `IMU.Q.acceleration.x.gt(9.8)`, which generates
         a [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression] (a subclass of this class).
     2.  **Validation**: A [Builder][mosaicolabs.query.builders] receives the expression
-        and validates its type, operator format, and key uniqueness.
-    3.  **Serialization**: The builder calls `.to_dict()` on the expression to
-        transform it into the specific JSON format expected by the platform.
+        and validates its type and key uniqueness.
+    3.  **Serialization**: The builder calls `._to_condition()` on the expression to
+        transform it into the protobuf `Condition` message expected by the platform.
 
     Attributes:
-        full_path: The complete, dot-separated path to the target field on the platform.
-        op: The Mosaico-compliant operator string (e.g., `"$eq"`, `"$gt"`, `"$between"`).
-        value: The comparison value or data structure (e.g., a constant, a list for `$in`, or a range for `$between`).
+        key: The complete, dot-separated path to the target field on the platform.
+        op: The protobuf operator (e.g., `OPERATOR_EQ`, `OPERATOR_GT`, `OPERATOR_BETWEEN`).
+        value: The comparison value or data structure (e.g., a constant, a list for `OPERATOR_IN`, or a range for `OPERATOR_BETWEEN`).
     """
 
-    def __init__(self, full_path: str, op: str, value: Any):
+    def __init__(self, full_path: str, op: query_pb2.Operator, value: Any):
         """
         Initializes an atomic comparison.
 
         Args:
-            full_path (str): The dot-separated field path used in the final query dictionary.
-            op (str): The short-string operation identifier (must start with `$`).
-            value (Any): The constant value for the comparison.
+            full_path (str): The dot-separated path of the target field.
+            op (query_pb2.Operator): The protobuf comparison operator.
+            value (Any): The constant value for the comparison, `None` for `OPERATOR_EX` / `OPERATOR_NEX`.
         """
-        # self.key is the full path used in the final query dict, e.g., "GPS.status"
+        # self.key is the full path of the target field, e.g., "GPS.status"
         self.key = full_path
 
         self.op = op
         self.value = value
 
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Converts the expression into its final dictionary format.
-
-        Example:
-            `{"GPS.status.service": {"$eq": 0}}`
-        """
-        return {self.key: {self.op: self.value}}
+    def _to_condition(self) -> query_pb2.Condition:
+        """Converts the operator and value into a `Condition` message."""
+        condition = query_pb2.Condition(op=self.op)
+        # `OPERATOR_EX` / `OPERATOR_NEX` carry no value
+        if self.value is not None:
+            condition.value.CopyFrom(_value_to_proto(self.value))
+        return condition
 
 
 class _QueryTopicExpression(_QueryExpression):
@@ -66,9 +92,9 @@ class _QueryTopicExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `QueryTopic().with_user_metadata("calibrated", eq=True)` | `_QueryTopicExpression("user_metadata.calibrated", "$eq", True)` |
-    | `QueryTopic().with_name("camera_front")` | `_QueryTopicExpression("name", "$eq", "camera_front")` |
-    | `QueryTopic().with_ontology_tag("imu")` | `_QueryTopicExpression("ontology_tag", "$eq", "imu")` |
+    | `QueryTopic().with_user_metadata("calibrated", eq=True)` | `_QueryTopicExpression("user_metadata.calibrated", OPERATOR_EQ, True)` |
+    | `QueryTopic().with_name("camera_front")` | `_QueryTopicExpression("name", OPERATOR_EQ, "camera_front")` |
+    | `QueryTopic().with_ontology_tag("imu")` | `_QueryTopicExpression("ontology_tag", OPERATOR_EQ, "imu")` |
 
     """
 
@@ -90,9 +116,9 @@ class _QuerySequenceExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `QuerySequence().with_user_metadata("project", eq="Apollo")` | `_QuerySequenceExpression("user_metadata.project", "$eq", "Apollo")` |
-    | `QuerySequence().with_name("Apollo")` | `_QuerySequenceExpression("name", "$eq", "Apollo")` |
-    | `QuerySequence().with_created_timestamp(time_start=1704067200_000000000)` | `_QuerySequenceExpression("created_at_ns", "$geq", 1704067200_000000000)` |
+    | `QuerySequence().with_user_metadata("project", eq="Apollo")` | `_QuerySequenceExpression("user_metadata.project", OPERATOR_EQ, "Apollo")` |
+    | `QuerySequence().with_name("Apollo")` | `_QuerySequenceExpression("name", OPERATOR_EQ, "Apollo")` |
+    | `QuerySequence().with_created_timestamp(time_start=1704067200_000000000)` | `_QuerySequenceExpression("created_at_ns", OPERATOR_GE, 1704067200_000000000)` |
 
     """
 
@@ -115,10 +141,9 @@ class _QueryCatalogExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.x", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.y.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.y", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.z.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.z", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.x", "$gt", 9.8)` |
+    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.x", OPERATOR_GT, 9.8)` |
+    | `IMU.Q.acceleration.y.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.y", OPERATOR_GT, 9.8)` |
+    | `IMU.Q.acceleration.z.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.z", OPERATOR_GT, 9.8)` |
 
     """
 
@@ -129,3 +154,9 @@ class _QueryCatalogExpression(_QueryExpression):
         GPS.Q.position.x.lt(1.0) -> gps
         """
         return self.key.split(".")[0]
+
+    def _to_predicate(self) -> query_pb2.OntologyPredicate:
+        """Converts the expression into an `OntologyPredicate` message."""
+        return query_pb2.OntologyPredicate(
+            field=self.key, condition=self._to_condition()
+        )

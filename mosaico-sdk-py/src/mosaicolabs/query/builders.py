@@ -12,9 +12,11 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 * [**`QuerySequence`**][mosaicolabs.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, List, Optional, Tuple, Type, Union
 
-# Import the building blocks for expressions and how they are combined
+from ..proto.v1 import query_pb2
+
+# Import the building blocks for expressions
 from .expressions import (
     _QueryCatalogExpression,
     _QueryExpression,
@@ -68,60 +70,22 @@ def _validate_expression_type(
         )
 
 
-def _validate_expression_operator_format(expr: "_QueryExpression"):
+def _fill_catalog_filter(
+    msg: Union[query_pb2.TopicFilter, query_pb2.SequenceFilter],
+    exprs: List[_QueryExpression],
+):
     """
-    Private helper to validate a single expression against the
-    class's __supported_query_expressions__ type.
+    Private helper filling a `TopicFilter` / `SequenceFilter` message.
 
-    Raises a dynamic TypeError if the type is incorrect.
+    Expressions on `user_metadata.<key>` go into the `user_metadata` map under
+    `<key>`, all the others target the message field with the same name.
     """
-    # Get the type this class supports
-
-    if not expr.op.startswith("$"):
-        raise ValueError(
-            f"Invalid expression operator '{expr.op}': must start with '$'."
-        )
-
-
-# --- Logical Combinators --
-
-
-class _QueryCombinator:
-    """
-    Merges multiple `_QueryExpression` instances into a single cohesive query block.
-
-    The combinator is responsible for flattening individual expressions into a
-    single dictionary suitable for the Mosaico API. Currently,
-    all expressions combined in a single builder are treated with an implicit **AND** logic.
-    """
-
-    def __init__(
-        self,
-        expressions: List[_QueryExpression],
-        # op: str = "$and",
-    ):
-        """
-        Initializes the logical combinator.
-
-        Args:
-            expressions List[_QueryExpression]: A list of atomic expressions to merge.
-        """
-        # self.op = op
-        self.expressions = expressions
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Converts the logical group into a merged dictionary format.
-
-        Example:
-            `{"IMU.acceleration.x": {"$gt": 5}, "IMU.acceleration.y": {"$lt": 10}}`
-        """
-        if not self.expressions:
-            return {}
-        # return {self.op: [expr.to_dict() for expr in self.expressions]}
-        return {
-            key: val for expr in self.expressions for key, val in expr.to_dict().items()
-        }
+    for expr in exprs:
+        if expr.key.startswith("user_metadata."):
+            meta_key = expr.key.split(".", 1)[1]
+            msg.user_metadata[meta_key].CopyFrom(expr._to_condition())
+        else:
+            getattr(msg, expr.key).CopyFrom(expr._to_condition())
 
 
 # --- Query Builders --
@@ -133,7 +97,7 @@ class QueryOntologyCatalog:
 
     This builder allows for fine-grained filtering based on the actual values contained within sensor payloads
     (e.g., IMU acceleration, GPS coordinates, or custom telemetry).
-    It produces a "flat" dictionary output where field paths utilize dot-notation (e.g., `"IMU.acceleration.x"`).
+    Field paths utilize dot-notation (e.g., `"IMU.acceleration.x"`).
 
     This class is designed to work with the **`.Q` query proxy** injected into every
     [`Serializable`][mosaicolabs.models.core.Serializable] data ontology model.
@@ -188,15 +152,11 @@ class QueryOntologyCatalog:
 
         Raises:
             TypeError: If an expression is not of the supported type.
-            ValueError: If an operator does not start with the required '$' prefix.
-            NotImplementedError: If a duplicate key (field path) is detected within the same query.
         """
         self._expressions: list[_QueryExpression] = []
         # Call the helper for each expression
         for expr in expressions:
             _validate_expression_type(expr, self.__supported_query_expressions__)
-            _validate_expression_operator_format(expr)
-            _validate_expression_unique_key(self._expressions, expr.key)
             self._expressions.append(expr)
 
     @classmethod
@@ -256,30 +216,15 @@ class QueryOntologyCatalog:
             expr,
             self.__supported_query_expressions__,
         )
-        _validate_expression_operator_format(expr)
-        _validate_expression_unique_key(self._expressions, expr.key)
-
         self._expressions.append(expr)
         return self
 
     # compatibility with QueryProtocol
-    def name(self) -> str:
-        """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
-        return "ontology"
-
-    # compatibility with QueryProtocol
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the ontology expressions into a flat dictionary for the platform API.
-
-        Example Output:
-            `{"IMU.timestamp_ns": {"$between": [...]}, "IMU.acceleration.x": {"$leq": 10}}`
-
-        Returns:
-            Dict[str, Any]: A dictionary containing all merged sensor-field expressions.
-        """
-        query_dict = _QueryCombinator(list(self._expressions)).to_dict()
-        return query_dict
+    def _apply_to(self, msg: query_pb2.Filter):
+        """Fills the `ontology` field of the `Filter` message, one predicate per expression."""
+        msg.ontology.predicates.extend(
+            expr._to_predicate() for expr in self._expressions
+        )
 
     def expressions(self) -> List[_QueryExpression]:
         """
@@ -292,9 +237,8 @@ class QueryTopic:
     """
     A top-level query object for Topic data that combines multiple expressions with a logical AND.
 
-    This builder handles the complex partitioning required to query both flat system fields
-    (like `name` or `ontology_tag`) and nested dictionary fields (like `user_metadata`).
-    The resulting dictionary output preserves this hierarchical structure for server-side processing.
+    This builder handles both flat system fields (like `name` or `ontology_tag`)
+    and nested dictionary fields (like `user_metadata`).
 
     Example:
         ```python
@@ -343,7 +287,6 @@ class QueryTopic:
 
         for expr in exprs:
             _validate_expression_type(expr, cls.__supported_query_expressions__)
-            _validate_expression_operator_format(expr)
             _validate_expression_unique_key(instance._expressions, expr.key)
             instance._expressions.append(expr)
 
@@ -362,7 +305,6 @@ class QueryTopic:
         """
 
         _validate_expression_type(expr, self.__supported_query_expressions__)
-        _validate_expression_operator_format(expr)
         _validate_expression_unique_key(self._expressions, expr.key)
         self._expressions.append(expr)
         return self
@@ -456,7 +398,9 @@ class QueryTopic:
         Returns:
             QueryTopic: The `QueryTopic` instance for method chaining.
         """
-        return self._with_expression(_QueryTopicExpression("name", "$eq", f"{name}"))
+        return self._with_expression(
+            _QueryTopicExpression("name", query_pb2.OPERATOR_EQ, f"{name}")
+        )
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
@@ -505,7 +449,7 @@ class QueryTopic:
         return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
-            _QueryTopicExpression("name", "$match", f"{name}")
+            _QueryTopicExpression("name", query_pb2.OPERATOR_MATCH, f"{name}")
         )
 
     def with_ontology_tag(self, ontology_tag: str) -> "QueryTopic":
@@ -546,7 +490,7 @@ class QueryTopic:
         return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
-            _QueryTopicExpression("ontology_tag", "$eq", ontology_tag)
+            _QueryTopicExpression("ontology_tag", query_pb2.OPERATOR_EQ, ontology_tag)
         )
 
     def with_created_timestamp(
@@ -599,99 +543,24 @@ class QueryTopic:
         # employs explicit _QueryTopicExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
-            expr = _QueryTopicExpression("created_at_ns", "$geq", ts_int)
+            expr = _QueryTopicExpression("created_at_ns", query_pb2.OPERATOR_GE, ts_int)
         elif te_int and not ts_int:
-            expr = _QueryTopicExpression("created_at_ns", "$leq", te_int)
+            expr = _QueryTopicExpression("created_at_ns", query_pb2.OPERATOR_LE, te_int)
         else:
             if not ts_int or not te_int:
                 raise ValueError("This is embarassing")  # will never happen
             if ts_int > te_int:
                 raise ValueError("'time_start' must be less than 'time_end'.")
 
-            expr = _QueryTopicExpression("created_at_ns", "$between", [ts_int, te_int])
+            expr = _QueryTopicExpression(
+                "created_at_ns", query_pb2.OPERATOR_BETWEEN, [ts_int, te_int]
+            )
         return self._with_expression(expr)
 
     # compatibility with QueryProtocol
-    def name(self) -> str:
-        """
-        Returns the top-level key ('topic') used when nesting this query inside a
-        root [`Query`][mosaicolabs.query.builders.Query].
-
-        Returns:
-            str: The string "topic" indicating the query type.
-        """
-        return "topic"
-
-    # compatibility with QueryProtocol
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the query into a nested dictionary for the platform API.
-
-        This method partitions expressions into two groups:
-
-        1. **System Fields**: Standard fields like `name` are kept in the root dictionary.
-        2. **Metadata Fields**: Fields starting with a dictionary-type model key (e.g., `user_metadata`)
-           are stripped of their prefix and nested under that key.
-
-        Returns:
-            Dict[str, Any]: A dictionary representation of the query, e.g., `{"name": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
-        """
-
-        # Set all fields that are dictionaries (like user_metadata)
-        metadata_field_names = {
-            "user_metadata",
-        }
-
-        # Partition all expressions into "normal" or "metadata"
-        normal_exprs = []
-        # Create a "bucket" for each metadata field (e.g., {"user_metadata": []})
-        metadata_buckets = {name: [] for name in metadata_field_names}
-
-        for expr in self._expressions:
-            is_metadata_expr = False
-            for meta_name in metadata_field_names:
-                # Check if the expression's field path starts with a metadata field name
-                # e.g., "user_metadata.mission" starts with "user_metadata"
-                if expr.key == meta_name or expr.key.startswith(f"{meta_name}."):
-                    metadata_buckets[meta_name].append(expr)
-                    is_metadata_expr = True
-                    break
-
-            if not is_metadata_expr:
-                normal_exprs.append(expr)
-
-        # Combine the normal, top-level expressions
-        # This will produce {"name": {"$eq": "..."}}
-        exprs_dict = _QueryCombinator(normal_exprs).to_dict()
-
-        # Build and merge the nested metadata dictionaries
-        for meta_name, meta_exprs in metadata_buckets.items():
-            if not meta_exprs:
-                continue  # Skip if no expressions for this metadata field
-
-            # Re-create expressions with the prefix stripped
-            # e.g., "user_metadata.mission" -> "mission"
-            stripped_exprs = []
-            for expr in meta_exprs:
-                if "." not in expr.key:
-                    # Skip expressions on the root dict itself (e.g., user_metadata.is_null())
-                    continue
-
-                # Get the sub-key (e.g., "mission")
-                sub_key = expr.key.split(".", 1)[1]
-                # Create a new expression with the sub-key as its path
-                stripped_exprs.append(
-                    _QueryTopicExpression(sub_key, expr.op, expr.value)
-                )
-
-            if stripped_exprs:
-                # Combine the new, stripped expressions into a dict
-                meta_dict = _QueryCombinator(stripped_exprs).to_dict()
-                # Add them nested under the metadata field name
-                # e.g., exprs_dict["user_metadata"] = {"mission": {"$eq": "..."}}
-                exprs_dict[meta_name] = meta_dict
-
-        return exprs_dict
+    def _apply_to(self, msg: query_pb2.Filter):
+        """Fills the `topic` field of the `Filter` message."""
+        _fill_catalog_filter(msg.topic, self._expressions)
 
     def expressions(self) -> List[_QueryExpression]:
         """
@@ -707,9 +576,8 @@ class QuerySequence:
     """
     A top-level query object for Sequence data that combines multiple expressions with a logical AND.
 
-    This builder handles the complex partitioning required to query both flat system fields
-    (like `name`) and nested dictionary fields (like `user_metadata`).
-    The resulting dictionary output preserves this hierarchical structure for server-side processing.
+    This builder handles both flat system fields (like `name`) and nested
+    dictionary fields (like `user_metadata`).
 
     Example:
         ```python
@@ -755,7 +623,6 @@ class QuerySequence:
 
         for expr in exprs:
             _validate_expression_type(expr, cls.__supported_query_expressions__)
-            _validate_expression_operator_format(expr)
             _validate_expression_unique_key(instance._expressions, expr.key)
             instance._expressions.append(expr)
 
@@ -774,7 +641,6 @@ class QuerySequence:
 
         """
         _validate_expression_type(expr, self.__supported_query_expressions__)
-        _validate_expression_operator_format(expr)
         _validate_expression_unique_key(self._expressions, expr.key)
 
         self._expressions.append(expr)
@@ -870,7 +736,7 @@ class QuerySequence:
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("name", "$eq", name)
+            _QuerySequenceExpression("name", query_pb2.OPERATOR_EQ, name)
         )
 
     def with_name_match(self, name: str) -> "QuerySequence":
@@ -919,7 +785,7 @@ class QuerySequence:
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("name", "$match", f"{name}")
+            _QuerySequenceExpression("name", query_pb2.OPERATOR_MATCH, f"{name}")
         )
 
     def with_created_timestamp(
@@ -970,9 +836,13 @@ class QuerySequence:
         # employs explicit _QuerySequenceExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
-            expr = _QuerySequenceExpression("created_at_ns", "$geq", ts_int)
+            expr = _QuerySequenceExpression(
+                "created_at_ns", query_pb2.OPERATOR_GE, ts_int
+            )
         elif te_int and not ts_int:
-            expr = _QuerySequenceExpression("created_at_ns", "$leq", te_int)
+            expr = _QuerySequenceExpression(
+                "created_at_ns", query_pb2.OPERATOR_LE, te_int
+            )
         else:
             if not ts_int or not te_int:
                 raise ValueError("This is embarassing")  # will never happen
@@ -980,91 +850,16 @@ class QuerySequence:
                 raise ValueError("'time_start' must be less than 'time_end'.")
 
             expr = _QuerySequenceExpression(
-                "created_at_ns", "$between", [ts_int, te_int]
+                "created_at_ns", query_pb2.OPERATOR_BETWEEN, [ts_int, te_int]
             )
         return self._with_expression(expr)
 
     # TODO: possible to query updated_timestamps?
 
     # compatibility with QueryProtocol
-    def name(self) -> str:
-        """
-        The top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query].
-
-        Returns:
-            str: The string "sequence" indicating the query type.
-        """
-        return "sequence"
-
-        # compatibility with QueryProtocol
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Serializes the query into a nested dictionary for the platform API.
-
-        This method partitions expressions into:
-
-        1. **Normal Fields**: Fields like `name` are kept in a flat dictionary.
-        2. **Metadata Fields**: Fields targeting `user_metadata` are collected and nested.
-
-        Returns:
-            Dict[str, Any]: A dictionary representation preserving the hierarchical structure.
-        """
-        # Identify all fields that are dictionaries (like user_metadata)
-        metadata_field_names = {
-            "user_metadata",
-        }
-
-        # Partition all expressions into "normal" or "metadata"
-        normal_exprs = []
-        # Create a "bucket" for each metadata field (e.g., {"user_metadata": []})
-        metadata_buckets = {name: [] for name in metadata_field_names}
-
-        for expr in self._expressions:
-            is_metadata_expr = False
-            for meta_name in metadata_field_names:
-                # Check if the expression's field path starts with a metadata field name
-                # e.g., "user_metadata.mission" starts with "user_metadata"
-                if expr.key == meta_name or expr.key.startswith(f"{meta_name}."):
-                    metadata_buckets[meta_name].append(expr)
-                    is_metadata_expr = True
-                    break
-
-            if not is_metadata_expr:
-                normal_exprs.append(expr)
-
-        # Combine the normal, top-level expressions
-        # This will produce {"name": {"$eq": "..."}}
-        exprs_dict = _QueryCombinator(normal_exprs).to_dict()
-
-        # Build and merge the nested metadata dictionaries
-        for meta_name, meta_exprs in metadata_buckets.items():
-            if not meta_exprs:
-                continue  # Skip if no expressions for this metadata field
-
-            # Re-create expressions with the prefix stripped
-            # e.g., "user_metadata.mission" -> "mission"
-            stripped_exprs = []
-            for expr in meta_exprs:
-                if "." not in expr.key:
-                    # Skip expressions on the root dict itself (e.g., user_metadata.is_null())
-                    continue
-
-                # Get the sub-key (e.g., "mission")
-                sub_key = expr.key.split(".", 1)[1]
-                # Create a new expression with the sub-key as its path
-                stripped_exprs.append(
-                    _QuerySequenceExpression(sub_key, expr.op, expr.value)
-                )
-
-            if stripped_exprs:
-                # Combine the new, stripped expressions into a dict
-                meta_dict = _QueryCombinator(stripped_exprs).to_dict()
-                # Add them nested under the metadata field name
-                # e.g., exprs_dict["user_metadata"] = {"mission": {"$eq": "..."}}
-                exprs_dict[meta_name] = meta_dict
-
-        return exprs_dict
+    def _apply_to(self, msg: query_pb2.Filter):
+        """Fills the `sequence` field of the `Filter` message."""
+        _fill_catalog_filter(msg.sequence, self._expressions)
 
     def expressions(self) -> List[_QueryExpression]:
         """
@@ -1135,7 +930,7 @@ class Query:
 
         # --- Validation ---
         # Check for duplicate query types (e.g., two QueryTopic instances)
-        # as they would overwrite each other in the final dictionary.
+        # as they would overwrite each other in the final `Filter` message.
         self._types_seen = {}
         for q in queries:
             t = type(q)
@@ -1188,24 +983,14 @@ class Query:
                 self._types_seen[t] = True
                 self._queries.append(q)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def _to_proto(self) -> query_pb2.Filter:
         """
-        Serializes the entire multi-domain query into the final JSON dictionary.
+        Builds the `Filter` message of the entire multi-domain query.
 
-        It orchestrates the conversion by calling the `.name()` and `.to_dict()`
-        methods of each contained sub-query.
-
-        Example Output:
-            ```json
-            {
-                "topic": { ... topic filters ... },
-                "sequence": { ... sequence filters ... },
-                "ontology": { ... ontology filters ... }
-            }
-            ```
-
-        Returns:
-            Dict[str, Any]: The final aggregated query dictionary.
+        Each contained sub-query fills its own field of the message
+        (`sequence`, `topic` or `ontology`).
         """
-        # Uses a dictionary comprehension to build the final object
-        return {q.name(): q.to_dict() for q in self._queries}
+        msg = query_pb2.Filter()
+        for q in self._queries:
+            q._apply_to(msg)
+        return msg

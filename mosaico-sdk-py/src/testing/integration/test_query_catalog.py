@@ -122,6 +122,51 @@ def test_query_ontology_top_level_string(
     mosaico_client.sequence_delete("test_sequence_query_string")
 
 
+def test_query_ontology_same_field_predicates(
+    mosaico_client: MosaicoClient,
+):
+    """
+    Multiple predicates on the same ontology field are combined in AND.
+    Each topic holds a single message, so its chunk statistics match the value.
+    """
+    sequence_name = "test_sequence_query_same_field_predicates"
+
+    with mosaico_client.sequence_create(
+        sequence_name, {}, SessionLevelErrorPolicy.Delete
+    ) as seqw:
+        for topic_name, x in [("/topic/low", 0.0), ("/topic/high", 10.0)]:
+            tw = seqw.topic_create(topic_name, {}, Vector3d)
+            assert tw is not None
+            tw.push(
+                Message(
+                    timestamp_ns=12345678,
+                    data=Vector3d(header=Header(frame_id="body_frame"), x=x, y=0, z=0),
+                )
+            )
+
+    def query_topic_names(*exprs):
+        query_resp = mosaico_client.query(
+            QueryOntologyCatalog(*exprs),
+            QuerySequence().with_name(sequence_name),
+        )
+        assert query_resp is not None
+        return sorted(t.name for item in query_resp for t in item.topics)
+
+    try:
+        # Each pair of predicates selects exactly one topic: a single predicate
+        # alone would select both topics in one of the two queries
+        assert query_topic_names(Vector3d.Q.x.gt(-1.0), Vector3d.Q.x.lt(5.0)) == [
+            "/topic/low"
+        ]
+        assert query_topic_names(Vector3d.Q.x.gt(5.0), Vector3d.Q.x.lt(20.0)) == [
+            "/topic/high"
+        ]
+        # No topic satisfies both: an OR would select both topics
+        assert query_topic_names(Vector3d.Q.x.gt(1.0), Vector3d.Q.x.lt(9.0)) == []
+    finally:
+        mosaico_client.sequence_delete(sequence_name)
+
+
 def test_query_ontology(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform

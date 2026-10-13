@@ -16,6 +16,7 @@ from mosaicolabs.models.sensors import (
     RobotJoint,
     Temperature,
 )
+from mosaicolabs.proto.v1 import query_pb2
 from mosaicolabs.query import (
     Query,
     QueryOntologyCatalog,
@@ -101,29 +102,35 @@ class TestQueryIMUAPI:
         # --- Catalog Context: Nested Field & Operator ---
         test_numeric_value = 12345.67
         # Call: IMU.Q.acceleration.y.gt(test_numeric_value)
-        # Expected: {'imu.acceleration.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('imu.acceleration.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = IMU.Q.acceleration.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{IMU.ontology_tag()}.acceleration.y": {"$gt": test_numeric_value}
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{IMU.ontology_tag()}.acceleration.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = IMU.Q.acceleration.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": test_numeric_value}
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{IMU.ontology_tag()}.acceleration.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: IMU.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'imu.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('imu.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = IMU.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{IMU.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{IMU.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Simulate the User Query
@@ -133,23 +140,29 @@ class TestQueryIMUAPI:
             .with_expression(IMU.Q.acceleration.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{IMU.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{IMU.ontology_tag()}.acceleration.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{IMU.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{IMU.ontology_tag()}.acceleration.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryGPSAPI:
@@ -217,29 +230,35 @@ class TestQueryGPSAPI:
         # --- Catalog Context: Nested Field & Operator ---
         test_numeric_value = 12345.67
         # Call: GPS.Q.position.y.gt(test_numeric_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = GPS.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{GPS.ontology_tag()}.position.y": {"$gt": test_numeric_value}
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{GPS.ontology_tag()}.position.y",
+            query_pb2.OPERATOR_GT,
+            test_numeric_value,
+        )
         expr_nested = GPS.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{GPS.ontology_tag()}.position.y": {"$eq": test_numeric_value}
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{GPS.ontology_tag()}.position.y",
+            query_pb2.OPERATOR_EQ,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: GPS.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'gps.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('gps.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = GPS.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{GPS.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{GPS.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -249,23 +268,29 @@ class TestQueryGPSAPI:
             .with_expression(GPS.Q.position.y.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{GPS.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{GPS.ontology_tag()}.position.y": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{GPS.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{GPS.ontology_tag()}.position.y",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryImageAPI:
@@ -322,24 +347,28 @@ class TestQueryImageAPI:
         # --- Catalog Context: Field & Operator ---
         test_str_value = "test-str"
         # Call: Image.Q.encoding.match(test_str_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_image = Image.Q.encoding.match(test_str_value)
         assert isinstance(expr_image, _QueryCatalogExpression)
-        assert expr_image.to_dict() == {
-            f"{Image.ontology_tag()}.encoding": {"$match": test_str_value},
-        }
+        assert (expr_image.key, expr_image.op, expr_image.value) == (
+            f"{Image.ontology_tag()}.encoding",
+            query_pb2.OPERATOR_MATCH,
+            test_str_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('image.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = Image.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Image.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Image.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -349,23 +378,29 @@ class TestQueryImageAPI:
             .with_expression(Image.Q.stride.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Image.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Image.ontology_tag()}.stride": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Image.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Image.ontology_tag()}.stride",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryMagnetometerAPI:
@@ -422,26 +457,28 @@ class TestQueryMagnetometerAPI:
         # --- Catalog Context: Field & Operator ---
         test_numeric_value = 12345.67
         # Call: Image.Q.encoding.match(test_str_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = Magnetometer.Q.magnetic_field.x.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Magnetometer.ontology_tag()}.magnetic_field.x": {
-                "$leq": test_numeric_value
-            },
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Magnetometer.ontology_tag()}.magnetic_field.x",
+            query_pb2.OPERATOR_LE,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('image.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = Magnetometer.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Magnetometer.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -451,23 +488,29 @@ class TestQueryMagnetometerAPI:
             .with_expression(Magnetometer.Q.magnetic_field.z.gt(12345.67)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Magnetometer.ontology_tag()}.magnetic_field.z": {"$gt": 12345.67},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Magnetometer.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Magnetometer.ontology_tag()}.magnetic_field.z",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+        ]
 
 
 class TestQueryTemperatureAPI:
@@ -520,24 +563,28 @@ class TestQueryTemperatureAPI:
         # --- Catalog Context: Field & Operator ---
         test_numeric_value = 303.15
         # Call: Image.Q.encoding.match(test_str_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = Temperature.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Temperature.ontology_tag()}.value": {"$leq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Temperature.ontology_tag()}.value",
+            query_pb2.OPERATOR_LE,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('image.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = Temperature.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Temperature.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Temperature.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -547,23 +594,29 @@ class TestQueryTemperatureAPI:
             .with_expression(Temperature.Q.value.gt(303.15)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Temperature.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Temperature.ontology_tag()}.value": {"$gt": 303.15},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Temperature.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Temperature.ontology_tag()}.value",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=303.15),
+            ),
+        ]
 
     def test_conversion_helper_methods(self):
         """
@@ -629,24 +682,28 @@ class TestQueryPressureAPI:
         # --- Catalog Context: Field & Operator ---
         test_numeric_value = 200123.15
         # Call: Image.Q.encoding.match(test_str_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = Pressure.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Pressure.ontology_tag()}.value": {"$leq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Pressure.ontology_tag()}.value",
+            query_pb2.OPERATOR_LE,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('image.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = Pressure.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Pressure.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Pressure.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -656,23 +713,29 @@ class TestQueryPressureAPI:
             .with_expression(Pressure.Q.value.gt(200123.15)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Pressure.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Pressure.ontology_tag()}.value": {"$gt": 200123.15},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Pressure.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Pressure.ontology_tag()}.value",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=200123.15),
+            ),
+        ]
 
     def test_conversion_helper_methods(self):
         """
@@ -749,24 +812,28 @@ class TestQueryRangeAPI:
         # --- Catalog Context: Field & Operator ---
         test_numeric_value = 0.52
         # Call: Image.Q.encoding.match(test_str_value)
-        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        # Expected: ('gps.position.y', OPERATOR_GT, 12345.67) - _QueryCatalogExpression
         expr_nested = Range.Q.field_of_view.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {
-            f"{Range.ontology_tag()}.field_of_view": {"$leq": test_numeric_value},
-        }
+        assert (expr_nested.key, expr_nested.op, expr_nested.value) == (
+            f"{Range.ontology_tag()}.field_of_view",
+            query_pb2.OPERATOR_LE,
+            test_numeric_value,
+        )
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        # Expected: ('image.timestamp_ns', OPERATOR_BETWEEN, [10000, 30000]) - _QueryCatalogExpression
         expr_between = Range.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
-        assert expr_between.to_dict() == {
-            f"{Range.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
-        }
+        assert (expr_between.key, expr_between.op, expr_between.value) == (
+            f"{Range.ontology_tag()}.timestamp_ns",
+            query_pb2.OPERATOR_BETWEEN,
+            test_time_range,
+        )
 
-    def test_full_sdk_query_to_dict_structure(self):
+    def test_full_sdk_query_proto_structure(self):
         """Tests the final output structure of an example query."""
 
         # Sgpslate the User Query
@@ -776,23 +843,29 @@ class TestQueryRangeAPI:
             .with_expression(Range.Q.field_of_view.gt(0.52)),
         )
 
-        # Define Expected Output
-        expected_dict = {
-            "ontology": {
-                f"{Range.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
-                f"{Range.ontology_tag()}.field_of_view": {"$gt": 0.52},
-            },
-        }
-
         # Assert the result
-        result = q.to_dict()
+        result = q._to_proto()
 
-        # Check top-level structure
-        assert set(result.keys()) == set(["ontology"])
+        # Only the ontology domain is set
+        assert not result.HasField("sequence")
+        assert not result.HasField("topic")
 
-        # Check topic nesting (the complex part)
-        # Check ontology flatness (the simple part)
-        assert result["ontology"] == expected_dict["ontology"]
+        # One predicate per expression
+        assert [
+            (p.field, p.condition.op, p.condition.value)
+            for p in result.ontology.predicates
+        ] == [
+            (
+                f"{Range.ontology_tag()}.timestamp_ns",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=12345.67),
+            ),
+            (
+                f"{Range.ontology_tag()}.field_of_view",
+                query_pb2.OPERATOR_GT,
+                query_pb2.Value(float=0.52),
+            ),
+        ]
 
     def test_validation_min_and_max_range(self):
         """Tests the validator for `min_range` and `max_range`."""
@@ -845,17 +918,17 @@ class TestQueryRobotJoint:
 
         expr = RobotJoint.Q.positions[0].eq(0)
         assert expr.key == f"{RobotJoint.ontology_tag()}.positions[0]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.all().eq(0)
         assert expr.key == f"{RobotJoint.ontology_tag()}.positions[!]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.any().eq(0)
         assert expr.key == f"{RobotJoint.ontology_tag()}.positions[?]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
 
@@ -928,17 +1001,17 @@ class TestQueryRobotPath:
 
         expr = RobotPath.Q.poses[0].position.x.eq(0)
         assert expr.key == f"{RobotPath.ontology_tag()}.poses[0].position.x"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.all().position.x.eq(0)
         assert expr.key == f"{RobotPath.ontology_tag()}.poses[!].position.x"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.any().position.x.eq(0)
         assert expr.key == f"{RobotPath.ontology_tag()}.poses[?].position.x"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
 
@@ -1048,21 +1121,21 @@ class TestFrameTransform:
         assert (
             expr.key == f"{FrameTransform.ontology_tag()}.transforms[0].translation.x"
         )
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.all().translation.x.eq(0)
         assert (
             expr.key == f"{FrameTransform.ontology_tag()}.transforms[!].translation.x"
         )
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.any().translation.x.eq(0)
         assert (
             expr.key == f"{FrameTransform.ontology_tag()}.transforms[?].translation.x"
         )
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
 
@@ -1078,17 +1151,17 @@ class TestInertia:
 
         expr = Inertia.Q.inertia[0].eq(0)
         assert expr.key == f"{Inertia.ontology_tag()}.inertia[0]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = Inertia.Q.inertia.all().eq(0)
         assert expr.key == f"{Inertia.ontology_tag()}.inertia[!]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = Inertia.Q.inertia.any().eq(0)
         assert expr.key == f"{Inertia.ontology_tag()}.inertia[?]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
 
@@ -1111,45 +1184,45 @@ class TestCamera:
 
         expr = CameraInfo.Q.intrinsic_parameters[0].eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[0]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.intrinsic_parameters.all().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[!]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.intrinsic_parameters.any().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[?]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters[0].eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[0]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters.all().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[!]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters.any().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[?]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters[0].eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[0]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters.all().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[!]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters.any().eq(0)
         assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[?]"
-        assert expr.op == "$eq"
+        assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
