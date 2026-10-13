@@ -87,9 +87,16 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
             format!("{select} WHERE {where_clauses}")
         }
         query::Value::Text(_) | query::Value::TextArray(_) => {
+            // Stats are computed bytewise in Rust, compare them with the same rules
+            // in Postgres
             let select = r#"
             SELECT chunk_id FROM chunk_t
-            JOIN column_chunk_textual_t __stats__ USING(chunk_id)
+            JOIN (
+                SELECT chunk_id, column_id, 
+                    min_value COLLATE "C" AS min_value,
+                    max_value COLLATE "C" AS max_value
+                FROM column_chunk_textual_t
+            ) __stats__ USING(chunk_id)
             JOIN column_t __column__ USING(column_id)
             "#;
 
