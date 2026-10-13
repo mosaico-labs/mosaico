@@ -2722,3 +2722,34 @@ async fn test_ontology_all_outside(pool: sqlx::Pool<db::DatabaseType>) {
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_text_comparison_ascii(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_text_bytewise";
+    setup_topics(
+        &mut client,
+        seq,
+        vec![("topic_lower", string_batch(10_000, &["apple"]))],
+    )
+    .await;
+
+    // apple > Banana
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.name": { "$gt": "Banana" } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_lower")),
+        "topic_lower should match ('apple' > 'Banana' bytewise)"
+    );
+
+    server.shutdown().await;
+}
