@@ -76,6 +76,7 @@ pub struct DatabaseConfig {
 pub struct StoreConfig {
     pub endpoint: Option<String>,
     pub bucket: Option<String>,
+    pub region: Option<String>,
     pub access_key: Option<String>,
     /// Path to a file containing the secret key. There is no plain `secret_key` field —
     /// literal secret values are env/CLI only, never read from this file.

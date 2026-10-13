@@ -80,6 +80,11 @@ pub struct Builder {
     /// The name of the specific bucket to access.
     pub bucket: String,
 
+    /// The region of the storage service.
+    ///
+    /// Only used by remote object stores, when `None` the client default is used.
+    pub region: Option<String>,
+
     /// The access key for the storage bucket
     ///
     /// This field is **required** to work with remote object store.
@@ -96,6 +101,7 @@ impl Builder {
         Self {
             endpoint,
             bucket,
+            region: None,
             access_key: None,
             secret_key: None,
         }
@@ -105,6 +111,12 @@ impl Builder {
     pub fn with_credentials(mut self, key: String, secret: String) -> Self {
         self.access_key = Some(key);
         self.secret_key = Some(secret);
+        self
+    }
+
+    /// Configure the region of the object store
+    pub fn with_region(mut self, region: String) -> Self {
+        self.region = Some(region);
         self
     }
 
@@ -143,7 +155,13 @@ impl Builder {
             return Err(Error::MissingCredentials("secret key".to_owned()));
         };
 
-        Store::try_from_s3_store(self.endpoint, self.bucket, access_key, secret_key)
+        Store::try_from_s3_store(
+            self.endpoint,
+            self.bucket,
+            self.region,
+            access_key,
+            secret_key,
+        )
     }
 }
 
@@ -204,6 +222,7 @@ impl Store {
     pub fn try_from_s3_store(
         endpoint: url::Url,
         bucket: String,
+        region: Option<String>,
         access_key: String,
         secret_key: String,
     ) -> Result<Self, Error> {
@@ -218,16 +237,18 @@ impl Store {
             .map_err(|_| Error::InvalidBucket("non URL safe string".to_owned()))?;
 
         // Setup connection with object storage service
-        // (cabba) TODO: add region support (??)
-        let storage = Arc::new(
-            AmazonS3Builder::new()
-                .with_endpoint(endpoint.to_string())
-                .with_bucket_name(&bucket)
-                .with_access_key_id(access_key)
-                .with_secret_access_key(secret_key)
-                .with_allow_http(true)
-                .build()?,
-        );
+        let mut s3_builder = AmazonS3Builder::new()
+            .with_endpoint(endpoint.to_string())
+            .with_bucket_name(&bucket)
+            .with_access_key_id(access_key)
+            .with_secret_access_key(secret_key)
+            .with_allow_http(true);
+
+        if let Some(region) = region {
+            s3_builder = s3_builder.with_region(region);
+        }
+
+        let storage = Arc::new(s3_builder.build()?);
 
         // Create object store registry (for datafusion support)
         let registry = Arc::new(DefaultObjectStoreRegistry::default());
@@ -541,6 +562,43 @@ mod test {
         let endpoint = "dummy://fake.url".parse().unwrap();
 
         let res = Builder::new(endpoint, bucket)
+            .with_credentials("access-key".to_owned(), "secret".to_owned())
+            .build();
+
+        dbg!(&res);
+        assert!(res.is_ok());
+    }
+
+    /// Checks that the region is ignored by the filesystem store
+    #[tokio::test]
+    async fn test_filesystem_store_with_region() {
+        let bucket = types::DateTime::now().fmt_to_ms();
+        let endpoint = "file:///tmp".parse().unwrap();
+
+        let store = Builder::new(endpoint, bucket)
+            .with_region("eu-south-1".to_owned())
+            .build()
+            .unwrap();
+
+        let sample = r#"Some example text"#;
+        let buffer = sample.as_bytes();
+
+        let target = "write_text";
+        store.write_to_path(&target, buffer).await.unwrap();
+        let read_buffer = store.read_bytes(&target).await.unwrap();
+        assert_eq!(buffer, read_buffer);
+    }
+
+    /// Checks that regions are not validated, since S3-compatible
+    /// services (e.g. MinIO, Ceph) allow custom region names
+    #[test]
+    fn test_remote_store_custom_region() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket)
+            .with_region("my-custom-region".to_owned())
             .with_credentials("access-key".to_owned(), "secret".to_owned())
             .build();
 

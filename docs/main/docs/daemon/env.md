@@ -68,6 +68,8 @@ Here we provide a complete list of environment variables that can be used to con
 
 - <Link id="mosaicod-store-bucket" />`MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. **Required**.
 
+- <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region of the object storage service. Only used with S3-compatible endpoints, ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Default is an empty string.
+
 - <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Default is an empty string.
 
 - <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error.
