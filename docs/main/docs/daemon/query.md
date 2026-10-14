@@ -1,10 +1,10 @@
 ---
 title: Query
 sidebar_position: 7
-description: "How mosaicod's query engine works. Covers the JSON filter expression format, hierarchy traversal across Sequences, Topics, and Ontology field values, and the query action API used by SDK clients."
+description: "How mosaicod's query engine works. Covers the protobuf filter message format, hierarchy traversal across Sequences, Topics, and Ontology field values, and the query action API used by SDK clients."
 ---
 
-Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](actions.md#query) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
+Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](actions.md#query) action, accepting a structured protobuf `Filter` message (see `proto/mosaico/v1/query.proto`) that can span the entire data hierarchy.
 
 ## Architecture
 
@@ -58,13 +58,11 @@ Fields backed by an Arrow **list** column (including lists of structs) are addre
 
 The specifier attaches to whichever segment is the list, and the path may continue into a struct after it:
 
-```json
-{
-  "ontology": {
-    "lidar.ranges[?]": { "$gt": 50.0 },
-    "imu.samples[0].x": { "$eq": 1.0 },
-    "robot.readings[!].active": { "$eq": true }
-  }
+```protobuf
+ontology {
+  predicates { field: "lidar.ranges[?]"          condition { op: OPERATOR_GT value { float: 50.0 } } }
+  predicates { field: "imu.samples[0].x"         condition { op: OPERATOR_EQ value { float: 1.0 } } }
+  predicates { field: "robot.readings[!].active" condition { op: OPERATOR_EQ value { boolean: true } } }
 }
 ```
 
@@ -72,12 +70,13 @@ The specifier attaches to whichever segment is the list, and the path may contin
 - `imu.samples[0].x`: targets the `x` field of the first struct in the `samples` list of structs.
 - `robot.readings[!].active`: every struct in `readings` must have `active` equal to `true`.
 
-A **plain list** column (no specifier) can be compared as a whole with `$eq` / `$neq` against a JSON array. The comparison is element-wise: it holds only when the arrays have the same length and every position matches. The literal is capped at `MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ` elements (default `1024`).
+A **plain list** column (no specifier) can be compared as a whole with `OPERATOR_EQ` / `OPERATOR_NE` against an array value (e.g. `integer_array`). The comparison is element-wise: it holds only when the arrays have the same length and every position matches. The literal is capped at `MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ` elements (default `1024`).
 
-```json
-{
-  "ontology": {
-    "mock.list_test": { "$eq": [3, 4, 5] }
+```protobuf
+ontology {
+  predicates {
+    field: "mock.list_test"
+    condition { op: OPERATOR_EQ value { integer_array { values: [3, 4, 5] } } }
   }
 }
 ```
@@ -98,13 +97,25 @@ For example, with the condition `imu.acceleration.x < 20.0`:
 * as a regular predicate, it matches the topics where **at least one** sample is below `20.0`;
 * with `AGGREGATOR_MAX`, it matches the topics whose maximum is below `20.0`, i.e. where **every** sample is below `20.0`.
 
-The aggregator is set in the `aggregator` field of each `OntologyPredicate` (see `proto/mosaico/v1/query.proto`); a predicate without aggregator keeps the regular behavior. Regular and aggregated predicates can target the same field in the same query, and are combined with implicit AND logic as any other predicate.
+The aggregator is set in the optional `aggregator` field of each `OntologyPredicate` (see `proto/mosaico/v1/query.proto`): a predicate without the field keeps the regular behavior, evaluated on the single samples.
+
+```protobuf
+ontology {
+  predicates {
+    field: "imu.acceleration.x"
+    aggregator: AGGREGATOR_MAX
+    condition { op: OPERATOR_LT value { float: 20.0 } }
+  }
+}
+```
 
 | Aggregator | Description | Data types | Operators |
 | --- | --- | --- | --- |
-| `AGGREGATOR_MAX` | Maximum value of the field over the topic | Numeric, text, boolean | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
-| `AGGREGATOR_MIN` | Minimum value of the field over the topic | Numeric, text, boolean | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
-| `AGGREGATOR_RANGE` | Spread of the field over the topic, i.e. `max - min` | Numeric | `$eq`, `$neq`, `$lt`, `$leq`, `$gt`, `$geq`, `$in`, `$between`, `$outside` |
+| `AGGREGATOR_MAX` | Maximum value of the field over the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
+| `AGGREGATOR_MIN` | Minimum value of the field over the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
+| `AGGREGATOR_RANGE` | Spread of the field over the topic, i.e. `max - min` | Numeric | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+
+On text fields, `AGGREGATOR_MAX` and `AGGREGATOR_MIN` compare the values lexicographically (bytewise), and `OPERATOR_MATCH` checks the pattern against the aggregated value, e.g. `AGGREGATOR_MAX` with `OPERATOR_MATCH` `"z*"` matches the topics whose greatest value starts with `z`.
 
 
 Aggregated predicates are resolved on the statistics computed for each chunk at ingestion time (the same min/max bounds used to prune chunks), so they never scan the data stored in the object store.
@@ -112,8 +123,10 @@ Aggregated predicates are resolved on the statistics computed for each chunk at 
 :::warning
 The following predicates are rejected with an *invalid argument* error:
 * An aggregator on a list field, i.e. a field path with an index specifier (`[i]`, `[?]`, `[!]`).
-* An operator not listed for the aggregator in the table above, e.g. `$match`, `$ex` or `$nex`.
+* An operator not listed for the aggregator in the table above, e.g. `OPERATOR_EX` or `OPERATOR_NEX`, or `OPERATOR_MATCH` with `AGGREGATOR_RANGE`.
 * `AGGREGATOR_RANGE` on a text field.
+* Any aggregator on a boolean field: a boolean has only two values, so aggregating it is meaningless.
+* An `aggregator` field set to `AGGREGATOR_UNSPECIFIED`: a regular predicate must leave the field unset.
 * Any aggregator defined in the protocol but not listed in the table above, which are not supported yet.
 :::
 
@@ -123,29 +136,29 @@ Aggregators describe a topic as a whole, not single samples: they select **which
 
 ## Supported Operators
 
-The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:
+The query engine supports a rich set of comparison operators, defined by the `Operator` enum. Each operator is set in the `op` field of a `Condition`, together with the comparison `value`:
 
-| Operator | Description                                                                                                                                                                                                        |
-| --- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `$eq` | Equal to (supports all types)                                                                                                                                                                                      |
-| `$neq` | Not equal to (supports all types)                                                                                                                                                                                  |
-| `$lt` | Less than (numeric and timestamp only)                                                                                                                                                                             |
-| `$gt` | Greater than (numeric and timestamp only)                                                                                                                                                                          |
-| `$leq` | Less than or equal to (numeric and timestamp only)                                                                                                                                                                 |
-| `$geq` | Greater than or equal to (numeric and timestamp only)                                                                                                                                                              |
-| `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only)                                                                                                                                                 |
-| `$outside` | Outside a range `[min, max]`, the strict complement of `$between`: matches when `v < min` **or** `v > max` (numeric and timestamp only)                                                                             |
-| `$in` | Matches when the field equals **any** value in the list, e.g. `{ "$in": [1, 5, 9] }`. Supports numeric and text values; a single-element list behaves like `$eq`. Lists mixing different value types are rejected. |
-| `$match` | Matches a pattern (wildcards allowed). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields.                                                                               |
-| `$ex` | Field exists (the column is present).                                                                                                                                                                              |
-| `$nex` | Field does not exist.                                                                                                                                                                                              |
+| Operator | Description |
+| --- | --- |
+| `OPERATOR_EQ` | Equal to (supports all types) |
+| `OPERATOR_NE` | Not equal to (supports all types) |
+| `OPERATOR_LT` | Less than. Supports numeric, text (lexicographic) and timestamp values |
+| `OPERATOR_GT` | Greater than (same types as `OPERATOR_LT`) |
+| `OPERATOR_LE` | Less than or equal to (same types as `OPERATOR_LT`) |
+| `OPERATOR_GE` | Greater than or equal to (same types as `OPERATOR_LT`) |
+| `OPERATOR_BETWEEN` | Within a range `[min, max]` inclusive (same types as `OPERATOR_LT`) |
+| `OPERATOR_OUTSIDE` | Outside a range `[min, max]`, the strict complement of `OPERATOR_BETWEEN`: matches when `v < min` **or** `v > max` (same types as `OPERATOR_LT`) |
+| `OPERATOR_IN` | Matches when the field equals **any** value in the list, e.g. `value { integer_array { values: [1, 5, 9] } }`. Supports numeric, text and boolean values; a single-element list behaves like `OPERATOR_EQ`. |
+| `OPERATOR_MATCH` | Matches a pattern (wildcards allowed). Applies to text fields only: `sequence.name`, `topic.name`, `topic.ontology_tag`, `topic.serialization_format`, textual user metadata, and textual ontology fields. |
+| `OPERATOR_EX` | Field exists (the column is present). |
+| `OPERATOR_NEX` | Field does not exist. |
 
 :::note
-`$ex` and `$nex` take no value: they are written as a bare string, e.g. `"imu.acceleration.x": "$ex"`. All other operators are written as an object, e.g. `"imu.acceleration.x": { "$gt": 5.0 }`.
+`OPERATOR_EX` and `OPERATOR_NEX` take no value, e.g. `condition { op: OPERATOR_EX }`. All other operators require a `value`, e.g. `condition { op: OPERATOR_GT value { float: 5.0 } }`. `OPERATOR_BETWEEN` and `OPERATOR_OUTSIDE` take a two-element array value holding `[min, max]`.
 :::
 
 :::note
-The pattern syntax allowed by the `$match` operator accepts the following wildcards:
+The pattern syntax allowed by the `OPERATOR_MATCH` operator accepts the following wildcards:
 *  `*` matches a multiple (zero or more) characters, including space.
 *  `?` matches a single (exactly one) characters, including space.
 *  `[]` matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
@@ -154,25 +167,22 @@ The pattern syntax allowed by the `$match` operator accepts the following wildca
 
 ## Syntax
 
-Queries are submitted as JSON objects. Each field is mapped to an operator and value. Multiple conditions are combined with implicit AND logic.
+Queries are submitted as a `Filter` message, made of an optional `SequenceFilter`, `TopicFilter` and `OntologyFilter`. Each field is mapped to a `Condition`, i.e. an operator and a value, and all the conditions must be satisfied. The ontology predicates are checked **one by one** against each topic: a topic matches when every predicate is satisfied.
 
-```json hl_lines="15" {15}
-{
-  "sequence": {
-    "name": { "$match": "test_run_*" },
-    "user_metadata": {
-      "driver": { "$eq": "Alice" }
-    }
-  },
-  "topic": {
-    "ontology_tag": { "$eq": "IMU" }
-  },
-  "ontology": {
-    "IMU.acceleration.x": { "$gt": 5.0 },
-    "IMU.acceleration.y": { "$between": [-2.0, 2.0] },
-
-    "include_timestamp_range": true,
+```protobuf
+sequence {
+  name { op: OPERATOR_MATCH value { text: "test_run_*" } }
+  user_metadata {
+    key: "driver"
+    value { op: OPERATOR_EQ value { text: "Alice" } }
   }
+}
+topic {
+  ontology_tag { op: OPERATOR_EQ value { text: "IMU" } }
+}
+ontology {
+  predicates { field: "IMU.acceleration.x" condition { op: OPERATOR_GT value { float: 5.0 } } }
+  predicates { field: "IMU.acceleration.y" condition { op: OPERATOR_BETWEEN value { float_array { values: [-2.0, 2.0] } } } }
 }
 ```
 

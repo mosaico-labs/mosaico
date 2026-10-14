@@ -29,7 +29,11 @@ impl TopicAggregateQueryBuilder {
 
         for predicate in filter.into_iter() {
             let (field, op, aggr) = predicate.into_parts();
-            let kind = StatsKind::from_op(&op);
+            let kind =
+                StatsKind::try_from_op(&op).map_err(|err| query::Error::AggregatorError {
+                    field: field.field_str(),
+                    err,
+                })?;
 
             let aggregate = aggr
                 .and_then(|aggr| aggregate_expr(aggr, kind))
@@ -79,7 +83,7 @@ impl StatsKind {
         }
     }
 
-    fn from_op(op: &query::Op<query::Value>) -> Self {
+    fn try_from_op(op: &query::Op<query::Value>) -> Result<Self, query::AggregatorError> {
         let value = match op {
             query::Op::Eq(v)
             | query::Op::Neq(v)
@@ -93,13 +97,24 @@ impl StatsKind {
             query::Op::Ex | query::Op::Nex => None,
         };
 
-        value.map_or(Self::Numeric, Self::from_value)
+        value
+            .map(Self::from_value)
+            .ok_or(query::AggregatorError::UnsupportedOperation)
     }
 
     fn table(self) -> &'static str {
         match self {
             Self::Numeric => "column_chunk_numeric_t",
-            Self::Textual => "column_chunk_textual_t",
+            // Stats are computed bytewise in Rust, compare them with the same rules
+            // in Postgres
+            Self::Textual => {
+                r#"(
+                SELECT chunk_id, column_id,
+                    min_value COLLATE "C" AS min_value,
+                    max_value COLLATE "C" AS max_value
+                FROM column_chunk_textual_t
+            )"#
+            }
         }
     }
 
@@ -109,7 +124,7 @@ impl StatsKind {
                 "NULLIF(__stats__.max_value, {:e}::float8)",
                 types::NUMERIC_MAX_PLACEHOLDER
             ),
-            Self::Textual => r#"NULLIF(__stats__.max_value, '') COLLATE "C""#.to_owned(),
+            Self::Textual => "NULLIF(__stats__.max_value, '')".to_owned(),
         }
     }
 
@@ -119,7 +134,7 @@ impl StatsKind {
                 "NULLIF(__stats__.min_value, {:e}::float8)",
                 types::NUMERIC_MIN_PLACEHOLDER
             ),
-            Self::Textual => r#"NULLIF(__stats__.min_value, '') COLLATE "C""#.to_owned(),
+            Self::Textual => "NULLIF(__stats__.min_value, '')".to_owned(),
         }
     }
 }

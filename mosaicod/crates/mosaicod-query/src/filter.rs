@@ -629,7 +629,20 @@ pub enum Aggregator {
 impl Aggregator {
     pub fn is_supported_aggregator<T>(&self, op: &Op<T>) -> bool {
         match self {
-            Self::Max | Self::Min | Self::Range | Self::First | Self::Last | Self::Std => matches!(
+            Self::Max | Self::Min => matches!(
+                op,
+                Op::Eq(_)
+                    | Op::Neq(_)
+                    | Op::Lt(_)
+                    | Op::Leq(_)
+                    | Op::Gt(_)
+                    | Op::Geq(_)
+                    | Op::In(_)
+                    | Op::Between(_)
+                    | Op::Outside(_)
+                    | Op::Match(_)
+            ),
+            Self::Range | Self::First | Self::Last | Self::Std => matches!(
                 op,
                 Op::Eq(_)
                     | Op::Neq(_)
@@ -680,6 +693,7 @@ impl Aggregator {
         match value {
             // Text is ordered lexicographically, only extremes are defined
             Some(Value::Text(_) | Value::TextArray(_)) => matches!(self, Self::Max | Self::Min),
+            Some(Value::Boolean(_) | Value::BooleanArray(_)) => false,
             _ => true,
         }
     }

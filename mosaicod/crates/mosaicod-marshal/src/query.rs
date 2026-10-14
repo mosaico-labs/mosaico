@@ -103,28 +103,33 @@ fn condition_from_proto<T: PartialOrd + IsSupportedOp>(
     Ok(op)
 }
 
-fn aggregator(aggr: i32) -> Result<Option<query::Aggregator>, query::AggregatorError> {
+fn aggregator(aggr: Option<i32>) -> Result<Option<query::Aggregator>, query::AggregatorError> {
     use proto_query::Aggregator;
 
-    let aggregator =
-        Aggregator::try_from(aggr).map_err(|_| query::AggregatorError::UnsupportedAggregator)?;
+    let Some(aggr) = aggr else {
+        return Ok(None);
+    };
 
-    Ok(match aggregator {
-        Aggregator::Max => Some(query::Aggregator::Max),
-        Aggregator::Min => Some(query::Aggregator::Min),
-        Aggregator::Count => Some(query::Aggregator::Count),
-        Aggregator::Range => Some(query::Aggregator::Range),
-        Aggregator::First => Some(query::Aggregator::First),
-        Aggregator::Last => Some(query::Aggregator::Last),
-        Aggregator::Std => Some(query::Aggregator::Std),
-        Aggregator::Mean => Some(query::Aggregator::Mean),
-        Aggregator::Diff => Some(query::Aggregator::Diff),
-        Aggregator::Rate => Some(query::Aggregator::Rate),
-        Aggregator::P50 => Some(query::Aggregator::P50),
-        Aggregator::P90 => Some(query::Aggregator::P90),
-        Aggregator::P99 => Some(query::Aggregator::P99),
-        Aggregator::Unspecified => None,
-    })
+    let aggregator = match Aggregator::try_from(aggr) {
+        Ok(Aggregator::Max) => query::Aggregator::Max,
+        Ok(Aggregator::Min) => query::Aggregator::Min,
+        Ok(Aggregator::Count) => query::Aggregator::Count,
+        Ok(Aggregator::Range) => query::Aggregator::Range,
+        Ok(Aggregator::First) => query::Aggregator::First,
+        Ok(Aggregator::Last) => query::Aggregator::Last,
+        Ok(Aggregator::Std) => query::Aggregator::Std,
+        Ok(Aggregator::Mean) => query::Aggregator::Mean,
+        Ok(Aggregator::Diff) => query::Aggregator::Diff,
+        Ok(Aggregator::Rate) => query::Aggregator::Rate,
+        Ok(Aggregator::P50) => query::Aggregator::P50,
+        Ok(Aggregator::P90) => query::Aggregator::P90,
+        Ok(Aggregator::P99) => query::Aggregator::P99,
+        Ok(Aggregator::Unspecified) | Err(_) => {
+            return Err(query::AggregatorError::UnsupportedAggregator);
+        }
+    };
+
+    Ok(Some(aggregator))
 }
 
 /// Converts an optional field condition.
@@ -533,7 +538,7 @@ mod tests {
         ontology_filter_from_proto(proto_query::OntologyFilter {
             predicates: vec![proto_query::OntologyPredicate {
                 field: field.to_owned(),
-                aggregator: aggregator as i32,
+                aggregator: Some(aggregator as i32),
                 condition: Some(condition),
             }],
         })
@@ -559,11 +564,10 @@ mod tests {
         )
         .unwrap();
         aggregated_filter("mock.s", Aggregator::Min, text_condition(Operator::Lt, "b")).unwrap();
-        // Booleans are aggregated on their numeric (0/1) stats
         aggregated_filter(
-            "mock.b",
+            "mock.s",
             Aggregator::Max,
-            condition(Operator::Eq, Some(proto_query::value::Kind::Boolean(true))),
+            text_condition(Operator::Match, "a*"),
         )
         .unwrap();
     }
@@ -575,7 +579,7 @@ mod tests {
         assert_aggregator_err(
             aggregated_filter(
                 "mock.s",
-                Aggregator::Max,
+                Aggregator::Range,
                 text_condition(Operator::Match, "a*"),
             ),
             "unsupported operation for the given aggregator",
@@ -598,6 +602,17 @@ mod tests {
             ),
             "unsupported value type for the given aggregator",
         );
+
+        for aggregator in [Aggregator::Max, Aggregator::Min, Aggregator::Range] {
+            assert_aggregator_err(
+                aggregated_filter(
+                    "mock.b",
+                    aggregator,
+                    condition(Operator::Eq, Some(proto_query::value::Kind::Boolean(true))),
+                ),
+                "unsupported value type for the given aggregator",
+            );
+        }
     }
 
     #[test]
