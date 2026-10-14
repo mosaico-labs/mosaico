@@ -162,7 +162,7 @@ pub fn ontology_filter<const N: usize>(
             .into_iter()
             .map(|(field, condition)| proto_query::OntologyPredicate {
                 field: field.to_owned(),
-                aggregator: proto_query::Aggregator::Unspecified as i32,
+                aggregator: None,
                 condition: Some(condition),
             })
             .collect(),
