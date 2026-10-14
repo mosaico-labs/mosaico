@@ -130,7 +130,7 @@ def test_query_regular_and_aggregated_expressions(
     ) == ["/vec/a", "/vec/b"]
 
 
-def test_clusterize_ignores_aggregated_expressions(
+def test_clusterize_server_raises_with_aggregated_expressions(
     mosaico_client: MosaicoClient, inject_aggregator_sequence
 ):
     def topic_a_clusters(*exprs):
@@ -143,11 +143,5 @@ def test_clusterize_ignores_aggregated_expressions(
         return topic.clusterize(2 * SAMPLE_DT_NS)
 
     # The time ranges come from the regular expression only: just the last sample is > 5
-    clusters = topic_a_clusters(Vector3d.Q.x.gt(5), Vector3d.Q.x.max().lt(40))
-    assert len(clusters) == 1
-    assert clusters[0].timerange.start == 5 * SAMPLE_DT_NS
-    assert clusters[0].timerange.end == 5 * SAMPLE_DT_NS
-
-    # Only aggregated expressions: rejected before reaching the server
-    with pytest.raises(ValueError, match="non-aggregated expression"):
-        topic_a_clusters(Vector3d.Q.x.max().lt(40))
+    with pytest.raises(ValueError, match="unsupported aggregator"):
+        topic_a_clusters(Vector3d.Q.x.gt(5), Vector3d.Q.x.max().lt(40))
