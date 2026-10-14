@@ -3176,7 +3176,13 @@ async fn test_ontology_text_comparison_ascii(pool: sqlx::Pool<db::DatabaseType>)
     // apple > Banana
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$gt": "Banana" } } }),
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([(
+                "mock.name",
+                filter::gt("Banana"),
+            )])),
+            ..Default::default()
+        },
     )
     .await
     .unwrap();
