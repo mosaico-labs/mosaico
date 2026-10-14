@@ -58,7 +58,7 @@ class _QueryExpression:
         full_path: str,
         op: query_pb2.Operator,
         value: Any,
-        aggregator: Optional[query_pb2.Aggregator] = None,
+        aggregator: Optional["query_pb2.Aggregator"] = None,
     ):
         # self.key is the full path used in the final query dict, e.g., "GPS.status".
         # Aggregated expressions get the aggregator as suffix, e.g., "GPS.status.max()",
