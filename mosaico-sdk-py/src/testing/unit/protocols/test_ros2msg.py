@@ -1,3 +1,5 @@
+import textwrap
+
 import pyarrow as pa
 import pytest
 
@@ -51,6 +53,7 @@ geometry_msg_pose_msgdef = """
     float64 z 0
     float64 w 1
     """
+geometry_msg_pose_msgdef = textwrap.dedent(geometry_msg_pose_msgdef)
 
 geometry_msg_polygon_msgdef = """
     # A specification of a polygon where the first and last points are assumed to be connected
@@ -65,6 +68,7 @@ geometry_msg_polygon_msgdef = """
     float32 y
     float32 z
     """
+geometry_msg_polygon_msgdef = textwrap.dedent(geometry_msg_polygon_msgdef)
 
 geometry_msg_pose_with_covariance_msgdef = """
     # This represents a pose in free space with uncertainty.
@@ -95,6 +99,9 @@ geometry_msg_pose_with_covariance_msgdef = """
     float64 z
     float64 w
     """
+geometry_msg_pose_with_covariance_msgdef = textwrap.dedent(
+    geometry_msg_pose_with_covariance_msgdef
+)
 
 primitives_msgdef = """
     bool flag
@@ -131,6 +138,8 @@ custom_type_lists_msgdef = """
     float64 y
     float64 z
     """
+
+custom_type_lists_msgdef = textwrap.dedent(custom_type_lists_msgdef)
 
 constants_msgdef = """
     uint8 STATUS_OK=0

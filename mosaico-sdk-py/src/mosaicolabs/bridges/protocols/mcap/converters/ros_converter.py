@@ -200,7 +200,7 @@ class RosMsgSchemaConverter(McapSchemaConverter):
 
             Calling::
 
-                RosMsgConverter.convert_rosmsg(geometry_msg_pose_msgdef, "geometry_msgs/msg/Pose")
+                RosMsgConverter.convert_rosmsg(textwrap.dedent(geometry_msg_pose_msgdef), "geometry_msgs/msg/Pose")
 
             returns::
 
