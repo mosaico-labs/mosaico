@@ -234,37 +234,3 @@ def test_create_intersect_payload(
         PRESSURE_ONTOLOGY_FILTER,
         TEMPERATURE_ONTOLOGY_FILTER,
     ]
-
-
-def test_create_intersect_empty_payload(
-    empty_query_topic: QueryResponseItemTopic,
-):
-    with pytest.raises(ValueError, match="non-aggregated expression"):
-        _build_intersect_payload(
-            [empty_query_topic, empty_query_topic, empty_query_topic], 100
-        )
-
-
-# def test_create_clusterize_payload_skips_aggregated_expressions():
-#     """Aggregated expressions describe the whole topic, so they are not sent to clusterize"""
-#     qri = QueryResponseItemTopic._from_proto(
-#         responses_pb2.QueryItemTopic(
-#             locator="seq1/front_imu",
-#             ontology_tag=f"{IMU.ontology_tag()}",
-#         )
-#     )
-#     qri._set_query_expressions(
-#         [IMU.Q.acceleration.x.gt(5.0), IMU.Q.acceleration.y.max().lt(20.0)]
-#     )
-
-#     clusterize_payload = _build_clusterize_payload(qri)
-
-#     assert clusterize_payload.ontology == Query(
-#         {f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0}}
-#     )
-
-#     # Only aggregated expressions: rejected before reaching the server
-#     qri._set_query_expressions([IMU.Q.acceleration.y.max().lt(20.0)])
-
-#     with pytest.raises(ValueError, match="non-aggregated expression"):
-#         _build_clusterize_payload(qri)

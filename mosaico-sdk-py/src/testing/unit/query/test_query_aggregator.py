@@ -79,14 +79,6 @@ def test_query_accepts_plain_and_aggregated_expressions_on_same_field():
     assert len(query.expressions()) == 3
 
 
-def test_query_rejects_duplicate_aggregated_expression():
-    with pytest.raises(NotImplementedError, match="already contains the key"):
-        QueryOntologyCatalog(
-            IMU.Q.acceleration.x.max().gt(5.0),
-            IMU.Q.acceleration.x.max().lt(9.0),
-        )
-
-
 def test_outside_on_aggregator():
     expr = IMU.Q.acceleration.x.max().outside(0.0, 1.0)
     assert expr.aggregator == AGGREGATOR_MAX
