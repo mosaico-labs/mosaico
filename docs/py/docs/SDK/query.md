@@ -599,11 +599,11 @@ Aggregated expressions are resolved by the server on the statistics stored for e
 
 !!! note "Aggregators and temporal windows"
     An aggregator describes the topic as a whole, not single samples, so it selects **which topics** match but not **when** they match.
-    When computing the [temporal windows](#temporal-windows) of a response (`clusterize`, `intersect`), only the regular expressions are used to find the matching time ranges; if a topic was matched by aggregated expressions only, every sample of the topic is used to build its windows.
+    Computing the [temporal windows](#temporal-windows) of a response (`clusterize`, `intersect`) is currently not supported for queries containing aggregated expressions, and the server returns an error.
+    Support for aggregators that resolve to an actual time sample (e.g. `min`, `max`) is being discussed in [this open discussion](https://github.com/mosaico-labs/mosaico/discussions/897).
 
-The following constraints apply to aggregators:
+The following constraint apply to aggregators:
 
-* **No list fields**: aggregators can't be applied after a list quantifier or index (`.any()`, `.all()`, `[i]`) and raise a `TypeError`.
 * **One aggregator per expression**: aggregators can't be chained, e.g. `.max().min()` raises a `TypeError`.
 
 ## Class-Free Queries
@@ -669,7 +669,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 | [`QueryableString`][mosaicolabs.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()` | `str` |
 | [`QueryableBool`][mosaicolabs.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
 
-[Aggregators](#aggregators) work the same way, e.g. `QueryableNumeric("GyroRaw.gyro.x").max().gt(0.5)`: `QueryableNumeric` supports `.max()`, `.min()` and `.range()`, while `QueryableString` and `QueryableBool` support `.max()` and `.min()`.
+[Aggregators](#aggregators) work the same way, e.g. `QueryableNumeric("GyroRaw.gyro.x").max().gt(0.5)`: `QueryableNumeric` supports `.max()`, `.min()` and `.range()`, while `QueryableString` supports `.max()` and `.min()`.
 
 ### Querying List Fields (Class-Free)
 
@@ -909,38 +909,36 @@ Use `clusterize_all()` when you need to inspect or debug each sensor's activity 
 
 ## Constraints & Limitations
 
-While fully functional, the current implementation (v0.x) has a **Single Occurrence Constraint**.
+### Multiple conditions on the same field
 
-* **Constraint**: A specific data field path may appear **only once** within a single query builder instance. You cannot chain two separate conditions on the same field (e.g., `.gt(0.5)` and `.lt(1.0)`).
-    ```python
-    # INVALID: The same field (acceleration.x) is used twice in the constructor
-    QueryOntologyCatalog() \
-        .with_expression(IMU.Q.acceleration.x.gt(0.5)) \
-        .with_expression(IMU.Q.acceleration.x.lt(1.0)) # <- Error! Duplicate field path
+`QueryOntologyCatalog` has no **Single Occurrence Constraint**: the same field path can appear in more than one expression in a single builder, with or without [aggregators](#aggregators). All expressions are combined with a logical **AND**.
 
-    ```
-* **Solution**: Use the built-in **`.between([min, max])`** operator to perform range filtering on a single field path.
-* **Note**: You can still query multiple *different* fields from the same sensor model (e.g., `acceleration.x` and `acceleration.y`) in one builder.
-    ```python
-    # VALID: Each expression targets a unique field path
-    QueryOntologyCatalog(
-        IMU.Q.acceleration.x.gt(0.5),              # Unique field
-        IMU.Q.acceleration.y.lt(1.0),              # Unique field
-        IMU.Q.angular_velocity.x.between([0, 1]),   # Correct way to do ranges
-    )
+```python
+# VALID: Two conditions on the same field path
+QueryOntologyCatalog() \
+    .with_expression(IMU.Q.acceleration.x.gt(0.5)) \
+    .with_expression(IMU.Q.acceleration.x.lt(1.0))
 
-    ```
-* **Note**: An [aggregated expression](#aggregators) is a separate occurrence from the regular one on the same field path, so each field path may appear once without aggregator and once per aggregator.
-    ```python
-    # VALID: One regular and one aggregated expression on the same field path
-    QueryOntologyCatalog(
-        IMU.Q.acceleration.x.gt(0.5),
-        IMU.Q.acceleration.x.max().lt(1.0),
-    )
+# VALID: The same aggregator used twice on the same field path
+QueryOntologyCatalog(
+    IMU.Q.acceleration.x.max().gt(0.5),
+    IMU.Q.acceleration.x.max().lt(1.0),
+)
+```
 
-    # INVALID: The same aggregator is used twice on the same field path
-    QueryOntologyCatalog(
-        IMU.Q.acceleration.x.max().gt(0.5),
-        IMU.Q.acceleration.x.max().lt(1.0), # <- Error! Duplicate field path and aggregator
-    )
-    ```
+!!! tip
+    For a simple range on a single field, the **`.between([min, max])`** operator is still the most compact form, e.g. `IMU.Q.acceleration.x.between([0.5, 1.0])`.
+
+### Single Occurrence Constraint on `QueryTopic` and `QuerySequence`
+
+`QueryTopic` and `QuerySequence` still apply the **Single Occurrence Constraint**: a key (e.g. a user metadata path) may appear **only once** in a single builder instance, and a duplicate raises a `NotImplementedError`.
+
+```python
+# INVALID: The same metadata key is used twice
+QuerySequence() \
+    .with_user_metadata("environment.visibility", gt=10) \
+    .with_user_metadata("environment.visibility", lt=50)  # <- Error! Duplicate key
+
+# VALID: Use a range operator on a single occurrence
+QuerySequence().with_user_metadata("environment.visibility", between=[10, 50])
+```
