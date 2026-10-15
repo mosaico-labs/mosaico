@@ -13,4 +13,4 @@ CREATE INDEX chunk_topic_id_idx ON chunk_t (topic_id);
 CREATE INDEX column_chunk_textual_chunk_id_idx ON column_chunk_textual_t (chunk_id);
 CREATE INDEX column_chunk_numeric_chunk_id_idx ON column_chunk_numeric_t (chunk_id);
 
-CREATE INDEX cleanup_log_instance_id_idx ON cleanup_log_t (instance_id);
+DROP INDEX instance_registry_last_heartbeat_idx;
