@@ -602,7 +602,7 @@ Aggregated expressions are resolved by the server on the statistics stored for e
     Computing the [temporal windows](#temporal-windows) of a response (`clusterize`, `intersect`) is currently not supported for queries containing aggregated expressions, and the server returns an error.
     Support for aggregators that resolve to an actual time sample (e.g. `min`, `max`) is being discussed in [this open discussion](https://github.com/mosaico-labs/mosaico/discussions/897).
 
-The following constraint apply to aggregators:
+The following constraint applies to aggregators:
 
 * **One aggregator per expression**: aggregators can't be chained, e.g. `.max().min()` raises a `TypeError`.
 
