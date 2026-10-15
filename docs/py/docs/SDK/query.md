@@ -559,13 +559,13 @@ For example:
 
 | Aggregator | Description | Data Types |
 | --- | --- | --- |
-| [`.max()`][mosaicolabs.query.queryable_fields.QueryableNumeric.max] | Maximum value of the field over the topic | Numeric, String, Boolean |
-| [`.min()`][mosaicolabs.query.queryable_fields.QueryableNumeric.min] | Minimum value of the field over the topic | Numeric, String, Boolean |
+| [`.max()`][mosaicolabs.query.queryable_fields.QueryableNumeric.max] | Maximum value of the field over the topic | Numeric, String |
+| [`.min()`][mosaicolabs.query.queryable_fields.QueryableNumeric.min] | Minimum value of the field over the topic | Numeric, String |
 | [`.range()`][mosaicolabs.query.queryable_fields.QueryableNumeric.range] | Spread of the field over the topic, i.e. `max() - min()` | Numeric |
 
 On **String** fields, `.max()` and `.min()` compare values lexicographically. On **Boolean** fields, `.max().eq(True)` matches the topics where **at least one** sample is `True`, while `.min().eq(True)` matches the topics where **every** sample is `True`.
 
-An aggregator returns the same queryable field, so it's followed by the usual comparison operators of the field type (`.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()`). The only exception is `.match()`, which is not available after an aggregator.
+An aggregator returns the same queryable field, so it's followed by the usual comparison operators of the field type (`.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()`, `.match()`).
 
 **Example** Finding the IMU recordings whose acceleration never exceeded 15 m/s², while the vertical axis stayed nearly constant
 
