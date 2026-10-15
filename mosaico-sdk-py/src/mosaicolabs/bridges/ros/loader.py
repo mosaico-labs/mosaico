@@ -666,7 +666,7 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
 
         if (
             adapter.ontology_data_type().__schema_fingerprint__
-            != _compute_schema_fingerprint(t_handler._arrow_schema)
+            != _compute_schema_fingerprint(t_handler.ontology_schema)
         ):
             return None
 
@@ -698,7 +698,7 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
 
         unmodeled_ontology = resolve_ontology_class(
             ontology_tag=t_handler.ontology_tag,
-            schema=t_handler._arrow_schema,
+            schema=t_handler.ontology_schema,
             serialization_format=SerializationFormat(t_handler.serialization_format),
         )
 

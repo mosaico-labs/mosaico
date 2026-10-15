@@ -862,7 +862,7 @@ class MosaicoToMCAPLoader(MosaicoLoader[MCAPAdapterBase]):
 
         unmodeled_ontology = resolve_ontology_class(
             ontology_tag=t_handler.ontology_tag,
-            schema=t_handler._arrow_schema,
+            schema=t_handler.ontology_schema,
             serialization_format=SerializationFormat(t_handler.serialization_format),
         )
 
