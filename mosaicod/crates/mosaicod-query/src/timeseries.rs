@@ -743,7 +743,8 @@ where
 
     for predicate in filter.into_iter() {
         let (field, op, aggr) = predicate.into_parts();
-        // Aggregated predicates are resolved on the db chunk stats, not row by row
+        // Only plain predicates are allowed here: aggregated predicates must be split out with
+        // `split_by_aggregator` and compiled by `TopicAggregateQueryBuilder`
         if aggr.is_some() {
             return Err(Error::AggregatorError {
                 field: field.field_str(),

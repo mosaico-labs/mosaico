@@ -5,6 +5,7 @@ from mosaicolabs.proto.v1.query_pb2 import (
     AGGREGATOR_MAX,
     AGGREGATOR_MIN,
     AGGREGATOR_RANGE,
+    OPERATOR_MATCH,
     OPERATOR_OUTSIDE,
 )
 from mosaicolabs.query import QueryOntologyCatalog
@@ -63,10 +64,10 @@ def test_aggregator_on_list_field_is_rejected():
         QueryableNumeric("imu.values[?]").max()
 
 
-# FIXME: check with backend
-# def test_match_on_aggregated_field_is_rejected():
-#     with pytest.raises(ValueError, match="not supported on aggregator"):
-#         QueryableString("imu.frame_id").max().match("a*")
+def test_match_on_aggregator():
+    expr = QueryableString("imu.frame_id").max().match("a*")
+    assert expr.aggregator == AGGREGATOR_MAX
+    assert expr.op == OPERATOR_MATCH
 
 
 def test_query_accepts_plain_and_aggregated_expressions_on_same_field():

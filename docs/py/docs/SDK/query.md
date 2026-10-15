@@ -605,7 +605,6 @@ The following constraints apply to aggregators:
 
 * **No list fields**: aggregators can't be applied after a list quantifier or index (`.any()`, `.all()`, `[i]`) and raise a `TypeError`.
 * **One aggregator per expression**: aggregators can't be chained, e.g. `.max().min()` raises a `TypeError`.
-* **No pattern matching**: `.match()` is not available after an aggregator and raises a `ValueError`.
 
 ## Class-Free Queries
 

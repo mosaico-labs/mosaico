@@ -6,6 +6,7 @@ use arrow::array::{
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
 use mosaicod_proto::v1::query as proto_query;
+use proto_query::Aggregator;
 use std::sync::Arc;
 use tests::{actions, common, filter};
 use tonic::Code;
@@ -365,6 +366,31 @@ fn topic_locators(items: &[mosaicod_marshal::responses::ResponseQueryItem]) -> V
         .iter()
         .flat_map(|item| item.topics.iter().map(|t| t.locator.clone()))
         .collect()
+}
+
+async fn query_locs(
+    client: &mut common::Client,
+    field: &str,
+    aggr: proto_query::Aggregator,
+    cond: proto_query::Condition,
+) -> Result<Vec<String>, tonic::Status> {
+    let ontology = proto_query::OntologyFilter {
+        predicates: vec![proto_query::OntologyPredicate {
+            field: field.to_owned(),
+            aggregator: Some(aggr as i32),
+            condition: Some(cond),
+        }],
+    };
+
+    actions::query(
+        client,
+        proto_query::Filter {
+            ontology: Some(ontology),
+            ..Default::default()
+        },
+    )
+    .await
+    .map(|items| topic_locators(&items))
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
@@ -3232,49 +3258,35 @@ async fn test_ontology_max_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    macro_rules! query_locs {
-        ($client:expr, $aggr:expr, $cond:expr) => {{
-            let ontology = proto_query::OntologyFilter {
-                predicates: vec![proto_query::OntologyPredicate {
-                    field: "mock.value".to_owned(),
-                    aggregator: Some($aggr as i32),
-                    condition: Some($cond),
-                }],
-            };
-
-            actions::query(
-                $client,
-                proto_query::Filter {
-                    ontology: Some(ontology),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map(|items| topic_locators(&items))
-        }};
-    }
-
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Max, filter::gt(25)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(25))
+        .await
+        .unwrap();
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 25: max(a)=6, excluded"
     );
 
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Max, filter::gt(3)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(3))
+        .await
+        .unwrap();
     assert!(
         locs.contains(&format!("{seq}/topic_a")) && locs.contains(&format!("{seq}/topic_b")),
         "locs must contains both the sequences"
     );
 
-    let locs = query_locs!(
+    let locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Max,
-        filter::matches("ciao")
+        "mock.value",
+        Aggregator::Max,
+        filter::matches("ciao"),
     )
+    .await
     .unwrap();
     assert!(locs.is_empty());
 
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Max, filter::gt(30)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(30))
+        .await
+        .unwrap();
     assert_eq!(locs.len(), 0);
 
     server.shutdown().await;
@@ -3300,46 +3312,32 @@ async fn test_ontology_min_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    macro_rules! query_locs {
-        ($client:expr, $aggr:expr, $cond:expr) => {{
-            let ontology = proto_query::OntologyFilter {
-                predicates: vec![proto_query::OntologyPredicate {
-                    field: "mock.value".to_owned(),
-                    aggregator: Some($aggr as i32),
-                    condition: Some($cond),
-                }],
-            };
-
-            actions::query(
-                $client,
-                proto_query::Filter {
-                    ontology: Some(ontology),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map(|items| topic_locators(&items))
-        }};
-    }
-
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Min, filter::gt(25)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(25))
+        .await
+        .unwrap();
     assert!(locs.is_empty());
 
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Min, filter::gt(3)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(3))
+        .await
+        .unwrap();
     assert!(
         locs.contains(&format!("{seq}/topic_b")),
         "locs must contains topic_b"
     );
 
-    let locs = query_locs!(
+    let locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Min,
-        filter::matches("ciao")
+        "mock.value",
+        Aggregator::Min,
+        filter::matches("ciao"),
     )
+    .await
     .unwrap();
     assert!(locs.is_empty());
 
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Min, filter::gt(30)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(30))
+        .await
+        .unwrap();
     assert_eq!(locs.len(), 0);
 
     server.shutdown().await;
@@ -3366,30 +3364,10 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    macro_rules! query_locs {
-        ($client:expr, $aggr:expr, $cond:expr) => {{
-            let ontology = proto_query::OntologyFilter {
-                predicates: vec![proto_query::OntologyPredicate {
-                    field: "mock.name".to_owned(),
-                    aggregator: Some($aggr as i32),
-                    condition: Some($cond),
-                }],
-            };
-
-            actions::query(
-                $client,
-                proto_query::Filter {
-                    ontology: Some(ontology),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map(|items| topic_locators(&items))
-        }};
-    }
-
     // bytewise: "kiwi" < "m" ('k' < 'm'), "zebra" > "m", "Zulu" < "m" ('Z'=90 < 'm'=109)
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Max, filter::gt("m")).unwrap();
+    let locs = query_locs(&mut client, "mock.name", Aggregator::Max, filter::gt("m"))
+        .await
+        .unwrap();
     assert_eq!(
         locs,
         vec![format!("{seq}/topic_b")],
@@ -3397,7 +3375,9 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // bytewise: "apple" < "b", "banana" > "b", "Zulu" < "b" ('Z'=90 < 'b'=98)
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Min, filter::lt("b")).unwrap();
+    let locs = query_locs(&mut client, "mock.name", Aggregator::Min, filter::lt("b"))
+        .await
+        .unwrap();
     assert!(
         locs.contains(&format!("{seq}/topic_a")) && locs.contains(&format!("{seq}/topic_c")),
         "min(a)=\"apple\" and min(c)=\"Zulu\" are < \"b\", got: {locs:?}"
@@ -3408,11 +3388,13 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "min(b)=\"banana\" is not < \"b\", got: {locs:?}"
     );
 
-    let locs = query_locs!(
+    let locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Max,
-        filter::matches("z*")
+        "mock.name",
+        Aggregator::Max,
+        filter::matches("z*"),
     )
+    .await
     .unwrap();
     assert_eq!(
         locs,
@@ -3420,11 +3402,13 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "only max(b)=\"zebra\" matches \"z*\""
     );
 
-    let locs = query_locs!(
+    let locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Min,
-        filter::matches("a*")
+        "mock.name",
+        Aggregator::Min,
+        filter::matches("a*"),
     )
+    .await
     .unwrap();
     assert_eq!(
         locs,
@@ -3432,11 +3416,13 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "only min(a)=\"apple\" matches \"a*\""
     );
 
-    let err = query_locs!(
+    let err = query_locs(
         &mut client,
-        proto_query::Aggregator::Range,
-        filter::matches("a*")
+        "mock.name",
+        Aggregator::Range,
+        filter::matches("a*"),
     )
+    .await
     .unwrap_err();
     assert_eq!(
         err.code(),
@@ -3444,8 +3430,9 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "match is not supported by range"
     );
 
-    let err =
-        query_locs!(&mut client, proto_query::Aggregator::Range, filter::gt("a")).unwrap_err();
+    let err = query_locs(&mut client, "mock.name", Aggregator::Range, filter::gt("a"))
+        .await
+        .unwrap_err();
     assert_eq!(
         err.code(),
         Code::InvalidArgument,
@@ -3475,29 +3462,9 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    macro_rules! query_locs {
-        ($client:expr, $aggr:expr, $cond:expr) => {{
-            let ontology = proto_query::OntologyFilter {
-                predicates: vec![proto_query::OntologyPredicate {
-                    field: "mock.value".to_owned(),
-                    aggregator: Some($aggr as i32),
-                    condition: Some($cond),
-                }],
-            };
-
-            actions::query(
-                $client,
-                proto_query::Filter {
-                    ontology: Some(ontology),
-                    ..Default::default()
-                },
-            )
-            .await
-            .map(|items| topic_locators(&items))
-        }};
-    }
-
-    let locs = query_locs!(&mut client, proto_query::Aggregator::Range, filter::gt(6)).unwrap();
+    let locs = query_locs(&mut client, "mock.value", Aggregator::Range, filter::gt(6))
+        .await
+        .unwrap();
     assert!(
         !locs.contains(&format!("{seq}/topic_a")),
         "$gt 6: min(a)= 1 max(a)=6, excluded"
@@ -3508,11 +3475,13 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // range(a) = 5, range(b) = 20
-    let mut locs = query_locs!(
+    let mut locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Range,
-        filter::outside([6, 19])
+        "mock.value",
+        Aggregator::Range,
+        filter::outside([6, 19]),
     )
+    .await
     .unwrap();
     locs.sort();
     assert_eq!(
@@ -3521,11 +3490,13 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "$outside [6, 19]: range(a)=5 and range(b)=20 are both outside"
     );
 
-    let locs = query_locs!(
+    let locs = query_locs(
         &mut client,
-        proto_query::Aggregator::Range,
-        filter::outside([4, 10])
+        "mock.value",
+        Aggregator::Range,
+        filter::outside([4, 10]),
     )
+    .await
     .unwrap();
     assert_eq!(
         locs,
@@ -3556,39 +3527,14 @@ async fn test_ontology_aggregator_rejects_unsupported_predicates(
     )
     .await;
 
-    macro_rules! query_err {
-        ($client:expr, $field:expr, $aggr:expr, $cond:expr) => {{
-            let ontology = proto_query::OntologyFilter {
-                predicates: vec![proto_query::OntologyPredicate {
-                    field: $field.to_owned(),
-                    aggregator: Some($aggr as i32),
-                    condition: Some($cond),
-                }],
-            };
-
-            actions::query(
-                $client,
-                proto_query::Filter {
-                    ontology: Some(ontology),
-                    ..Default::default()
-                },
-            )
-            .await
-            .unwrap_err()
-        }};
-    }
-
     for field in [
         "mock.list_test[?]",
         "mock.list_test[!]",
         "mock.list_test[0]",
     ] {
-        let err = query_err!(
-            &mut client,
-            field,
-            proto_query::Aggregator::Max,
-            filter::gt(1)
-        );
+        let err = query_locs(&mut client, field, Aggregator::Max, filter::gt(1))
+            .await
+            .unwrap_err();
         assert_eq!(
             err.code(),
             Code::InvalidArgument,
@@ -3697,8 +3643,6 @@ async fn test_ontology_aggregated_and_regular_predicates(pool: sqlx::Pool<db::Da
             locs
         }};
     }
-
-    use proto_query::Aggregator;
 
     // Regular and aggregated predicates on the same field
     let locs = query_locs!(

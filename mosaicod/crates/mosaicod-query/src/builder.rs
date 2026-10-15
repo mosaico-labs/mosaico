@@ -118,7 +118,8 @@ impl ClausesCompiler {
 
         for predicate in filter.into_iter() {
             let (ontology_field, op, aggr) = predicate.into_parts();
-            // Aggregated predicates are resolved on the db chunk stats, not row by row
+            // Only plain predicates are allowed here: aggregated predicates must be split out with
+            // `split_by_aggregator` and compiled by `TopicAggregateQueryBuilder`
             if aggr.is_some() {
                 self.error = Some(Error::AggregatorError {
                     field: ontology_field.field_str(),

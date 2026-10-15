@@ -670,6 +670,7 @@ impl Aggregator {
                     | Op::Geq(_)
                     | Op::In(_)
                     | Op::Between(_)
+                    | Op::Outside(_)
             ),
         }
     }
