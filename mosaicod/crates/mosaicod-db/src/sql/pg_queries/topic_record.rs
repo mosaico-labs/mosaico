@@ -501,7 +501,7 @@ mod tests {
         let sequence_record = sequence_create(
             &mut cx,
             &"my_sequence".parse().unwrap(),
-            &"/my/path/in/store".to_owned().into(),
+            &types::SequencePathInStore::new(),
             Some(metadata.into()),
         )
         .await
@@ -525,7 +525,7 @@ mod tests {
             session_record.uuid(),
             "",
             "",
-            Some("/my/path/in/store".to_owned().into()),
+            Some(types::TopicPathInStore::new()),
             Some(metadata.into()),
         )
         .await
@@ -542,7 +542,7 @@ mod tests {
             session_record.uuid(),
             "",
             "",
-            Some("/my/path/in/store".to_owned().into()),
+            Some(types::TopicPathInStore::new()),
             Some(metadata.into()),
         )
         .await
@@ -557,7 +557,7 @@ mod tests {
         let sequence2_record = sequence_create(
             &mut cx,
             &"my_sequence2".parse().unwrap(),
-            &"/my/path/in/store".to_owned().into(),
+            &types::SequencePathInStore::new(),
             Some(metadata.into()),
         )
         .await
@@ -581,7 +581,7 @@ mod tests {
             session2_record.uuid(),
             "",
             "",
-            Some("/my/path/in/store".to_owned().into()),
+            Some(types::TopicPathInStore::new()),
             Some(metadata.into()),
         )
         .await

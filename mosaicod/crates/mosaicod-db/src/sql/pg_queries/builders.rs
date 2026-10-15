@@ -105,16 +105,7 @@ impl StatsKind {
     fn table(self) -> &'static str {
         match self {
             Self::Numeric => "column_chunk_numeric_t",
-            // Stats are computed bytewise in Rust, compare them with the same rules
-            // in Postgres
-            Self::Textual => {
-                r#"(
-                SELECT chunk_id, column_id,
-                    min_value COLLATE "C" AS min_value,
-                    max_value COLLATE "C" AS max_value
-                FROM column_chunk_textual_t
-            )"#
-            }
+            Self::Textual => "column_chunk_textual_t",
         }
     }
 
