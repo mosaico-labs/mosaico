@@ -29,15 +29,20 @@ impl TopicAggregateQueryBuilder {
 
         for predicate in filter.into_iter() {
             let (field, op, aggr) = predicate.into_parts();
+            // Only aggregated predicates are allowed here
+            let aggr = aggr.ok_or_else(|| query::Error::AggregatorError {
+                field: field.field_str(),
+                err: query::AggregatorError::MissingAggregator,
+            })?;
+
             let kind =
                 StatsKind::try_from_op(&op).map_err(|err| query::Error::AggregatorError {
                     field: field.field_str(),
                     err,
                 })?;
 
-            let aggregate = aggr
-                .and_then(|aggr| aggregate_expr(aggr, kind))
-                .ok_or_else(|| query::Error::AggregatorError {
+            let aggregate =
+                aggregate_expr(aggr, kind).ok_or_else(|| query::Error::AggregatorError {
                     field: field.field_str(),
                     err: query::AggregatorError::UnsupportedAggregator,
                 })?;

@@ -748,7 +748,7 @@ where
         if aggr.is_some() {
             return Err(Error::AggregatorError {
                 field: field.field_str(),
-                err: super::AggregatorError::UnsupportedAggregator,
+                err: super::AggregatorError::UnexpectedAggregator,
             });
         }
         let parsed = field.field_path();

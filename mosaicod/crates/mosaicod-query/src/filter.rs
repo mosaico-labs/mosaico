@@ -87,6 +87,14 @@ pub enum AggregatorError {
     /// The aggregator can not be computed on the field value type
     #[error("unsupported value type for the given aggregator")]
     UnsupportedValueType,
+
+    /// The predicate has no aggregator
+    #[error("missing aggregator")]
+    MissingAggregator,
+
+    /// The predicate has an aggregator where only plain predicates are allowed
+    #[error("unexpected aggregator")]
+    UnexpectedAggregator,
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
@@ -695,7 +703,11 @@ impl Aggregator {
             // Text is ordered lexicographically, only extremes are defined
             Some(Value::Text(_) | Value::TextArray(_)) => matches!(self, Self::Max | Self::Min),
             Some(Value::Boolean(_) | Value::BooleanArray(_)) => false,
-            _ => true,
+            Some(
+                Value::Integer(_) | Value::Float(_) | Value::IntegerArray(_) | Value::FloatArray(_),
+            ) => true,
+            // No operand to check the type against (`Ex`, `Nex`)
+            None => false,
         }
     }
 

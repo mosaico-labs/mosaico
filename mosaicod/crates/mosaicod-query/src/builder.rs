@@ -123,7 +123,7 @@ impl ClausesCompiler {
             if aggr.is_some() {
                 self.error = Some(Error::AggregatorError {
                     field: ontology_field.field_str(),
-                    err: super::AggregatorError::UnsupportedAggregator,
+                    err: super::AggregatorError::UnexpectedAggregator,
                 });
                 return self;
             }

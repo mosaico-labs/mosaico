@@ -368,7 +368,7 @@ fn topic_locators(items: &[mosaicod_marshal::responses::ResponseQueryItem]) -> V
         .collect()
 }
 
-async fn query_locs(
+async fn query_topics_by_aggregator(
     client: &mut common::Client,
     field: &str,
     aggr: proto_query::Aggregator,
@@ -3258,23 +3258,24 @@ async fn test_ontology_max_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(25))
-        .await
-        .unwrap();
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Max, filter::gt(25))
+            .await
+            .unwrap();
     assert!(
-        !locs.contains(&format!("{seq}/topic_a")),
+        !res.contains(&format!("{seq}/topic_a")),
         "$gt 25: max(a)=6, excluded"
     );
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(3))
+    let res = query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Max, filter::gt(3))
         .await
         .unwrap();
     assert!(
-        locs.contains(&format!("{seq}/topic_a")) && locs.contains(&format!("{seq}/topic_b")),
-        "locs must contains both the sequences"
+        res.contains(&format!("{seq}/topic_a")) && res.contains(&format!("{seq}/topic_b")),
+        "result must contain both topics"
     );
 
-    let locs = query_locs(
+    let res = query_topics_by_aggregator(
         &mut client,
         "mock.value",
         Aggregator::Max,
@@ -3282,12 +3283,13 @@ async fn test_ontology_max_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await
     .unwrap();
-    assert!(locs.is_empty());
+    assert!(res.is_empty());
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Max, filter::gt(30))
-        .await
-        .unwrap();
-    assert_eq!(locs.len(), 0);
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Max, filter::gt(30))
+            .await
+            .unwrap();
+    assert_eq!(res.len(), 0);
 
     server.shutdown().await;
 }
@@ -3312,20 +3314,21 @@ async fn test_ontology_min_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(25))
-        .await
-        .unwrap();
-    assert!(locs.is_empty());
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Min, filter::gt(25))
+            .await
+            .unwrap();
+    assert!(res.is_empty());
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(3))
+    let res = query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Min, filter::gt(3))
         .await
         .unwrap();
     assert!(
-        locs.contains(&format!("{seq}/topic_b")),
-        "locs must contains topic_b"
+        res.contains(&format!("{seq}/topic_b")),
+        "result must contain topic_b"
     );
 
-    let locs = query_locs(
+    let res = query_topics_by_aggregator(
         &mut client,
         "mock.value",
         Aggregator::Min,
@@ -3333,12 +3336,13 @@ async fn test_ontology_min_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await
     .unwrap();
-    assert!(locs.is_empty());
+    assert!(res.is_empty());
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Min, filter::gt(30))
-        .await
-        .unwrap();
-    assert_eq!(locs.len(), 0);
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Min, filter::gt(30))
+            .await
+            .unwrap();
+    assert_eq!(res.len(), 0);
 
     server.shutdown().await;
 }
@@ -3365,30 +3369,32 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     .await;
 
     // bytewise: "kiwi" < "m" ('k' < 'm'), "zebra" > "m", "Zulu" < "m" ('Z'=90 < 'm'=109)
-    let locs = query_locs(&mut client, "mock.name", Aggregator::Max, filter::gt("m"))
-        .await
-        .unwrap();
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.name", Aggregator::Max, filter::gt("m"))
+            .await
+            .unwrap();
     assert_eq!(
-        locs,
+        res,
         vec![format!("{seq}/topic_b")],
         "only max(b)=\"zebra\" is > \"m\""
     );
 
     // bytewise: "apple" < "b", "banana" > "b", "Zulu" < "b" ('Z'=90 < 'b'=98)
-    let locs = query_locs(&mut client, "mock.name", Aggregator::Min, filter::lt("b"))
-        .await
-        .unwrap();
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.name", Aggregator::Min, filter::lt("b"))
+            .await
+            .unwrap();
     assert!(
-        locs.contains(&format!("{seq}/topic_a")) && locs.contains(&format!("{seq}/topic_c")),
-        "min(a)=\"apple\" and min(c)=\"Zulu\" are < \"b\", got: {locs:?}"
+        res.contains(&format!("{seq}/topic_a")) && res.contains(&format!("{seq}/topic_c")),
+        "min(a)=\"apple\" and min(c)=\"Zulu\" are < \"b\", got: {res:?}"
     );
     assert_eq!(
-        locs.len(),
+        res.len(),
         2,
-        "min(b)=\"banana\" is not < \"b\", got: {locs:?}"
+        "min(b)=\"banana\" is not < \"b\", got: {res:?}"
     );
 
-    let locs = query_locs(
+    let res = query_topics_by_aggregator(
         &mut client,
         "mock.name",
         Aggregator::Max,
@@ -3397,12 +3403,12 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
     assert_eq!(
-        locs,
+        res,
         vec![format!("{seq}/topic_b")],
         "only max(b)=\"zebra\" matches \"z*\""
     );
 
-    let locs = query_locs(
+    let res = query_topics_by_aggregator(
         &mut client,
         "mock.name",
         Aggregator::Min,
@@ -3411,12 +3417,12 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
     assert_eq!(
-        locs,
+        res,
         vec![format!("{seq}/topic_a")],
         "only min(a)=\"apple\" matches \"a*\""
     );
 
-    let err = query_locs(
+    let err = query_topics_by_aggregator(
         &mut client,
         "mock.name",
         Aggregator::Range,
@@ -3430,9 +3436,10 @@ async fn test_ontology_text_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
         "match is not supported by range"
     );
 
-    let err = query_locs(&mut client, "mock.name", Aggregator::Range, filter::gt("a"))
-        .await
-        .unwrap_err();
+    let err =
+        query_topics_by_aggregator(&mut client, "mock.name", Aggregator::Range, filter::gt("a"))
+            .await
+            .unwrap_err();
     assert_eq!(
         err.code(),
         Code::InvalidArgument,
@@ -3462,20 +3469,21 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    let locs = query_locs(&mut client, "mock.value", Aggregator::Range, filter::gt(6))
-        .await
-        .unwrap();
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Range, filter::gt(6))
+            .await
+            .unwrap();
     assert!(
-        !locs.contains(&format!("{seq}/topic_a")),
+        !res.contains(&format!("{seq}/topic_a")),
         "$gt 6: min(a)= 1 max(a)=6, excluded"
     );
     assert!(
-        locs.contains(&format!("{seq}/topic_b")),
+        res.contains(&format!("{seq}/topic_b")),
         "$gt 6: min(b)= 10 max(a)=30, excluded"
     );
 
     // range(a) = 5, range(b) = 20
-    let mut locs = query_locs(
+    let mut res = query_topics_by_aggregator(
         &mut client,
         "mock.value",
         Aggregator::Range,
@@ -3483,14 +3491,14 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await
     .unwrap();
-    locs.sort();
+    res.sort();
     assert_eq!(
-        locs,
+        res,
         vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")],
         "$outside [6, 19]: range(a)=5 and range(b)=20 are both outside"
     );
 
-    let locs = query_locs(
+    let res = query_topics_by_aggregator(
         &mut client,
         "mock.value",
         Aggregator::Range,
@@ -3499,7 +3507,7 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
     assert_eq!(
-        locs,
+        res,
         vec![format!("{seq}/topic_b")],
         "$outside [4, 10]: only range(b)=20 is outside"
     );
@@ -3532,7 +3540,7 @@ async fn test_ontology_aggregator_rejects_unsupported_predicates(
         "mock.list_test[!]",
         "mock.list_test[0]",
     ] {
-        let err = query_locs(&mut client, field, Aggregator::Max, filter::gt(1))
+        let err = query_topics_by_aggregator(&mut client, field, Aggregator::Max, filter::gt(1))
             .await
             .unwrap_err();
         assert_eq!(
