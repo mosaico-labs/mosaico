@@ -1,15 +1,15 @@
 """
 This example demonstrates how to query the MosaicoDB catalog for topics and sequences.
-This example can be run after running the ingestion example (examples/ros_injection/main.py).
+This example can be run after running the ingestion example (examples/bridges/ros/injection.py).
 
 Ingest data via:
 ```bash
-cd mosaico-sdk-py/src/examples && poetry run python ros_injection/main.py
+cd mosaico-sdk-py && uv run --locked --extra cli mosaicolabs.examples ros_injection
 ```
 
 Then, query catalogs via:
 ```bash
-poetry run python query_catalogs.py
+uv run --locked --extra cli mosaicolabs.examples query_catalogs
 ```
 
 """

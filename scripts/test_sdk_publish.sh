@@ -34,35 +34,24 @@ run_local_tests() {
     
     echo -e "${CYAN}Building local wheel...${NC}"
     rm -rf dist/
-    poetry build
+    uv build
+    WHEELS=("${PYTHON_SDK_PATH}"/dist/*.whl)
 
     cd "${PROJECT_DIR}" # Move out for isolation
 
     for VER in "${PYTHON_VERSIONS[@]}"; do
         echo -e "\n${YELLOW}Testing Local Wheel on Python $VER${NC}"
         
-        if ! command -v "python$VER" &> /dev/null; then
-            echo -e "${RED}Error: python$VER not found. Skipping.${NC}"
-            continue
-        fi
-
         VENV_NAME=".venv_local_test_$VER"
-        # Remove any leftover venv from a previous crashed/interrupted run so
-        # pip never sees a stale "already installed" package and skips reinstalling.
-        rm -rf "$VENV_NAME"
-        "python$VER" -m venv "$VENV_NAME"
-        "$VENV_NAME/bin/pip" install --upgrade pip
-
-        SUCCESS=true
-        if "$VENV_NAME/bin/pip" install --no-cache-dir --force-reinstall ${PYTHON_SDK_PATH}/dist/*.whl; then
+        uv venv --clear --python "$VER" "$VENV_NAME"
+        
+        if uv pip install --python "$VENV_NAME/bin/python" "${WHEELS[0]}[cli]"; then
             echo -e "${GREEN}Verifying CLI scripts...${NC}"
-            if "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null \
-                && "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null; then
-                echo -e "${GREEN}Python $VER: LOCAL SUCCESS${NC}"
-            else
-                echo -e "${RED}Python $VER: LOCAL CLI CHECK FAILED${NC}"
-                SUCCESS=false
-            fi
+            "$VENV_NAME/bin/python" -c 'import mosaicolabs, mosaicolabs_cli'
+            "$VENV_NAME/bin/mosaico" --help > /dev/null
+            "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null
+            "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null
+            echo -e "${GREEN}Python $VER: LOCAL SUCCESS${NC}"
         else
             echo -e "${RED}Python $VER: LOCAL INSTALLATION FAILED${NC}"
             SUCCESS=false
@@ -87,13 +76,13 @@ run_remote_tests() {
     fi
 
     cd "${PYTHON_SDK_PATH}"
-    BASE_VERSION=$(poetry version -s)
+    BASE_VERSION=$(uv version --short)
 
     # 1. Version Bumping Calculation
     echo -e "${CYAN}Calculating next revision for TestPyPI...${NC}"
     N=1
     while true; do
-        TEMP_VERSION="${BASE_VERSION}.rc${N}"
+        TEMP_VERSION=$(uv version --bump "rc=${N}" --dry-run --short)
         # Check simple index for version presence
         VERSION_EXISTS=$(curl -s $TEST_PYPI_URL$PACKAGE_NAME/ | grep "$TEMP_VERSION" || true)
         if [ -z "$VERSION_EXISTS" ]; then
@@ -105,20 +94,22 @@ run_remote_tests() {
         fi
     done
 
-    # 2. Cleanup Trap
+    # 2. Restore the manifest byte-for-byte, including its original version spelling.
+    MANIFEST_BACKUP=$(mktemp)
+    cp pyproject.toml "$MANIFEST_BACKUP"
     cleanup() {
         echo -e "${CYAN}Resetting pyproject.toml to $BASE_VERSION...${NC}"
         cd "${PYTHON_SDK_PATH}" 
-        poetry version "$BASE_VERSION"
+        cp "$MANIFEST_BACKUP" pyproject.toml
+        rm -f "$MANIFEST_BACKUP"
     }
     trap cleanup EXIT
 
     # 3. Publish
     echo -e "${CYAN}Publishing $TEMP_VERSION to TestPyPI...${NC}"
-    poetry version "$TEMP_VERSION"
-    poetry config pypi-token.testpypi "$TEST_PYPI_TOKEN"
-    poetry build
-    poetry publish -r testpypi
+    uv version --frozen "$TEMP_VERSION"
+    uv build --clear
+    UV_PUBLISH_TOKEN="$TEST_PYPI_TOKEN" uv publish --publish-url https://test.pypi.org/legacy/
 
     echo -e "${YELLOW}Waiting 60s for TestPyPI indexing...${NC}"
     sleep 60
@@ -128,30 +119,20 @@ run_remote_tests() {
     for VER in "${PYTHON_VERSIONS[@]}"; do
         echo -e "\n${YELLOW}Testing Remote Install on Python $VER${NC}"
         
-        if ! command -v "python$VER" &> /dev/null; then
-            echo -e "${RED}python$VER not found. Skipping.${NC}"
-            continue
-        fi
-
         VENV_NAME=".venv_remote_test_$VER"
-        # Remove any leftover venv from a previous crashed/interrupted run so
-        # pip never sees a stale "already installed" package and skips reinstalling.
-        rm -rf "$VENV_NAME"
-        "python$VER" -m venv "$VENV_NAME"
-
-        SUCCESS=true
-        if "$VENV_NAME/bin/pip" install --no-cache-dir --force-reinstall \
-            --index-url "$TEST_PYPI_URL" \
-            --extra-index-url https://pypi.org/simple \
-            "$PACKAGE_NAME==$TEMP_VERSION"; then
-
-            if "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null \
-                && "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null; then
-                echo -e "${GREEN}Python $VER: REMOTE SUCCESS${NC}"
-            else
-                echo -e "${RED}Python $VER: REMOTE CLI CHECK FAILED${NC}"
-                SUCCESS=false
-            fi
+        uv venv --clear --python "$VER" "$VENV_NAME"
+        
+        if uv pip install --python "$VENV_NAME/bin/python" \
+            --index "$TEST_PYPI_URL" \
+            --default-index https://pypi.org/simple \
+            --index-strategy unsafe-best-match \
+            "$PACKAGE_NAME[cli]==$TEMP_VERSION"; then
+            
+            "$VENV_NAME/bin/python" -c 'import mosaicolabs, mosaicolabs_cli'
+            "$VENV_NAME/bin/mosaico" --help > /dev/null
+            "$VENV_NAME/bin/mosaicolabs.examples" --help > /dev/null
+            "$VENV_NAME/bin/mosaicolabs.ros_injector" --help > /dev/null
+            echo -e "${GREEN}Python $VER: REMOTE SUCCESS${NC}"
         else
             echo -e "${RED}Python $VER: REMOTE INSTALLATION FAILED${NC}"
             SUCCESS=false

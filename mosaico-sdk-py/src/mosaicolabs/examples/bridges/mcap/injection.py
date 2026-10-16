@@ -11,7 +11,7 @@ This script demonstrates a complete workflow:
 
 Run the example via:
 ```bash
-cd mosaico-sdk-py && poetry run mosaicolabs.examples mcap_injection
+cd mosaico-sdk-py && uv run --locked --extra cli mosaicolabs.examples mcap_injection
 ```
 """
 

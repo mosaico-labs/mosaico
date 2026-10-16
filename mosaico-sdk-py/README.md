@@ -154,7 +154,7 @@ See [CHANGELOG.md](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk
 
 ## Contributing
 
-We welcome contributions! Please refer to our [Development Guide](https://github.com/mosaico-labs/mosaico?tab=contributing-ov-file) for instructions on how to set up your environment using **Poetry**.
+We welcome contributions! Please refer to our [Development Guide](https://github.com/mosaico-labs/mosaico?tab=contributing-ov-file) for instructions on how to set up your environment using **uv**.
 
 ## License
 

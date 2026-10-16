@@ -6,8 +6,14 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/mosaico-sdk-py"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "uv"
+    directory: "/docs/py"
     target-branch: "main"
     schedule:
       interval: "weekly"
