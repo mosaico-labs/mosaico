@@ -143,5 +143,5 @@ def test_clusterize_server_raises_with_aggregated_expressions(
         return topic.clusterize(2 * SAMPLE_DT_NS)
 
     # The time ranges come from the regular expression only: just the last sample is > 5
-    with pytest.raises(ValueError, match="unsupported aggregator"):
+    with pytest.raises(ValueError, match="unexpected aggregator"):
         topic_a_clusters(Vector3d.Q.x.gt(5), Vector3d.Q.x.max().lt(40))
