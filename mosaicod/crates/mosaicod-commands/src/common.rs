@@ -50,6 +50,10 @@ pub fn init_store() -> Result<store::StoreRef> {
 
     let mut builder = store::Builder::new(endpoint_url, params.store_bucket.value.clone());
 
+    if !params.store_region.value.is_empty() {
+        builder = builder.with_region(params.store_region.value.clone());
+    }
+
     let secret_key = params.store_secret_key.value.clone();
     let access_key = params.store_access_key.value.clone();
 

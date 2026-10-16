@@ -25,6 +25,7 @@ pub const DEFAULT_TLS_CERT_FILE: &str = "";
 pub const DEFAULT_TLS_PRIVATE_KEY_FILE: &str = "";
 pub const DEFAULT_STORE_ENDPOINT: &str = "";
 pub const DEFAULT_STORE_BUCKET: &str = "";
+pub const DEFAULT_STORE_REGION: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
@@ -398,6 +399,10 @@ pub struct Params {
     pub store_endpoint: Param<String>,
     pub store_bucket: Param<String>,
 
+    /// Region of the S3-compatible object store. When empty, the object store client
+    /// default is used. Ignored by the local filesystem backend.
+    pub store_region: Param<String>,
+
     /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`])
     pub store_secret_key: Param<String, Hidden>,
 
@@ -646,6 +651,12 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             cfg.store.bucket.clone(),
             DEFAULT_STORE_BUCKET.to_owned(),
         ),
+        store_region: Param::optional(
+            "MOSAICOD_STORE_REGION",
+            ignore_env,
+            cfg.store.region.clone(),
+            DEFAULT_STORE_REGION.to_owned(),
+        ),
         store_secret_key: Param::optional_or_file(
             "MOSAICOD_STORE_SECRET_KEY",
             ignore_env,
@@ -768,6 +779,7 @@ mod tests {
             max_db_connections: param(DEFAULT_MAX_DB_CONNECTIONS),
             store_endpoint: param(DEFAULT_STORE_ENDPOINT.to_owned()),
             store_bucket: param(DEFAULT_STORE_BUCKET.to_owned()),
+            store_region: param(DEFAULT_STORE_REGION.to_owned()),
             store_secret_key: param_hidden(DEFAULT_STORE_SECRET_KEY.to_owned()),
             store_access_key: param(DEFAULT_STORE_ACCESS_KEY.to_owned()),
             store_optimizer_memory_pool_size: param(DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE),
@@ -1140,6 +1152,7 @@ mod tests {
             store: config::StoreConfig {
                 endpoint: Some("https://store.example".to_owned()),
                 bucket: Some("bucket-name".to_owned()),
+                region: Some("eu-south-1".to_owned()),
                 access_key: Some("access-key".to_owned()),
                 secret_key_file: Some(secret_key_path.to_str().unwrap().to_owned()),
             },
@@ -1206,6 +1219,7 @@ mod tests {
 
         assert_eq!(p.store_endpoint.value, "https://store.example");
         assert_eq!(p.store_bucket.value, "bucket-name");
+        assert_eq!(p.store_region.value, "eu-south-1");
         assert_eq!(p.store_access_key.value, "access-key");
         assert_eq!(p.store_secret_key.value, "secret-key-from-file");
 

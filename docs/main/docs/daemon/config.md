@@ -66,6 +66,7 @@ max_connections = 19
 [store]
 endpoint = "https://s3.example.com"
 bucket = "mosaico"
+region = "eu-south-1"
 access_key = "access-key"
 secret_key_file = "/run/secrets/mosaicod_store_secret_key"
 
@@ -115,6 +116,7 @@ The table below maps each config key to the [environment variable](env.md) it co
 | `database.max_connections` | [`MOSAICOD_MAX_DB_CONNECTIONS`](env.md#mosaicod-max-db-connections) |
 | `store.endpoint` | [`MOSAICOD_STORE_ENDPOINT`](env.md#mosaicod-store-endpoint) |
 | `store.bucket` | [`MOSAICOD_STORE_BUCKET`](env.md#mosaicod-store-bucket) |
+| `store.region` | [`MOSAICOD_STORE_REGION`](env.md#mosaicod-store-region) |
 | `store.access_key` | [`MOSAICOD_STORE_ACCESS_KEY`](env.md#mosaicod-store-access-key) |
 | `store.secret_key_file` | [`MOSAICOD_STORE_SECRET_KEY_FILE`](env.md#mosaicod-store-secret-key) |
 | `query_engine.memory_pool_size` | [`MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE`](env.md#mosaicod-query-engine-memory-pool-size) |
