@@ -147,15 +147,15 @@ impl ParquetFormatProperties for RaggedFormatProperties {
 
 /// Format properties for images and dense multi-dimensional arrays.
 ///
-/// Uses maximum ZSTD compression (level 22) since:
-/// - Image data is written once and read many times
-/// - Higher compression ratio reduces storage costs
-/// - Decompression speed is less critical than compression ratio
+/// Uses ZSTD level 5 compression with optimized timestamp column handling:
+/// - Timestamp column is uncompressed for fast range queries
+/// - Bloom filters enabled on timestamp for efficient filtering
+/// - Page-level statistics on timestamp for predicate pushdown
 pub struct ImageFormatProperties;
 
 impl ImageFormatProperties {
-    /// Maximum ZSTD compression level for best compression ratio.
-    /// Suitable for write-once, read-many image data.
+    /// ZSTD compression level 5 provides good balance between compression ratio
+    /// and speed for image data.
     const COMPRESSION_LEVEL: i32 = 5;
 }
 
