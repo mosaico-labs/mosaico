@@ -509,7 +509,7 @@ While the `.Q` proxy is highly versatile, it enforces specific rules on which da
 
 ### Querying List Fields
 
-List fields **can't be compared directly**. The proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining a regular operator for the element's type:
+List fields **can't be compared directly**. The proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining an operator for the element's type:
 
 | Quantifier | Meaning |
 | --- | --- |
@@ -543,9 +543,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 ### Aggregators
 
-Regular and aggregated expressions are evaluated at two different levels:
+Simple and aggregated expressions are evaluated at two different levels:
 
-* A **regular expression** works on the **single samples**: the condition is checked on each sample of the field, and a topic matches if at least one of its samples satisfies it.
+* A **simple expression** works on the **single samples**: the condition is checked on each sample of the field, and a topic matches if at least one of its samples satisfies it.
 * An **aggregated expression** works on the **whole topic**: the aggregator first combines all the samples of the field in the topic into a single value (e.g. their maximum), and the condition is checked once on that value.
 
 For example:
@@ -586,7 +586,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
-Regular and aggregated expressions can target the same field in the same query:
+Simple and aggregated expressions can target the same field in the same query:
 
 ```python
 QueryOntologyCatalog(
@@ -684,7 +684,7 @@ Querying list fields is possible for unmodeled ontology schemas also, exactly th
 Once a selector has exposed an element, what comes next depends on what the list actually holds:
 
 - **Simple lists** (a list of a basic type, e.g. `covariance: List[float]`): the exposed element *is* the leaf value, so wrap the selected path directly in the `Queryable*` type matching that type - `QueryableNumeric` for a list of floats, `QueryableString` for a list of strings, and so on.
-- **Struct lists** (a list of nested structs, e.g. `detections: List[Detection]`): the exposed element is itself a struct, so continue with a regular `.field.subfield` path to reach one of *its* leaves, then wrap that in the `Queryable*` type matching that leaf's type.
+- **Struct lists** (a list of nested structs, e.g. `detections: List[Detection]`): the exposed element is itself a struct, so continue with a `.field.subfield` path to reach one of *its* leaves, then wrap that in the `Queryable*` type matching that leaf's type.
 
 Either way, by the time a `Queryable*` type is constructed, the path always resolves to a single scalar value per matched element.
 
