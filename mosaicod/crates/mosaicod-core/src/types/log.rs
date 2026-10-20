@@ -1,6 +1,6 @@
 use clap::ValueEnum;
 
-#[derive(Debug, Copy, Clone, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
 pub enum LogLevel {
     Warning,
     Info,
@@ -37,7 +37,7 @@ impl std::str::FromStr for LogLevel {
     }
 }
 
-#[derive(Debug, Copy, Clone, ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
 pub enum LogFormat {
     Json,
     Pretty,

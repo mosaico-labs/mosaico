@@ -13,6 +13,8 @@ For every setting, the resolution order is:
 3. `config.toml` value
 4. Hard-coded default
 
+An environment variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) counts as not set, so the `config.toml` value still applies.
+
 Every field in the config file is optional. An absent section, or an absent key within a section, simply means "not set at this tier" and falls through to the next one below it.
 
 ## Locating the file
@@ -20,11 +22,13 @@ Every field in the config file is optional. An absent section, or an absent key 
 `mosaicod` looks for the config file in the following order, stopping at the first one it finds:
 
 1. The path passed to the global `--config <PATH>` CLI flag.
-2. The path in the `MOSAICOD_CONFIG_FILE` environment variable.
+2. The path in the `MOSAICOD_CONFIG_FILE` environment variable, if set to a non-empty value.
 3. `$XDG_CONFIG_HOME/mosaicod/config.toml`, or `~/.config/mosaicod/config.toml` if `XDG_CONFIG_HOME` is unset.
 4. `/etc/mosaicod/config.toml`.
 
 If none of these exist, `mosaicod` starts with no config file loaded (every field falls through to the environment/default tiers).
+
+To run without a config file even when one exists in a default location, point `--config` or `MOSAICOD_CONFIG_FILE` at `/dev/null`: it is read as an empty config, so every field falls through to the environment/default tiers.
 
 :::warning
     If a path is set explicitly via `--config` or `MOSAICOD_CONFIG_FILE` and that file does not exist, `mosaicod` fails to start with an error. The `$XDG_CONFIG_HOME`/`/etc` defaults, on the other hand, are silently skipped when absent, since the config file is entirely optional at those locations.

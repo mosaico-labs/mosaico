@@ -18,7 +18,7 @@ use std::env;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ConfigFile {
     pub server: ServerConfig,
@@ -31,7 +31,7 @@ pub struct ConfigFile {
     pub logging: LoggingConfig,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ServerConfig {
     pub host: Option<IpAddr>,
@@ -45,7 +45,7 @@ pub struct ServerConfig {
     pub grpc: ServerGrpcConfig,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ServerTlsConfig {
     pub enabled: Option<bool>,
@@ -53,14 +53,14 @@ pub struct ServerTlsConfig {
     pub private_key_file: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ServerGrpcConfig {
     pub max_decode_message_size: Option<usize>,
     pub target_encode_message_size: Option<usize>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct DatabaseConfig {
     pub url: Option<String>,
@@ -71,7 +71,7 @@ pub struct DatabaseConfig {
     pub max_connections: Option<u32>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct StoreConfig {
     pub endpoint: Option<String>,
@@ -82,7 +82,7 @@ pub struct StoreConfig {
     pub secret_key_file: Option<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct QueryEngineConfig {
     pub memory_pool_size: Option<usize>,
@@ -90,13 +90,13 @@ pub struct QueryEngineConfig {
     pub max_size_plain_list_eq: Option<usize>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct EncodingConfig {
     pub parquet_in_memory_encoding_buffer_size: Option<usize>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct StoreOptimizerConfig {
     pub time_interval: Option<u32>,
@@ -104,14 +104,14 @@ pub struct StoreOptimizerConfig {
     pub memory_pool_size: Option<usize>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct CleanupConfig {
     pub time_interval: Option<u32>,
     pub retention_duration: Option<u32>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct LoggingConfig {
     #[serde(deserialize_with = "deserialize_from_str")]
@@ -149,12 +149,16 @@ const CONFIG_FILE_ENV_VAR: &str = "MOSAICOD_CONFIG_FILE";
 /// A path named explicitly (via `cli_path` or `MOSAICOD_CONFIG_FILE`) that doesn't exist is
 /// an error, since the caller asked for that specific file. The XDG/`/etc` defaults are
 /// silently skipped if absent — the config file is entirely optional.
+///
+/// Note: an empty `MOSAICOD_CONFIG_FILE` is treated as unset.
 pub fn resolve_config_path(cli_path: Option<&Path>) -> Result<Option<PathBuf>> {
     if let Some(path) = cli_path {
         return require_path(path.to_path_buf(), "--config");
     }
 
-    if let Ok(raw) = env::var(CONFIG_FILE_ENV_VAR) {
+    if let Ok(raw) = env::var(CONFIG_FILE_ENV_VAR)
+        && !raw.is_empty()
+    {
         return require_path(PathBuf::from(raw), CONFIG_FILE_ENV_VAR);
     }
 
@@ -347,6 +351,25 @@ mod tests {
     }
 
     #[test]
+    fn resolve_config_path_treats_empty_env_var_as_unset() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _config_file = EnvVarGuard::set(CONFIG_FILE_ENV_VAR, "");
+
+        let xdg_dir = std::env::temp_dir().join("mosaicod_test_xdg_empty_env_var");
+        let config_dir = xdg_dir.join("mosaicod");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let config_path = config_dir.join("config.toml");
+        std::fs::write(&config_path, "").unwrap();
+        let _xdg_home = EnvVarGuard::set("XDG_CONFIG_HOME", &xdg_dir);
+
+        let result = resolve_config_path(None);
+
+        let _ = std::fs::remove_dir_all(&xdg_dir);
+
+        assert_eq!(result.unwrap(), Some(config_path));
+    }
+
+    #[test]
     fn resolve_config_path_returns_none_when_nothing_configured() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _config_file = EnvVarGuard::unset(CONFIG_FILE_ENV_VAR);
@@ -374,6 +397,13 @@ mod tests {
     }
 
     // --- load_config_file ---
+
+    #[test]
+    fn load_config_file_dev_null_loads_empty_config() {
+        let cfg = load_config_file(Path::new("/dev/null")).unwrap();
+
+        assert_eq!(cfg, ConfigFile::default());
+    }
 
     #[test]
     fn load_config_file_errors_on_missing_file() {
@@ -458,8 +488,8 @@ mod tests {
             Some("postgresql://localhost:5432/mosaico".to_owned())
         );
         assert_eq!(cfg.database.max_connections, Some(25));
-        assert!(matches!(cfg.logging.level, Some(LogLevel::Debug)));
-        assert!(matches!(cfg.logging.format, Some(LogFormat::Json)));
+        assert_eq!(cfg.logging.level, Some(LogLevel::Debug));
+        assert_eq!(cfg.logging.format, Some(LogFormat::Json));
     }
 
     #[test]

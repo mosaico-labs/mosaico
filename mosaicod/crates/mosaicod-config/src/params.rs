@@ -206,11 +206,16 @@ where
 /// Reads env var `name`, unless `ignore_env` is `true`, in which case it behaves as if
 /// the variable were unset (used to bypass the environment tier entirely, e.g. for
 /// deterministic tests — see [`ParamsLoadOptions::ignore_env`]).
+/// An empty value (e.g. `NAME=`) is treated as unset, so it falls through to the next
+/// tier instead of overriding it with an empty string.
 fn env_var(name: &str, ignore_env: bool) -> Result<String, env::VarError> {
     if ignore_env {
-        Err(env::VarError::NotPresent)
-    } else {
-        env::var(name)
+        return Err(env::VarError::NotPresent);
+    }
+
+    match env::var(name) {
+        Ok(value) if value.is_empty() => Err(env::VarError::NotPresent),
+        result => result,
     }
 }
 
@@ -999,6 +1004,21 @@ mod tests {
     }
 
     #[test]
+    fn optional_empty_env_falls_back_to_config_file_value() {
+        // e.g. `MOSAICOD_*=` is treated as unset, so the config file value
+        // is used instead of being overridden by an empty string.
+        let name = "TEST_OPTIONAL_EMPTY_ENV_OVER_CONFIG_FILE";
+        unsafe { env::set_var(name, "") };
+
+        let result =
+            Param::<String>::optional(name, false, Some("value".to_owned()), String::new());
+
+        unsafe { env::remove_var(name) };
+
+        assert_eq!(result.value, "value");
+    }
+
+    #[test]
     fn optional_falls_back_to_default_when_env_and_file_unset() {
         let name = "TEST_OPTIONAL_NEITHER_ENV_NOR_FILE";
 
@@ -1222,7 +1242,7 @@ mod tests {
         assert_eq!(p.cleanup_time_interval.value, 120);
         assert_eq!(p.cleanup_retention_duration.value, 3600);
 
-        assert!(matches!(p.log_level.value, LogLevel::Debug));
-        assert!(matches!(p.log_format.value, LogFormat::Json));
+        assert_eq!(p.log_level.value, LogLevel::Debug);
+        assert_eq!(p.log_format.value, LogFormat::Json);
     }
 }
