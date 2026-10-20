@@ -119,7 +119,7 @@ fn aggregator(aggr: Option<i32>) -> Result<Option<query::Aggregator>, query::Agg
         Ok(Aggregator::Last) => query::Aggregator::Last,
         Ok(Aggregator::Std) => query::Aggregator::Std,
         Ok(Aggregator::Mean) => query::Aggregator::Mean,
-        Ok(Aggregator::Diff) => query::Aggregator::Diff,
+        Ok(Aggregator::Var) => query::Aggregator::Var,
         Ok(Aggregator::Rate) => query::Aggregator::Rate,
         Ok(Aggregator::P50) => query::Aggregator::P50,
         Ok(Aggregator::P90) => query::Aggregator::P90,
