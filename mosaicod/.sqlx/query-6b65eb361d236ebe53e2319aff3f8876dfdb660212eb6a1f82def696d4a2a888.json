@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM topic_optimization_t\n           WHERE start_unix_tstamp < $1\n           ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6b65eb361d236ebe53e2319aff3f8876dfdb660212eb6a1f82def696d4a2a888"
+}

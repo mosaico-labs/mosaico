@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE topic_optimization_t\n           SET start_unix_tstamp = $1, opt_path_in_store = $2\n           WHERE topic_id = $3\n           RETURNING *\n           ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "topic_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "opt_path_in_store",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "start_unix_tstamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "9c8d31517749db69ab86a1a69ce0a9c562d3e115cd562795a5e0b919ef85537e"
+}

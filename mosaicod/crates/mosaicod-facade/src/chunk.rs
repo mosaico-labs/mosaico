@@ -20,6 +20,8 @@ pub async fn update_chunk_stats(
             metadata.size_bytes as i64,
             metadata.arrow_size_bytes as i64,
             metadata.row_count as i64,
+            metadata.first_sample_timestamp_ns,
+            metadata.last_sample_timestamp_ns,
         ),
     )
     .await?;
@@ -36,14 +38,20 @@ pub async fn update_chunk_stats(
         let column = db::column_get_or_create(tx, &field, ontology_tag).await?;
 
         match stats {
-            types::Stats::Textual(stats) => {
-                let (min, max, has_null) = stats.into_owned();
+            types::Stats::Textual(mut stats) => {
+                let (first, last) = (
+                    stats.first_sample_value.take(),
+                    stats.last_sample_value.take(),
+                );
+                let (min, max, null_count) = stats.into_owned();
                 textual_batch.push(db::ColumnChunkTextualRecord::try_new(
                     column.column_id,
                     chunk.chunk_id,
                     min,
                     max,
-                    has_null,
+                    null_count,
+                    first,
+                    last,
                 )?);
             }
             types::Stats::Numeric(stats) => {
@@ -52,8 +60,12 @@ pub async fn update_chunk_stats(
                     chunk.chunk_id,
                     stats.min,
                     stats.max,
-                    stats.has_null,
-                    stats.has_nan,
+                    stats.nan_count,
+                    stats.null_count,
+                    stats.first_sample_value,
+                    stats.last_sample_value,
+                    stats.mean_value,
+                    stats.m2_value,
                 ));
             }
             types::Stats::ListNumeric(stats) => {
@@ -62,18 +74,28 @@ pub async fn update_chunk_stats(
                     chunk.chunk_id,
                     stats.min,
                     stats.max,
-                    stats.has_null,
-                    stats.has_nan,
+                    stats.nan_count,
+                    stats.null_count,
+                    stats.first_sample_value,
+                    stats.last_sample_value,
+                    stats.mean_value,
+                    stats.m2_value,
                 ));
             }
-            types::Stats::ListTextual(stats) => {
-                let (min, max, has_null) = stats.into_owned();
+            types::Stats::ListTextual(mut stats) => {
+                let (first, last) = (
+                    stats.first_sample_value.take(),
+                    stats.last_sample_value.take(),
+                );
+                let (min, max, null_count) = stats.into_owned();
                 textual_batch.push(db::ColumnChunkTextualRecord::try_new(
                     column.column_id,
                     chunk.chunk_id,
                     min,
                     max,
-                    has_null,
+                    null_count,
+                    first,
+                    last,
                 )?);
             }
             types::Stats::Unsupported => {}

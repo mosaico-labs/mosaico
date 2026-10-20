@@ -549,8 +549,6 @@ async fn test_ontology_not_exist_returns_chunks_with_nulls(pool: sqlx::Pool<db::
         .await;
 
     let seq = "seq_nex";
-    // topic_nonull: "value" column with no nulls -> has_null=FALSE
-    // topic_withnull: "value" column with some nulls -> has_null=TRUE
     setup_topics(
         &mut client,
         seq,
@@ -577,11 +575,11 @@ async fn test_ontology_not_exist_returns_chunks_with_nulls(pool: sqlx::Pool<db::
 
     assert!(
         !locators.contains(&format!("{seq}/topic_nonull")),
-        "topic_nonull should be excluded (has_null=FALSE, column definitely has non-null values)"
+        "topic_nonull should be excluded (null_count = 0, column definitely has non-null values)"
     );
     assert!(
         locators.contains(&format!("{seq}/topic_withnull")),
-        "topic_withnull should be included (has_null=TRUE)"
+        "topic_withnull should be included (null_count > 0)"
     );
 
     server.shutdown().await;

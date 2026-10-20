@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO chunk_t(\n            chunk_uuid, topic_id, data_file, size_bytes, arrow_size_bytes, row_count,\n            first_sample_timestamp_ns, last_sample_timestamp_ns\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n        RETURNING *",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "chunk_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "chunk_uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "topic_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "data_file",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "row_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "arrow_size_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "first_sample_timestamp_ns",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "last_sample_timestamp_ns",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "88be6e1ba09231d9f12a750fe0e816a4dd1d24e62a564e95f0f3d48192997660"
+}

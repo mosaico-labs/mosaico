@@ -37,8 +37,15 @@ pub struct NumericStats {
     pub min: f64,
     pub max: f64,
 
-    pub has_null: bool,
-    pub has_nan: bool,
+    pub null_count: i64,
+    pub nan_count: i64,
+
+    pub first_sample_value: Option<f64>,
+    pub last_sample_value: Option<f64>,
+
+    pub valid_sample_count: i64,
+    pub mean_value: Option<f64>,
+    pub m2_value: Option<f64>,
 }
 
 impl Default for NumericStats {
@@ -53,34 +60,21 @@ impl NumericStats {
             min: NUMERIC_MIN_PLACEHOLDER,
             max: NUMERIC_MAX_PLACEHOLDER,
 
-            has_null: false,
-            has_nan: false,
-        }
-    }
+            null_count: 0,
+            nan_count: 0,
 
-    /// Evaluates a new numeric value and updates the column statistics.
-    /// If the provided value is [`None`], it is condered a null value.
-    pub fn eval(&mut self, val: &Option<f64>) {
-        if let Some(val) = val {
-            let val = *val;
-            if val.is_nan() {
-                self.has_nan = true;
-            } else {
-                if self.min > val {
-                    self.min = val;
-                }
-                if self.max < val {
-                    self.max = val;
-                }
-            }
-        } else {
-            self.has_null = true;
+            first_sample_value: None,
+            last_sample_value: None,
+
+            valid_sample_count: 0,
+            mean_value: None,
+            m2_value: None,
         }
     }
 
     /// Merges pre-computed statistics from an Arrow array.
     /// This is more efficient than calling `eval()` for each element.
-    pub fn merge(&mut self, min: Option<f64>, max: Option<f64>, has_null: bool, has_nan: bool) {
+    pub fn merge(&mut self, min: Option<f64>, max: Option<f64>, null_count: i64, nan_count: i64) {
         if let Some(min_val) = min
             && self.min > min_val
         {
@@ -91,8 +85,27 @@ impl NumericStats {
         {
             self.max = max_val;
         }
-        self.has_null |= has_null;
-        self.has_nan |= has_nan;
+        self.null_count += null_count;
+        self.nan_count += nan_count;
+    }
+
+    /// Merges the moments (`count`, `mean`, `m2`) of another set of valid samples
+    /// into these stats, using Chan's parallel algorithm.
+    ///
+    /// `m2` is the sum of squared deviations from the mean, `sum((x - mean)^2)`.
+    pub fn merge_moments(&mut self, count: i64, mean: f64, m2: f64) {
+        if count == 0 {
+            return;
+        }
+
+        let (mean_a, m2_a) = (self.mean_value.unwrap_or(0.0), self.m2_value.unwrap_or(0.0));
+        let n = self.valid_sample_count + count;
+        let delta = mean - mean_a;
+        self.mean_value = Some(mean_a + delta * count as f64 / n as f64);
+        self.m2_value = Some(
+            m2_a + m2 + delta * delta * self.valid_sample_count as f64 * count as f64 / n as f64,
+        );
+        self.valid_sample_count = n;
     }
 }
 
@@ -101,7 +114,10 @@ pub struct TextualStats {
     pub min: Option<String>,
     pub max: Option<String>,
 
-    pub has_null: bool,
+    pub null_count: i64,
+
+    pub first_sample_value: Option<String>,
+    pub last_sample_value: Option<String>,
 }
 
 impl Default for TextualStats {
@@ -116,7 +132,10 @@ impl TextualStats {
             min: None,
             max: None,
 
-            has_null: false,
+            null_count: 0,
+
+            first_sample_value: None,
+            last_sample_value: None,
         }
     }
 
@@ -135,22 +154,22 @@ impl TextualStats {
                 _ => self.max = Some(val.to_owned()),
             }
         } else {
-            self.has_null = true;
+            self.null_count += 1;
         }
     }
 
     /// Consumes the stats and returns owned strings for min and max.
-    pub fn into_owned(self) -> (String, String, bool) {
+    pub fn into_owned(self) -> (String, String, i64) {
         (
             self.min.unwrap_or_default(),
             self.max.unwrap_or_default(),
-            self.has_null,
+            self.null_count,
         )
     }
 
     /// Merges pre-computed statistics from an Arrow array.
     /// This is more efficient than calling `eval()` for each element.
-    pub fn merge(&mut self, min: Option<&str>, max: Option<&str>, has_null: bool) {
+    pub fn merge(&mut self, min: Option<&str>, max: Option<&str>, null_count: i64) {
         if let Some(min_val) = min {
             match &self.min {
                 Some(current_min) if current_min.as_str() <= min_val => {}
@@ -163,7 +182,7 @@ impl TextualStats {
                 _ => self.max = Some(max_val.to_owned()),
             }
         }
-        self.has_null |= has_null;
+        self.null_count += null_count;
     }
 }
 
@@ -180,7 +199,7 @@ mod tests {
 
         assert_eq!(stats.min.as_deref(), Some(""));
         assert_eq!(stats.max.as_deref(), Some("b"));
-        assert!(!stats.has_null);
+        assert_eq!(stats.null_count, 0);
     }
 
     #[test]
@@ -202,14 +221,14 @@ mod tests {
 
         assert_eq!(stats.min, None);
         assert_eq!(stats.max, None);
-        assert!(stats.has_null);
+        assert_eq!(stats.null_count, 2);
     }
 
     #[test]
     fn text_stats_merge_with_empty_string() {
         let mut stats = TextualStats::new();
-        stats.merge(Some("a"), Some("z"), false);
-        stats.merge(Some(""), Some("b"), false);
+        stats.merge(Some("a"), Some("z"), 0);
+        stats.merge(Some(""), Some("b"), 0);
 
         assert_eq!(stats.min.as_deref(), Some(""));
         assert_eq!(stats.max.as_deref(), Some("z"));

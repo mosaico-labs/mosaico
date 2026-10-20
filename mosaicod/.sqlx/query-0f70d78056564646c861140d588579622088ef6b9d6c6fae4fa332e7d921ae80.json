@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE session_t\n            SET completion_unix_tstamp = $1\n            WHERE session_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0f70d78056564646c861140d588579622088ef6b9d6c6fae4fa332e7d921ae80"
+}

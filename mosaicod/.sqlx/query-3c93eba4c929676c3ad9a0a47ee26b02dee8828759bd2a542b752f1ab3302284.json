@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO column_t (column_name, ontology_tag)\n        VALUES ($1, $2)\n        ON CONFLICT (column_name, ontology_tag)\n        DO UPDATE SET\n            column_name = EXCLUDED.column_name  -- no-op\n        RETURNING *",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "column_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "column_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "ontology_tag",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3c93eba4c929676c3ad9a0a47ee26b02dee8828759bd2a542b752f1ab3302284"
+}
