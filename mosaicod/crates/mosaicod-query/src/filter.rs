@@ -635,6 +635,24 @@ pub enum Aggregator {
 }
 
 impl Aggregator {
+    /// Returns true if the operand of the aggregator must be numeric whatever the field
+    /// type is (e.g. the count or the mean), false if it can be either numeric or text,
+    /// following the field type (e.g. the maximum).
+    pub fn requires_numeric_operand(&self) -> bool {
+        matches!(
+            self,
+            Self::Count
+                | Self::Range
+                | Self::Std
+                | Self::Mean
+                | Self::Var
+                | Self::Rate
+                | Self::P50
+                | Self::P90
+                | Self::P99
+        )
+    }
+
     pub fn is_supported_aggregator<T>(&self, op: &Op<T>) -> bool {
         match self {
             Self::Max | Self::Min => matches!(
@@ -662,12 +680,7 @@ impl Aggregator {
                     | Op::Between(_)
                     | Op::Outside(_)
             ),
-            Self::Count
-            | Self::Mean
-            | Self::Rate
-            | Self::P50
-            | Self::P90
-            | Self::P99 => matches!(
+            Self::Count | Self::Mean | Self::Rate | Self::P50 | Self::P90 | Self::P99 => matches!(
                 op,
                 Op::Eq(_)
                     | Op::Neq(_)

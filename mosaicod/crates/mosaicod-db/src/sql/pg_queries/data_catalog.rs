@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
@@ -206,7 +208,11 @@ pub async fn chunks_from_filters(
     trace!("chunk SQL query values: {:?}", values);
     trace!("chunk SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    // Do not cache the prepared statement: sqlx caches statements by query text, and
+    // the same text is built for operands of different types (e.g. `3` and `3.5`).
+    // A cached statement keeps the parameter types of its first execution, so an
+    // operand of another type would be silently misread (an integer decoded as a float).
+    let mut r = sqlx::query(&query).persistent(false);
 
     for v in values {
         r = bind_value(r, v);
@@ -251,12 +257,30 @@ pub async fn topic_ids_from_aggregated_filters(
         Vec::new()
     };
 
-    let (query, values) = super::TopicAggregateQueryBuilder::build(filter, ids)?;
+    let mut field_kinds = HashMap::new();
+    for predicate in &filter.group {
+        if predicate
+            .aggregator()
+            .as_ref()
+            .is_some_and(query::Aggregator::requires_numeric_operand)
+        {
+            let field = predicate.ontology_field();
+            if let Some(kind) = field_stats_kind(exec, field).await? {
+                field_kinds.insert(field.field_str(), kind);
+            }
+        }
+    }
+
+    let (query, values) = super::TopicAggregateQueryBuilder::build(filter, ids, &field_kinds)?;
 
     trace!("aggregated topic SQL query values: {:?}", values);
     trace!("aggregated topic SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    // Do not cache the prepared statement: sqlx caches statements by query text, and
+    // the same text is built for operands of different types (e.g. `3` and `3.5`).
+    // A cached statement keeps the parameter types of its first execution, so an
+    // operand of another type would be silently misread (an integer decoded as a float).
+    let mut r = sqlx::query(&query).persistent(false);
     for v in values {
         r = bind_value(r, v);
     }
@@ -265,6 +289,30 @@ pub async fn topic_ids_from_aggregated_filters(
     rows.iter()
         .map(|row| row.try_get("topic_id").map_err(Error::from))
         .collect()
+}
+
+/// Returns the kind of the stats stored for `field`, `None` if the field has no stats.
+async fn field_stats_kind(
+    exec: &mut impl AsExec,
+    field: &query::OntologyField,
+) -> Result<Option<super::StatsKind>, Error> {
+    let res = sqlx::query!(
+        r#"SELECT
+            EXISTS(SELECT 1 FROM column_chunk_textual_t WHERE column_id = column_t.column_id) AS "textual!",
+            EXISTS(SELECT 1 FROM column_chunk_numeric_t WHERE column_id = column_t.column_id) AS "numeric!"
+        FROM column_t
+        WHERE ontology_tag = $1 AND column_name = $2"#,
+        field.ontology_tag(),
+        field.field(),
+    )
+    .fetch_optional(exec.as_exec())
+    .await?;
+
+    Ok(match res {
+        Some(r) if r.textual => Some(super::StatsKind::Textual),
+        Some(r) if r.numeric => Some(super::StatsKind::Numeric),
+        _ => None,
+    })
 }
 
 fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {

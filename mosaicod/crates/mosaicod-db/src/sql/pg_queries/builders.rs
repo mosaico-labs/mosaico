@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use mosaicod_core::types;
 use mosaicod_query as query;
 
@@ -11,6 +13,7 @@ impl TopicAggregateQueryBuilder {
     pub fn build(
         filter: query::OntologyPredicateGroup<query::Value>,
         on_topic_ids: Vec<i64>,
+        field_kinds: &HashMap<String, StatsKind>,
     ) -> Result<(String, Vec<query::Value>), query::Error> {
         let placeholder = query::Placeholder::new();
         let mut values = Vec::new();
@@ -29,23 +32,20 @@ impl TopicAggregateQueryBuilder {
 
         for predicate in filter.into_iter() {
             let (field, op, aggr) = predicate.into_parts();
+            let field = field.field_str();
+            let aggr_err = |err| query::Error::AggregatorError {
+                field: field.clone(),
+                err,
+            };
+
             // Only aggregated predicates are allowed here
-            let aggr = aggr.ok_or_else(|| query::Error::AggregatorError {
-                field: field.field_str(),
-                err: query::AggregatorError::MissingAggregator,
-            })?;
+            let aggr = aggr.ok_or_else(|| aggr_err(query::AggregatorError::MissingAggregator))?;
 
-            let kind =
-                StatsKind::try_from_op(&op).map_err(|err| query::Error::AggregatorError {
-                    field: field.field_str(),
-                    err,
-                })?;
+            let op_kind = StatsKind::try_from_op(&op).map_err(aggr_err)?;
+            let kind = field_kinds.get(&field).copied().unwrap_or(op_kind);
 
-            let aggregate =
-                aggregate_expr(aggr, kind).ok_or_else(|| query::Error::AggregatorError {
-                    field: field.field_str(),
-                    err: query::AggregatorError::UnsupportedAggregator,
-                })?;
+            let aggregate = aggregate_expr(aggr, kind)
+                .ok_or_else(|| aggr_err(query::AggregatorError::UnsupportedAggregator))?;
 
             let (having, mut having_values) =
                 query::CompileClause::compile_clause(&mut having_compiler, &aggregate, op)?
@@ -61,7 +61,6 @@ impl TopicAggregateQueryBuilder {
                 HAVING {having}",
                 table = kind.table(),
                 column = column_table_name(),
-                field = field.field_str(),
             ));
         }
 
@@ -70,7 +69,7 @@ impl TopicAggregateQueryBuilder {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum StatsKind {
+pub(super) enum StatsKind {
     Numeric,
     Textual,
 }
@@ -133,6 +132,30 @@ impl StatsKind {
             Self::Textual => "NULLIF(__stats__.min_value, '')".to_owned(),
         }
     }
+
+    fn valid_count(self) -> &'static str {
+        match self {
+            Self::Numeric => "(chunk_t.row_count - __stats__.null_count - __stats__.nan_count)",
+            Self::Textual => "(chunk_t.row_count - __stats__.null_count)",
+        }
+    }
+}
+
+/// Sample variance (n - 1) of the valid values of the topic, merging the chunk
+/// mean and M2 (Chan): `M2 = Σ M2ᵢ + Σ nᵢ·meanᵢ² - (Σ nᵢ·meanᵢ)² / N`.
+/// The result is NULL with less than two valid values.
+fn variance_aggr_expr() -> String {
+    let n = StatsKind::Numeric.valid_count();
+    // M2 is never negative, but subtracting two nearly equal sums can round it slightly
+    // below zero (e.g. on constant values), which would make the SQRT of the std fail
+    format!(
+        "(GREATEST(
+               SUM(__stats__.m2_value)
+               + SUM({n} * POWER(__stats__.mean_value, 2))
+               - POWER(SUM({n} * __stats__.mean_value), 2) / NULLIF(SUM({n}), 0),
+               0
+           ) / NULLIF(SUM({n}) - 1, 0))"
+    )
 }
 
 /// SQL expression computing `aggr` over the chunk stats of a topic,
@@ -146,6 +169,15 @@ fn aggregate_expr(aggr: query::Aggregator, kind: StatsKind) -> Option<String> {
             kind.max_value(),
             kind.min_value()
         )),
+        (query::Aggregator::Count, _) => Some(format!("SUM({})::BIGINT", kind.valid_count())),
+        (query::Aggregator::Mean, StatsKind::Numeric) => Some(format!(
+            "(SUM({n} * __stats__.mean_value) / NULLIF(SUM({n}), 0))",
+            n = kind.valid_count()
+        )),
+        (query::Aggregator::Var, StatsKind::Numeric) => Some(variance_aggr_expr()),
+        (query::Aggregator::Std, StatsKind::Numeric) => {
+            Some(format!("SQRT({})", variance_aggr_expr()))
+        }
         _ => None,
     }
 }

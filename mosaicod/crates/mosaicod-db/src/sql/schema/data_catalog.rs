@@ -1,4 +1,5 @@
 use crate as db;
+use mosaicod_core::types;
 
 #[derive(Debug)]
 pub struct ColumnRecord {
@@ -126,29 +127,18 @@ pub struct ColumnChunkNumericRecord {
 }
 
 impl ColumnChunkNumericRecord {
-    pub fn new(
-        column_id: i32,
-        chunk_id: i32,
-        min: f64,
-        max: f64,
-        nan_count: i64,
-        null_count: i64,
-        first_sample_value: Option<f64>,
-        last_sample_value: Option<f64>,
-        mean_value: Option<f64>,
-        m2_value: Option<f64>,
-    ) -> Self {
+    pub fn new(column_id: i32, chunk_id: i32, stats: &types::NumericStats) -> Self {
         Self {
             column_id,
             chunk_id,
-            min_value: min,
-            max_value: max,
-            nan_count,
-            null_count,
-            first_sample_value,
-            last_sample_value,
-            mean_value,
-            m2_value,
+            min_value: stats.min,
+            max_value: stats.max,
+            nan_count: stats.nan_count,
+            null_count: stats.null_count,
+            first_sample_value: stats.first_sample_value,
+            last_sample_value: stats.last_sample_value,
+            mean_value: stats.mean_value,
+            m2_value: stats.m2_value,
         }
     }
 }

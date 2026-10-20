@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT\n            EXISTS(SELECT 1 FROM column_chunk_textual_t WHERE column_id = column_t.column_id) AS \"textual!\",\n            EXISTS(SELECT 1 FROM column_chunk_numeric_t WHERE column_id = column_t.column_id) AS \"numeric!\"\n        FROM column_t\n        WHERE ontology_tag = $1 AND column_name = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "textual!",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 1,
+        "name": "numeric!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "5f153b31de1ba78958c1d9c8e06b1830c8c46086736cd1fde4dbc148af2fef98"
+}

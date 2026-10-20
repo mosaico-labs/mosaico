@@ -54,32 +54,11 @@ pub async fn update_chunk_stats(
                     last,
                 )?);
             }
-            types::Stats::Numeric(stats) => {
+            types::Stats::Numeric(stats) | types::Stats::ListNumeric(stats) => {
                 numeric_batch.push(db::ColumnChunkNumericRecord::new(
                     column.column_id,
                     chunk.chunk_id,
-                    stats.min,
-                    stats.max,
-                    stats.nan_count,
-                    stats.null_count,
-                    stats.first_sample_value,
-                    stats.last_sample_value,
-                    stats.mean_value,
-                    stats.m2_value,
-                ));
-            }
-            types::Stats::ListNumeric(stats) => {
-                numeric_batch.push(db::ColumnChunkNumericRecord::new(
-                    column.column_id,
-                    chunk.chunk_id,
-                    stats.min,
-                    stats.max,
-                    stats.nan_count,
-                    stats.null_count,
-                    stats.first_sample_value,
-                    stats.last_sample_value,
-                    stats.mean_value,
-                    stats.m2_value,
+                    &stats,
                 ));
             }
             types::Stats::ListTextual(mut stats) => {
