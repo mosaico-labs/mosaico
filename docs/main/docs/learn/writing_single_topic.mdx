@@ -108,7 +108,7 @@ The Rust SDK is currently in development.
 </TabItem>
 </Tabs>
 
-Here `IMU` and `Vector3d` are built-in Mosaico Ontology types. You do not need to define or register them; they are part of the default type catalog that ships with the SDK. The `Message` wrapper carries the typed `IMU` payload along with the nanosecond timestamp parsed directly from the CSV's `timestamp` column. The sample CSV's `timestamp` column holds the DDS publish time value that `Message.timestamp_ns` expects, not the sensor measurement time.
+Here `IMU` and `Vector3d` are built-in Mosaico Ontology types. You do not need to define or register them; they are part of the default type catalog that ships with the SDK. The `Message` wrapper carries the typed `IMU` payload along with the nanosecond timestamp parsed directly from the CSV's `timestamp` column. The sample CSV's `timestamp` column holds the DDS ([Data Distribution Service](https://design.ros2.org/articles/ros_on_dds.html#what-is-dds)) publish time value that `Message.timestamp_ns` expects, not the sensor measurement time.
 
 ### Sequence Upload
 
