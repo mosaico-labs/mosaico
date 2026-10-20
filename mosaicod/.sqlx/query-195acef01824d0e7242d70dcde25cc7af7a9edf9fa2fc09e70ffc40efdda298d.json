@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE topic_t\n            SET path_in_store = $1\n            WHERE topic_id = $2 AND path_in_store IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "195acef01824d0e7242d70dcde25cc7af7a9edf9fa2fc09e70ffc40efdda298d"
+}

@@ -114,6 +114,12 @@ async fn do_put_topic_data(
                     batch_physical_size = batch.get_array_memory_size() / 1_000_000,
                 );
 
+                // Since do_put with empty record batches is allowed,
+                // in this way we avoid writing empty batches with empty stats.
+                if batch.num_rows() == 0 {
+                    continue;
+                }
+
                 // Trying to acquire a semaphore to limit the total amount of concurrent writes
                 // run by this instance. This is done in order to bound memory consumption and
                 // to limit CPU-bound operations.

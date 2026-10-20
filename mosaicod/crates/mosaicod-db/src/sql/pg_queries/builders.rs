@@ -324,7 +324,7 @@ impl query::CompileClause for ChunkQueryBuilder {
             }
             query::Op::Nex => {
                 let col = column_table_name();
-                let clause = format!("{col} = {field} AND __stats__.has_null = TRUE");
+                let clause = format!("{col} = {field} AND __stats__.null_count > 0");
                 query::CompiledClause::new(build_clause_union(&clause), vec![])
             }
 

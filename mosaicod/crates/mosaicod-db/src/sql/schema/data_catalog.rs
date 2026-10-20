@@ -32,6 +32,9 @@ pub struct ChunkRecord {
     /// [`Self::size_bytes`], which is the size of the compressed Parquet buffer.
     pub arrow_size_bytes: Option<i64>,
     pub row_count: i64,
+
+    pub first_sample_timestamp_ns: i64,
+    pub last_sample_timestamp_ns: i64,
 }
 
 impl ChunkRecord {
@@ -41,6 +44,8 @@ impl ChunkRecord {
         size_bytes: i64,
         arrow_size_bytes: i64,
         row_count: i64,
+        first_sample_timestamp_ns: i64,
+        last_sample_timestamp_ns: i64,
     ) -> Self {
         Self {
             chunk_id: db::UNREGISTERED,
@@ -50,6 +55,8 @@ impl ChunkRecord {
             size_bytes,
             arrow_size_bytes: Some(arrow_size_bytes),
             row_count,
+            first_sample_timestamp_ns,
+            last_sample_timestamp_ns,
         }
     }
 
@@ -69,7 +76,10 @@ pub struct ColumnChunkTextualRecord {
     /// Max value (in lexycographic sense) in the chunk
     pub max_value: String,
 
-    pub has_null: bool,
+    pub null_count: i64,
+
+    pub first_sample_value: Option<String>,
+    pub last_sample_value: Option<String>,
 }
 
 impl ColumnChunkTextualRecord {
@@ -78,14 +88,18 @@ impl ColumnChunkTextualRecord {
         chunk_id: i32,
         min_value: String,
         max_value: String,
-        has_null: bool,
+        null_count: i64,
+        first_sample_value: Option<String>,
+        last_sample_value: Option<String>,
     ) -> Result<Self, db::Error> {
         Ok(Self {
             column_id,
             chunk_id,
             min_value,
             max_value,
-            has_null,
+            null_count,
+            first_sample_value,
+            last_sample_value,
         })
     }
 }
@@ -101,8 +115,14 @@ pub struct ColumnChunkNumericRecord {
     /// Max value (in lexycographic sense) in the chunk
     pub max_value: f64,
 
-    pub has_null: bool,
-    pub has_nan: bool,
+    pub nan_count: i64,
+    pub null_count: i64,
+
+    pub first_sample_value: Option<f64>,
+    pub last_sample_value: Option<f64>,
+
+    pub mean_value: Option<f64>,
+    pub m2_value: Option<f64>,
 }
 
 impl ColumnChunkNumericRecord {
@@ -111,16 +131,24 @@ impl ColumnChunkNumericRecord {
         chunk_id: i32,
         min: f64,
         max: f64,
-        has_null: bool,
-        has_nan: bool,
+        nan_count: i64,
+        null_count: i64,
+        first_sample_value: Option<f64>,
+        last_sample_value: Option<f64>,
+        mean_value: Option<f64>,
+        m2_value: Option<f64>,
     ) -> Self {
         Self {
             column_id,
             chunk_id,
             min_value: min,
             max_value: max,
-            has_null,
-            has_nan,
+            nan_count,
+            null_count,
+            first_sample_value,
+            last_sample_value,
+            mean_value,
+            m2_value,
         }
     }
 }

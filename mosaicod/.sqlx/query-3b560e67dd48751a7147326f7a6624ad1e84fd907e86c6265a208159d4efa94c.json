@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sequence_notification_t WHERE sequence_notification_id=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b560e67dd48751a7147326f7a6624ad1e84fd907e86c6265a208159d4efa94c"
+}
