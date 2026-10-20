@@ -1,4 +1,3 @@
-import json
 from unittest.mock import MagicMock
 
 import pyarrow as pa
@@ -8,6 +7,7 @@ from mosaicolabs.handlers import topic_handler as th_module
 from mosaicolabs.handlers.topic_handler import TopicHandler
 from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models.core.message import Message
+from mosaicolabs.proto.v1 import flight_pb2
 
 _DATA_SCHEMA = pa.struct([pa.field("x", pa.float64())])
 
@@ -63,6 +63,5 @@ def test_ontology_schema_is_fetched_lazily_and_cached(handler, connection):
     assert handler.ontology_schema == _DATA_SCHEMA
     connection.flight_client.get_schema.assert_called_once()
     descriptor = connection.flight_client.get_schema.call_args.args[0]
-    assert json.loads(descriptor.command) == {
-        "resource_locator": pack_topic_resource_name("seq", "/imu")
-    }
+    cmd = flight_pb2.GetSchemaCmd.FromString(descriptor.command)
+    assert cmd.locator == pack_topic_resource_name("seq", "/imu")
