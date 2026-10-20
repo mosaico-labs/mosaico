@@ -627,7 +627,7 @@ pub enum Aggregator {
     Last,
     Std,
     Mean,
-    Diff,
+    Var,
     Rate,
     P50,
     P90,
@@ -650,7 +650,7 @@ impl Aggregator {
                     | Op::Outside(_)
                     | Op::Match(_)
             ),
-            Self::Range | Self::First | Self::Last | Self::Std => matches!(
+            Self::Range | Self::First | Self::Last | Self::Std | Self::Var => matches!(
                 op,
                 Op::Eq(_)
                     | Op::Neq(_)
@@ -664,7 +664,6 @@ impl Aggregator {
             ),
             Self::Count
             | Self::Mean
-            | Self::Diff
             | Self::Rate
             | Self::P50
             | Self::P90
