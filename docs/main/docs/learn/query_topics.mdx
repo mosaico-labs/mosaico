@@ -75,7 +75,7 @@ The Rust SDK is currently in development.
 </TabItem>
 </Tabs>
 
-`client.query()` returns `None` on error, or a **QueryResponse**, a list of **QueryResponseItem** objects. The structure is the same as in a Sequence query: each `item.sequence` gives you the parent recording session that contains the matched topics, and `item.topics` gives you the specific Topics within that session that satisfied your filter. This grouping is deliberate; it lets you navigate directly from a matched Topic to the session it belongs to, so you can open a handler for either the topic or the full session depending on what you need next.
+`client.query()` returns `None` on no-response from the server, or a **QueryResponse**, a list of **QueryResponseItem** objects or raises on error. The structure is the same as in a Sequence query: each `item.sequence` gives you the parent recording session that contains the matched topics, and `item.topics` gives you the specific Topics within that session that satisfied your filter. This grouping is deliberate; it lets you navigate directly from a matched Topic to the session it belongs to, so you can open a handler for either the topic or the full session depending on what you need next.
 
 :::info[Result Normalization]
 `topic.name` returns the relative path (e.g. `/front/camera/image`), directly usable with other SDK methods like `topic_handler()` and streamers.
