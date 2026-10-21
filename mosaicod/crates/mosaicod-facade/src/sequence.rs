@@ -121,16 +121,14 @@ pub async fn try_create(
     Ok(record.uuid())
 }
 
-/// Returns a list of all available sequences.
-///
-/// This is primarily used for catalog discovery operations.
-pub async fn all(context: &Context) -> Result<Vec<types::SequenceLocator>> {
+/// Returns the page of sequences requested by `cmd`, each with the cursor
+/// pointing just past it.
+pub async fn page(
+    context: &Context,
+    cmd: &types::flight::ListFlightsCmd,
+) -> Result<Vec<types::SequenceListEntry>> {
     let mut cx = context.db.connection();
-    Ok(db::sequence_find_all(&mut cx)
-        .await?
-        .into_iter()
-        .map(|seq_record| seq_record.locator())
-        .collect())
+    Ok(db::sequence_find_page(&mut cx, cmd.order, cmd.cursor.as_ref(), cmd.limit).await?)
 }
 
 /// Add a notification to the sequence
@@ -380,5 +378,41 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn sequence_page(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        for name in ["charlie", "alpha", "bravo"] {
+            try_create(&context, &name.parse().unwrap(), None)
+                .await
+                .expect("Error creating sequence");
+        }
+
+        let names = |page: &[types::SequenceListEntry]| {
+            page.iter()
+                .map(|e| e.locator.to_string())
+                .collect::<Vec<_>>()
+        };
+
+        // Default command: creation order, first page.
+        let by_created_at = page(&context, &types::flight::ListFlightsCmd::default())
+            .await
+            .unwrap();
+        assert_eq!(names(&by_created_at), vec!["charlie", "alpha", "bravo"]);
+
+        // Name order, two pages of two.
+        let mut cmd = types::flight::ListFlightsCmd {
+            order: types::SequenceOrder::Name,
+            limit: types::ListLimit::from(2),
+            ..Default::default()
+        };
+        let first = page(&context, &cmd).await.unwrap();
+        assert_eq!(names(&first), vec!["alpha", "bravo"]);
+
+        cmd.cursor = first.last().map(|e| e.cursor.clone());
+        let second = page(&context, &cmd).await.unwrap();
+        assert_eq!(names(&second), vec!["charlie"]);
     }
 }
