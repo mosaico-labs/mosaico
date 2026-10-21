@@ -241,7 +241,7 @@ pub(super) mod internal {
         let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
         let batch_size = params.grpc_target_encode_message_size.value / avg_bytes_per_row;
 
-        Ok(batch_size.clamp(1, params.max_batch_size.value))
+        Ok(batch_size.clamp(1, params.max_batch_size.value.get()))
     }
 }
 

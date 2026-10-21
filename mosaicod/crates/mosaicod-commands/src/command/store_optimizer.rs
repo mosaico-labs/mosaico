@@ -5,6 +5,7 @@ use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
+use std::num::NonZero;
 use std::thread;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
@@ -21,9 +22,9 @@ pub struct StoreOptimizer {
 
     /// Maximum size (in bytes) for an output chunk after optimization.
     /// This is a soft limit, actual files on store may exceed this value slightly.
-    /// Defaults to MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE, then `256_000_000`.
+    /// Defaults to MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE, then `268_435_456` (256 MiB).
     #[arg(long)]
-    pub max_chunk_size: Option<usize>,
+    pub max_chunk_size: Option<NonZero<usize>>,
 }
 
 /// Run the store optimization routine.
@@ -45,7 +46,7 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
         })?,
         user: params.db_user.value.clone(),
         password: params.db_password.value.clone(),
-        max_connections: params.max_db_connections.value,
+        max_connections: params.max_db_connections.value.get(),
     };
 
     info!("startup database connection");
@@ -77,7 +78,7 @@ pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
     rt.block_on(async {
         let store_optimizer = task::StoreOptimizer::new(db, store)
             .with_time_interval(time_interval)
-            .with_max_file_size(max_chunk_size);
+            .with_max_file_size(max_chunk_size.get());
 
         store_optimizer.run(shutdown).await
     })?;

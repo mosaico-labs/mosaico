@@ -7,6 +7,7 @@ use mosaicod_core::error;
 use mosaicod_core::types::{LogFormat, LogLevel};
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
+use std::num::NonZero;
 use std::{env, str::FromStr, sync::OnceLock};
 
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
@@ -15,11 +16,11 @@ pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 512 * 1024 * 1024; // 512MiB
 // Default values for Params.
 pub const DEFAULT_GRPC_MAX_DECODE_MESSAGE_SIZE: usize = 50 * 1024 * 1024; // 50MiB
 pub const DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE: usize = 25 * 1024 * 1024; // 25MiB
-pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: usize = 4;
-pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: usize = 1024;
-pub const DEFAULT_MAX_DB_CONNECTIONS: u32 = 19;
+pub const DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES: NonZero<usize> = NonZero::new(4).unwrap();
+pub const DEFAULT_MAX_SIZE_PLAIN_LIST_EQ: NonZero<usize> = NonZero::new(1024).unwrap();
+pub const DEFAULT_MAX_DB_CONNECTIONS: NonZero<u32> = NonZero::new(10).unwrap();
 pub const DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE: usize = 70 * 1024 * 1024; // 70MiB
-pub const DEFAULT_MAX_BATCH_SIZE: usize = 8192;
+pub const DEFAULT_MAX_BATCH_SIZE: NonZero<usize> = NonZero::new(8192).unwrap();
 pub const DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE: usize = 0; // No memory restriction.
 pub const DEFAULT_TLS_CERT_FILE: &str = "";
 pub const DEFAULT_TLS_PRIVATE_KEY_FILE: &str = "";
@@ -30,14 +31,15 @@ pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 pub const DEFAULT_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-pub const DEFAULT_PORT: u16 = 6726;
+pub const DEFAULT_PORT: NonZero<u16> = NonZero::new(6726).unwrap();
 pub const DEFAULT_TLS_ENABLED: bool = false;
 pub const DEFAULT_GZIP: bool = false;
 pub const DEFAULT_API_KEY_ENABLED: bool = false;
 pub const DEFAULT_CLEANUP_TIME_INTERVAL: u32 = 0;
 pub const DEFAULT_CLEANUP_RETENTION_DURATION: u32 = 86400;
 pub const DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL: u32 = 0;
-pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: usize = 256 * 1024 * 1024; // 256 MiB
+pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: NonZero<usize> =
+    NonZero::new(256 * 1024 * 1024).unwrap(); // 256 MiB
 pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warning;
 pub const DEFAULT_LOG_FORMAT: LogFormat = LogFormat::Pretty;
 
@@ -75,23 +77,26 @@ where
     /// Precedence: `<NAME>` env var, then `file_value` (config file), then `default`.
     /// If `ignore_env` is `true`, the environment tier is skipped entirely, as if
     /// `<NAME>` were unset.
-    pub fn optional(env_name: &str, ignore_env: bool, file_value: Option<T>, default: T) -> Self
+    pub fn optional(
+        env_name: &str,
+        ignore_env: bool,
+        file_value: Option<T>,
+        default: T,
+    ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
-        <T as FromStr>::Err: std::fmt::Debug,
+        <T as FromStr>::Err: std::fmt::Display,
     {
         let value = match env_var(env_name, ignore_env) {
-            Ok(value) => value
-                .parse()
-                .unwrap_or_else(|_| panic!("unable to parse variable `{}`", env_name)),
+            Ok(raw) => parse_value(env_name, &raw)?,
             Err(_) => file_value.unwrap_or(default),
         };
 
-        Self {
+        Ok(Self {
             value,
             env: env_name.to_owned(),
             _visibility: PhantomData,
-        }
+        })
     }
 
     /// Precedence: `<NAME>` env var, then `file_value` (config file); errors if neither is set.
@@ -104,15 +109,10 @@ where
     ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
-        <T as FromStr>::Err: std::fmt::Debug,
+        <T as FromStr>::Err: std::fmt::Display,
     {
         let value = match env_var(env_name, ignore_env) {
-            Ok(raw) => raw.parse().map_err(|_| {
-                error::Error::invalid_configuration(
-                    env_name.to_owned(),
-                    "unable to parse".to_owned(),
-                )
-            })?,
+            Ok(raw) => parse_value(env_name, &raw)?,
             Err(_) => file_value.ok_or_else(|| {
                 error::Error::invalid_configuration(env_name.to_owned(), "missing".to_owned())
             })?,
@@ -140,7 +140,7 @@ where
     ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
-        <T as FromStr>::Err: std::fmt::Debug,
+        <T as FromStr>::Err: std::fmt::Display,
     {
         let raw = match resolve_plain_or_file(env_name, ignore_env)? {
             Some(raw) => Some(raw),
@@ -148,12 +148,7 @@ where
         };
 
         let value = match raw {
-            Some(raw) => raw.parse().map_err(|_| {
-                error::Error::invalid_configuration(
-                    env_name.to_owned(),
-                    "unable to parse".to_owned(),
-                )
-            })?,
+            Some(raw) => parse_value(env_name, &raw)?,
             None => default,
         };
 
@@ -179,7 +174,7 @@ where
     ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
-        <T as FromStr>::Err: std::fmt::Debug,
+        <T as FromStr>::Err: std::fmt::Display,
     {
         let raw = match resolve_plain_or_file(env_name, ignore_env)? {
             Some(raw) => raw,
@@ -192,9 +187,7 @@ where
             },
         };
 
-        let value = raw.parse().map_err(|_| {
-            error::Error::invalid_configuration(env_name.to_owned(), "unable to parse".to_owned())
-        })?;
+        let value = parse_value(env_name, &raw)?;
 
         Ok(Self {
             value,
@@ -202,6 +195,19 @@ where
             _visibility: PhantomData,
         })
     }
+}
+
+/// Parses a raw value read for `env_name`, mapping a failure to a configuration error.
+/// The error carries the parser's message (e.g. "number would be zero for non-zero
+/// type") but never the raw value, which may be a secret.
+fn parse_value<T>(env_name: &str, raw: &str) -> error::PublicResult<T>
+where
+    T: std::str::FromStr,
+    <T as FromStr>::Err: std::fmt::Display,
+{
+    Ok(raw.parse().map_err(|e| {
+        error::Error::invalid_configuration(env_name.to_owned(), format!("unable to parse: {e}"))
+    })?)
 }
 
 /// Reads env var `name`, unless `ignore_env` is `true`, in which case it behaves as if
@@ -288,7 +294,7 @@ pub struct Params {
     pub grpc_target_encode_message_size: Param<usize>,
 
     /// Maximum number of concurrent chunk queries during data catalog filtering.
-    pub max_concurrent_chunk_queries: Param<usize>,
+    pub max_concurrent_chunk_queries: Param<NonZero<usize>>,
 
     /// Maximum number of elements unrolled when decomposing a list `eq`/`neq`
     /// filter into per-element scalar comparisons. Filters whose value array
@@ -296,7 +302,7 @@ pub struct Params {
     /// query expressions.
     ///
     /// Defaults to 1024.
-    pub max_size_plain_list_eq: Param<usize>,
+    pub max_size_plain_list_eq: Param<NonZero<usize>>,
 
     /// The maximum number of concurrent encoding and serialization operations.
     ///
@@ -310,15 +316,13 @@ pub struct Params {
     /// Excessive parallelism may lead to scheduler thrashing or memory exhaustion.
     ///
     /// Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
-    pub max_concurrent_writes: Param<usize>,
+    pub max_concurrent_writes: Param<NonZero<usize>>,
 
-    /// Maximum batch size (number of elements inside a arrow record batch) used during data
+    /// Maximum batch size (number of elements inside an arrow record batch) used during data
     /// streaming
     ///
-    /// Must be greater than 0.
-    ///
     /// Defaults to default data fusion batch size 8192.
-    pub max_batch_size: Param<usize>,
+    pub max_batch_size: Param<NonZero<usize>>,
 
     /// Sets the degree of parallelism.
     ///
@@ -327,7 +331,7 @@ pub struct Params {
     /// detection might fail or be inaccurate.
     ///
     /// Default is computed at runtime based on the machine.
-    pub default_parallelism: Param<usize>,
+    pub default_parallelism: Param<NonZero<usize>>,
 
     /// Defines the amount of memory (in bytes) used by the query engine (DataFusion).
     /// Set this value to a number greater than 0 to enforce a hard limit
@@ -348,7 +352,7 @@ pub struct Params {
     pub store_optimizer_time_interval: Param<u32>,
 
     /// Maximum size (in bytes) for an output chunk after optimization.
-    pub store_optimizer_max_chunk_size: Param<usize>,
+    pub store_optimizer_max_chunk_size: Param<NonZero<usize>>,
 
     /// Minimum interval, in seconds, between cleanup runs. `0` runs once.
     pub cleanup_time_interval: Param<u32>,
@@ -372,7 +376,7 @@ pub struct Params {
     pub host: Param<IpAddr>,
 
     /// Port the server listens on
-    pub port: Param<u16>,
+    pub port: Param<NonZero<u16>>,
 
     /// Whether TLS is enabled for the server. Requires [`Params::tls_certificate_file`]
     /// and [`Params::tls_private_key_file`] to be set.
@@ -399,7 +403,7 @@ pub struct Params {
     pub db_password: Param<String, Hidden>,
 
     /// Maximum number of database connections in the pool
-    pub max_db_connections: Param<u32>,
+    pub max_db_connections: Param<NonZero<u32>>,
 
     pub store_endpoint: Param<String>,
     pub store_bucket: Param<String>,
@@ -416,13 +420,6 @@ pub struct Params {
 
 impl Params {
     fn validate(&self) -> Result<(), error::Error> {
-        if self.max_batch_size.value == 0 {
-            Err(error::Error::invalid_configuration(
-                self.max_batch_size.env.clone(),
-                "must be greater than 0".to_owned(),
-            ))?;
-        }
-
         if self.grpc_max_decode_message_size.value < GRPC_MSG_MIN_SIZE_BYTES
             || self.grpc_max_decode_message_size.value > GRPC_MSG_MAX_SIZE_BYTES
         {
@@ -490,28 +487,42 @@ impl ParamsLoadOptions {
 /// process is a no-op: its result is silently discarded and the first-loaded `Params`
 /// remains active for the rest of the process lifetime.
 pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
+    let _ = ENV.set(build_params(config)?);
+
+    Ok(())
+}
+
+/// Builds and validates [`Params`], with precedence:
+/// env var > `config.toml` > hard-coded default for each field (or, if `config.ignore_env` is set,
+/// config file > default, bypassing the environment tier entirely).
+fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
     let cfg = &config.config_file;
 
-    let default_parallelism = std::thread::available_parallelism()
-        .expect("Unable to detect default parallelism, please define MOSAICOD_DEFAULT_PARALLELISM")
-        .get();
-
     let ignore_env = config.ignore_env;
+
+    // An explicit value always wins and startup only fails when nothing is set and detection fails too.
+    let default_parallelism = Param::required(
+        "MOSAICOD_DEFAULT_PARALLELISM",
+        ignore_env,
+        cfg.server
+            .default_parallelism
+            .or_else(|| std::thread::available_parallelism().ok()),
+    )?;
 
     let grpc_max_decode_message_size = Param::optional(
         "MOSAICOD_GRPC_MAX_DECODE_MESSAGE_SIZE",
         ignore_env,
         cfg.server.grpc.max_decode_message_size,
         DEFAULT_GRPC_MAX_DECODE_MESSAGE_SIZE,
-    );
+    )?;
     let grpc_target_encode_message_size = Param::optional(
         "MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE",
         ignore_env,
         cfg.server.grpc.target_encode_message_size,
         DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE,
-    );
+    )?;
 
-    let ev = Params {
+    let params = Params {
         // general
         grpc_max_decode_message_size,
         grpc_target_encode_message_size,
@@ -520,49 +531,44 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.query_engine.max_concurrent_chunk_queries,
             DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES,
-        ),
+        )?,
         max_size_plain_list_eq: Param::optional(
             "MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ",
             ignore_env,
             cfg.query_engine.max_size_plain_list_eq,
             DEFAULT_MAX_SIZE_PLAIN_LIST_EQ,
-        ),
+        )?,
         max_db_connections: Param::optional(
             "MOSAICOD_MAX_DB_CONNECTIONS",
             ignore_env,
             cfg.database.max_connections,
             DEFAULT_MAX_DB_CONNECTIONS,
-        ),
+        )?,
         max_concurrent_writes: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_WRITES",
             ignore_env,
             cfg.server.max_concurrent_writes,
-            default_parallelism,
-        ),
-        default_parallelism: Param::optional(
-            "MOSAICOD_DEFAULT_PARALLELISM",
-            ignore_env,
-            cfg.server.default_parallelism,
-            default_parallelism,
-        ),
+            default_parallelism.value,
+        )?,
+        default_parallelism,
         parquet_in_memory_encoding_buffer_size: Param::optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
             ignore_env,
             cfg.encoding.parquet_in_memory_encoding_buffer_size,
             DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
-        ),
+        )?,
         max_batch_size: Param::optional(
             "MOSAICOD_MAX_BATCH_SIZE",
             ignore_env,
             cfg.server.max_batch_size,
             DEFAULT_MAX_BATCH_SIZE,
-        ),
+        )?,
         query_engine_memory_pool_size: Param::optional(
             "MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE",
             ignore_env,
             cfg.query_engine.memory_pool_size,
             DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE,
-        ),
+        )?,
 
         // logging
         log_level: Param::optional(
@@ -570,35 +576,35 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.logging.level,
             DEFAULT_LOG_LEVEL,
-        ),
+        )?,
         log_format: Param::optional(
             "MOSAICOD_LOG_FORMAT",
             ignore_env,
             cfg.logging.format,
             DEFAULT_LOG_FORMAT,
-        ),
+        )?,
 
         // server
-        host: Param::optional("MOSAICOD_HOST", ignore_env, cfg.server.host, DEFAULT_HOST),
-        port: Param::optional("MOSAICOD_PORT", ignore_env, cfg.server.port, DEFAULT_PORT),
+        host: Param::optional("MOSAICOD_HOST", ignore_env, cfg.server.host, DEFAULT_HOST)?,
+        port: Param::optional("MOSAICOD_PORT", ignore_env, cfg.server.port, DEFAULT_PORT)?,
         tls_enabled: Param::optional(
             "MOSAICOD_TLS_ENABLED",
             ignore_env,
             cfg.server.tls.enabled,
             DEFAULT_TLS_ENABLED,
-        ),
+        )?,
         gzip_enabled: Param::optional(
             "MOSAICOD_GZIP_ENABLED",
             ignore_env,
             cfg.server.gzip_enabled,
             DEFAULT_GZIP,
-        ),
+        )?,
         api_key_enabled: Param::optional(
             "MOSAICOD_API_KEY_ENABLED",
             ignore_env,
             cfg.server.api_key_enabled,
             DEFAULT_API_KEY_ENABLED,
-        ),
+        )?,
 
         // tls
         tls_certificate_file: Param::optional(
@@ -606,13 +612,13 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.server.tls.certificate_file.clone(),
             DEFAULT_TLS_CERT_FILE.to_owned(),
-        ),
+        )?,
         tls_private_key_file: Param::optional(
             "MOSAICOD_TLS_PRIVATE_KEY_FILE",
             ignore_env,
             cfg.server.tls.private_key_file.clone(),
             DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned(),
-        ),
+        )?,
 
         // database
         db_url: if config.skip_db_config {
@@ -629,7 +635,7 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
                 ignore_env,
                 cfg.database.user.clone(),
                 String::new(),
-            )
+            )?
         },
         db_password: if config.skip_db_config {
             Param::default()
@@ -649,19 +655,19 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.store.endpoint.clone(),
             DEFAULT_STORE_ENDPOINT.to_owned(),
-        ),
+        )?,
         store_bucket: Param::optional(
             "MOSAICOD_STORE_BUCKET",
             ignore_env,
             cfg.store.bucket.clone(),
             DEFAULT_STORE_BUCKET.to_owned(),
-        ),
+        )?,
         store_region: Param::optional(
             "MOSAICOD_STORE_REGION",
             ignore_env,
             cfg.store.region.clone(),
             DEFAULT_STORE_REGION.to_owned(),
-        ),
+        )?,
         store_secret_key: Param::optional_or_file(
             "MOSAICOD_STORE_SECRET_KEY",
             ignore_env,
@@ -673,7 +679,7 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.store.access_key.clone(),
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
-        ),
+        )?,
 
         // store optimizer
         store_optimizer_memory_pool_size: Param::optional(
@@ -681,19 +687,19 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.store_optimizer.memory_pool_size,
             DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE,
-        ),
+        )?,
         store_optimizer_time_interval: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL",
             ignore_env,
             cfg.store_optimizer.time_interval,
             DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL,
-        ),
+        )?,
         store_optimizer_max_chunk_size: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE",
             ignore_env,
             cfg.store_optimizer.max_chunk_size,
             DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE,
-        ),
+        )?,
 
         // cleanup
         cleanup_time_interval: Param::optional(
@@ -701,20 +707,18 @@ pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
             ignore_env,
             cfg.cleanup.time_interval,
             DEFAULT_CLEANUP_TIME_INTERVAL,
-        ),
+        )?,
         cleanup_retention_duration: Param::optional(
             "MOSAICOD_CLEANUP_RETENTION_DURATION",
             ignore_env,
             cfg.cleanup.retention_duration,
             DEFAULT_CLEANUP_RETENTION_DURATION,
-        ),
+        )?,
     };
 
-    ev.validate()?;
+    params.validate()?;
 
-    let _ = ENV.set(ev);
-
-    Ok(())
+    Ok(params)
 }
 
 static ENV: OnceLock<Params> = OnceLock::new();
@@ -762,9 +766,9 @@ mod tests {
             grpc_target_encode_message_size: param(DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE),
             max_concurrent_chunk_queries: param(DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES),
             max_size_plain_list_eq: param(DEFAULT_MAX_SIZE_PLAIN_LIST_EQ),
-            max_concurrent_writes: param(1),
+            max_concurrent_writes: param(NonZero::<usize>::MIN),
             max_batch_size: param(DEFAULT_MAX_BATCH_SIZE),
-            default_parallelism: param(1),
+            default_parallelism: param(NonZero::<usize>::MIN),
             query_engine_memory_pool_size: param(DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE),
             parquet_in_memory_encoding_buffer_size: param(
                 DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
@@ -798,23 +802,6 @@ mod tests {
     #[test]
     fn validate_accepts_valid_params() {
         assert!(valid_params().validate().is_ok());
-    }
-
-    #[test]
-    fn validate_rejects_zero_max_batch_size() {
-        let mut params = valid_params();
-        params.max_batch_size = param(0);
-
-        let err = params.validate().unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::InvalidConfiguration(_)));
-    }
-
-    #[test]
-    fn validate_accepts_max_batch_size_of_one() {
-        let mut params = valid_params();
-        params.max_batch_size = param(1);
-
-        assert!(params.validate().is_ok());
     }
 
     #[test]
@@ -998,7 +985,7 @@ mod tests {
     fn optional_uses_file_value_when_env_unset() {
         let name = "TEST_OPTIONAL_FILE_VALUE";
 
-        let result = Param::<u32>::optional(name, false, Some(42), 0);
+        let result = Param::<u32>::optional(name, false, Some(42), 0).unwrap();
 
         assert_eq!(result.value, 42);
     }
@@ -1008,11 +995,47 @@ mod tests {
         let name = "TEST_OPTIONAL_ENV_OVER_FILE";
         unsafe { env::set_var(name, "7") };
 
-        let result = Param::<u32>::optional(name, false, Some(42), 0);
+        let result = Param::<u32>::optional(name, false, Some(42), 0).unwrap();
 
         unsafe { env::remove_var(name) };
 
         assert_eq!(result.value, 7);
+    }
+
+    #[test]
+    fn optional_errors_on_unparsable_env() {
+        // e.g. `MOSAICOD_PORT=abc` is a configuration error, not a panic.
+        let name = "TEST_OPTIONAL_UNPARSABLE_ENV";
+        unsafe { env::set_var(name, "abc") };
+
+        let result = Param::<u32>::optional(name, false, Some(42), 0);
+
+        unsafe { env::remove_var(name) };
+
+        let ErrorKind::InvalidConfiguration(msg) = result.unwrap_err().error().kind().clone()
+        else {
+            panic!("expected an invalid configuration error");
+        };
+        assert!(msg.contains("invalid digit"), "unexpected message: {msg}");
+        assert!(
+            !msg.contains("abc"),
+            "the raw value must not be part of the message"
+        );
+    }
+
+    #[test]
+    fn optional_non_zero_errors_on_zero_env() {
+        let name = "TEST_OPTIONAL_NON_ZERO_ZERO_ENV";
+        unsafe { env::set_var(name, "0") };
+
+        let result = Param::<NonZero<usize>>::optional(name, false, None, NonZero::<usize>::MIN);
+
+        unsafe { env::remove_var(name) };
+
+        assert!(matches!(
+            result.unwrap_err().error().kind(),
+            ErrorKind::InvalidConfiguration(_)
+        ));
     }
 
     #[test]
@@ -1023,7 +1046,8 @@ mod tests {
         unsafe { env::set_var(name, "") };
 
         let result =
-            Param::<String>::optional(name, false, Some("value".to_owned()), String::new());
+            Param::<String>::optional(name, false, Some("value".to_owned()), String::new())
+                .unwrap();
 
         unsafe { env::remove_var(name) };
 
@@ -1034,7 +1058,7 @@ mod tests {
     fn optional_falls_back_to_default_when_env_and_file_unset() {
         let name = "TEST_OPTIONAL_NEITHER_ENV_NOR_FILE";
 
-        let result = Param::<u32>::optional(name, false, None, 0);
+        let result = Param::<u32>::optional(name, false, None, 0).unwrap();
 
         assert_eq!(result.value, 0);
     }
@@ -1053,6 +1077,22 @@ mod tests {
         let name = "TEST_REQUIRED_NEITHER_ENV_NOR_FILE";
 
         let result = Param::<u32>::required(name, false, None);
+
+        assert!(matches!(
+            result.unwrap_err().error().kind(),
+            ErrorKind::InvalidConfiguration(_)
+        ));
+    }
+
+    #[test]
+    fn required_non_zero_errors_on_zero_env() {
+        // e.g. `MOSAICOD_DEFAULT_PARALLELISM=0` is a configuration error, not a panic.
+        let name = "TEST_REQUIRED_NON_ZERO_ZERO_ENV";
+        unsafe { env::set_var(name, "0") };
+
+        let result = Param::<NonZero<usize>>::required(name, false, NonZero::new(4));
+
+        unsafe { env::remove_var(name) };
 
         assert!(matches!(
             result.unwrap_err().error().kind(),
@@ -1103,7 +1143,7 @@ mod tests {
         let name = "TEST_OPTIONAL_IGNORE_ENV";
         unsafe { env::set_var(name, "7") };
 
-        let result = Param::<u32>::optional(name, true, Some(42), 0);
+        let result = Param::<u32>::optional(name, true, Some(42), 0).unwrap();
 
         unsafe { env::remove_var(name) };
 
@@ -1137,6 +1177,52 @@ mod tests {
     // anywhere in this binary would be a silent no-op that returns the first call's
     // values instead of its own. This must remain the only test in this file (and the
     // only one in this crate's test binary) that calls `load_params`.
+    fn params_from(config_file: config::ConfigFile) -> Params {
+        build_params(ParamsLoadOptions {
+            skip_db_config: true,
+            ignore_env: true,
+            config_file,
+        })
+        .unwrap()
+    }
+
+    #[test]
+    fn max_concurrent_writes_defaults_to_default_parallelism() {
+        let p = params_from(config::ConfigFile {
+            server: config::ServerConfig {
+                default_parallelism: NonZero::new(3),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+
+        assert_eq!(p.max_concurrent_writes.value.get(), 3);
+    }
+
+    #[test]
+    fn max_concurrent_writes_overrides_default_parallelism() {
+        let p = params_from(config::ConfigFile {
+            server: config::ServerConfig {
+                default_parallelism: NonZero::new(3),
+                max_concurrent_writes: NonZero::new(7),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+
+        assert_eq!(p.max_concurrent_writes.value.get(), 7);
+    }
+
+    #[test]
+    fn default_parallelism_falls_back_to_detected_parallelism() {
+        let p = params_from(config::ConfigFile::default());
+
+        assert_eq!(
+            p.default_parallelism.value,
+            std::thread::available_parallelism().unwrap()
+        );
+    }
+
     #[test]
     fn load_params_maps_every_config_file_field_to_the_correct_param() {
         let password_path = std::env::temp_dir().join("mosaicod_test_load_params_db_password");
@@ -1147,12 +1233,12 @@ mod tests {
         let config_file = config::ConfigFile {
             server: config::ServerConfig {
                 host: Some(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1))),
-                port: Some(1234),
+                port: NonZero::new(1234),
                 gzip_enabled: Some(true),
                 api_key_enabled: Some(true),
-                max_batch_size: Some(4096),
-                default_parallelism: Some(3),
-                max_concurrent_writes: Some(7),
+                max_batch_size: NonZero::new(4096),
+                default_parallelism: NonZero::new(3),
+                max_concurrent_writes: NonZero::new(7),
                 tls: config::ServerTlsConfig {
                     enabled: Some(true),
                     certificate_file: Some("cert.pem".to_owned()),
@@ -1167,7 +1253,7 @@ mod tests {
                 url: Some("postgresql://host:5432/db".to_owned()),
                 user: Some("dbuser".to_owned()),
                 password_file: Some(password_path.to_str().unwrap().to_owned()),
-                max_connections: Some(5),
+                max_connections: NonZero::new(5),
             },
             store: config::StoreConfig {
                 endpoint: Some("https://store.example".to_owned()),
@@ -1178,15 +1264,15 @@ mod tests {
             },
             query_engine: config::QueryEngineConfig {
                 memory_pool_size: Some(1000),
-                max_concurrent_chunk_queries: Some(2),
-                max_size_plain_list_eq: Some(512),
+                max_concurrent_chunk_queries: NonZero::new(2),
+                max_size_plain_list_eq: NonZero::new(512),
             },
             encoding: config::EncodingConfig {
                 parquet_in_memory_encoding_buffer_size: Some(2_000_000),
             },
             store_optimizer: config::StoreOptimizerConfig {
                 time_interval: Some(60),
-                max_chunk_size: Some(1_000_000),
+                max_chunk_size: NonZero::new(1_000_000),
                 memory_pool_size: Some(2000),
             },
             cleanup: config::CleanupConfig {
@@ -1214,12 +1300,12 @@ mod tests {
         let p = params();
 
         assert_eq!(p.host.value, IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
-        assert_eq!(p.port.value, 1234);
+        assert_eq!(p.port.value.get(), 1234);
         assert!(p.gzip_enabled.value);
         assert!(p.api_key_enabled.value);
-        assert_eq!(p.max_batch_size.value, 4096);
-        assert_eq!(p.default_parallelism.value, 3);
-        assert_eq!(p.max_concurrent_writes.value, 7);
+        assert_eq!(p.max_batch_size.value.get(), 4096);
+        assert_eq!(p.default_parallelism.value.get(), 3);
+        assert_eq!(p.max_concurrent_writes.value.get(), 7);
         assert!(p.tls_enabled.value);
         assert_eq!(p.tls_certificate_file.value, "cert.pem");
         assert_eq!(p.tls_private_key_file.value, "key.pem");
@@ -1235,7 +1321,7 @@ mod tests {
         assert_eq!(p.db_url.value, "postgresql://host:5432/db");
         assert_eq!(p.db_user.value, "dbuser");
         assert_eq!(p.db_password.value, "db-password-from-file");
-        assert_eq!(p.max_db_connections.value, 5);
+        assert_eq!(p.max_db_connections.value.get(), 5);
 
         assert_eq!(p.store_endpoint.value, "https://store.example");
         assert_eq!(p.store_bucket.value, "bucket-name");
@@ -1244,13 +1330,13 @@ mod tests {
         assert_eq!(p.store_secret_key.value, "secret-key-from-file");
 
         assert_eq!(p.query_engine_memory_pool_size.value, 1000);
-        assert_eq!(p.max_concurrent_chunk_queries.value, 2);
-        assert_eq!(p.max_size_plain_list_eq.value, 512);
+        assert_eq!(p.max_concurrent_chunk_queries.value.get(), 2);
+        assert_eq!(p.max_size_plain_list_eq.value.get(), 512);
 
         assert_eq!(p.parquet_in_memory_encoding_buffer_size.value, 2_000_000);
 
         assert_eq!(p.store_optimizer_time_interval.value, 60);
-        assert_eq!(p.store_optimizer_max_chunk_size.value, 1_000_000);
+        assert_eq!(p.store_optimizer_max_chunk_size.value.get(), 1_000_000);
         assert_eq!(p.store_optimizer_memory_pool_size.value, 2000);
 
         assert_eq!(p.cleanup_time_interval.value, 120);

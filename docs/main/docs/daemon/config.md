@@ -65,7 +65,7 @@ target_encode_message_size = 26214400
 url = "postgresql://localhost:5432/mosaico"
 user = "postgres"
 password_file = "/run/secrets/mosaicod_db_password"
-max_connections = 19
+max_connections = 10
 
 [store]
 endpoint = "https://s3.example.com"

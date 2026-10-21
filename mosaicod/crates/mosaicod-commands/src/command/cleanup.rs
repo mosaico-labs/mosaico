@@ -44,7 +44,7 @@ pub fn cleanup(args: Cleanup) -> Result<()> {
         })?,
         user: params.db_user.value.clone(),
         password: params.db_password.value.clone(),
-        max_connections: params.max_db_connections.value,
+        max_connections: params.max_db_connections.value.get(),
     };
 
     info!("startup database connection");
