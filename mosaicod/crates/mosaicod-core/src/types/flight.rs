@@ -18,6 +18,15 @@ pub struct GetSchemaCmd {
     pub locator: String,
 }
 
+/// Request a page of sequences
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ListFlightsCmd {
+    pub locator: String,
+    pub order: types::SequenceOrder,
+    pub limit: types::ListLimit,
+    pub cursor: Option<types::SequenceCursor>,
+}
+
 pub struct TicketTopic {
     /// Locator for the topic
     pub locator: types::TopicLocator,
