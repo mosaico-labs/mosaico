@@ -117,7 +117,7 @@ class LeRobotLoader(BaseLoader):
         """The underlying `lerobot` reader instance, lazily initialized."""
 
         self._meta: Optional[LeRobotDatasetMeta] = None
-        """The dataset metadata, lazily loaded (see `resolve_metadata`)."""
+        """The dataset metadata, lazily loaded (see `_resolve_metadata`)."""
 
     def _validate_folder(self):
         if not self._file_path.exists():
@@ -133,7 +133,7 @@ class LeRobotLoader(BaseLoader):
         if self._reader is not None:
             return self._reader
 
-        metadata = self.resolve_metadata()
+        metadata = self._resolve_metadata()
 
         video_columns = [
             key for key, feature in metadata.features.items() if feature.is_video
@@ -174,8 +174,7 @@ class LeRobotLoader(BaseLoader):
 
         return self._reader
 
-    # --- Properties ---
-    def resolve_metadata(self) -> LeRobotDatasetMeta:
+    def _resolve_metadata(self) -> LeRobotDatasetMeta:
         """
         Returns the dataset metadata (the content of the `meta/` folder), lazily loaded on
         first access.
@@ -195,6 +194,13 @@ class LeRobotLoader(BaseLoader):
                 raise IOError(f"Could not open LeRobot dataset: '{e}'") from e
 
         return self._meta
+
+    # --- Properties ---
+
+    @property
+    def n_episodes(self):
+        meta = self._resolve_metadata()
+        return meta.n_episodes
 
     def msg_count(
         self, topic: Optional[str] = None, episode_index: Optional[int] = None
@@ -226,7 +232,7 @@ class LeRobotLoader(BaseLoader):
             return 0
 
         # Every column has one row per frame: a filtered column is counted as well
-        return self.resolve_metadata().n_frames(episode_index)
+        return self._resolve_metadata().n_frames(episode_index)
 
     def _ensure_resolved(self) -> None:
         """Lazily opens the bag file and resolves topics (see `_resolve_columns`)."""
@@ -239,8 +245,7 @@ class LeRobotLoader(BaseLoader):
         Iterates over the episodes of the dataset, in episode index order.
 
         Each episode is ingested as its own sequence: the yielded `LeRobotEpisodeLoader` streams
-        the messages of that episode only, and reports the message counts of that episode only
-        (e.g. for its own `ProgressManager`).
+        the messages of that episode only.
 
         Yields:
             LeRobotEpisodeLoader: One loader per episode.
@@ -248,29 +253,23 @@ class LeRobotLoader(BaseLoader):
         reader = self._resolve_columns()
 
         for episode_index in reader.episode_indexes:
-            yield LeRobotEpisodeLoader(self, reader, episode_index)
+            yield LeRobotEpisodeLoader(reader, episode_index)
 
 
 class LeRobotEpisodeLoader:
     """
     A single episode of a LeRobot dataset, as yielded by iterating over a `LeRobotLoader`.
 
-    Iterating over it streams the messages of the episode. Its topics are the ones of the
-    parent loader, while its message counts are the ones of the episode only. It conforms to
-    the `LoaderUIAPI` protocol, so that each episode, ingested as its own sequence, can get its
-    own `ProgressManager`.
+    Iterating over it streams the messages of the episode, which is ingested as its own sequence.
     """
 
-    def __init__(
-        self, loader: LeRobotLoader, reader: LeRobotReader, episode_index: int
-    ):
+    def __init__(self, reader: LeRobotReader, episode_index: int):
         """
         Args:
-            loader (LeRobotLoader): The loader of the dataset, holding the resolved columns.
-            reader (LeRobotReader): The reader of the dataset data files.
+            reader (LeRobotReader): The reader of the dataset data files, restricted to the
+                accepted columns.
             episode_index (int): The episode index.
         """
-        self._loader = loader
         self._reader = reader
         self._episode_index = episode_index
 
@@ -279,33 +278,10 @@ class LeRobotEpisodeLoader:
         """The episode index."""
         return self._episode_index
 
-    @property
-    def topics(self) -> List[str]:
-        """The accepted columns, the same for every episode (see `LeRobotLoader.topics`)."""
-        return self._loader.topics
-
-    @property
-    def resolved_topics(self) -> List[str]:
-        """All the columns of the dataset (see `LeRobotLoader.resolved_topics`)."""
-        return self._loader.resolved_topics
-
-    @property
-    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
-        """The rejected columns and their reason (see `LeRobotLoader.rejected_topics`)."""
-        return self._loader.rejected_topics
-
-    def msg_count(self, topic: Optional[str] = None) -> int:
-        """
-        Returns the number of messages of the episode (see `LeRobotLoader.msg_count`).
-
-        Args:
-            topic (Optional[str]): If provided, returns the count for that specific column, even if filtered.
-                If None, returns the aggregate count for all accepted columns.
-
-        Returns:
-            int: The message count of the episode.
-        """
-        return self._loader.msg_count(topic, self._episode_index)
+    #    @property
+    #    def n_rows(self) -> int:
+    #        """The number of rows for the current episode"""
+    #        return self._reader.
 
     def __iter__(
         self,

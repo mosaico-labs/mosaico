@@ -383,6 +383,10 @@ class LeRobotReader:
     def timeseries_column_names(self) -> List[str]:
         return self._timeseries_column_names
 
+    # def get_n_rows_of_episode(self, episode_number: int) -> int:
+    #     """TODO"""
+    #     return self._meta.episodes_map.get()
+
     def iter_timeseries_batches(self, episode_index: int) -> Iterator[LeRobotMessage]:
         """
         Reads the timeseries of an episode, as the messages pushed to the timeseries topic.

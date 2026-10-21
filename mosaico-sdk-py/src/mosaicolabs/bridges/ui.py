@@ -128,14 +128,6 @@ class ProgressManager:
                 name=f"[{style}]{topic}: {status}",
             )
 
-    def update_status_topics(
-        self, topics: List[str], status: str, style: str = "white"
-    ):
-        """Update all topics white the input status and the given style"""
-
-        for topic in topics:
-            self.update_status(topic, status, style)
-
     def advance_global(self, advance: Optional[int] = None):
         """Advances only the global progress bar (used when skipping messages)."""
         if advance is None:

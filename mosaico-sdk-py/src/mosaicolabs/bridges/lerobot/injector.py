@@ -27,12 +27,13 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import List, Optional
 
 from rich.live import Live
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
+    SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
     TopicWriterStatus,
 )
@@ -46,10 +47,10 @@ from ..base_injector import (
     InjectionStatus,
 )
 from ..helpers import _parse_json_arg
-from ..ui import ProgressManager
 from .lerobot_message import LeRobotMessage
-from .loader import LeRobotLoader
+from .loader import LeRobotEpisodeLoader, LeRobotLoader
 from .metadata import LeRobotSchemaMetadata
+from .ui_lerobot import LeRobotProgressManager
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -82,8 +83,8 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             the same name instead of raising an error. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
-        on_error (SessionLevelErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
-            Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
+        on_error (SessionLevelErrorPolicy): Behavior when an episode fails to be uploaded (Delete the partial sequence or Report the error).
+            Default: [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
@@ -134,6 +135,12 @@ class LeRobotInjectionConfig(InjectionConfigBase):
         ```
     """
 
+    on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Delete
+    """
+    The `SequenceWriter` `on_error` behavior when an episode fails to be uploaded (Report vs
+    Delete). Defaults to `Delete`: an episode that is not fully uploaded is not kept.
+    """
+
 
 # --- Main Injector Class ---
 
@@ -169,7 +176,6 @@ class LeRobotInjector:
     Attributes:
         cfg (ROSInjectionConfig): The active configuration settings.
         console (Console): The rich console instance for logging and UI output.
-        _ignored_topics (Set[str]): Cache of topics that lack a compatible adapter, used for fast-fail filtering.
     """
 
     def __init__(self, config: LeRobotInjectionConfig):
@@ -185,11 +191,6 @@ class LeRobotInjector:
         setup_sdk_logging(
             level=self._cfg.log_level.upper(), pretty=True, console=self._console
         )
-
-        # Set of topics to skip (e.g., malformed metadata), allowing O(1) fast-fail in the loop.
-        self._malformed_message_counts: Dict[str, int] = (
-            dict()
-        )  # Tracks malformed message counts per topic
 
         self._loader: Optional[LeRobotLoader] = None
         """TODO"""
@@ -232,6 +233,8 @@ class LeRobotInjector:
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
 
+        failed_sequences: List[str] = []
+
         try:
             # Context: Mosaico Client (Network Connection)
             with MosaicoClient.connect(
@@ -246,58 +249,38 @@ class LeRobotInjector:
 
                 lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
 
-                # Each episode is ingested as its own sequence, with its own progress UI
-                for episode_loader in lerobot_loader:
-                    sequence_name = (
-                        f"{self._cfg.sequence_name}_{episode_loader.episode_index}"
-                    )
+                # Setup Progress UI: a single UI for every episode of the dataset
+                ui = LeRobotProgressManager(lerobot_loader)
+                ui.setup()
 
-                    # Setup Progress UI
-                    ui = ProgressManager(episode_loader)
-                    ui.setup()
+                # Main Processing Loop
+                # By passing self.console, any 'logger.info' calls inside
+                # this loop will print cleanly ABOVE the progress bars.
+                with Live(ui.progress, console=self._console):
+                    # Each episode is ingested as its own sequence
+                    for episode_loader in lerobot_loader:
+                        sequence_name = f"{self._cfg.sequence_name}_{episode_loader.episode_index}"  # TODO: change this so that sequence name is deduced from episode_loader
+                        ui.start_episode(episode_loader.episode_index)
 
-                    # Context: Sequence Writer (Server Transaction)
-                    seq_writer = mclient.sequence_create(
-                        sequence_name=sequence_name,
-                        metadata=self._cfg.metadata,
-                        on_error=self._cfg.on_error,
-                    )
-
-                    with seq_writer:
-                        logger.info(f"Starting upload of sequence '{sequence_name}'...")
-
-                        # Main Processing Loop
-                        # By passing self.console, any 'logger.info' calls inside
-                        # this loop will print cleanly ABOVE the progress bars.
-                        # Transient: the bars are cleared once the episode is uploaded,
-                        # so that the bars of the next episode replace them.
-                        with Live(ui.progress, console=self._console, transient=True):
-                            for msg, ex in episode_loader:
-                                self._process_batch(msg, seq_writer, ui, ex)
-
-                    if seq_writer.session_status == SessionStatus.Error:
-                        raise RuntimeError(
-                            f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
-                            f"sequence '{sequence_name}'. Upload might have failed!"
-                        )
-
-                    logger.info(
-                        f"Sequence '{sequence_name}' upload completed successfully."
-                    )
-
-                # # Retrieve the sequence info
-                # seq_handler = mclient.sequence_handler(self._cfg.sequence_name)
-                # if seq_handler is None:
-                #     raise RuntimeError(
-                #         f"Oops, Something bad happened: Sequence '{self._cfg.sequence_name}' "
-                #         "not found on remote server. This should not happen..."
-                #     )
-
-                # # --- Final Statistics Report ---
-                # self._print_summary(
-                #     original_size=self._cfg.file_path.stat().st_size,
-                #     remote_size=seq_handler.total_size_bytes,
-                # )
+                        try:
+                            self._upload_episode(
+                                mclient, episode_loader, sequence_name, ui
+                            )
+                        except Exception as e:
+                            # A failed episode does not stop the ingestion: its sequence, if
+                            # created, has applied its `on_error` policy
+                            logger.error(
+                                f"Episode {episode_loader.episode_index} (sequence "
+                                f"'{sequence_name}') failed and was skipped "
+                                f"('{self._cfg.on_error.value}' error policy): '{e}'"
+                            )
+                            failed_sequences.append(sequence_name)
+                            ui.finish_episode(succeeded=False)
+                        else:
+                            logger.info(
+                                f"Sequence '{sequence_name}' upload completed successfully."
+                            )
+                            ui.finish_episode(succeeded=True)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
@@ -305,6 +288,16 @@ class LeRobotInjector:
         except Exception as e:
             logger.exception(f"Fatal error during ingestion: '{e}'")
             raise
+
+        # Raised once every episode is processed, outside of the fatal errors handling above:
+        # each failed episode has already been logged with its error
+        if failed_sequences:
+            summary = (
+                f"{len(failed_sequences)} episode(s) failed to be ingested (see the "
+                f"errors above): {failed_sequences}"
+            )
+            logger.error(summary)
+            raise RuntimeError(summary)
 
         return InjectionStatus.COMPLETED
 
@@ -316,49 +309,73 @@ class LeRobotInjector:
 
         return _DEFAULT_TOPIC_ON_ERROR
 
-    def _process_batch(
+    def _upload_episode(
+        self,
+        mclient: MosaicoClient,
+        episode_loader: LeRobotEpisodeLoader,
+        sequence_name: str,
+        ui: LeRobotProgressManager,
+    ):
+        """
+        Uploads an episode as its own sequence.
+
+        Any error while uploading the episode is raised within the sequence, so that the sequence
+        applies its `on_error` policy (by default `Delete`: a partially uploaded episode is not
+        kept), and then propagated to the caller.
+
+        Args:
+            mclient (MosaicoClient): The connected Mosaico client.
+            episode_loader (LeRobotEpisodeLoader): The episode to upload.
+            sequence_name (str): The name of the sequence to create.
+            ui (LeRobotProgressManager): The progress manager for updating the UI.
+
+        Raises:
+            Exception: If the episode could not be fully uploaded.
+        """
+        seq_writer = mclient.sequence_create(
+            sequence_name=sequence_name,
+            metadata=self._cfg.metadata,
+            on_error=self._cfg.on_error,
+        )
+
+        with seq_writer:
+            logger.info(f"Starting upload of sequence '{sequence_name}'...")
+
+            for msg, ex in episode_loader:
+                if ex is not None:
+                    # The loader could not read the rest of the topic
+                    raise RuntimeError(
+                        f"Could not read Mosaico topic '{msg.msco_topic_name}': {ex}"
+                    ) from ex
+
+                self._upload_batch(msg, seq_writer)
+                ui.advance_all_topics(msg.column_names, msg.n_rows)
+
+        if seq_writer.session_status == SessionStatus.Error:
+            raise RuntimeError(
+                f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
+                f"sequence '{sequence_name}'. Upload might have failed!"
+            )
+
+    def _upload_batch(
         self,
         lerobot_msg: LeRobotMessage,
         session_writer: AnySessionWriter,
-        ui: ProgressManager,
-        exc: Optional[Exception],
     ):
         """
-        FIXME
-        Internal business logic for processing a single ROS message.
-
-        Steps:
-        1. **Filter**: Checks if the topic is blacklisted (e.g., no adapter found).
-        2. **Validate**: Checks for deserialization errors or empty payloads.
-        3. **Stream**: Obtains or creates a `TopicWriter` for the specific topic.
-        4. **Adapt & Push**: Push it to the server buffer.
+        Uploads a batch of an episode to its topic, creating the topic on its first batch, and
+        advances the bars of the columns of the batch.
 
         Args:
-            ros_msg (ROSMessage): The ROS message to process.
-            exc (Optional[Exception]): Any exception raised during deserialization.
+            lerobot_msg (LeRobotMessage): The batch to upload.
             session_writer (AnySessionWriter): The active session writer for the sequence.
-            ui (ProgressManager): The progress manager for updating the UI.
+
+        Raises:
+            RuntimeError: If the topic cannot be created, or the batch is not written (e.g. a
+                write error ignored or finalized by the topic error policy): a partially uploaded
+                episode is a failed episode. The write errors raised by the topic error policy
+                are propagated as they are.
         """
-
-        if self._loader is None:
-            raise RuntimeError(
-                "Impossible to process messages if ROSLoader is not instantiated first"
-            )
-
-        # --- Integrity Check ---
-        # If the loader yielded an exception or empty data, mark as error
-        if exc:
-            logger.warning(
-                f"Skipping batch on Mosaico topic '{lerobot_msg.msco_topic_name}' due to error: '{exc}'"
-            )
-            ui.update_status_topics(
-                lerobot_msg.column_names,
-                "Message-related Error. Check the logs.",
-                "red",
-            )
-            ui.advance_global(lerobot_msg.n_rows)
-            return
-
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = session_writer.get_topic_writer(lerobot_msg.msco_topic_name)
 
@@ -390,31 +407,24 @@ class LeRobotInjector:
                 on_error=self._get_topic_on_error(lerobot_msg.msco_topic_name),
             )
             if twriter is None:
-                ui.update_status_topics(lerobot_msg.column_names, "Write Error", "red")
-                # We assume transient error and continue; strict policies are handled by Client
-                ui.advance_all_topics(lerobot_msg.column_names, lerobot_msg.n_rows)
-                return
+                raise RuntimeError(
+                    f"Could not create Mosaico topic '{lerobot_msg.msco_topic_name}'."
+                )
 
         # --- Push ---
         if (
             twriter.is_active
         ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
             with twriter:
-                # Convert ROS dict -> Mosaico Object -> Arrow Batch
                 twriter.push_batch(lerobot_msg.timestamp_ns, lerobot_msg.data)
-            if twriter.status == TopicWriterStatus.IgnoredLastError:
-                # If writing fails (e.g. network error, validation error), update UI
-                ui.update_status_topics(
-                    lerobot_msg.column_names, "Write Error (Ignored)", "yellow"
-                )
-            elif twriter.status == TopicWriterStatus.FinalizedWithError:
-                ui.update_status_topics(
-                    lerobot_msg.column_names,
-                    "Fatal Error: Prematurely finalized",
-                    "red",
-                )
 
-        ui.advance_all_topics(lerobot_msg.column_names, lerobot_msg.n_rows)
+        # A batch not written (e.g. a write error ignored or finalized by the topic error
+        # policy, or a record too large) leaves the episode partially uploaded
+        if twriter.status != TopicWriterStatus.Active:
+            raise RuntimeError(
+                f"Could not write a batch to Mosaico topic '{lerobot_msg.msco_topic_name}' "
+                f"('{twriter.status.value}'): {twriter.last_error}"
+            )
 
 
 # --- CLI Entry Point ---
