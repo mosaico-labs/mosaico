@@ -101,18 +101,6 @@ pub async fn sequence_find_all_sessions(
     Ok(res)
 }
 
-/// Return all sequences
-pub async fn sequence_find_all(
-    exe: &mut impl AsExec,
-) -> Result<Vec<schema::SequenceRecord>, Error> {
-    trace!("retrieving all sequences");
-    Ok(
-        sqlx::query_as!(schema::SequenceRecord, "SELECT * FROM sequence_t")
-            .fetch_all(exe.as_exec())
-            .await?,
-    )
-}
-
 /// Returns a page of sequences in ascending order, starting strictly after `after`.
 ///
 /// Without a cursor, `order` selects the order of the first page. With a cursor, the
