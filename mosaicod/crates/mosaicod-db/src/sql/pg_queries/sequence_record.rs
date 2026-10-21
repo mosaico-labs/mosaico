@@ -113,6 +113,136 @@ pub async fn sequence_find_all(
     )
 }
 
+/// Returns a page of sequences in ascending order, starting strictly after `after`.
+///
+/// Without a cursor, `order` selects the order of the first page. With a cursor, the
+/// cursor's own order is used (callers validate that it matches `order`).
+pub async fn sequence_find_page(
+    exe: &mut impl AsExec,
+    order: types::SequenceOrder,
+    after: Option<&types::SequenceCursor>,
+    limit: types::ListLimit,
+) -> Result<Vec<types::SequenceListEntry>, Error> {
+    trace!("retrieving a page of sequences by {:?}", order);
+
+    let limit = match limit {
+        types::ListLimit::Unlimited => None,
+        types::ListLimit::Bounded(limit) => Some(i64::from(limit.get())),
+    };
+
+    match after {
+        None if order == types::SequenceOrder::CreatedAt => {
+            let rows = sqlx::query_as!(
+                CreatedAtRow,
+                r#"
+                    SELECT creation_unix_tstamp, sequence_id, locator_name
+                    FROM sequence_t
+                    ORDER BY creation_unix_tstamp, sequence_id
+                    LIMIT $1
+                "#,
+                limit,
+            )
+            .fetch_all(exe.as_exec())
+            .await?;
+
+            rows.into_iter()
+                .map(types::SequenceListEntry::try_from)
+                .collect()
+        }
+        Some(types::SequenceCursor::CreatedAt {
+            created_at,
+            sequence_id,
+        }) => {
+            let rows = sqlx::query_as!(
+                CreatedAtRow,
+                r#"
+                    SELECT creation_unix_tstamp, sequence_id, locator_name
+                    FROM sequence_t
+                    WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)
+                    ORDER BY creation_unix_tstamp, sequence_id
+                    LIMIT $3
+                "#,
+                created_at.as_i64(),
+                *sequence_id,
+                limit,
+            )
+            .fetch_all(exe.as_exec())
+            .await?;
+
+            rows.into_iter()
+                .map(types::SequenceListEntry::try_from)
+                .collect()
+        }
+        None => {
+            let names = sqlx::query_scalar!(
+                r#"
+                    SELECT locator_name
+                    FROM sequence_t
+                    ORDER BY locator_name
+                    LIMIT $1
+                "#,
+                limit,
+            )
+            .fetch_all(exe.as_exec())
+            .await?;
+
+            names.into_iter().map(name_entry).collect()
+        }
+        Some(types::SequenceCursor::Name(name)) => {
+            let names = sqlx::query_scalar!(
+                r#"
+                    SELECT locator_name
+                    FROM sequence_t
+                    WHERE locator_name > $1
+                    ORDER BY locator_name
+                    LIMIT $2
+                "#,
+                name as &str,
+                limit,
+            )
+            .fetch_all(exe.as_exec())
+            .await?;
+
+            names.into_iter().map(name_entry).collect()
+        }
+    }
+}
+
+/// Row of a page ordered by creation time: the locator plus the cursor key.
+struct CreatedAtRow {
+    creation_unix_tstamp: i64,
+    sequence_id: i32,
+    locator_name: String,
+}
+
+impl TryFrom<CreatedAtRow> for types::SequenceListEntry {
+    type Error = Error;
+
+    fn try_from(row: CreatedAtRow) -> Result<Self, Self::Error> {
+        Ok(Self {
+            locator: parse_locator(row.locator_name)?,
+            cursor: types::SequenceCursor::CreatedAt {
+                created_at: row.creation_unix_tstamp.into(),
+                sequence_id: row.sequence_id,
+            },
+        })
+    }
+}
+
+fn name_entry(name: String) -> Result<types::SequenceListEntry, Error> {
+    let locator = parse_locator(name)?;
+
+    Ok(types::SequenceListEntry {
+        cursor: types::SequenceCursor::Name(locator.clone()),
+        locator,
+    })
+}
+
+fn parse_locator(name: String) -> Result<types::SequenceLocator, Error> {
+    name.parse()
+        .map_err(|_| Error::BadData(format!("invalid sequence locator in DB `{name}`")))
+}
+
 /// Deletes a sequence record from the database by its name.
 ///
 /// This function requires a [`DataLossToken`] because it permanently removes the record
@@ -240,5 +370,227 @@ mod tests {
         assert_eq!(record.path_in_store, "/my/path/in/store");
         assert!(record.user_metadata.is_some());
         assert_ne!(record.sequence_id, UNREGISTERED);
+    }
+
+    // ////////////////////////////////////////////////////////////////////////
+    // PAGINATED LISTING
+    // ////////////////////////////////////////////////////////////////////////
+
+    use types::{ListLimit, SequenceOrder};
+
+    /// Inserts a sequence with an explicit creation timestamp.
+    async fn insert(exe: &mut impl AsExec, name: &str, created_at: i64) {
+        sqlx::query(
+            "INSERT INTO sequence_t (sequence_uuid, locator_name, creation_unix_tstamp, path_in_store)
+             VALUES ($1, $2, $3, $4)",
+        )
+        .bind(uuid::Uuid::new_v4())
+        .bind(name)
+        .bind(created_at)
+        .bind(format!("sq_{name}"))
+        .execute(exe.as_exec())
+        .await
+        .unwrap();
+    }
+
+    fn names(page: &[types::SequenceListEntry]) -> Vec<String> {
+        page.iter().map(|e| e.locator.to_string()).collect()
+    }
+
+    /// Walks the whole listing page by page, returning each page's names.
+    async fn walk(exe: &mut impl AsExec, order: SequenceOrder, page_size: u32) -> Vec<Vec<String>> {
+        let mut pages = vec![];
+        let mut cursor = None;
+
+        loop {
+            let page = sequence_find_page(exe, order, cursor.as_ref(), ListLimit::from(page_size))
+                .await
+                .unwrap();
+            pages.push(names(&page));
+
+            if page.len() < page_size as usize {
+                return pages;
+            }
+            cursor = page.last().map(|e| e.cursor.clone());
+        }
+    }
+
+    /// Creation order and name order differ, to tell the two apart.
+    async fn insert_fixture(exe: &mut impl AsExec) {
+        insert(exe, "charlie", 100).await;
+        insert(exe, "alpha", 200).await;
+        insert(exe, "echo", 300).await;
+        insert(exe, "bravo", 400).await;
+        insert(exe, "delta", 500).await;
+    }
+
+    #[sqlx::test]
+    async fn page_walk_by_created_at(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert_fixture(&mut cx).await;
+
+        let pages = walk(&mut cx, SequenceOrder::CreatedAt, 2).await;
+
+        assert_eq!(
+            pages,
+            vec![
+                vec!["charlie", "alpha"],
+                vec!["echo", "bravo"],
+                vec!["delta"]
+            ]
+        );
+    }
+
+    #[sqlx::test]
+    async fn page_walk_by_name(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert_fixture(&mut cx).await;
+
+        let pages = walk(&mut cx, SequenceOrder::Name, 2).await;
+
+        assert_eq!(
+            pages,
+            vec![
+                vec!["alpha", "bravo"],
+                vec!["charlie", "delta"],
+                vec!["echo"]
+            ]
+        );
+    }
+
+    /// When the total is a multiple of the page size, the last page is empty.
+    #[sqlx::test]
+    async fn exact_multiple_ends_with_empty_page(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert(&mut cx, "a", 1).await;
+        insert(&mut cx, "b", 2).await;
+
+        let pages = walk(&mut cx, SequenceOrder::CreatedAt, 1).await;
+
+        assert_eq!(pages, vec![vec!["a"], vec!["b"], vec![]]);
+    }
+
+    /// Sequences sharing a creation timestamp are ordered by id, and each is listed once.
+    #[sqlx::test]
+    async fn created_at_ties_are_split_by_id(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert(&mut cx, "first", 100).await;
+        insert(&mut cx, "second", 100).await;
+        insert(&mut cx, "third", 100).await;
+
+        let pages = walk(&mut cx, SequenceOrder::CreatedAt, 1).await;
+
+        assert_eq!(
+            pages,
+            vec![vec!["first"], vec!["second"], vec!["third"], vec![]]
+        );
+    }
+
+    /// A cursor stays valid after the sequence it was built from is deleted.
+    #[sqlx::test]
+    async fn cursor_of_deleted_sequence(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert_fixture(&mut cx).await;
+
+        for order in [SequenceOrder::CreatedAt, SequenceOrder::Name] {
+            let first = sequence_find_page(&mut cx, order, None, ListLimit::from(2))
+                .await
+                .unwrap();
+            let last = first.last().unwrap();
+
+            let expected = names(
+                &sequence_find_page(&mut cx, order, Some(&last.cursor), ListLimit::Unlimited)
+                    .await
+                    .unwrap(),
+            );
+
+            let mut tx = database.transaction().await.unwrap();
+            sequence_delete_by_locator(&mut tx, &last.locator, types::allow_data_loss())
+                .await
+                .unwrap();
+
+            let next = sequence_find_page(&mut tx, order, Some(&last.cursor), ListLimit::Unlimited)
+                .await
+                .unwrap();
+            assert_eq!(names(&next), expected, "{order:?}");
+            // Roll back, so the next order starts from the same fixture.
+            drop(tx);
+        }
+    }
+
+    /// A live listing: sequences created after the cursor show up, those before it don't.
+    #[sqlx::test]
+    async fn sequences_created_between_pages(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert_fixture(&mut cx).await;
+
+        let first = sequence_find_page(&mut cx, SequenceOrder::CreatedAt, None, ListLimit::from(2))
+            .await
+            .unwrap();
+        assert_eq!(names(&first), vec!["charlie", "alpha"]);
+
+        insert(&mut cx, "behind", 150).await;
+        insert(&mut cx, "ahead", 600).await;
+
+        let rest = sequence_find_page(
+            &mut cx,
+            SequenceOrder::CreatedAt,
+            Some(&first.last().unwrap().cursor),
+            ListLimit::Unlimited,
+        )
+        .await
+        .unwrap();
+        assert_eq!(names(&rest), vec!["echo", "bravo", "delta", "ahead"]);
+    }
+
+    /// No limit returns every sequence after the cursor.
+    #[sqlx::test]
+    async fn unlimited_page(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert_fixture(&mut cx).await;
+
+        let all = sequence_find_page(&mut cx, SequenceOrder::Name, None, ListLimit::Unlimited)
+            .await
+            .unwrap();
+        assert_eq!(
+            names(&all),
+            vec!["alpha", "bravo", "charlie", "delta", "echo"]
+        );
+    }
+
+    /// Each entry's cursor carries its own sort key.
+    #[sqlx::test]
+    async fn entries_carry_their_cursor(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+        let mut cx = database.connection();
+        insert(&mut cx, "alpha", 100).await;
+
+        let by_created_at = sequence_find_page(
+            &mut cx,
+            SequenceOrder::CreatedAt,
+            None,
+            ListLimit::Unlimited,
+        )
+        .await
+        .unwrap();
+        let by_name = sequence_find_page(&mut cx, SequenceOrder::Name, None, ListLimit::Unlimited)
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            &by_created_at[0].cursor,
+            types::SequenceCursor::CreatedAt { created_at, .. } if created_at.as_i64() == 100
+        ));
+        assert_eq!(
+            by_name[0].cursor,
+            types::SequenceCursor::Name("alpha".parse().unwrap())
+        );
     }
 }

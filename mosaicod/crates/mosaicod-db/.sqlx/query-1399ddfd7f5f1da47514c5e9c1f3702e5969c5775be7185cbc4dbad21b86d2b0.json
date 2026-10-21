@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT creation_unix_tstamp, sequence_id, locator_name\n                    FROM sequence_t\n                    ORDER BY creation_unix_tstamp, sequence_id\n                    LIMIT $1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "creation_unix_tstamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "locator_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1399ddfd7f5f1da47514c5e9c1f3702e5969c5775be7185cbc4dbad21b86d2b0"
+}

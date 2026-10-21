@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                    SELECT locator_name\n                    FROM sequence_t\n                    ORDER BY locator_name\n                    LIMIT $1\n                ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locator_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c3764c26f195537584512e26baf80ec9337503a5c05e6bc680ca18c719ef223e"
+}
