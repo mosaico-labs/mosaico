@@ -33,6 +33,9 @@ pub use instance::*;
 mod log;
 pub use log::*;
 
+mod listing;
+pub use listing::*;
+
 pub mod auth;
 pub use auth::ApiKey;
 pub use auth::ApiKeyError;
