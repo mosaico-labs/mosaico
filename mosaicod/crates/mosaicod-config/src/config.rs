@@ -16,6 +16,7 @@ use mosaicod_core::types::{LogFormat, LogLevel};
 use serde::Deserialize;
 use std::env;
 use std::net::IpAddr;
+use std::num::NonZero;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
@@ -35,12 +36,12 @@ pub struct ConfigFile {
 #[serde(deny_unknown_fields, default)]
 pub struct ServerConfig {
     pub host: Option<IpAddr>,
-    pub port: Option<u16>,
+    pub port: Option<NonZero<u16>>,
     pub gzip_enabled: Option<bool>,
     pub api_key_enabled: Option<bool>,
-    pub max_batch_size: Option<usize>,
-    pub default_parallelism: Option<usize>,
-    pub max_concurrent_writes: Option<usize>,
+    pub max_batch_size: Option<NonZero<usize>>,
+    pub default_parallelism: Option<NonZero<usize>>,
+    pub max_concurrent_writes: Option<NonZero<usize>>,
     pub tls: ServerTlsConfig,
     pub grpc: ServerGrpcConfig,
 }
@@ -68,7 +69,7 @@ pub struct DatabaseConfig {
     /// Path to a file containing the password. There is no plain `password` field —
     /// literal secret values are env/CLI only, never read from this file.
     pub password_file: Option<String>,
-    pub max_connections: Option<u32>,
+    pub max_connections: Option<NonZero<u32>>,
 }
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
@@ -87,8 +88,8 @@ pub struct StoreConfig {
 #[serde(deny_unknown_fields, default)]
 pub struct QueryEngineConfig {
     pub memory_pool_size: Option<usize>,
-    pub max_concurrent_chunk_queries: Option<usize>,
-    pub max_size_plain_list_eq: Option<usize>,
+    pub max_concurrent_chunk_queries: Option<NonZero<usize>>,
+    pub max_size_plain_list_eq: Option<NonZero<usize>>,
 }
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
@@ -101,7 +102,7 @@ pub struct EncodingConfig {
 #[serde(deny_unknown_fields, default)]
 pub struct StoreOptimizerConfig {
     pub time_interval: Option<u32>,
-    pub max_chunk_size: Option<usize>,
+    pub max_chunk_size: Option<NonZero<usize>>,
     pub memory_pool_size: Option<usize>,
 }
 
@@ -477,7 +478,7 @@ mod tests {
 
         let cfg = result.unwrap();
         assert_eq!(cfg.server.host, Some("0.0.0.0".parse().unwrap()));
-        assert_eq!(cfg.server.port, Some(9999));
+        assert_eq!(cfg.server.port, NonZero::new(9999));
         assert_eq!(cfg.server.gzip_enabled, Some(true));
         assert_eq!(cfg.server.tls.enabled, Some(true));
         assert_eq!(
@@ -488,9 +489,48 @@ mod tests {
             cfg.database.url,
             Some("postgresql://localhost:5432/mosaico".to_owned())
         );
-        assert_eq!(cfg.database.max_connections, Some(25));
+        assert_eq!(cfg.database.max_connections, NonZero::new(25));
         assert_eq!(cfg.logging.level, Some(LogLevel::Debug));
         assert_eq!(cfg.logging.format, Some(LogFormat::Json));
+    }
+
+    #[test]
+    fn load_config_file_errors_on_zero_for_non_zero_field() {
+        let path = write_temp_file(
+            "mosaicod_test_load_zero_parallelism.toml",
+            "[server]\ndefault_parallelism = 0\n",
+        );
+
+        let result = load_config_file(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn load_config_file_accepts_max_batch_size_of_one() {
+        let path = write_temp_file(
+            "mosaicod_test_load_max_batch_size_one.toml",
+            "[server]\nmax_batch_size = 1\n",
+        );
+
+        let result = load_config_file(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(result.unwrap().server.max_batch_size, NonZero::new(1));
+    }
+
+    #[test]
+    fn load_config_file_errors_on_zero_max_batch_size() {
+        let path = write_temp_file(
+            "mosaicod_test_load_max_batch_size_zero.toml",
+            "[server]\nmax_batch_size = 0\n",
+        );
+
+        let result = load_config_file(&path);
+        let _ = std::fs::remove_file(&path);
+
+        assert!(result.is_err());
     }
 
     #[test]

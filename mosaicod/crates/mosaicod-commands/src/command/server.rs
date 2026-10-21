@@ -6,6 +6,7 @@ use mosaicod_db as db;
 use mosaicod_grpc as grpc;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
 use std::net::IpAddr;
+use std::num::NonZero;
 use std::thread;
 use tracing::{debug, info};
 
@@ -18,7 +19,7 @@ pub struct Server {
 
     /// Defines the port to listen on. Defaults to MOSAICOD_PORT, then `6726`.
     #[arg(long)]
-    pub port: Option<u16>,
+    pub port: Option<NonZero<u16>>,
 }
 
 fn tls_config() -> grpc::TlsConfig {
@@ -51,14 +52,14 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
         })?,
         user: params.db_user.value.clone(),
         password: params.db_password.value.clone(),
-        max_connections: params.max_db_connections.value,
+        max_connections: params.max_db_connections.value.get(),
     };
 
     info!("startup database connection");
     let db = common::init_db(&rt, &db_config)?;
 
     let host = args.host.unwrap_or(params.host.value);
-    let port = args.port.unwrap_or(params.port.value);
+    let port = args.port.unwrap_or(params.port.value).get();
 
     let mut server = grpc::Server::new(host, port, store, db);
 

@@ -42,7 +42,7 @@ impl Service {
             ts_gw,
             api_key_management: false,
             concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
-                params::params().max_concurrent_writes.value,
+                params::params().max_concurrent_writes.value.get(),
             )),
         })
     }

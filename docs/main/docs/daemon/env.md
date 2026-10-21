@@ -16,19 +16,19 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-grpc-target-encode-message-size" />`MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE`: Target message size in bytes used during data streaming. The daemon will try to aggregate a number of [`RecordBatches`](https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html) to create a sufficiently large message. If the resulting batch size exceeds the limit, it will be capped by `MOSAICOD_MAX_BATCH_SIZE`. Defaults to `25 MiB`.
 
-- <Link id="mosaicod-max-concurrent-writes" />`MOSAICOD_MAX_CONCURRENT_WRITES`: The maximum number of concurrent encoding and serialization operations. This setting controls how many data batches can be processed and sent to the object store simultaneously. It is important to note that this does not limit the number of topics the server can handle; rather, it constrains the parallel execution of the encoding/serialization pipeline. Each operation runs in a dedicated thread to handle CPU-bound compression and I/O-bound storage tasks. This value should be tuned based on available RAM and CPU. Excessive parallelism may lead to scheduler thrashing or memory exhaustion. Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
+- <Link id="mosaicod-max-concurrent-writes" />`MOSAICOD_MAX_CONCURRENT_WRITES`: The maximum number of concurrent encoding and serialization operations. This setting controls how many data batches can be processed and sent to the object store simultaneously. It is important to note that this does not limit the number of topics the server can handle; rather, it constrains the parallel execution of the encoding/serialization pipeline. Each operation runs in a dedicated thread to handle CPU-bound compression and I/O-bound storage tasks. This value should be tuned based on available RAM and CPU. Excessive parallelism may lead to scheduler thrashing or memory exhaustion. Must be greater than `0`. Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
 
-- <Link id="mosaicod-max-concurrent-chunk-queries" />`MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES`: Maximum number of concurrent queries that can be executed against data chunks. Default is `4`.
+- <Link id="mosaicod-max-concurrent-chunk-queries" />`MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES`: Maximum number of concurrent queries that can be executed against data chunks. Must be greater than `0`. Default is `4`.
 
-- <Link id="mosaicod-max-batch-size" />`MOSAICOD_MAX_BATCH_SIZE`: Maximum batch size (number of elements inside an Arrow `RecordBatch`) used during data streaming. Defaults to [DataFusion default batch size](https://datafusion.apache.org/user-guide/configs.html#via-sql) `8192`.
+- <Link id="mosaicod-max-batch-size" />`MOSAICOD_MAX_BATCH_SIZE`: Maximum batch size (number of elements inside an Arrow `RecordBatch`) used during data streaming. Must be greater than `0`. Defaults to [DataFusion default batch size](https://datafusion.apache.org/user-guide/configs.html#via-sql) `8192`.
 
-- <Link id="mosaicod-default-parallelism" />`MOSAICOD_DEFAULT_PARALLELISM`: Sets the degree of parallelism. While this is typically detected automatically based on available hardware, this field allows for a manual override in environments where automatic detection might fail or be inaccurate.
+- <Link id="mosaicod-default-parallelism" />`MOSAICOD_DEFAULT_PARALLELISM`: Sets the degree of parallelism. While this is typically detected automatically based on available hardware, this field allows for a manual override in environments where automatic detection might fail or be inaccurate. Must be greater than `0`. Defaults to the number of CPUs available to the process; if it is not set and detection fails, `mosaicod` fails to start.
 
 - <Link id="mosaicod-query-engine-memory-pool-size" />`MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE`: Defines the amount of memory (in bytes) used by the query engine. Set this value to a number greater than 0 to enforce a hard limit on the memory allocated by the query engine. Use this setting if mosaicod encounters OOM (Out Of Memory) errors or you plan to use `mosaicod` in a memory constrained environment. Defaults to `0` (no limit).
 
 - <Link id="mosaicod-parquet-in-memory-encoding-buffer-size" />`MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE`: Size (in bytes) of the in-memory buffer used for encoding parquet data. Defaults to `70 MiB`.
 
-- <Link id="mosaicod-max-size-plain-list-eq" />`MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ`: Maximum number of elements unrolled when decomposing a list `eq`/`neq` filter into per-element scalar comparisons. Filters whose value array exceeds this limit are skipped to avoid generating pathologically large query expressions. Defaults to `1024`.
+- <Link id="mosaicod-max-size-plain-list-eq" />`MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ`: Maximum number of elements unrolled when decomposing a list `eq`/`neq` filter into per-element scalar comparisons. Queries with a filter whose value array exceeds this limit are rejected with a bad request error, to avoid generating pathologically large query expressions. Must be greater than `0`. Defaults to `1024`.
 
 ## Logging
 
@@ -40,7 +40,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-host" />`MOSAICOD_HOST`: Host address the server listens on. Defaults to the loopback address `127.0.0.1`. Overridden by the `--host` CLI argument of the `server` command if set.
 
-- <Link id="mosaicod-port" />`MOSAICOD_PORT`: Port the server listens on. Defaults to `6726`. Overridden by the `--port` CLI argument of the `server` command if set.
+- <Link id="mosaicod-port" />`MOSAICOD_PORT`: Port the server listens on. Must be greater than `0`. Defaults to `6726`. Overridden by the `--port` CLI argument of the `server` command if set.
 
 - <Link id="mosaicod-gzip-enabled" />`MOSAICOD_GZIP_ENABLED`: Whether gzip compression is enabled for gRPC requests and responses. Default is `false`.
 
@@ -62,7 +62,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-db-password" />`MOSAICOD_DB_PASSWORD`: Database password used to establish the connection. Default is an empty string, as some databases do not require a password to be specified. May also be provided via `MOSAICOD_DB_PASSWORD_FILE`, set to the path of a file containing the password, instead of setting it directly; setting both `MOSAICOD_DB_PASSWORD` and `MOSAICOD_DB_PASSWORD_FILE` is an error. Trailing newlines in the file are ignored; any other whitespace is kept and considered part of the password.
 
-- <Link id="mosaicod-max-db-connections" />`MOSAICOD_MAX_DB_CONNECTIONS`: Maximum number of database connections that can be established. Default is `10`.
+- <Link id="mosaicod-max-db-connections" />`MOSAICOD_MAX_DB_CONNECTIONS`: Maximum number of database connections that can be established. Must be greater than `0`. Default is `10`.
 
 ## Store
 
@@ -88,4 +88,4 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-store-optimizer-time-interval" />`MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL`: Minimum interval, in seconds, that must pass between a store optimization run and the next one. When set to `0` a single run is performed and then the process terminates; any value greater than `0` runs the routine in a loop. Defaults to `0`. Overridden by the `--time-interval` CLI argument of the `store-optimizer` command if set.
 
-- <Link id="mosaicod-store-optimizer-max-chunk-size" />`MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE`: Maximum size (in bytes) for an output chunk after optimization. This is a soft limit, actual files on store may exceed this value slightly. Defaults to `256 MiB`. Overridden by the `--max-chunk-size` CLI argument of the `store-optimizer` command if set.
+- <Link id="mosaicod-store-optimizer-max-chunk-size" />`MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE`: Maximum size (in bytes) for an output chunk after optimization. This is a soft limit, actual files on store may exceed this value slightly. Must be greater than `0`. Defaults to `256 MiB`. Overridden by the `--max-chunk-size` CLI argument of the `store-optimizer` command if set.

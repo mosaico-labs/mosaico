@@ -116,6 +116,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::num::NonZero;
 
     // No CLI flag below has a `default_value`/`default_value_t` — every one of them must
     // parse to `None` when unset, so `args.x.unwrap_or(params.x.value)` (in `start()` and
@@ -174,7 +175,14 @@ mod tests {
         };
 
         assert_eq!(args.host, Some("10.0.0.1".parse().unwrap()));
-        assert_eq!(args.port, Some(9000));
+        assert_eq!(args.port, std::num::NonZero::new(9000));
+    }
+
+    #[test]
+    fn server_rejects_zero_port() {
+        let res = Cli::try_parse_from(["mosaicod", "server", "--port", "0"]);
+
+        assert!(res.is_err());
     }
 
     #[test]
@@ -217,6 +225,13 @@ mod tests {
     }
 
     #[test]
+    fn store_optimizer_rejects_zero_max_chunk_size() {
+        let res = Cli::try_parse_from(["mosaicod", "store-optimizer", "--max-chunk-size", "0"]);
+
+        assert!(res.is_err());
+    }
+
+    #[test]
     fn store_optimizer_args_are_some_when_set() {
         let cli = parse(&[
             "store-optimizer",
@@ -230,6 +245,6 @@ mod tests {
         };
 
         assert_eq!(args.time_interval, Some(5));
-        assert_eq!(args.max_chunk_size, Some(123));
+        assert_eq!(args.max_chunk_size, NonZero::new(123));
     }
 }

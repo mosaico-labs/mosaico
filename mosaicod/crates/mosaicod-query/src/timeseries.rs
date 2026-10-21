@@ -398,7 +398,7 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Expr, Err
         scalar => return Ok(arr.eq(value_to_df_expr(scalar))),
     };
 
-    let max = config_params::params().max_size_plain_list_eq.value;
+    let max = config_params::params().max_size_plain_list_eq.value.get();
     if len > max {
         return Err(Error::list_too_large(field_name.to_owned(), max));
     }
