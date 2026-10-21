@@ -156,14 +156,26 @@ def _adapt_image_rb_to_schema(
     )
 
 
-def _to_lerobot_message(topic: str, batch: pa.RecordBatch) -> LeRobotMessage:
+def _to_lerobot_message(
+    msco_topic: str,
+    column_names: List[str],
+    batch: pa.RecordBatch,
+    msco_ontology: Type[Serializable],
+) -> LeRobotMessage:
     """
     Splits a batch with the `timestamp_ns` column first (the wire schema) into the message
     pushed with `TopicWriter.push_batch`: the `timestamp_ns` column and the payload columns.
 
     No data is copied: `push_batch` merges them back into the same batch.
     """
-    return LeRobotMessage(topic, batch.column(0), batch.remove_column(0))
+    return LeRobotMessage(
+        msco_topic,
+        column_names,
+        batch.column(0),
+        batch.remove_column(0),
+        msco_ontology,
+        batch.num_rows,
+    )
 
 
 class LeRobotReader:
@@ -185,6 +197,7 @@ class LeRobotReader:
         root: Path,
         max_batch_size_bytes: int,
         meta: Optional[LeRobotDatasetMeta] = None,
+        column_names: Optional[List[str]] = None,
     ):
         """
         Args:
@@ -192,6 +205,9 @@ class LeRobotReader:
             max_batch_size_bytes (int): The maximum size of the batches sent to the server
                 (see `MosaicoClient.max_batch_size_bytes`).
             meta (Optional[LeRobotDatasetMeta]): The dataset metadata, loaded from `root`.
+            column_names (Optional[List[str]]): The image and timeseries columns to read (e.g.
+                `observation.images.front`, `observation.state`). Every column is read if `None`,
+                none if empty.
 
         Raises:
             FileNotFoundError: If `data/` is missing or holds no parquet file.
@@ -222,12 +238,17 @@ class LeRobotReader:
                 f"The data files have no '{_TIMESTAMP_COLUMN_NAME}' column."
             )
 
+        # `None` selects every column, an empty list none of them
         self._image_column_names: List[str] = [
-            key for key, feature in meta.features.items() if feature.is_image
+            key
+            for key, feature in meta.features.items()
+            if feature.is_image and (column_names is None or key in column_names)
         ]
         # The order of the columns is the order of the timeseries struct fields
         self._timeseries_column_names: List[str] = [
-            key for key, feature in meta.features.items() if feature.is_timeserie
+            key
+            for key, feature in meta.features.items()
+            if feature.is_timeserie and (column_names is None or key in column_names)
         ]
 
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
@@ -322,6 +343,10 @@ class LeRobotReader:
         return self._meta.episode_indexes
 
     @property
+    def timeseries_msco_topic_name(self) -> str:
+        return _TIMESERIES_MSCO_TOPIC_NAME
+
+    @property
     def timeseries_struct(self) -> pa.StructType:
         """
         The struct of the timeseries: every data column except `timestamp` and the images, with
@@ -340,6 +365,9 @@ class LeRobotReader:
     def image_ontology(self) -> Type[Serializable]:
         return CompressedImage
 
+    def image_msco_topic_name(self, camera_column_name: str) -> str:
+        return _dotted_name_to_topic_name(camera_column_name)
+
     @property
     def cameras_column_names(self) -> List[str]:
         """
@@ -351,6 +379,10 @@ class LeRobotReader:
         """
         return list(self._image_column_names)
 
+    @property
+    def timeseries_column_names(self) -> List[str]:
+        return self._timeseries_column_names
+
     def iter_timeseries_batches(self, episode_index: int) -> Iterator[LeRobotMessage]:
         """
         Reads the timeseries of an episode, as the messages pushed to the timeseries topic.
@@ -360,7 +392,8 @@ class LeRobotReader:
         `timeseries_struct`, as `TopicWriter.push_batch` takes them. The batch `push_batch`
         sends, their combination, is as large as possible within `max_batch_size_bytes`: only
         the last one of the episode can be smaller. Only the `timestamp` and timeseries columns
-        are read: the images are never loaded.
+        are read: the images are never loaded. Nothing is yielded if no timeseries column is
+        selected (see `topics`).
 
         Args:
             episode_index (int): The episode index.
@@ -374,6 +407,10 @@ class LeRobotReader:
                 the episode is not defined in `meta/episodes`, its number of rows in the data
                 files differs from its `length`, or a single row exceeds `max_batch_size_bytes`.
         """
+        # No timeseries topic to push: an empty struct is not a valid ontology
+        if not self._timeseries_column_names:
+            return
+
         all_columns = [_TIMESTAMP_COLUMN_NAME, *self._timeseries_column_names]
 
         # The wire schema: the `timestamp_ns` envelope column + timeseries schema fields
@@ -401,10 +438,20 @@ class LeRobotReader:
 
             full_rbs, pending_rb = self._fit_batch(merged_rb)
             for rb in full_rbs:
-                yield _to_lerobot_message(_TIMESERIES_MSCO_TOPIC_NAME, rb)
+                yield _to_lerobot_message(
+                    _TIMESERIES_MSCO_TOPIC_NAME,
+                    self.timeseries_column_names,
+                    rb,
+                    self.timeseries_ontology,
+                )
 
         if pending_rb is not None:
-            yield _to_lerobot_message(_TIMESERIES_MSCO_TOPIC_NAME, pending_rb)
+            yield _to_lerobot_message(
+                _TIMESERIES_MSCO_TOPIC_NAME,
+                self.timeseries_column_names,
+                pending_rb,
+                self.timeseries_ontology,
+            )
 
     def iter_image_by_name_batches(
         self, episode_index: int, camera_column_name: str
@@ -445,7 +492,7 @@ class LeRobotReader:
 
         all_columns = [_TIMESTAMP_COLUMN_NAME, camera_column_name]
 
-        msco_topic_name = _dotted_name_to_topic_name(camera_column_name)
+        msco_topic_name = self.image_msco_topic_name(camera_column_name)
 
         # The rows left over by the previous batch, sent together with the next rows
         pending_rb: Optional[pa.RecordBatch] = None
@@ -470,10 +517,20 @@ class LeRobotReader:
 
             full_rbs, pending_rb = self._fit_batch(merged_rb)
             for rb in full_rbs:
-                yield _to_lerobot_message(msco_topic_name, rb)
+                yield _to_lerobot_message(
+                    msco_topic_name,
+                    [camera_column_name],
+                    rb,
+                    self.image_ontology,
+                )
 
         if pending_rb is not None:
-            yield _to_lerobot_message(msco_topic_name, pending_rb)
+            yield _to_lerobot_message(
+                msco_topic_name,
+                [camera_column_name],
+                pending_rb,
+                self.image_ontology,
+            )
 
     def iter_image_batches(self, episode_index: int) -> Iterator[LeRobotMessage]:
         """

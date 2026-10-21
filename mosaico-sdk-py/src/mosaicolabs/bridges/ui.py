@@ -128,14 +128,33 @@ class ProgressManager:
                 name=f"[{style}]{topic}: {status}",
             )
 
-    def advance_global(self):
-        """Advances only the global progress bar (used when skipping messages)."""
-        if self.global_task is not None:
-            self.progress.advance(self.global_task)
+    def update_status_topics(
+        self, topics: List[str], status: str, style: str = "white"
+    ):
+        """Update all topics white the input status and the given style"""
 
-    def advance_all(self, topic: str):
-        """Advances both the specific topic's bar and the global bar."""
-        if topic in self.tasks:
-            self.progress.advance(self.tasks[topic])
+        for topic in topics:
+            self.update_status(topic, status, style)
+
+    def advance_global(self, advance: Optional[int] = None):
+        """Advances only the global progress bar (used when skipping messages)."""
+        if advance is None:
+            advance = 1
+
         if self.global_task is not None:
-            self.progress.advance(self.global_task)
+            self.progress.advance(self.global_task, float(advance))
+
+    def advance_all(self, topic: str, advance: Optional[int] = None):
+        """Advances both the specific topic's bar and the global bar."""
+        if advance is None:
+            advance = 1
+
+        if topic in self.tasks:
+            self.progress.advance(self.tasks[topic], float(advance))
+        self.advance_global(advance)
+
+    def advance_all_topics(self, topics: List[str], advance: Optional[int] = None):
+        """Advances all 'topics' of 'advance' number"""
+
+        for topic in topics:
+            self.advance_all(topic, advance)

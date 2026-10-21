@@ -27,9 +27,10 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Set, Type
+from typing import Dict, Optional
 
-from mosaicolabs import Serializable
+from rich.live import Live
+
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
     TopicLevelErrorPolicy,
@@ -45,9 +46,10 @@ from ..base_injector import (
     InjectionStatus,
 )
 from ..helpers import _parse_json_arg
+from ..ui import ProgressManager
 from .lerobot_message import LeRobotMessage
-from .metadata import LeRobotDatasetMeta, LeRobotSchemaMetadata
-from .reader import LeRobotReader
+from .loader import LeRobotLoader
+from .metadata import LeRobotSchemaMetadata
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -184,23 +186,23 @@ class LeRobotInjector:
             level=self._cfg.log_level.upper(), pretty=True, console=self._console
         )
 
-        # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
-        self._ignored_topics: Set[str] = set()
+        # Set of topics to skip (e.g., malformed metadata), allowing O(1) fast-fail in the loop.
         self._malformed_message_counts: Dict[str, int] = (
             dict()
         )  # Tracks malformed message counts per topic
 
-        self._reader: Optional[LeRobotReader] = None
+        self._loader: Optional[LeRobotLoader] = None
+        """TODO"""
 
-    def _open_or_get_reader(self, max_batch_size_bytes: int) -> LeRobotReader:
-        if self._reader is None:
-            self._reader = LeRobotReader(
-                root=self._cfg.file_path,
-                meta=LeRobotDatasetMeta.load(self._cfg.file_path),
+    def _open_or_get_loader(self, max_batch_size_bytes: int) -> LeRobotLoader:
+        if self._loader is None:
+            self._loader = LeRobotLoader(
+                file_path=self._cfg.file_path,
                 max_batch_size_bytes=max_batch_size_bytes,
+                # columns=self._cfg.to # TODO: fix this
             )
 
-        return self._reader
+        return self._loader
 
     def run(self) -> InjectionStatus:
         """
@@ -242,47 +244,46 @@ class LeRobotInjector:
                 # Context: ROS Loader (File Access)
                 logger.info(f"Opening LeRobotdataset: '{self._cfg.file_path}'")
 
-                lerobot_reader = self._open_or_get_reader(mclient.max_batch_size_bytes)
+                lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
 
-                # Setup Progress UI
-                # ui = ProgressManager(ros_reader)
-                # ui.setup()
+                # Each episode is ingested as its own sequence, with its own progress UI
+                for episode_loader in lerobot_loader:
+                    sequence_name = (
+                        f"{self._cfg.sequence_name}_{episode_loader.episode_index}"
+                    )
 
-                for episode_number in lerobot_reader.episode_indexes:
-                    # TODO: sequence metadata should be merged with the ones coming from LeRobot json files
+                    # Setup Progress UI
+                    ui = ProgressManager(episode_loader)
+                    ui.setup()
 
+                    # Context: Sequence Writer (Server Transaction)
                     seq_writer = mclient.sequence_create(
-                        sequence_name=f"{self._cfg.sequence_name}_{episode_number}",
+                        sequence_name=sequence_name,
                         metadata=self._cfg.metadata,
                         on_error=self._cfg.on_error,
                     )
 
                     with seq_writer:
-                        logger.info("Starting upload...")
+                        logger.info(f"Starting upload of sequence '{sequence_name}'...")
 
                         # Main Processing Loop
-
-                        # 1) loading timeseries batches
-                        for msg in lerobot_reader.iter_timeseries_batches(
-                            episode_number
-                        ):
-                            self._process_batch(
-                                msg, seq_writer, lerobot_reader.timeseries_ontology
-                            )
-
-                        # 2) Loading all cameras batches
-                        for msg in lerobot_reader.iter_image_batches(episode_number):
-                            self._process_batch(
-                                msg, seq_writer, lerobot_reader.image_ontology
-                            )
+                        # By passing self.console, any 'logger.info' calls inside
+                        # this loop will print cleanly ABOVE the progress bars.
+                        # Transient: the bars are cleared once the episode is uploaded,
+                        # so that the bars of the next episode replace them.
+                        with Live(ui.progress, console=self._console, transient=True):
+                            for msg, ex in episode_loader:
+                                self._process_batch(msg, seq_writer, ui, ex)
 
                     if seq_writer.session_status == SessionStatus.Error:
                         raise RuntimeError(
                             f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
-                            f"sequence '{self._cfg.sequence_name}'. Upload might have failed!"
+                            f"sequence '{sequence_name}'. Upload might have failed!"
                         )
 
-                logger.info("Sequence upload completed successfully.")
+                    logger.info(
+                        f"Sequence '{sequence_name}' upload completed successfully."
+                    )
 
                 # # Retrieve the sequence info
                 # seq_handler = mclient.sequence_handler(self._cfg.sequence_name)
@@ -307,57 +308,6 @@ class LeRobotInjector:
 
         return InjectionStatus.COMPLETED
 
-    # def _print_summary(self, original_size: int, remote_size: int):
-    #     """
-    #     Calculates and displays the ingestion performance summary.
-
-    #     Outputs the original file size, the remote sequence size, the compression ratio,
-    #     and the percentage of disk space saved.
-    #     """
-    #     if self._malformed_message_counts:
-    #         from rich.table import Table
-
-    #         table = Table(
-    #             title="[bold yellow]Malformed Messages (Skipped)[/bold yellow]"
-    #         )
-    #         table.add_column("Topic")
-    #         table.add_column("Skipped Messages", justify="right")
-    #         for topic, count in sorted(
-    #             self._malformed_message_counts.items(), key=lambda kv: -kv[1]
-    #         ):
-    #             table.add_row(topic, str(count))
-
-    #         self._console.print(table)
-
-    #     if remote_size == 0:
-    #         logger.warning("No data was written; cannot calculate compression ratio.")
-    #         return
-
-    #     # Calculate ratio: (Original / Remote)
-    #     # A ratio > 1 means the remote sequence is smaller (better compression)
-    #     ratio = original_size / remote_size
-    #     savings = max(0, (1 - (remote_size / original_size)) * 100)
-
-    #     from rich.panel import Panel
-
-    #     summary_text = (
-    #         f"Original Size:  [bold]{original_size / (1024 * 1024):.2f}[/bold]\n"
-    #         f"Remote Size:    [bold]{remote_size / (1024 * 1024):.2f}[/bold]\n"
-    #         f"Ratio:          [bold cyan]{ratio:.2f}x[/bold cyan]\n"
-    #         f"Space Saved:    [bold green]{savings:.1f}%[/bold green]"
-    #     )
-
-    #     self._console.print(
-    #         Panel(
-    #             summary_text,
-    #             title="[bold]Injection Summary[/bold]",
-    #             expand=False,
-    #             border_style="green",
-    #             padding=1,
-    #             highlight=True,
-    #         )
-    #     )
-
     def _get_topic_on_error(self, topic: str) -> TopicLevelErrorPolicy:
         if isinstance(self._cfg.topics_on_error, dict):
             return self._cfg.topics_on_error.get(topic, _DEFAULT_TOPIC_ON_ERROR)
@@ -370,8 +320,8 @@ class LeRobotInjector:
         self,
         lerobot_msg: LeRobotMessage,
         session_writer: AnySessionWriter,
-        msco_ontology_cls: Type[Serializable],
-        # ui: ProgressManager,
+        ui: ProgressManager,
+        exc: Optional[Exception],
     ):
         """
         FIXME
@@ -390,21 +340,27 @@ class LeRobotInjector:
             ui (ProgressManager): The progress manager for updating the UI.
         """
 
-        if self._reader is None:
+        if self._loader is None:
             raise RuntimeError(
                 "Impossible to process messages if ROSLoader is not instantiated first"
             )
 
-        # --- Filter Check ---
-        if lerobot_msg.topic in self._ignored_topics:
-            # ui.advance_global()
-            return
-
         # --- Integrity Check ---
         # If the loader yielded an exception or empty data, mark as error
+        if exc:
+            logger.warning(
+                f"Skipping batch on Mosaico topic '{lerobot_msg.msco_topic_name}' due to error: '{exc}'"
+            )
+            ui.update_status_topics(
+                lerobot_msg.column_names,
+                "Message-related Error. Check the logs.",
+                "red",
+            )
+            ui.advance_global(lerobot_msg.n_rows)
+            return
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
-        twriter = session_writer.get_topic_writer(lerobot_msg.topic)
+        twriter = session_writer.get_topic_writer(lerobot_msg.msco_topic_name)
 
         # Should theoretically not be None if exists returned True
         if twriter is None:
@@ -421,20 +377,22 @@ class LeRobotInjector:
             # Start from the user-supplied per-topic metadata, then layer the bridge-computed
             # `_lerobot_` block on top: `_lerobot_` is reserved and always wins on conflict, every
             # other key is fully user-owned.
-            metadata = dict((self._cfg.topic_metadata or {}).get(lerobot_msg.topic, {}))
+            metadata = dict(
+                (self._cfg.topic_metadata or {}).get(lerobot_msg.msco_topic_name, {})
+            )
             metadata.update(lerobot_meta.to_dict())
 
             # Register new topic on server
             twriter = session_writer.topic_create(
-                topic_name=lerobot_msg.topic,
+                topic_name=lerobot_msg.msco_topic_name,
                 metadata=metadata,
-                ontology_type=msco_ontology_cls,
-                on_error=self._get_topic_on_error(lerobot_msg.topic),
+                ontology_type=lerobot_msg.msco_ontology,
+                on_error=self._get_topic_on_error(lerobot_msg.msco_topic_name),
             )
             if twriter is None:
-                # ui.update_status(lerobot_msg.topic, "Write Error", "red")
+                ui.update_status_topics(lerobot_msg.column_names, "Write Error", "red")
                 # We assume transient error and continue; strict policies are handled by Client
-                # ui.advance_all(lerobot_msg.topic)
+                ui.advance_all_topics(lerobot_msg.column_names, lerobot_msg.n_rows)
                 return
 
         # --- Push ---
@@ -445,16 +403,18 @@ class LeRobotInjector:
                 # Convert ROS dict -> Mosaico Object -> Arrow Batch
                 twriter.push_batch(lerobot_msg.timestamp_ns, lerobot_msg.data)
             if twriter.status == TopicWriterStatus.IgnoredLastError:
-                pass  # TODO
                 # If writing fails (e.g. network error, validation error), update UI
-                # ui.update_status(lerobot_msg.topic, "Write Error (Ignored)", "yellow")
+                ui.update_status_topics(
+                    lerobot_msg.column_names, "Write Error (Ignored)", "yellow"
+                )
             elif twriter.status == TopicWriterStatus.FinalizedWithError:
-                pass  # TODO
-                # ui.update_status(
-                #     lerobot_msg.topic, "Fatal Error: Prematurely finalized", "red"
-                # )
+                ui.update_status_topics(
+                    lerobot_msg.column_names,
+                    "Fatal Error: Prematurely finalized",
+                    "red",
+                )
 
-        # ui.advance_all(lerobot_msg.topic)
+        ui.advance_all_topics(lerobot_msg.column_names, lerobot_msg.n_rows)
 
 
 # --- CLI Entry Point ---
@@ -546,7 +506,7 @@ def lerobot_injector():
         "--log",
         "-l",
         help="Set the logging verbosity level",
-        default="INFO",  # Optional: defaults to INFO
+        default="WARNING",  # Optional: defaults to INFO
         type=str.upper,  # Automatically converts input (e.g., 'debug') to uppercase
         choices=[
             "DEBUG",

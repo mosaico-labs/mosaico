@@ -1,7 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import List, Optional, Type
 
 import pyarrow as pa
+
+from mosaicolabs import Serializable
 
 
 @dataclass
@@ -47,10 +49,19 @@ class LeRobotMessage:
         header (Optional[ROSHeader]): The message payload header, if present.
     """
 
-    topic: str
+    msco_topic_name: str
     """The topic string of the message source."""
 
+    column_names: List[str]
+    """The column name from the native parquet file considered for this message."""
+
     timestamp_ns: Optional[pa.Array]
+    """The message timestamps to be associated with the main payload."""
 
     data: Optional[pa.RecordBatch]
-    """The message payload, converted into a standard nested Python dictionary."""
+    """The message payload as a PyArrow RecordBatch."""
+
+    msco_ontology: Type[Serializable]
+    """TODO"""
+
+    n_rows: Optional[int]

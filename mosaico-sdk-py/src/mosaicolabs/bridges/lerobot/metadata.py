@@ -5,7 +5,8 @@ This module reads the `meta/` folder of a LeRobot v3.0 dataset and exposes it as
 
 - `LeRobotFeature`: one entry of the `features` dict of `meta/info.json`.
 - `LeRobotEpisode`: one row of the `meta/episodes/chunk-XXX/file-XXX.parquet` files.
-- `LeRobotDatasetMeta`: the whole `meta/` folder (every JSON file, the features and the episodes).
+- `LeRobotDatasetMeta`: the whole `meta/` folder (`info.json`, the optional `stats.json`, the features
+  and the episodes).
 
 It also defines `LeRobotSchemaMetadata`, the reserved `_lerobot_` metadata namespace attached to the
 sequences and topics created by the LeRobot bridge. LeRobot metadata is keyed by feature names such as
@@ -35,7 +36,8 @@ SUPPORTED_CODEBASE_VERSION = "v3.0"
 
 _META_DIR = "meta"
 _EPISODES_DIR = "episodes"
-_INFO_FILE_STEM = "info"
+_INFO_FILE = "info.json"
+_STATS_FILE = "stats.json"
 _STATS_COLUMN_PREFIX = "stats/"
 _TIMESTAMP_COLUMN_NAME = "timestamp"
 
@@ -84,6 +86,19 @@ def _to_mosaico_metadata(value: Any) -> Any:
     if isinstance(value, float) and not math.isfinite(value):
         return None
     return value
+
+
+def _load_json_object(path: Path) -> Dict[str, Any]:
+    """Loads a JSON file, raising if its top-level value is not an object."""
+    with open(path, "r", encoding="utf-8") as f:
+        content = json.load(f)
+
+    if not isinstance(content, dict):
+        raise ValueError(
+            f"'{path}' is expected to hold a JSON object, but holds a "
+            f"`{type(content).__name__}`."
+        )
+    return content
 
 
 class LeRobotSchemaMetadata(BaseSchemaMetadata):
@@ -341,19 +356,17 @@ class LeRobotDatasetMeta:
     root: Path
     """The root folder of the dataset."""
 
-    json_files: Dict[str, Any]
-    """Every `meta/*.json` file, as loaded by `json.load`, keyed by file stem (e.g. `info`, `stats`)."""
+    info: Dict[str, Any]
+    """The content of `meta/info.json`."""
+
+    stats: Optional[Dict[str, Any]]
+    """The content of `meta/stats.json`, or `None` if the dataset has no `stats.json`."""
 
     features: Dict[str, LeRobotFeature]
     """The dataset features, keyed by name."""
 
     episodes_map: Dict[int, LeRobotEpisode]
     """The dataset episodes, keyed by episode index."""
-
-    @property
-    def info(self) -> Dict[str, Any]:
-        """The content of `meta/info.json`."""
-        return self.json_files[_INFO_FILE_STEM]
 
     @property
     def codebase_version(self) -> str:
@@ -375,6 +388,36 @@ class LeRobotDatasetMeta:
         """The dataset frame rate."""
         return self.info["fps"]
 
+    @property
+    def column_names(self) -> List[str]:
+        """
+        The data columns read by the bridge: the image and timeseries features. The `timestamp`
+        column (the time of every message) and the video features (stored in separate video
+        files, not supported yet) are excluded.
+        """
+        return [
+            key
+            for key, feature in self.features.items()
+            if feature.is_image or feature.is_timeserie
+        ]
+
+    def n_frames(self, episode_index: Optional[int] = None) -> int:
+        """
+        Returns the number of frames of an episode (its `length` in `meta/episodes`), or of
+        every episode if `episode_index` is `None`.
+
+        Args:
+            episode_index (Optional[int]): The episode to count (every episode if `None`).
+
+        Returns:
+            int: The number of frames, or 0 if the episode is not defined in `meta/episodes`.
+        """
+        if episode_index is None:
+            return sum(episode.length for episode in self.episodes_map.values())
+
+        episode = self.episodes_map.get(episode_index)
+        return episode.length if episode is not None else 0
+
     @classmethod
     def load(cls, root: Path) -> "LeRobotDatasetMeta":
         """
@@ -391,17 +434,7 @@ class LeRobotDatasetMeta:
             ValueError: If the dataset format version is not supported, or the metadata is malformed.
         """
         meta_dir = Path(root) / _META_DIR
-        if not meta_dir.is_dir():
-            raise FileNotFoundError(f"'{meta_dir}' is not a directory.")
-
-        json_files: Dict[str, Any] = {}
-        for json_path in sorted(meta_dir.glob("*.json")):
-            with open(json_path, "r", encoding="utf-8") as f:
-                json_files[json_path.stem] = json.load(f)
-
-        info = json_files.get(_INFO_FILE_STEM)
-        if info is None:
-            raise FileNotFoundError(f"'{meta_dir / 'info.json'}' not found.")
+        info, stats = cls._load_meta_json(meta_dir)
 
         codebase_version = info.get("codebase_version")
         if codebase_version != SUPPORTED_CODEBASE_VERSION:
@@ -434,7 +467,40 @@ class LeRobotDatasetMeta:
 
         return cls(
             root=Path(root),
-            json_files=json_files,
+            info=info,
+            stats=stats,
             features=features,
             episodes_map=dict(sorted(episodes.items())),
         )
+
+    @staticmethod
+    def _load_meta_json(
+        meta_dir: Path,
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
+        """
+        Loads the JSON files of the `meta/` folder: `info.json` (required) and `stats.json`
+        (optional, as in LeRobot).
+
+        Args:
+            meta_dir (Path): The `meta/` folder of the dataset.
+
+        Returns:
+            Tuple[Dict[str, Any], Optional[Dict[str, Any]]]: The `info.json` content, and the
+                `stats.json` content or `None` if the dataset has no `stats.json`.
+
+        Raises:
+            FileNotFoundError: If `meta_dir` or `meta/info.json` is missing.
+            ValueError: If a file does not hold a JSON object.
+        """
+        if not meta_dir.is_dir():
+            raise FileNotFoundError(f"'{meta_dir}' is not a directory.")
+
+        info_path = meta_dir / _INFO_FILE
+        if not info_path.is_file():
+            raise FileNotFoundError(f"'{info_path}' not found.")
+        info = _load_json_object(info_path)
+
+        stats_path = meta_dir / _STATS_FILE
+        stats = _load_json_object(stats_path) if stats_path.is_file() else None
+
+        return info, stats
