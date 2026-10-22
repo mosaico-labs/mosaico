@@ -66,7 +66,6 @@ pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error
     let cursor = cmd.cursor.map(sequence_cursor_from_proto).transpose()?;
 
     Ok(types::flight::ListFlightsCmd {
-        locator: cmd.locator,
         order,
         limit,
         cursor,
@@ -477,19 +476,6 @@ mod tests {
 
     fn decode(cmd: super::proto_flight::ListFlightsCmd) -> Result<ListFlightsCmd, Error> {
         super::list_flights_cmd(&cmd.encode_to_vec())
-    }
-
-    #[test]
-    fn list_flights_cmd_passes_locator_through() {
-        for locator in ["", "/", "my_sequence"] {
-            let cmd = decode(super::proto_flight::ListFlightsCmd {
-                locator: locator.to_owned(),
-                order_by: SequenceOrder::CreatedAt as i32,
-                ..Default::default()
-            });
-
-            assert_eq!(cmd.unwrap().locator, locator);
-        }
     }
 
     #[test]

@@ -51,10 +51,9 @@ With a positive `limit`, `list_flights` returns one page at a time. Its `Criteri
 
 ```proto
 message ListFlightsCmd {
-  string locator = 1;          // "" or "/": the root, i.e. list sequences
-  SequenceOrder order_by = 2;  // SEQUENCE_ORDER_CREATED_AT or SEQUENCE_ORDER_NAME
-  uint32 limit = 3;            // 0: no limit
-  SequenceCursor cursor = 4;   // absent: first page
+  SequenceOrder order_by = 1;  // SEQUENCE_ORDER_CREATED_AT or SEQUENCE_ORDER_NAME
+  uint32 limit = 2;            // 0: no limit
+  SequenceCursor cursor = 3;   // absent: first page
 }
 ```
 
@@ -78,7 +77,6 @@ page = list_flights(cmd.SerializeToString())
 - **Consistency.** The listing is live, not a snapshot. Each page reflects the database when it is fetched: deleted sequences disappear, and sequences created between requests only show up if they sort after the cursor.
 - **Errors.** `InvalidArgument` is returned when:
   - the expression is not a valid `ListFlightsCmd`;
-  - the locator is not the root;
   - the cursor was built for a different `order_by`.
 
 The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`, which fetch 50 sequences per page, oldest first, by default. `MosaicoClient.list_sequences()` returns every sequence at once.

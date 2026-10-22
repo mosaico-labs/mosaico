@@ -22,7 +22,6 @@ pub struct GetSchemaCmd {
 /// Request a page of sequences
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListFlightsCmd {
-    pub locator: String,
     pub order: types::SequenceOrder,
     pub limit: types::ListLimit,
     pub cursor: Option<types::SequenceCursor>,
@@ -30,10 +29,6 @@ pub struct ListFlightsCmd {
 
 impl ListFlightsCmd {
     pub fn validate(&self) -> Result<(), Error> {
-        if !self.locator.is_empty() && self.locator != "/" {
-            return Err(Error::unsupported_locator(self.locator.clone()));
-        }
-
         if let Some(cursor) = &self.cursor
             && cursor.order() != self.order
         {
@@ -71,34 +66,10 @@ mod tests {
 
     fn cmd(order: types::SequenceOrder, cursor: Option<types::SequenceCursor>) -> ListFlightsCmd {
         ListFlightsCmd {
-            locator: String::new(),
             order,
             limit: types::ListLimit::Unlimited,
             cursor,
         }
-    }
-
-    #[test]
-    fn root_locators_are_valid() {
-        for locator in ["", "/"] {
-            let cmd = ListFlightsCmd {
-                locator: locator.to_owned(),
-                ..cmd(types::SequenceOrder::CreatedAt, None)
-            };
-
-            assert!(cmd.validate().is_ok(), "locator {locator:?}");
-        }
-    }
-
-    #[test]
-    fn non_root_locator_is_unsupported() {
-        let cmd = ListFlightsCmd {
-            locator: "my_sequence".to_owned(),
-            ..cmd(types::SequenceOrder::CreatedAt, None)
-        };
-
-        let err = cmd.validate().unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::UnsupportedLocator(l) if l == "my_sequence"));
     }
 
     #[test]
