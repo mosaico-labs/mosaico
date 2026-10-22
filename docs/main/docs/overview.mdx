@@ -49,7 +49,7 @@ Any structure can be expressed this way. The full set of available types and how
 
 ### Topics and Sequences
 
-With a type declared, data needs somewhere to live. A **Topic** is a concrete instance of an Ontology Model, a container for a single time series of that type. The relationship is strictly one-to-one: one Topic, one model. This constraint is deliberate; it is what allows the platform to index and query topics by their semantic structure, not just by name or timestamp.
+With a type declared, data needs somewhere to live. A **Topic** is a concrete instance of an Ontology Model, a container for a single time series of that type. Each Topic is bound to exactly one model, but a model can be shared by many Topics (e.g. `front_imu` and `rear_imu` can both be `IMU` topics). This constraint is deliberate; it is what allows the platform to index and query topics by their semantic structure, not just by name or timestamp.
 
 Topics, however, rarely exist in isolation. A robot recording session produces many streams simultaneously, Lidar, GPS, camera, accelerometer, and these streams belong together. The **Sequence** is the container that groups them. Where a Topic represents a single sensor stream, a Sequence represents the session as a whole: a coherent, time-bounded collection of related Topics. Both levels support arbitrary metadata, so context can travel alongside the data.
 
