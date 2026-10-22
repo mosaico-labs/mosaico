@@ -132,21 +132,6 @@ pub fn sequence_list_item_app_metadata_to_bytes(cursor: &types::SequenceCursor) 
     .encode_to_vec()
 }
 
-/// Decodes the `FlightInfo.app_metadata` of a sequence in a `list_flights` listing,
-/// returning its cursor.
-pub fn sequence_list_item_app_metadata_from_bytes(
-    v: &[u8],
-) -> Result<types::SequenceCursor, Error> {
-    let value = proto_flight::SequenceListItemAppMetadata::decode(v)
-        .map_err(|e| Error::DeserializationError(e.to_string()))?;
-
-    sequence_cursor_from_proto(
-        value
-            .cursor
-            .ok_or_else(|| Error::DeserializationError("missing cursor".to_owned()))?,
-    )
-}
-
 // ////////////////////////////////////////////////////////////////////////////
 // SEQUENCE APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
@@ -524,16 +509,5 @@ mod tests {
 
         assert!(matches!(no_key, Err(Error::DeserializationError(_))));
         assert!(matches!(invalid_name, Err(Error::DeserializationError(_))));
-    }
-
-    #[test]
-    fn sequence_list_item_app_metadata_without_cursor() {
-        let bytes =
-            super::proto_flight::SequenceListItemAppMetadata { cursor: None }.encode_to_vec();
-
-        assert!(matches!(
-            super::sequence_list_item_app_metadata_from_bytes(&bytes),
-            Err(Error::DeserializationError(_))
-        ));
     }
 }
