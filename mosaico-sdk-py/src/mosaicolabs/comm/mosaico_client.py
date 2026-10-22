@@ -1044,8 +1044,8 @@ class MosaicoClient:
         Get the info of the Mosaico server.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the
-            `read` permission.
+            If using the Authorization middleware (via an API-Key), this method requires no
+            specific permission.
 
         Returns:
             ServerInfo: The info of the Mosaico server.

@@ -107,7 +107,7 @@ Because the `VideoDecodingTransformer` implements the standard Scikit-Learn `fit
 from sklearn.pipeline import Pipeline
 from mosaicolabs import MosaicoClient
 from mosaicolabs.ml import DataFrameExtractor, SyncTransformer, VideoDecodingTransformer
-from mosaicolabs.ml.sync_policies import SyncHold
+from mosaicolabs.ml import SyncHold
 
 # 1. Define the execution pipeline order (Decode -> Sync)
 pipeline = Pipeline([
@@ -121,7 +121,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # 2. Process sequential row-based chunks
     for sparse_chunk in extractor.to_pandas_chunks(
         topics=["/front/camera/image", "/chassis/imu"],
-        batch_size=2048 
+        window_sec=10
     ):
         # The decoder reconstructs video frames chronologically.
         decoded_chunk = pipeline.transform(sparse_chunk)
