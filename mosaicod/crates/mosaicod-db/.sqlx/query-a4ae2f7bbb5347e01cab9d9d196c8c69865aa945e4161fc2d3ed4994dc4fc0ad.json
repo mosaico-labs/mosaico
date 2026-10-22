@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT locator_name\n                    FROM sequence_t\n                    ORDER BY locator_name\n                    LIMIT $1\n                ",
+  "query": "\n            SELECT locator_name\n            FROM sequence_t\n            WHERE locator_name > $1\n            ORDER BY locator_name\n            LIMIT $2\n        ",
   "describe": {
     "columns": [
       {
@@ -11,6 +11,7 @@
     ],
     "parameters": {
       "Left": [
+        "Text",
         "Int8"
       ]
     },
@@ -18,5 +19,5 @@
       false
     ]
   },
-  "hash": "c3764c26f195537584512e26baf80ec9337503a5c05e6bc680ca18c719ef223e"
+  "hash": "a4ae2f7bbb5347e01cab9d9d196c8c69865aa945e4161fc2d3ed4994dc4fc0ad"
 }
