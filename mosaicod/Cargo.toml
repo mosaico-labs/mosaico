@@ -73,7 +73,7 @@ tokio-util = { version = "0.7", default-features = false }
 tokio-stream = { version = "0.1", default-features = false }
 url = { version = "2.5.8", default-features = false }
 uuid = { version = "1.23.2", default-features = false, features = ["v4"] }
-ulid = { version = "1.2.1", default-features = false, features = ["std"] }
+ulid = { version = "3.0.0", default-features = false, features = ["std"] }
 crc32fast = { version = "1.5.0", default-features = false }
 iso8601 = { version = "0.6.3", default-features = false }
 semver = { version = "1.0.28", default-features = false }

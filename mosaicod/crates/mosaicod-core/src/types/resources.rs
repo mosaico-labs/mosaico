@@ -139,7 +139,7 @@ pub struct TopicPathInStore(String);
 
 impl TopicPathInStore {
     fn generate_random_folder_name() -> String {
-        let id = ulid::Ulid::new();
+        let id = ulid::Ulid::generate();
         format!("{}{}", TOPIC_FOLDER_PREFIX, id)
     }
 
@@ -350,7 +350,7 @@ impl SessionLocator {
     /// Creates a new session locator for the given parent sequence.
     pub fn new(parent: SequenceLocator) -> Self {
         Self {
-            name: ulid::Ulid::new().to_string(),
+            name: ulid::Ulid::generate().to_string(),
             sequence: parent,
         }
     }
@@ -490,7 +490,7 @@ impl SequencePathInStore {
     }
 
     fn generate_random_folder_name() -> String {
-        let id = ulid::Ulid::new();
+        let id = ulid::Ulid::generate();
         format!("{}{}", SEQUENCE_FOLDER_PREFIX, id)
     }
 }
