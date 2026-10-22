@@ -41,8 +41,27 @@ impl TopicAggregateQueryBuilder {
             // Only aggregated predicates are allowed here
             let aggr = aggr.ok_or_else(|| aggr_err(query::AggregatorError::MissingAggregator))?;
 
-            let op_kind = StatsKind::try_from_op(&op).map_err(aggr_err)?;
-            let kind = field_kinds.get(&field).copied().unwrap_or(op_kind);
+            // The aggregators taking a numeric operand whatever the field type (e.g. COUNT on a
+            // text field) read the stats of the field, the others infer it from the operand.
+            // The aggregator is checked because the field can be in `field_kinds` for another
+            // predicate on the same field (e.g. a COUNT and a MAX on the same field)
+            let kind = match field_kinds.get(&field) {
+                Some(kind) if aggr.requires_numeric_operand() => *kind,
+                _ => StatsKind::try_from_op(&op).map_err(aggr_err)?,
+            };
+
+            let source = format!(
+                "chunk_t
+                JOIN {table} __stats__ USING(chunk_id)
+                JOIN column_t __column__ USING(column_id)",
+                table = kind.table(),
+            );
+            let filter = format!(
+                "{column} = '{field}' {topic_clause}",
+                column = column_table_name()
+            );
+
+            let joins = aggregate_joins(&aggr, &source, &filter);
 
             let aggregate = aggregate_expr(aggr, kind)
                 .ok_or_else(|| aggr_err(query::AggregatorError::UnsupportedAggregator))?;
@@ -53,14 +72,10 @@ impl TopicAggregateQueryBuilder {
             values.append(&mut having_values);
 
             clauses.push(format!(
-                "SELECT chunk_t.topic_id FROM chunk_t
-                JOIN {table} __stats__ USING(chunk_id)
-                JOIN column_t __column__ USING(column_id)
-                WHERE {column} = '{field}' {topic_clause}
+                "SELECT chunk_t.topic_id FROM {source} {joins}
+                WHERE {filter}
                 GROUP BY chunk_t.topic_id
-                HAVING {having}",
-                table = kind.table(),
-                column = column_table_name(),
+                HAVING {having}"
             ));
         }
 
@@ -141,20 +156,59 @@ impl StatsKind {
     }
 }
 
+/// Number of samples of a chunk, null and nan included, the same for every column
+const TOTAL_COUNT: &str = "chunk_t.row_count";
+
+/// Mean of the valid values of the topic, weighting the chunk means by their
+/// valid values: `μ = Σ nᵢ·meanᵢ / N`.
+fn mean_aggr_expr() -> String {
+    let n = StatsKind::Numeric.valid_count();
+    format!("(SUM({n} * __stats__.mean_value) / NULLIF(SUM({n}), 0))")
+}
+
 /// Sample variance (n - 1) of the valid values of the topic, merging the chunk
-/// mean and M2 (Chan): `M2 = Σ M2ᵢ + Σ nᵢ·meanᵢ² - (Σ nᵢ·meanᵢ)² / N`.
+/// mean and M2 (Chan) around the topic mean `μ` joined as `__topic__`:
+/// `M2 = Σ M2ᵢ + Σ nᵢ·(meanᵢ - μ)²`. Every term is non-negative, so no precision
+/// is lost subtracting large sums.
 /// The result is NULL with less than two valid values.
 fn variance_aggr_expr() -> String {
     let n = StatsKind::Numeric.valid_count();
-    // M2 is never negative, but subtracting two nearly equal sums can round it slightly
-    // below zero (e.g. on constant values), which would make the SQRT of the std fail
+    // The chunks without valid values have NULL mean and M2 and are skipped by SUM,
+    // the denominator is NULL also when `N - 1` is negative
     format!(
-        "(GREATEST(
-               SUM(__stats__.m2_value)
-               + SUM({n} * POWER(__stats__.mean_value, 2))
-               - POWER(SUM({n} * __stats__.mean_value), 2) / NULLIF(SUM({n}), 0),
-               0
-           ) / NULLIF(SUM({n}) - 1, 0))"
+        "(SUM(__stats__.m2_value
+              + {n} * POWER(__stats__.mean_value - __topic__.mean_value, 2))
+          / NULLIF(GREATEST(SUM({n}) - 1, 0), 0))"
+    )
+}
+
+/// JOINs needed by VAR and STD: they merge the chunk M2 around the topic mean,
+/// joined as `__topic__` and computed on the same chunks.
+fn aggregate_joins(aggr: &query::Aggregator, source: &str, filter: &str) -> String {
+    match aggr {
+        query::Aggregator::Var | query::Aggregator::Std => format!(
+            "JOIN (SELECT chunk_t.topic_id, {mean} AS mean_value
+                   FROM {source} WHERE {filter}
+                   GROUP BY chunk_t.topic_id) __topic__ USING(topic_id)",
+            mean = mean_aggr_expr(),
+        ),
+        _ => String::new(),
+    }
+}
+
+/// Samples per second of the topic, null and nan included: `(count - 1) / duration`,
+/// with the duration taken from the first and last timestamps of its chunks.
+/// The result is NULL with less than two samples or a zero duration.
+fn rate_aggr_expr() -> String {
+    let n = TOTAL_COUNT;
+    format!(
+        "(CASE WHEN SUM({n}) > 1 THEN
+             (SUM({n}) - 1)::float8 / NULLIF(
+                 (MAX(chunk_t.last_sample_timestamp_ns)
+                  - MIN(chunk_t.first_sample_timestamp_ns))::float8 / 1e9,
+                 0
+             )
+         END)"
     )
 }
 
@@ -169,15 +223,25 @@ fn aggregate_expr(aggr: query::Aggregator, kind: StatsKind) -> Option<String> {
             kind.max_value(),
             kind.min_value()
         )),
-        (query::Aggregator::Count, _) => Some(format!("SUM({})::BIGINT", kind.valid_count())),
-        (query::Aggregator::Mean, StatsKind::Numeric) => Some(format!(
-            "(SUM({n} * __stats__.mean_value) / NULLIF(SUM({n}), 0))",
-            n = kind.valid_count()
-        )),
+        (query::Aggregator::CountSample, _) => Some(format!("SUM({})::BIGINT", kind.valid_count())),
+        (query::Aggregator::Count, _) => Some(format!("SUM({TOTAL_COUNT})::BIGINT")),
+        (query::Aggregator::Mean, StatsKind::Numeric) => Some(mean_aggr_expr()),
         (query::Aggregator::Var, StatsKind::Numeric) => Some(variance_aggr_expr()),
         (query::Aggregator::Std, StatsKind::Numeric) => {
             Some(format!("SQRT({})", variance_aggr_expr()))
         }
+        // The chunk id makes the order deterministic between chunks with the same timestamp
+        (query::Aggregator::First, _) => Some(
+            "(ARRAY_AGG(__stats__.first_sample_value \
+             ORDER BY chunk_t.first_sample_timestamp_ns, chunk_t.chunk_id))[1]"
+                .to_owned(),
+        ),
+        (query::Aggregator::Last, _) => Some(
+            "(ARRAY_AGG(__stats__.last_sample_value \
+             ORDER BY chunk_t.last_sample_timestamp_ns DESC, chunk_t.chunk_id DESC))[1]"
+                .to_owned(),
+        ),
+        (query::Aggregator::Rate, _) => Some(rate_aggr_expr()),
         _ => None,
     }
 }
