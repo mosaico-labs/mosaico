@@ -784,9 +784,10 @@ class MosaicoClient:
             limit (int | None): Maximum number of sequences in the page. `0` returns
                 every sequence after the cursor. `None` uses the server's default page size.
             cursor (bytes | None): The `next_cursor` of the previous page, or `None`
-                for the first page. It must come from a page with the same `order_by`.
+                for the first page.
             order_by (SequenceOrder | None): The sort order, always ascending. `None`
-                uses the server's default order.
+                uses the cursor's order, or the server's default order on the first page.
+                When set, it must match the order of the page the cursor came from.
 
         Returns:
             SequencePage: The sequence names and the cursor of the next page, which is

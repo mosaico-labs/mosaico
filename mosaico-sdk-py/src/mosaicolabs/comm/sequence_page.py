@@ -19,7 +19,8 @@ class SequencePage:
         names (list[str]): The sequence names in this page, in the requested order.
         next_cursor (bytes | None): Pass it as `cursor` to get the next page.
             `None` when there are no more pages. The cursor is meant to be stored
-            and sent back unchanged, with the same `order_by`.
+            and sent back unchanged. It carries the page's order, so `order_by` can
+            be left out.
     """
 
     names: list[str]
