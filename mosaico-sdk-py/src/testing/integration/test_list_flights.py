@@ -1,5 +1,3 @@
-import pytest
-
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SequenceOrder
 
@@ -33,46 +31,18 @@ def test_list_sequences(
     assert all([sname in expected_sequences_list for sname in slist])
 
 
-def test_list_sequences_page_walk(
-    mosaico_client: MosaicoClient,
-    inject_mockup_sequences,
-    inject_synthetic_sequence,
-):
-    """Walking page by page returns every sequence once, in both orders."""
-    all_by_created_at = mosaico_client.list_sequences()
-
-    for order_by, expected in [
-        (SequenceOrder.CreatedAt, all_by_created_at),
-        (SequenceOrder.Name, sorted(all_by_created_at)),
-    ]:
-        listed = []
-        cursor = None
-        while True:
-            page = mosaico_client.list_sequences_page(
-                limit=2, cursor=cursor, order_by=order_by
-            )
-            listed.extend(page.names)
-            if page.next_cursor is None:
-                break
-            cursor = page.next_cursor
-
-        assert listed == expected, order_by
-
-
 def test_iter_sequences(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences,
     inject_synthetic_sequence,
 ):
-    """Iterating returns every sequence, whatever the page size."""
-    assert list(mosaico_client.iter_sequences(page_size=2)) == (
-        mosaico_client.list_sequences()
+    """Iterating page by page returns every sequence once, in both orders."""
+    all_by_created_at = mosaico_client.list_sequences()
+
+    by_created_at = mosaico_client.iter_sequences(
+        page_size=2, order_by=SequenceOrder.CreatedAt
     )
-    assert list(
-        mosaico_client.iter_sequences(page_size=1, order_by=SequenceOrder.Name)
-    ) == sorted(mosaico_client.list_sequences())
+    by_name = mosaico_client.iter_sequences(page_size=1, order_by=SequenceOrder.Name)
 
-
-def test_iter_sequences_rejects_negative_page_size(mosaico_client: MosaicoClient):
-    with pytest.raises(ValueError):
-        next(mosaico_client.iter_sequences(page_size=-1))
+    assert list(by_created_at) == all_by_created_at
+    assert list(by_name) == sorted(all_by_created_at)

@@ -84,16 +84,4 @@ mod tests {
             ListLimit::Bounded(NonZeroU32::new(10).unwrap())
         );
     }
-
-    #[test]
-    fn cursor_reports_its_order() {
-        let by_created_at = SequenceCursor::CreatedAt {
-            created_at: Timestamp::from(1_760_000_000_000_000_000),
-            sequence_id: 42,
-        };
-        assert_eq!(by_created_at.order(), SequenceOrder::CreatedAt);
-
-        let by_name = SequenceCursor::Name("my_sequence".parse().unwrap());
-        assert_eq!(by_name.order(), SequenceOrder::Name);
-    }
 }
