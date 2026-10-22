@@ -18,12 +18,17 @@ Example:
 from ._deprecated import alias_moved_package as _alias_moved_package
 
 # --- Client ---
-from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient
+from .comm import (
+    GRPCCompression as GRPCCompression,
+    MosaicoClient as MosaicoClient,
+    SequencePage as SequencePage,
+)
 
 # --- Enums ---
 from .enum import (
     GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
     GRPCCompressionLevel as GRPCCompressionLevel,
+    SequenceOrder as SequenceOrder,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,
@@ -151,6 +156,7 @@ __all__ = [
     # Client
     "MosaicoClient",
     "GRPCCompression",
+    "SequencePage",
     "ServerInfo",
     # Logging
     "get_logger",
@@ -239,6 +245,7 @@ __all__ = [
     "SerializationFormat",
     "SessionStatus",
     "SequenceStatus",
+    "SequenceOrder",
     "SessionLevelErrorPolicy",
     "TopicLevelErrorPolicy",
     "TopicWriterStatus",

@@ -3,6 +3,7 @@ from .grpc_compression import (
     GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
     GRPCCompressionLevel as GRPCCompressionLevel,
 )
+from .sequence_order import SequenceOrder as SequenceOrder
 from .serialization_format import SerializationFormat as SerializationFormat
 from .session_level_error_policy import (
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,
