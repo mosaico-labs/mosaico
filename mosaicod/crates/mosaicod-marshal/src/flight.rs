@@ -60,7 +60,7 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error> {
     use proto_flight::list_flights_cmd::Start;
 
-    let cmd: proto_flight::ListFlightsCmd = proto_flight::ListFlightsCmd::decode(v)
+    let cmd = proto_flight::ListFlightsCmd::decode(v)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
     let start = match cmd.start {
