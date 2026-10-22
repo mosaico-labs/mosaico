@@ -4,3 +4,7 @@ format = "fmt"
 
 [build]
 rustflags = ["-Wunused-crate-dependencies"]
+
+[env]
+# Configuration variable used by sqlx to establish a connection with the database for type checks.
+DATABASE_URL = "postgresql://${MOSAICOD_DB_USER}:${MOSAICOD_DB_PASSWORD}@localhost:5432/mosaico"
