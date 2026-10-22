@@ -82,9 +82,10 @@ pub async fn column_chunk_textual_create(
             column_id, chunk_id,
             min_value, max_value,
             null_count,
-            first_sample_value, last_sample_value
+            first_sample_value, last_sample_value,
+            is_list
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *"#,
         val.column_id,
         val.chunk_id,
@@ -93,6 +94,7 @@ pub async fn column_chunk_textual_create(
         val.null_count,
         val.first_sample_value,
         val.last_sample_value,
+        val.is_list,
     )
     .fetch_one(exec.as_exec())
     .await?;
@@ -110,9 +112,10 @@ pub async fn column_chunk_numeric_create(
             min_value, max_value,
             null_count, nan_count,
             first_sample_value, last_sample_value,
-            mean_value, m2_value
+            mean_value, m2_value,
+            is_list
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *"#,
         val.column_id,
         val.chunk_id,
@@ -124,6 +127,7 @@ pub async fn column_chunk_numeric_create(
         val.last_sample_value,
         val.mean_value,
         val.m2_value,
+        val.is_list,
     )
     .fetch_one(exec.as_exec())
     .await?;
@@ -141,7 +145,7 @@ pub async fn column_chunk_numeric_create_batch(
     }
 
     let mut query_builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-        "INSERT INTO column_chunk_numeric_t(column_id, chunk_id, min_value, max_value, null_count, nan_count, first_sample_value, last_sample_value, mean_value, m2_value) ",
+        "INSERT INTO column_chunk_numeric_t(column_id, chunk_id, min_value, max_value, null_count, nan_count, first_sample_value, last_sample_value, mean_value, m2_value, is_list) ",
     );
 
     query_builder.push_values(values, |mut b, val| {
@@ -154,7 +158,8 @@ pub async fn column_chunk_numeric_create_batch(
             .push_bind(val.first_sample_value)
             .push_bind(val.last_sample_value)
             .push_bind(val.mean_value)
-            .push_bind(val.m2_value);
+            .push_bind(val.m2_value)
+            .push_bind(val.is_list);
     });
 
     query_builder.build().execute(exec.as_exec()).await?;
@@ -172,7 +177,7 @@ pub async fn column_chunk_textual_create_batch(
     }
 
     let mut query_builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-        "INSERT INTO column_chunk_textual_t(column_id, chunk_id, min_value, max_value, null_count, first_sample_value, last_sample_value) ",
+        "INSERT INTO column_chunk_textual_t(column_id, chunk_id, min_value, max_value, null_count, first_sample_value, last_sample_value, is_list) ",
     );
 
     query_builder.push_values(values, |mut b, val| {
@@ -182,7 +187,8 @@ pub async fn column_chunk_textual_create_batch(
             .push_bind(&val.max_value)
             .push_bind(val.null_count)
             .push_bind(&val.first_sample_value)
-            .push_bind(&val.last_sample_value);
+            .push_bind(&val.last_sample_value)
+            .push_bind(val.is_list);
     });
 
     query_builder.build().execute(exec.as_exec()).await?;
@@ -257,17 +263,47 @@ pub async fn topic_ids_from_aggregated_filters(
         Vec::new()
     };
 
+    // The stats table of a field is usually inferred from the operand type (e.g. a text
+    // operand for MAX means a textual field), but some aggregators always take a numeric
+    // operand whatever the field type: e.g. COUNT on a text column is compared with a number,
+    // so its stats must be read from the textual table. For these aggregators the actual
+    // kind of the field is looked up in the db. The same lookup tells whether the field is
+    // a list, to reject the aggregators not defined on lists.
     let mut field_kinds = HashMap::new();
+    // Several predicates can aggregate the same field, its stats are looked up once
+    let mut stats_by_field = HashMap::new();
     for predicate in &filter.group {
-        if predicate
-            .aggregator()
-            .as_ref()
-            .is_some_and(query::Aggregator::requires_numeric_operand)
-        {
-            let field = predicate.ontology_field();
-            if let Some(kind) = field_stats_kind(exec, field).await? {
-                field_kinds.insert(field.field_str(), kind);
+        let Some(aggr) = predicate.aggregator() else {
+            continue;
+        };
+        if !aggr.requires_numeric_operand() && aggr.supports_list_field() {
+            continue;
+        }
+
+        let field = predicate.ontology_field();
+        let field_str = field.field_str();
+        let stats = match stats_by_field.get(&field_str) {
+            Some(stats) => *stats,
+            None => {
+                let stats = field_stats(exec, field).await?;
+                stats_by_field.insert(field_str.clone(), stats);
+                stats
             }
+        };
+        let Some((kind, is_list)) = stats else {
+            continue;
+        };
+
+        if is_list && !aggr.supports_list_field() {
+            return Err(query::Error::AggregatorError {
+                field: field_str,
+                err: query::AggregatorError::UnsupportedListField,
+            }
+            .into());
+        }
+
+        if aggr.requires_numeric_operand() {
+            field_kinds.insert(field_str, kind);
         }
     }
 
@@ -291,15 +327,22 @@ pub async fn topic_ids_from_aggregated_filters(
         .collect()
 }
 
-/// Returns the kind of the stats stored for `field`, `None` if the field has no stats.
-async fn field_stats_kind(
+/// Returns the kind of the stats stored for `field` and whether they are computed on
+/// the elements of a list column, `None` if the field has no stats.
+async fn field_stats(
     exec: &mut impl AsExec,
     field: &query::OntologyField,
-) -> Result<Option<super::StatsKind>, Error> {
+) -> Result<Option<(super::StatsKind, bool)>, Error> {
     let res = sqlx::query!(
         r#"SELECT
             EXISTS(SELECT 1 FROM column_chunk_textual_t WHERE column_id = column_t.column_id) AS "textual!",
-            EXISTS(SELECT 1 FROM column_chunk_numeric_t WHERE column_id = column_t.column_id) AS "numeric!"
+            EXISTS(SELECT 1 FROM column_chunk_numeric_t WHERE column_id = column_t.column_id) AS "numeric!",
+            -- every chunk of a column has the same is_list, a single row is enough
+            COALESCE(
+                (SELECT is_list FROM column_chunk_textual_t WHERE column_id = column_t.column_id LIMIT 1),
+                (SELECT is_list FROM column_chunk_numeric_t WHERE column_id = column_t.column_id LIMIT 1),
+                FALSE
+            ) AS "is_list!"
         FROM column_t
         WHERE ontology_tag = $1 AND column_name = $2"#,
         field.ontology_tag(),
@@ -309,8 +352,8 @@ async fn field_stats_kind(
     .await?;
 
     Ok(match res {
-        Some(r) if r.textual => Some(super::StatsKind::Textual),
-        Some(r) if r.numeric => Some(super::StatsKind::Numeric),
+        Some(r) if r.textual => Some((super::StatsKind::Textual, r.is_list)),
+        Some(r) if r.numeric => Some((super::StatsKind::Numeric, r.is_list)),
         _ => None,
     })
 }

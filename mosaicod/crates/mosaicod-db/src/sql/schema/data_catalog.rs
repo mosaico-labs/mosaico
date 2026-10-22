@@ -81,27 +81,23 @@ pub struct ColumnChunkTextualRecord {
 
     pub first_sample_value: Option<String>,
     pub last_sample_value: Option<String>,
+
+    /// The stats are computed on the elements of a list column (temporary)
+    pub is_list: bool,
 }
 
 impl ColumnChunkTextualRecord {
-    pub fn try_new(
-        column_id: i32,
-        chunk_id: i32,
-        min_value: String,
-        max_value: String,
-        null_count: i64,
-        first_sample_value: Option<String>,
-        last_sample_value: Option<String>,
-    ) -> Result<Self, db::Error> {
-        Ok(Self {
+    pub fn new(column_id: i32, chunk_id: i32, stats: types::TextualStats, is_list: bool) -> Self {
+        Self {
             column_id,
             chunk_id,
-            min_value,
-            max_value,
-            null_count,
-            first_sample_value,
-            last_sample_value,
-        })
+            min_value: stats.min.unwrap_or_default(),
+            max_value: stats.max.unwrap_or_default(),
+            null_count: stats.null_count,
+            first_sample_value: stats.first_sample_value,
+            last_sample_value: stats.last_sample_value,
+            is_list,
+        }
     }
 }
 
@@ -124,10 +120,13 @@ pub struct ColumnChunkNumericRecord {
 
     pub mean_value: Option<f64>,
     pub m2_value: Option<f64>,
+
+    /// The stats are computed on the elements of a list column (temporary)
+    pub is_list: bool,
 }
 
 impl ColumnChunkNumericRecord {
-    pub fn new(column_id: i32, chunk_id: i32, stats: &types::NumericStats) -> Self {
+    pub fn new(column_id: i32, chunk_id: i32, stats: &types::NumericStats, is_list: bool) -> Self {
         Self {
             column_id,
             chunk_id,
@@ -139,6 +138,7 @@ impl ColumnChunkNumericRecord {
             last_sample_value: stats.last_sample_value,
             mean_value: stats.mean_value,
             m2_value: stats.m2_value,
+            is_list,
         }
     }
 }

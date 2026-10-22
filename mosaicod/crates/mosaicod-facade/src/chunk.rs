@@ -36,46 +36,24 @@ pub async fn update_chunk_stats(
         }
 
         let column = db::column_get_or_create(tx, &field, ontology_tag).await?;
+        let is_list = stats.is_list();
 
         match stats {
-            types::Stats::Textual(mut stats) => {
-                let (first, last) = (
-                    stats.first_sample_value.take(),
-                    stats.last_sample_value.take(),
-                );
-                let (min, max, null_count) = stats.into_owned();
-                textual_batch.push(db::ColumnChunkTextualRecord::try_new(
+            types::Stats::Textual(stats) | types::Stats::ListTextual(stats) => {
+                textual_batch.push(db::ColumnChunkTextualRecord::new(
                     column.column_id,
                     chunk.chunk_id,
-                    min,
-                    max,
-                    null_count,
-                    first,
-                    last,
-                )?);
+                    stats,
+                    is_list,
+                ));
             }
             types::Stats::Numeric(stats) | types::Stats::ListNumeric(stats) => {
                 numeric_batch.push(db::ColumnChunkNumericRecord::new(
                     column.column_id,
                     chunk.chunk_id,
                     &stats,
+                    is_list,
                 ));
-            }
-            types::Stats::ListTextual(mut stats) => {
-                let (first, last) = (
-                    stats.first_sample_value.take(),
-                    stats.last_sample_value.take(),
-                );
-                let (min, max, null_count) = stats.into_owned();
-                textual_batch.push(db::ColumnChunkTextualRecord::try_new(
-                    column.column_id,
-                    chunk.chunk_id,
-                    min,
-                    max,
-                    null_count,
-                    first,
-                    last,
-                )?);
             }
             types::Stats::Unsupported => {}
         }

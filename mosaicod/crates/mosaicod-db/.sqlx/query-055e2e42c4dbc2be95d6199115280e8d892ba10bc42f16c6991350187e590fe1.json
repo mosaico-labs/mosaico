@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO column_chunk_numeric_t(\n            column_id, chunk_id,\n            min_value, max_value,\n            null_count, nan_count,\n            first_sample_value, last_sample_value,\n            mean_value, m2_value\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)\n        RETURNING *",
+  "query": "INSERT INTO column_chunk_numeric_t(\n            column_id, chunk_id,\n            min_value, max_value,\n            null_count, nan_count,\n            first_sample_value, last_sample_value,\n            mean_value, m2_value,\n            is_list\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n        RETURNING *",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,11 @@
         "ordinal": 9,
         "name": "m2_value",
         "type_info": "Float8"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_list",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
@@ -65,7 +70,8 @@
         "Float8",
         "Float8",
         "Float8",
-        "Float8"
+        "Float8",
+        "Bool"
       ]
     },
     "nullable": [
@@ -78,8 +84,9 @@
       true,
       true,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "aa8040038d718295dc3eaac965176c0283b2ca951fd63387de7d77eb83e40a36"
+  "hash": "055e2e42c4dbc2be95d6199115280e8d892ba10bc42f16c6991350187e590fe1"
 }

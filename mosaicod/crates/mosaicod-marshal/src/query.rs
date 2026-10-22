@@ -113,6 +113,7 @@ fn aggregator(aggr: Option<i32>) -> Result<Option<query::Aggregator>, query::Agg
     let aggregator = match Aggregator::try_from(aggr) {
         Ok(Aggregator::Max) => query::Aggregator::Max,
         Ok(Aggregator::Min) => query::Aggregator::Min,
+        Ok(Aggregator::CountSample) => query::Aggregator::CountSample,
         Ok(Aggregator::Count) => query::Aggregator::Count,
         Ok(Aggregator::Range) => query::Aggregator::Range,
         Ok(Aggregator::First) => query::Aggregator::First,
@@ -622,7 +623,7 @@ mod tests {
         for field in ["mock.v[?]", "mock.v[!]", "mock.v[0]"] {
             assert_aggregator_err(
                 aggregated_filter(field, Aggregator::Max, int_condition(Operator::Gt, 5)),
-                "aggregators are not supported on list fields",
+                "unsupported aggregator on list fields",
             );
         }
     }

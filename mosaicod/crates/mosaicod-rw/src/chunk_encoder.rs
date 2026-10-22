@@ -198,7 +198,7 @@ mod tests {
 
     /// Helper function to create a test RecordBatch.
     /// This provides a schema with numeric, string, and nested struct types,
-    /// along with nulls and NaN values to test the statistics generation.
+    /// along with nulls and nan values to test the statistics generation.
     fn create_test_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(

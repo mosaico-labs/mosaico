@@ -46,7 +46,7 @@ enum Aggregator {
     AGGREGATOR_UNSPECIFIED = 0;
     AGGREGATOR_MAX = 1;
     AGGREGATOR_MIN = 2;
-    AGGREGATOR_COUNT = 3;
+    AGGREGATOR_COUNT_SAMPLE = 3; // valid samples (neither null nor nan)
     AGGREGATOR_RANGE = 4;
     AGGREGATOR_FIRST = 5;
     AGGREGATOR_LAST = 6;
@@ -57,6 +57,7 @@ enum Aggregator {
     AGGREGATOR_P50 = 11;
     AGGREGATOR_P90 = 12;
     AGGREGATOR_P99 = 13;
+    AGGREGATOR_COUNT = 14; // all samples, null and nan included
 }
 
 // Sequence

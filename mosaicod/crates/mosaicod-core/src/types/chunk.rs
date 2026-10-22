@@ -30,6 +30,10 @@ impl Stats {
     pub fn is_unsupported(&self) -> bool {
         matches!(self, Stats::Unsupported)
     }
+
+    pub fn is_list(&self) -> bool {
+        matches!(self, Stats::ListNumeric(_) | Stats::ListTextual(_))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -156,15 +160,6 @@ impl TextualStats {
         } else {
             self.null_count += 1;
         }
-    }
-
-    /// Consumes the stats and returns owned strings for min and max.
-    pub fn into_owned(self) -> (String, String, i64) {
-        (
-            self.min.unwrap_or_default(),
-            self.max.unwrap_or_default(),
-            self.null_count,
-        )
     }
 
     /// Merges pre-computed statistics from an Arrow array.
