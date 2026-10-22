@@ -278,10 +278,29 @@ class LeRobotEpisodeLoader:
         """The episode index."""
         return self._episode_index
 
-    #    @property
-    #    def n_rows(self) -> int:
-    #        """The number of rows for the current episode"""
-    #        return self._reader.
+    @property
+    def n_rows(self) -> int:
+        """The number of rows for the current episode"""
+        return self._reader.get_episode_rows(self._episode_index)
+
+    def msco_seq_name(self, prefix: Optional[str] = None) -> str:
+        """
+        Returns the name of the Mosaico sequence of the episode: the prefix followed by the
+        episode index, zero-padded to 5 digits (e.g. `pusht_00012`).
+
+        Args:
+            prefix (Optional[str]): The prefix of the sequence name. If `None`, the name of the
+                dataset root folder is used.
+
+        Returns:
+            str: The sequence name.
+        """
+        if prefix is None:
+            # `resolve()` gives the folder name even for a relative root such as `.`
+            prefix = self._reader._meta.root.resolve().name
+
+        width = 5
+        return f"{prefix}_{self.episode_index:0{width}d}"
 
     def __iter__(
         self,

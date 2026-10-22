@@ -72,8 +72,9 @@ class LeRobotInjectionConfig(InjectionConfigBase):
 
     Attributes:
         file_path (Path): Absolute or relative path to the input ROS bag file (.mcap, .db3, or .bag).
-        sequence_name (str): The name of the sequence to create on the Mosaico server
-            (or to update, see `update_if_exists`).
+        sequence_name (str): The prefix of the sequence names: each episode is ingested as the
+            sequence `<sequence_name>_<episode index>`, the index being zero-padded to 5 digits.
+            If empty, the name of the dataset folder is used. Default: ""
         metadata (dict): User-defined metadata to attach to the sequence (e.g., driver, weather, location).
             Ignored when an existing sequence is updated.
         topic_metadata (Optional[Dict[str, dict]]): Mapping of exact topic name to metadata to
@@ -133,6 +134,12 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             topics_on_error=TopicLevelErrorPolicy.Finalize,
         )
         ```
+    """
+
+    sequence_name: str = ""
+    """
+    The prefix of the sequence names: each episode is ingested as the sequence
+    `<sequence_name>_<episode index>`. If empty, the name of the dataset folder is used.
     """
 
     on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Delete
@@ -233,7 +240,7 @@ class LeRobotInjector:
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
 
-        failed_sequences: List[str] = []
+        failed_episodes: List[int] = []
 
         try:
             # Context: Mosaico Client (Network Connection)
@@ -250,7 +257,7 @@ class LeRobotInjector:
                 lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
 
                 # Setup Progress UI: a single UI for every episode of the dataset
-                ui = LeRobotProgressManager(lerobot_loader)
+                ui = LeRobotProgressManager(lerobot_loader, lerobot_loader.n_episodes)
                 ui.setup()
 
                 # Main Processing Loop
@@ -259,28 +266,8 @@ class LeRobotInjector:
                 with Live(ui.progress, console=self._console):
                     # Each episode is ingested as its own sequence
                     for episode_loader in lerobot_loader:
-                        sequence_name = f"{self._cfg.sequence_name}_{episode_loader.episode_index}"  # TODO: change this so that sequence name is deduced from episode_loader
-                        ui.start_episode(episode_loader.episode_index)
-
-                        try:
-                            self._upload_episode(
-                                mclient, episode_loader, sequence_name, ui
-                            )
-                        except Exception as e:
-                            # A failed episode does not stop the ingestion: its sequence, if
-                            # created, has applied its `on_error` policy
-                            logger.error(
-                                f"Episode {episode_loader.episode_index} (sequence "
-                                f"'{sequence_name}') failed and was skipped "
-                                f"('{self._cfg.on_error.value}' error policy): '{e}'"
-                            )
-                            failed_sequences.append(sequence_name)
-                            ui.finish_episode(succeeded=False)
-                        else:
-                            logger.info(
-                                f"Sequence '{sequence_name}' upload completed successfully."
-                            )
-                            ui.finish_episode(succeeded=True)
+                        if not self._upload_episode(mclient, episode_loader, ui):
+                            failed_episodes.append(episode_loader.episode_index)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
@@ -289,15 +276,7 @@ class LeRobotInjector:
             logger.exception(f"Fatal error during ingestion: '{e}'")
             raise
 
-        # Raised once every episode is processed, outside of the fatal errors handling above:
-        # each failed episode has already been logged with its error
-        if failed_sequences:
-            summary = (
-                f"{len(failed_sequences)} episode(s) failed to be ingested (see the "
-                f"errors above): {failed_sequences}"
-            )
-            logger.error(summary)
-            raise RuntimeError(summary)
+        self._report_failed_episodes(failed_episodes)
 
         return InjectionStatus.COMPLETED
 
@@ -313,49 +292,87 @@ class LeRobotInjector:
         self,
         mclient: MosaicoClient,
         episode_loader: LeRobotEpisodeLoader,
-        sequence_name: str,
         ui: LeRobotProgressManager,
-    ):
+    ) -> bool:
         """
         Uploads an episode as its own sequence.
 
         Any error while uploading the episode is raised within the sequence, so that the sequence
         applies its `on_error` policy (by default `Delete`: a partially uploaded episode is not
-        kept), and then propagated to the caller.
+        kept), and then logged: the episode is reported as failed, without stopping the ingestion.
 
         Args:
             mclient (MosaicoClient): The connected Mosaico client.
             episode_loader (LeRobotEpisodeLoader): The episode to upload.
-            sequence_name (str): The name of the sequence to create.
             ui (LeRobotProgressManager): The progress manager for updating the UI.
 
-        Raises:
-            Exception: If the episode could not be fully uploaded.
+        Returns:
+            bool: Whether the episode was fully uploaded.
         """
+        sequence_name = episode_loader.msco_seq_name(self._cfg.sequence_name or None)
+
         seq_writer = mclient.sequence_create(
             sequence_name=sequence_name,
             metadata=self._cfg.metadata,
             on_error=self._cfg.on_error,
         )
 
-        with seq_writer:
-            logger.info(f"Starting upload of sequence '{sequence_name}'...")
+        successful_ingestion = True
+        ui.start_episode(episode_loader.episode_index, episode_loader.n_rows)
 
-            for msg, ex in episode_loader:
-                if ex is not None:
-                    # The loader could not read the rest of the topic
-                    raise RuntimeError(
-                        f"Could not read Mosaico topic '{msg.msco_topic_name}': {ex}"
-                    ) from ex
+        try:
+            with seq_writer:
+                logger.info(f"Starting upload of sequence '{sequence_name}'...")
 
-                self._upload_batch(msg, seq_writer)
-                ui.advance_all_topics(msg.column_names, msg.n_rows)
+                for msg, ex in episode_loader:
+                    if ex is not None:
+                        # The loader could not read the rest of the topic
+                        raise RuntimeError(
+                            f"Could not read Mosaico topic '{msg.msco_topic_name}': {ex}"
+                        ) from ex
 
-        if seq_writer.session_status == SessionStatus.Error:
-            raise RuntimeError(
-                f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
-                f"sequence '{sequence_name}'. Upload might have failed!"
+                    self._upload_batch(msg, seq_writer)
+                    ui.advance_all_topics(msg.column_names, msg.n_rows)
+
+            if seq_writer.session_status == SessionStatus.Error:
+                raise RuntimeError(
+                    f"`SequenceWriter` returned a `SequenceStatus.Error` status for "
+                    f"sequence '{sequence_name}'. Upload might have failed!"
+                )
+
+        except Exception as e:
+            # A failed episode does not stop the ingestion: its sequence, if
+            # created, has applied its `on_error` policy
+            logger.error(
+                f"Episode {episode_loader.episode_index} (sequence "
+                f"'{sequence_name}') failed and was skipped "
+                f"('{self._cfg.on_error.value}' error policy): '{e}'"
             )
+
+            successful_ingestion = False
+
+        if successful_ingestion:
+            logger.info(f"Sequence '{sequence_name}' upload completed.")
+
+        ui.finish_episode(succeeded=successful_ingestion)
+        return successful_ingestion
+
+    def _report_failed_episodes(self, failed_episodes: List[int]):
+        """
+        Logs a summary of the episodes that failed to be uploaded, once every episode is
+        processed. Each failed episode has already been logged with its error and sequence name.
+
+        Args:
+            failed_episodes (List[int]): The indexes of the failed episodes.
+        """
+        if not failed_episodes:
+            return
+
+        logger.error(
+            f"{len(failed_episodes)} episode(s) failed to be ingested, with the "
+            f"'{self._cfg.on_error.value}' error policy (see the errors above): "
+            f"episodes {failed_episodes}"
+        )
 
     def _upload_batch(
         self,
@@ -441,7 +458,15 @@ def lerobot_injector():
     parser.add_argument(
         "dataset_path", type=Path, help="Path to Hugging Face Project Folder"
     )
-    parser.add_argument("--name", "-n", required=True, help="Target Sequence Name")
+    parser.add_argument(
+        "--name",
+        "-n",
+        default="",
+        help=(
+            "Prefix of the sequence names: each episode is ingested as the sequence "
+            "'<name>_<episode index>'. Defaults to the name of the dataset folder."
+        ),
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",

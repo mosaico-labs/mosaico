@@ -11,8 +11,7 @@ from typing import Dict, Optional
 
 from rich.progress import TaskID
 
-from ..ui import ProgressManager
-from .loader import LeRobotLoader
+from ..ui import LoaderUIAPI, ProgressManager
 
 
 class LeRobotProgressManager(ProgressManager):
@@ -32,26 +31,24 @@ class LeRobotProgressManager(ProgressManager):
        are done.
     """
 
-    def __init__(self, loader: LeRobotLoader):
+    def __init__(self, loader: LoaderUIAPI, n_episodes: int):
         """
         Args:
-            loader (LeRobotLoader): The loader of the dataset, used to size the bars.
+            loader (LoaderUIAPI): The loader of the dataset, used to size the bars.
         """
         super().__init__(loader)
-        self._lerobot_loader = loader
-        """The loader, with its LeRobot specific API (the message counts of an episode)."""
-        self._n_episodes = loader.n_episodes
-        """The number of episodes of the dataset."""
         self.episode_task: Optional[TaskID] = None
         """The episode bar, created by `setup()`."""
+        self._n_episodes = n_episodes
+        """The total number of episodes that will be ingested"""
         self._current_episode: Optional[int] = None
         """The index of the episode being uploaded, `None` between two episodes."""
+        self._expected_rows_at_end: Optional[Dict[str, int]] = None
+        """Mapper tracking the expected number of ingested message at episode end for each accepted column"""
         self._n_succeeded = 0
         """The number of episodes uploaded."""
         self._n_failed = 0
         """The number of episodes failed."""
-        self._rows_done: Dict[str, int] = {}
-        """The rows of the finished episodes, per accepted column."""
 
     def setup(self):
         """
@@ -63,9 +60,10 @@ class LeRobotProgressManager(ProgressManager):
             "", total=self._n_episodes, name=self._episode_label()
         )
         super().setup()
-        self._rows_done = {topic: 0 for topic in self.loader.topics}
 
-    def start_episode(self, episode_index: int):
+        self._expected_rows_at_end = {col_name: 0 for col_name in self.loader.topics}
+
+    def start_episode(self, episode_index: int, episode_rows: int):
         """
         Shows `episode_index` as the episode being uploaded.
 
@@ -73,7 +71,15 @@ class LeRobotProgressManager(ProgressManager):
             episode_index (int): The index of the episode.
         """
         self._current_episode = episode_index
+
         self._refresh_episode_label()
+
+        if not self._expected_rows_at_end:
+            return
+
+        # Update expected progress bar at episode end
+        for k in self._expected_rows_at_end.keys():
+            self._expected_rows_at_end[k] += episode_rows
 
     def finish_episode(self, succeeded: bool):
         """
@@ -85,7 +91,7 @@ class LeRobotProgressManager(ProgressManager):
         Args:
             succeeded (bool): Whether the episode was fully uploaded.
         """
-        if self._current_episode is None:
+        if self._current_episode is None or self._expected_rows_at_end is None:
             return
 
         if succeeded:
@@ -93,18 +99,25 @@ class LeRobotProgressManager(ProgressManager):
         else:
             self._n_failed += 1
 
-        for topic in self.loader.topics:
-            self._rows_done[topic] += self._lerobot_loader.msg_count(
-                topic, self._current_episode
-            )
-            self.progress.update(self.tasks[topic], completed=self._rows_done[topic])
+        # Update remaining columns that have not reached the expected counter + global bar
+        # Remains zero if all columns are at the expected message counter
+        global_bar_to_fill = 0
 
-        if self.global_task is not None:
-            # The global bar is advanced along with every column bar (see `advance_all`)
-            self.progress.update(
-                self.global_task, completed=sum(self._rows_done.values())
-            )
+        for col_name, expected_val in self._expected_rows_at_end.items():
+            task_id = self.tasks[col_name]
+            task = next(t for t in self.progress.tasks if t.id == task_id)
 
+            if task.completed == expected_val:
+                continue  # In this case the column has the expected message counter
+            else:
+                msg_remaining = expected_val - task.completed
+                self.progress.advance(task_id, msg_remaining)
+                global_bar_to_fill += msg_remaining
+
+        # Update global bar
+        self.advance_global(int(global_bar_to_fill))
+
+        # Update episode bar
         if self.episode_task is not None:
             self.progress.advance(self.episode_task)
 

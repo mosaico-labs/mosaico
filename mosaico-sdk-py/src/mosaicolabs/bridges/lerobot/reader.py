@@ -383,9 +383,11 @@ class LeRobotReader:
     def timeseries_column_names(self) -> List[str]:
         return self._timeseries_column_names
 
-    # def get_n_rows_of_episode(self, episode_number: int) -> int:
-    #     """TODO"""
-    #     return self._meta.episodes_map.get()
+    def get_episode_rows(self, episode_number: int) -> int:
+        """TODO"""
+        episode = self._meta.episodes_map.get(episode_number)
+
+        return episode.length if episode else 0
 
     def iter_timeseries_batches(self, episode_index: int) -> Iterator[LeRobotMessage]:
         """
