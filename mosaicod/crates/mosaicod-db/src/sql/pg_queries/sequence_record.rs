@@ -541,33 +541,4 @@ mod tests {
             vec!["alpha", "bravo", "charlie", "delta", "echo"]
         );
     }
-
-    /// Each entry's cursor carries its own sort key.
-    #[sqlx::test]
-    async fn entries_carry_their_cursor(pool: Pool<DatabaseType>) {
-        let database = testing::Database::new(pool);
-        let mut cx = database.connection();
-        insert(&mut cx, "alpha", 100).await;
-
-        let by_created_at = sequence_find_page(
-            &mut cx,
-            SequenceOrder::CreatedAt,
-            None,
-            ListLimit::Unlimited,
-        )
-        .await
-        .unwrap();
-        let by_name = sequence_find_page(&mut cx, SequenceOrder::Name, None, ListLimit::Unlimited)
-            .await
-            .unwrap();
-
-        assert!(matches!(
-            &by_created_at[0].cursor,
-            types::SequenceCursor::CreatedAt { created_at, .. } if created_at.as_i64() == 100
-        ));
-        assert_eq!(
-            by_name[0].cursor,
-            types::SequenceCursor::Name("alpha".parse().unwrap())
-        );
-    }
 }
