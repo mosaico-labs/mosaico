@@ -34,16 +34,14 @@ class GetSchemaCmd(_message.Message):
     def __init__(self, locator: _Optional[str] = ...) -> None: ...
 
 class ListFlightsCmd(_message.Message):
-    __slots__ = ["cursor", "limit", "locator", "order_by"]
+    __slots__ = ["cursor", "limit", "order_by"]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
-    LOCATOR_FIELD_NUMBER: _ClassVar[int]
     ORDER_BY_FIELD_NUMBER: _ClassVar[int]
     cursor: SequenceCursor
     limit: int
-    locator: str
     order_by: SequenceOrder
-    def __init__(self, locator: _Optional[str] = ..., order_by: _Optional[_Union[SequenceOrder, str]] = ..., limit: _Optional[int] = ..., cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
+    def __init__(self, order_by: _Optional[_Union[SequenceOrder, str]] = ..., limit: _Optional[int] = ..., cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
 
 class SequenceAppMetadata(_message.Message):
     __slots__ = ["created_at_ns", "locator", "sessions", "user_metadata"]

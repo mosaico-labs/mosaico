@@ -36,10 +36,9 @@ enum SequenceOrder {
 
 // `Criteria.expression` payload for the list_flights RPC.
 message ListFlightsCmd {
-  string locator = 1;
-  SequenceOrder order_by = 2;
-  uint32 limit = 3;
-  SequenceCursor cursor = 4;
+  SequenceOrder order_by = 1;
+  uint32 limit = 2;
+  SequenceCursor cursor = 3;
 }
 
 // Sort key of a sequence in a list_flights listing.

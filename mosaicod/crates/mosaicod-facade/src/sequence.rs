@@ -398,7 +398,6 @@ mod tests {
 
         // Every sequence, in creation order.
         let by_created_at = types::flight::ListFlightsCmd {
-            locator: String::new(),
             order: types::SequenceOrder::CreatedAt,
             limit: types::ListLimit::Unlimited,
             cursor: None,

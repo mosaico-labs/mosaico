@@ -15,15 +15,15 @@ from mosaicolabs.proto.v1 import time_pb2 as mosaico_dot_v1_dot_time__pb2
 from mosaicolabs.proto.v1 import core_pb2 as mosaico_dot_v1_dot_core__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17mosaico/v1/flight.proto\x12\x11mosaico.v1.flight\x1a\x15mosaico/v1/time.proto\x1a\x15mosaico/v1/core.proto\"]\n\x10GetFlightInfoCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x38\n\x0ftimestamp_range\x18\x02 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\"\x1f\n\x0cGetSchemaCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\"/\n\x08\x44oPutCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x12\n\ntopic_uuid\x18\x02 \x01(\t\"\x97\x01\n\x0eListFlightsCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x32\n\x08order_by\x18\x02 \x01(\x0e\x32 .mosaico.v1.flight.SequenceOrder\x12\r\n\x05limit\x18\x03 \x01(\r\x12\x31\n\x06\x63ursor\x18\x04 \x01(\x0b\x32!.mosaico.v1.flight.SequenceCursor\"i\n\x0eSequenceCursor\x12@\n\ncreated_at\x18\x01 \x01(\x0b\x32*.mosaico.v1.flight.SequenceCursorCreatedAtH\x00\x12\x0e\n\x04name\x18\x02 \x01(\tH\x00\x42\x05\n\x03key\"E\n\x17SequenceCursorCreatedAt\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x13\n\x0bsequence_id\x18\x02 \x01(\x05\"X\n\x0bTicketTopic\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x38\n\x0ftimestamp_range\x18\x02 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\"P\n\x1bSequenceListItemAppMetadata\x12\x31\n\x06\x63ursor\x18\x01 \x01(\x0b\x32!.mosaico.v1.flight.SequenceCursor\"\x8e\x01\n\x12SessionAppMetadata\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x02 \x01(\x03\x12\x1c\n\x0f\x63ompleted_at_ns\x18\x03 \x01(\x03H\x00\x88\x01\x01\x12\x0e\n\x06topics\x18\x04 \x03(\t\x12\x0e\n\x06locked\x18\x05 \x01(\x08\x42\x12\n\x10_completed_at_ns\"\x8d\x01\n\x13SequenceAppMetadata\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x0f\n\x07locator\x18\x02 \x01(\t\x12\x37\n\x08sessions\x18\x03 \x03(\x0b\x32%.mosaico.v1.flight.SessionAppMetadata\x12\x15\n\ruser_metadata\x18\x04 \x01(\x0c\"b\n\x1aTopicAppMetadataTimeWindow\x12\x31\n\x08interval\x18\x01 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\x12\x11\n\trow_count\x18\x02 \x01(\x04\"\x97\x01\n\x18TopicAppMetadataDataInfo\x12\x31\n\x08interval\x18\x01 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\x12\x17\n\x0ftotal_row_count\x18\x02 \x01(\x04\x12\x13\n\x0btotal_bytes\x18\x03 \x01(\x04\x12\x1a\n\x12total_chunks_count\x18\x04 \x01(\x04\"\x82\x03\n\x10TopicAppMetadata\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x1c\n\x0f\x63ompleted_at_ns\x18\x02 \x01(\x03H\x00\x88\x01\x01\x12\x0e\n\x06locked\x18\x03 \x01(\x08\x12\x0f\n\x07locator\x18\x04 \x01(\t\x12\x14\n\x0contology_tag\x18\x05 \x01(\t\x12\x35\n\x14serialization_format\x18\x06 \x01(\x0e\x32\x17.mosaico.v1.core.Format\x12\x15\n\ruser_metadata\x18\x07 \x01(\x0c\x12>\n\tdata_info\x18\x08 \x01(\x0b\x32+.mosaico.v1.flight.TopicAppMetadataDataInfo\x12G\n\x10time_window_info\x18\t \x01(\x0b\x32-.mosaico.v1.flight.TopicAppMetadataTimeWindow\x12\x17\n\x0fsession_locator\x18\n \x01(\tB\x12\n\x10_completed_at_ns*g\n\rSequenceOrder\x12\x1e\n\x1aSEQUENCE_ORDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19SEQUENCE_ORDER_CREATED_AT\x10\x01\x12\x17\n\x13SEQUENCE_ORDER_NAME\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x17mosaico/v1/flight.proto\x12\x11mosaico.v1.flight\x1a\x15mosaico/v1/time.proto\x1a\x15mosaico/v1/core.proto\"]\n\x10GetFlightInfoCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x38\n\x0ftimestamp_range\x18\x02 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\"\x1f\n\x0cGetSchemaCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\"/\n\x08\x44oPutCmd\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x12\n\ntopic_uuid\x18\x02 \x01(\t\"\x86\x01\n\x0eListFlightsCmd\x12\x32\n\x08order_by\x18\x01 \x01(\x0e\x32 .mosaico.v1.flight.SequenceOrder\x12\r\n\x05limit\x18\x02 \x01(\r\x12\x31\n\x06\x63ursor\x18\x03 \x01(\x0b\x32!.mosaico.v1.flight.SequenceCursor\"i\n\x0eSequenceCursor\x12@\n\ncreated_at\x18\x01 \x01(\x0b\x32*.mosaico.v1.flight.SequenceCursorCreatedAtH\x00\x12\x0e\n\x04name\x18\x02 \x01(\tH\x00\x42\x05\n\x03key\"E\n\x17SequenceCursorCreatedAt\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x13\n\x0bsequence_id\x18\x02 \x01(\x05\"X\n\x0bTicketTopic\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x38\n\x0ftimestamp_range\x18\x02 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\"P\n\x1bSequenceListItemAppMetadata\x12\x31\n\x06\x63ursor\x18\x01 \x01(\x0b\x32!.mosaico.v1.flight.SequenceCursor\"\x8e\x01\n\x12SessionAppMetadata\x12\x0f\n\x07locator\x18\x01 \x01(\t\x12\x15\n\rcreated_at_ns\x18\x02 \x01(\x03\x12\x1c\n\x0f\x63ompleted_at_ns\x18\x03 \x01(\x03H\x00\x88\x01\x01\x12\x0e\n\x06topics\x18\x04 \x03(\t\x12\x0e\n\x06locked\x18\x05 \x01(\x08\x42\x12\n\x10_completed_at_ns\"\x8d\x01\n\x13SequenceAppMetadata\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x0f\n\x07locator\x18\x02 \x01(\t\x12\x37\n\x08sessions\x18\x03 \x03(\x0b\x32%.mosaico.v1.flight.SessionAppMetadata\x12\x15\n\ruser_metadata\x18\x04 \x01(\x0c\"b\n\x1aTopicAppMetadataTimeWindow\x12\x31\n\x08interval\x18\x01 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\x12\x11\n\trow_count\x18\x02 \x01(\x04\"\x97\x01\n\x18TopicAppMetadataDataInfo\x12\x31\n\x08interval\x18\x01 \x01(\x0b\x32\x1f.mosaico.v1.time.TimestampRange\x12\x17\n\x0ftotal_row_count\x18\x02 \x01(\x04\x12\x13\n\x0btotal_bytes\x18\x03 \x01(\x04\x12\x1a\n\x12total_chunks_count\x18\x04 \x01(\x04\"\x82\x03\n\x10TopicAppMetadata\x12\x15\n\rcreated_at_ns\x18\x01 \x01(\x03\x12\x1c\n\x0f\x63ompleted_at_ns\x18\x02 \x01(\x03H\x00\x88\x01\x01\x12\x0e\n\x06locked\x18\x03 \x01(\x08\x12\x0f\n\x07locator\x18\x04 \x01(\t\x12\x14\n\x0contology_tag\x18\x05 \x01(\t\x12\x35\n\x14serialization_format\x18\x06 \x01(\x0e\x32\x17.mosaico.v1.core.Format\x12\x15\n\ruser_metadata\x18\x07 \x01(\x0c\x12>\n\tdata_info\x18\x08 \x01(\x0b\x32+.mosaico.v1.flight.TopicAppMetadataDataInfo\x12G\n\x10time_window_info\x18\t \x01(\x0b\x32-.mosaico.v1.flight.TopicAppMetadataTimeWindow\x12\x17\n\x0fsession_locator\x18\n \x01(\tB\x12\n\x10_completed_at_ns*g\n\rSequenceOrder\x12\x1e\n\x1aSEQUENCE_ORDER_UNSPECIFIED\x10\x00\x12\x1d\n\x19SEQUENCE_ORDER_CREATED_AT\x10\x01\x12\x17\n\x13SEQUENCE_ORDER_NAME\x10\x02\x62\x06proto3')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'mosaico.v1.flight_pb2', globals())
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  _SEQUENCEORDER._serialized_start=1705
-  _SEQUENCEORDER._serialized_end=1808
+  _SEQUENCEORDER._serialized_start=1688
+  _SEQUENCEORDER._serialized_end=1791
   _GETFLIGHTINFOCMD._serialized_start=92
   _GETFLIGHTINFOCMD._serialized_end=185
   _GETSCHEMACMD._serialized_start=187
@@ -31,23 +31,23 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DOPUTCMD._serialized_start=220
   _DOPUTCMD._serialized_end=267
   _LISTFLIGHTSCMD._serialized_start=270
-  _LISTFLIGHTSCMD._serialized_end=421
-  _SEQUENCECURSOR._serialized_start=423
-  _SEQUENCECURSOR._serialized_end=528
-  _SEQUENCECURSORCREATEDAT._serialized_start=530
-  _SEQUENCECURSORCREATEDAT._serialized_end=599
-  _TICKETTOPIC._serialized_start=601
-  _TICKETTOPIC._serialized_end=689
-  _SEQUENCELISTITEMAPPMETADATA._serialized_start=691
-  _SEQUENCELISTITEMAPPMETADATA._serialized_end=771
-  _SESSIONAPPMETADATA._serialized_start=774
-  _SESSIONAPPMETADATA._serialized_end=916
-  _SEQUENCEAPPMETADATA._serialized_start=919
-  _SEQUENCEAPPMETADATA._serialized_end=1060
-  _TOPICAPPMETADATATIMEWINDOW._serialized_start=1062
-  _TOPICAPPMETADATATIMEWINDOW._serialized_end=1160
-  _TOPICAPPMETADATADATAINFO._serialized_start=1163
-  _TOPICAPPMETADATADATAINFO._serialized_end=1314
-  _TOPICAPPMETADATA._serialized_start=1317
-  _TOPICAPPMETADATA._serialized_end=1703
+  _LISTFLIGHTSCMD._serialized_end=404
+  _SEQUENCECURSOR._serialized_start=406
+  _SEQUENCECURSOR._serialized_end=511
+  _SEQUENCECURSORCREATEDAT._serialized_start=513
+  _SEQUENCECURSORCREATEDAT._serialized_end=582
+  _TICKETTOPIC._serialized_start=584
+  _TICKETTOPIC._serialized_end=672
+  _SEQUENCELISTITEMAPPMETADATA._serialized_start=674
+  _SEQUENCELISTITEMAPPMETADATA._serialized_end=754
+  _SESSIONAPPMETADATA._serialized_start=757
+  _SESSIONAPPMETADATA._serialized_end=899
+  _SEQUENCEAPPMETADATA._serialized_start=902
+  _SEQUENCEAPPMETADATA._serialized_end=1043
+  _TOPICAPPMETADATATIMEWINDOW._serialized_start=1045
+  _TOPICAPPMETADATATIMEWINDOW._serialized_end=1143
+  _TOPICAPPMETADATADATAINFO._serialized_start=1146
+  _TOPICAPPMETADATADATAINFO._serialized_end=1297
+  _TOPICAPPMETADATA._serialized_start=1300
+  _TOPICAPPMETADATA._serialized_end=1686
 # @@protoc_insertion_point(module_scope)

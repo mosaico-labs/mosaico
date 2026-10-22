@@ -19,7 +19,6 @@ fn cmd(
         order_by: order_by as i32,
         limit,
         cursor,
-        ..Default::default()
     }
     .encode_to_vec()
 }
@@ -54,7 +53,7 @@ async fn create_sequences(client: &mut common::Client, count: usize) -> Vec<Stri
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_list_flights_root(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_list_flights_all(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -62,21 +61,16 @@ async fn test_list_flights_root(pool: sqlx::Pool<db::DatabaseType>) {
 
     let created = create_sequences(&mut client, 5).await;
 
-    for locator in ["", "/"] {
-        let expression = proto_flight::ListFlightsCmd {
-            locator: locator.to_owned(),
-            order_by: proto_flight::SequenceOrder::CreatedAt as i32,
-            ..Default::default()
-        }
-        .encode_to_vec();
-        let infos = actions::list_flights(&mut client, expression)
-            .await
-            .unwrap();
+    let infos = actions::list_flights(
+        &mut client,
+        cmd(proto_flight::SequenceOrder::CreatedAt, 0, None),
+    )
+    .await
+    .unwrap();
 
-        assert_eq!(names(&infos), created, "locator {locator:?}");
-        for info in &infos {
-            cursor(info);
-        }
+    assert_eq!(names(&infos), created);
+    for info in &infos {
+        cursor(info);
     }
 
     server.shutdown().await;
@@ -142,15 +136,6 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
         ),
         ("raw slash", b"/".to_vec()),
         ("undecodable bytes", b"my_sequence".to_vec()),
-        (
-            "non-root locator",
-            proto_flight::ListFlightsCmd {
-                locator: "my_sequence".to_owned(),
-                order_by: proto_flight::SequenceOrder::CreatedAt as i32,
-                ..Default::default()
-            }
-            .encode_to_vec(),
-        ),
         (
             "unknown order_by",
             proto_flight::ListFlightsCmd {
