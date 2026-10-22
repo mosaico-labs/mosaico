@@ -33,6 +33,14 @@ def test_criteria_rejects_negative_limit():
         _list_flights_criteria(-1, None, SequenceOrder.CreatedAt)
 
 
+def test_criteria_sends_zero_limit():
+    """`limit=0` must reach the server, otherwise it returns a single page."""
+    cmd = flight_pb2.ListFlightsCmd.FromString(_list_flights_criteria(0, None, None))
+
+    assert cmd.HasField("limit")
+    assert cmd.limit == 0
+
+
 def test_full_page_has_next_cursor():
     page = _page_from_flight_infos([_flight_info("a"), _flight_info("b")], limit=2)
 
