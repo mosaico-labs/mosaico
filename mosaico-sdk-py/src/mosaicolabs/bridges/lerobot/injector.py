@@ -80,10 +80,11 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             Supports shell-style glob patterns (e.g., ["observation.images.\\*"]).
             Patterns starting with "!" are treated as exclusions (e.g., ["\\!observation.images.\\*"]).
             Patterns are evaluated in ORDER (gitignore-like semantics). If None, all columns are loaded.
-        metadata (dict): User-defined metadata to attach to every sequence (e.g., operator, location).
+        metadata (dict): User-defined metadata to attach to every sequence (e.g., operator, location),
+            alongside the `_lerobot_` metadata computed by the bridge (see `LeRobotSchemaMetadata`).
         topic_metadata (Optional[Dict[str, dict]]): Mapping of exact Mosaico topic name (e.g.
-            `/timeseries`, `/observation/images/front`) to metadata to attach to that topic,
-            alongside the `_lerobot_` metadata computed by the bridge. Default: None
+            `/timeseries`, `/observation/images/front`) to metadata to attach to that topic.
+            Default: None
         update_if_exists (bool): Not used by the LeRobot bridge: ignored. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
@@ -216,6 +217,23 @@ class LeRobotInjector:
 
         return self._loader
 
+    def _report_failed_episodes(self, failed_episodes: List[int]):
+        """
+        Logs a summary of the episodes that failed to be uploaded, once every episode is
+        processed. Each failed episode has already been logged with its error and sequence name.
+
+        Args:
+            failed_episodes (List[int]): The indexes of the failed episodes.
+        """
+        if not failed_episodes:
+            return
+
+        logger.error(
+            f"{len(failed_episodes)} episode(s) failed to be ingested, with the "
+            f"'{self._cfg.on_error.value}' error policy (see the errors above): "
+            f"episodes {failed_episodes}"
+        )
+
     def _dry_run_report(self):
         """
         Resolves the dataset columns against the current configuration and prints a report of
@@ -315,9 +333,25 @@ class LeRobotInjector:
         """
         sequence_name = episode_loader.msco_seq_name(self._cfg.sequence_name or None)
 
+        # --- Schema metadata Resolution ---
+        lerobot_meta = LeRobotSchemaMetadata(
+            info=episode_loader._reader._meta.info,
+            stats=episode_loader._reader._meta.stats or {},
+            episode=episode_loader.episode_metadata.to_dict(),
+        )
+
+        # Record which dataset introduced this sequence, inside the reserved `_lerobot_` namespace
+        lerobot_meta.update(source_file=self._cfg.file_path.name)
+
+        # Start from the user-supplied per-topic metadata, then layer the bridge-computed
+        # `_lerobot_` block on top: `_lerobot_` is reserved and always wins on conflict, every
+        # other key is fully user-owned.
+        sequence_metadata = self._cfg.metadata
+        sequence_metadata.update(lerobot_meta.to_dict())
+
         seq_writer = mclient.sequence_create(
             sequence_name=sequence_name,
-            metadata=self._cfg.metadata,
+            metadata=sequence_metadata,
             on_error=self._cfg.on_error,
         )
 
@@ -361,23 +395,6 @@ class LeRobotInjector:
         ui.finish_episode(succeeded=successful_ingestion)
         return successful_ingestion
 
-    def _report_failed_episodes(self, failed_episodes: List[int]):
-        """
-        Logs a summary of the episodes that failed to be uploaded, once every episode is
-        processed. Each failed episode has already been logged with its error and sequence name.
-
-        Args:
-            failed_episodes (List[int]): The indexes of the failed episodes.
-        """
-        if not failed_episodes:
-            return
-
-        logger.error(
-            f"{len(failed_episodes)} episode(s) failed to be ingested, with the "
-            f"'{self._cfg.on_error.value}' error policy (see the errors above): "
-            f"episodes {failed_episodes}"
-        )
-
     def _upload_batch(
         self,
         lerobot_msg: LeRobotMessage,
@@ -402,27 +419,15 @@ class LeRobotInjector:
         # The topic is created on its first batch
         if twriter is None:
             # --- Schema metadata Resolution ---
-            lerobot_meta = LeRobotSchemaMetadata.from_dict({})
 
-            # Record which dataset introduced this topic, inside the reserved `_lerobot_`
-            # namespace. This lets the source of each topic remain traceable even after
-            # later updates to the same sequence (e.g. multi-part recordings or merged
-            # reprocessing results), since sequence metadata cannot be changed once the
-            # sequence has been ingested.
-            lerobot_meta.update(source_file=self._cfg.file_path.name)
-
-            # Start from the user-supplied per-topic metadata, then layer the bridge-computed
-            # `_lerobot_` block on top: `_lerobot_` is reserved and always wins on conflict, every
-            # other key is fully user-owned.
-            metadata = dict(
-                (self._cfg.topic_metadata or {}).get(lerobot_msg.msco_topic_name, {})
+            t_metadata = (self._cfg.topic_metadata or {}).get(
+                lerobot_msg.msco_topic_name, {}
             )
-            metadata.update(lerobot_meta.to_dict())
 
             # Register new topic on server
             twriter = session_writer.topic_create(
                 topic_name=lerobot_msg.msco_topic_name,
-                metadata=metadata,
+                metadata=t_metadata,
                 ontology_type=lerobot_msg.msco_ontology,
                 on_error=self._get_topic_on_error(lerobot_msg.msco_topic_name),
             )

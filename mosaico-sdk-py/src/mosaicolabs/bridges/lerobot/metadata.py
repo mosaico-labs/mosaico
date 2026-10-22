@@ -9,7 +9,7 @@ This module reads the `meta/` folder of a LeRobot v3.0 dataset and exposes it as
   and the episodes).
 
 It also defines `LeRobotSchemaMetadata`, the reserved `_lerobot_` metadata namespace attached to the
-sequences and topics created by the LeRobot bridge. LeRobot metadata is keyed by feature names such as
+sequences created by the LeRobot bridge. LeRobot metadata is keyed by feature names such as
 `observation.state`, while the Mosaico server rejects metadata keys containing `.`: the namespace
 therefore nests dotted keys (`observation.state` -> `observation` / `state`) and drops non-finite floats
 (rejected by the server JSON parser), so that its content is always accepted by the server.
@@ -106,10 +106,10 @@ class LeRobotSchemaMetadata(BaseSchemaMetadata):
     """
     Encapsulates Mosaico's reserved ``_lerobot_`` metadata namespace in a single place.
 
-    It is meant to hold, on the sequences created by the LeRobot bridge, the dataset `meta/*.json`
-    files and the episode information, and on their topics the description of the LeRobot
-    features they store. Today, the bridge only sets the source dataset (`source_file`) on the
-    topics.
+    It holds, on each sequence created by the LeRobot bridge (one per episode), the content of
+    `meta/info.json` (`info`) and `meta/stats.json` (`stats`), the `meta/episodes` row of the
+    episode (`episode`) and the name of the dataset folder (`source_file`). The topics carry no
+    `_lerobot_` metadata.
 
     Every field set on this namespace is made server-compatible on the fly: keys containing
     `.` (e.g. the feature name `observation.state`) are nested, non-finite floats are replaced

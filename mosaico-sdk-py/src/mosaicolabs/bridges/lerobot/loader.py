@@ -16,7 +16,7 @@ from ..helpers import (
 from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
 from .lerobot_message import LeRobotMessage
-from .metadata import LeRobotDatasetMeta
+from .metadata import LeRobotDatasetMeta, LeRobotEpisode
 from .reader import LeRobotReader
 
 # Set the hierarchical logger
@@ -266,6 +266,9 @@ class LeRobotEpisodeLoader:
         """
         self._reader = reader
         self._episode_index = episode_index
+        self.episode_metadata: LeRobotEpisode = self._reader._meta.episodes_map[
+            self._episode_index
+        ]
 
     @property
     def episode_index(self) -> int:
@@ -275,7 +278,7 @@ class LeRobotEpisodeLoader:
     @property
     def n_rows(self) -> int:
         """The number of rows (frames) of the episode: its `length` in `meta/episodes`."""
-        return self._reader.get_episode_rows(self._episode_index)
+        return self.episode_metadata.length
 
     def msco_seq_name(self, prefix: Optional[str] = None) -> str:
         """

@@ -421,20 +421,6 @@ class LeRobotReader:
             return self.timeseries_msco_topic_name
         return None
 
-    def get_episode_rows(self, episode_number: int) -> int:
-        """
-        Returns the number of rows (frames) of an episode: its `length` in `meta/episodes`.
-
-        Args:
-            episode_number (int): The episode index.
-
-        Returns:
-            int: The number of rows, or 0 if the episode is not defined in `meta/episodes`.
-        """
-        episode = self._meta.episodes_map.get(episode_number)
-
-        return episode.length if episode else 0
-
     def iter_timeseries_batches(self, episode_index: int) -> Iterator[LeRobotMessage]:
         """
         Reads the timeseries of an episode, as the messages pushed to the timeseries topic.
