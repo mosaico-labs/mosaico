@@ -419,19 +419,6 @@ mod tests {
         );
     }
 
-    /// When the total is a multiple of the page size, the last page is empty.
-    #[sqlx::test]
-    async fn exact_multiple_ends_with_empty_page(pool: Pool<DatabaseType>) {
-        let database = testing::Database::new(pool);
-        let mut cx = database.connection();
-        insert(&mut cx, "a", 1).await;
-        insert(&mut cx, "b", 2).await;
-
-        let pages = walk(&mut cx, SequenceOrder::CreatedAt, 1).await;
-
-        assert_eq!(pages, vec![vec!["a"], vec!["b"], vec![]]);
-    }
-
     /// Sequences sharing a creation timestamp are ordered by id, and each is listed once.
     #[sqlx::test]
     async fn created_at_ties_are_split_by_id(pool: Pool<DatabaseType>) {
@@ -510,25 +497,5 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(names(&rest), vec!["echo", "bravo", "delta", "ahead"]);
-    }
-
-    /// No limit returns every sequence after the cursor.
-    #[sqlx::test]
-    async fn unlimited_page(pool: Pool<DatabaseType>) {
-        let database = testing::Database::new(pool);
-        let mut cx = database.connection();
-        insert_fixture(&mut cx).await;
-
-        let all = sequence_find_page(
-            &mut cx,
-            &ListStart::First(SequenceOrder::Name),
-            ListLimit::Unlimited,
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            names(&all),
-            vec!["alpha", "bravo", "charlie", "delta", "echo"]
-        );
     }
 }

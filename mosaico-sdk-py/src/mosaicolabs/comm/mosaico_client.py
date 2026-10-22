@@ -782,7 +782,7 @@ class MosaicoClient:
 
         Args:
             limit (int): Maximum number of sequences in the page. `0` returns every
-                sequence after the cursor.
+                remaining sequence.
             cursor (bytes | None): The `next_cursor` of the previous page, or `None`
                 for the first page.
             order_by (SequenceOrder | None): The sort order of the first page, always
