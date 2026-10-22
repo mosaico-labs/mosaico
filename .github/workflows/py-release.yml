@@ -2,7 +2,8 @@ name: Python SDK Release
 
 # Builds the Python SDK wheel of a py/vX.Y.Z tag and attaches it to the GitHub
 # release of that tag. The Release workflow dispatches it on the tag once the
-# release is created; it also runs when a py/v* tag is pushed by hand.
+# release is created; it also runs when a py/v* tag is pushed by hand, and
+# then creates the release.
 
 on:
   push:
@@ -16,6 +17,7 @@ permissions:
 jobs:
   wheel:
     name: Build and attach wheel
+    if: startsWith(github.ref, 'refs/tags/py/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -25,27 +27,13 @@ jobs:
         with:
           version: "0.13.1"
 
-      - name: Build and attach wheel
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
+      - name: Build wheel
+        run: uv build --wheel --out-dir dist mosaico-sdk-py
 
-          fail() { echo "::error::$1"; exit 1; }
-
-          # 1. Run only on a py/vX.Y.Z tag whose version matches the SDK.
-          [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" == py/v* ]] \
-            || fail "Run this workflow on a py/vX.Y.Z tag, not '$GITHUB_REF_NAME'."
-          VERSION="${GITHUB_REF_NAME#py/v}"
-          [[ "$(./scripts/workflows/version.sh get --py)" == "$VERSION" ]] \
-            || fail "The Python SDK at $GITHUB_REF_NAME is not on $VERSION."
-
-          # 2. Build the wheel.
-          uv build --wheel --out-dir dist mosaico-sdk-py
-
-          # 3. Attach it to the release of the tag. The release is created by
-          #    the Release workflow; for a tag pushed by hand, create it here.
-          if ! gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Python SDK v$VERSION" --notes "" --latest=false
-          fi
-          gh release upload "$GITHUB_REF_NAME" dist/*.whl --clobber
+      # Keeps the text of an existing release
+      - name: Attach wheel to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
+          fail_on_unmatched_files: true
+          make_latest: false

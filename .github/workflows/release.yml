@@ -28,10 +28,22 @@ concurrency:
 jobs:
   release:
     name: "Release ${{ inputs.component }}"
+    # Only from a release/vX.Y branch.
+    if: startsWith(github.ref, 'refs/heads/release/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
       actions: write
+    env:
+      FLAG: ${{ inputs.component == 'mosaicod' && '--mosaicod' || '--py' }}
+      TAG_PREFIX: ${{ inputs.component == 'mosaicod' && 'v' || 'py/v' }}
+      NAME: ${{ inputs.component == 'mosaicod' && 'mosaicod' || 'Python SDK' }}
+      # GITHUB_TOKEN is used by changelog.sh to read the authors, GH_TOKEN by gh.
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v6
         with:
@@ -51,125 +63,68 @@ jobs:
         with:
           tool: git-cliff@2.14.2
 
-      - name: Release
-        id: release
-        env:
-          COMPONENT: ${{ inputs.component }}
-          # Used by scripts/workflows/changelog.sh to read the authors and by gh to create the release.
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_TOKEN: ${{ github.token }}
+      # Example: on release/v0.8 mosaicod is on 0.8.1-rc. It is released as
+      # 0.8.1 with the tag v0.8.1, and the branch moves to 0.8.2-rc.
+      - name: Compute versions
         run: |
-          set -euo pipefail
-
-          fail() { echo "::error::$1"; exit 1; }
-
-          # Example: mosaicod is on 0.8.1-rc on release/v0.8.
-
-          # 1. The workflow must run on a release/vX.Y branch: release/v0.8
-          #    means the component must be on a 0.8.Z-rc version.
-          [[ "$GITHUB_REF_TYPE" == branch && "$(./scripts/workflows/version.sh branch --kind "$GITHUB_REF_NAME" 2> /dev/null)" == release ]] \
-            || fail "Run this workflow on a release/vX.Y branch, not '$GITHUB_REF_NAME'."
-          MAJOR=$(./scripts/workflows/version.sh branch --major "$GITHUB_REF_NAME")
-          MINOR=$(./scripts/workflows/version.sh branch --minor "$GITHUB_REF_NAME")
-
-          # 2. Pick the component to release and its tag prefix:
-          #    mosaicod is tagged v0.8.1, the Python SDK py/v0.8.1.
-          case "$COMPONENT" in
-            mosaicod) FLAG=--mosaicod; TAG_PREFIX=v; NAME=mosaicod ;;
-            python) FLAG=--py; TAG_PREFIX=py/v; NAME="Python SDK" ;;
-            *) fail "Unknown component '$COMPONENT'." ;;
-          esac
-
-          # 3. Read the current version of the component (0.8.1-rc) and derive
-          #    the stable version (0.8.1), the next release candidate (0.8.2-rc)
-          #    and the tag (v0.8.1).
+          X_Y="${GITHUB_REF_NAME#release/v}"
           CURRENT=$(./scripts/workflows/version.sh get "$FLAG")
-          [[ "$CURRENT" =~ ^${MAJOR}\.${MINOR}\.([0-9]+)-rc$ ]] \
-            || fail "$NAME version '$CURRENT' is not a ${MAJOR}.${MINOR}.Z-rc version."
-          PATCH="${BASH_REMATCH[1]}"
-          STABLE="${MAJOR}.${MINOR}.${PATCH}"
-          NEXT_RC="${MAJOR}.${MINOR}.$((PATCH + 1))-rc"
-          TAG="${TAG_PREFIX}${STABLE}"
-
-          # 4. Never overwrite a release: the tag must not exist yet.
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
-            fail "Tag $TAG already exists."
+          if [[ "$CURRENT" != "$X_Y".*-rc ]]; then
+            echo "::error::$NAME is on $CURRENT, not on a $X_Y.Z-rc version."
+            exit 1
           fi
+          STABLE="${CURRENT%-rc}"
+          {
+            echo "STABLE=$STABLE"
+            echo "NEXT=$X_Y.$(( ${STABLE##*.} + 1 ))-rc"
+            echo "TAG=${TAG_PREFIX}${STABLE}"
+          } >> "$GITHUB_ENV"
 
-          # 5. Generate the release notes: the changelog of the component since
-          #    its previous release, without the "## [0.8.1] - <date>" title
-          #    (the GitHub release has its own). It runs before any commit, so
-          #    HEAD is already on GitHub and the authors can be fetched.
-          NOTES="$RUNNER_TEMP/release-notes.md"
-          ./scripts/workflows/changelog.sh "$FLAG" | sed '1d' | sed '/./,$!d' > "$NOTES"
+      # The changelog of the component since its previous release, without its
+      # "## [0.8.1] - <date>" title. It runs before any commit, so HEAD is on
+      # GitHub and the authors can be read from its API.
+      - name: Generate release notes
+        run: ./scripts/workflows/changelog.sh "$FLAG" | sed '1d' | sed '/./,$!d' > "$RUNNER_TEMP/notes.md"
 
+      # The release commit (0.8.1, tagged) and the next release candidate
+      # (0.8.2-rc) are pushed together: if the tag already exists or the branch
+      # moved in the meantime, the push is rejected and nothing is released.
+      - name: Commit, tag and push
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          # 6. Release commit: set the component to 0.8.1, refresh its lock
-          #    file and tag the commit. Only this component is touched.
           ./scripts/workflows/version.sh set "$FLAG" "$STABLE"
           git commit --quiet -am "chore: release $NAME v$STABLE"
           git tag -a "$TAG" -m "$NAME v$STABLE"
-
-          # 7. Open the next release candidate on the branch: 0.8.2-rc.
-          ./scripts/workflows/version.sh set "$FLAG" "$NEXT_RC"
-          git commit --quiet -am "chore: bump $NAME to $NEXT_RC"
-
-          # 8. Push the branch and the tag together. Atomic: either both land or
-          #    neither does. If someone pushed to the branch in the meantime,
-          #    the push is rejected and nothing is released.
+          ./scripts/workflows/version.sh set "$FLAG" "$NEXT"
+          git commit --quiet -am "chore: bump $NAME to $NEXT"
           git push --atomic origin "HEAD:$GITHUB_REF" "refs/tags/$TAG"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-          # 9. Create the GitHub release of the tag with the notes as its text.
-          #    Only mosaicod can be marked as the latest release, and only if
-          #    it is the highest mosaicod version: a patch of an older branch
-          #    or an SDK release never replaces it.
-          LATEST=false
-          if [[ "$COMPONENT" == mosaicod && "$(git tag -l 'v[0-9]*' | sort -V | tail -n 1)" == "$TAG" ]]; then
-            LATEST=true
-          fi
-          gh release create "$TAG" --verify-tag --title "$NAME v$STABLE" --notes-file "$NOTES" --latest="$LATEST"
-
-          {
-            echo "### $NAME v$STABLE released"
-            echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Tag | \`$TAG\` |"
-            echo "| Next version on \`$GITHUB_REF_NAME\` | \`$NEXT_RC\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Dispatch mosaicod workflows
-        if: inputs.component == 'mosaicod'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
+      # Only the highest mosaicod version is the latest release: a patch of an
+      # older branch or an SDK release never replaces it.
+      - name: Check latest release
+        id: latest
         run: |
-          set -euo pipefail
-          # 10. The push above used GITHUB_TOKEN, so it triggered nothing: start
-          #     the builds explicitly. The binaries and the container image are
-          #     built from the tag, the release candidate image from the branch.
-          #     The binaries are attached to the release created above, whose
-          #     text is kept.
+          HIGHEST=$(git tag -l 'v[0-9]*' | sort -V | tail -n 1)
+          echo "latest=$([[ "$TAG" == "$HIGHEST" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: ${{ env.NAME }} v${{ env.STABLE }}
+          body_path: ${{ runner.temp }}/notes.md
+          make_latest: ${{ steps.latest.outputs.latest }}
+
+      # The push used GITHUB_TOKEN, so it triggered nothing: start the builds
+      # explicitly. They attach their artifacts to the release created above.
+      - name: Dispatch mosaicod builds
+        if: inputs.component == 'mosaicod'
+        run: |
           gh workflow run mosaicod-release-docker.yml --ref "$TAG"
           gh workflow run mosaicod-release-precompiled.yml --ref "$TAG"
           gh workflow run mosaicod-rc-docker.yml --ref "$GITHUB_REF_NAME"
-          {
-            echo "| Dispatched on \`$TAG\` | \`mosaicod-release-docker.yml\`, \`mosaicod-release-precompiled.yml\` |"
-            echo "| Dispatched on \`$GITHUB_REF_NAME\` | \`mosaicod-rc-docker.yml\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Dispatch Python SDK workflows
+      - name: Dispatch Python SDK build
         if: inputs.component == 'python'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          # 10. The push above used GITHUB_TOKEN, so it triggered nothing: start
-          #     the wheel build explicitly on the tag. The wheel is attached to
-          #     the release created above.
-          gh workflow run py-release.yml --ref "$TAG"
-          echo "| Dispatched on \`$TAG\` | \`py-release.yml\` |" >> "$GITHUB_STEP_SUMMARY"
+        run: gh workflow run py-release.yml --ref "$TAG"

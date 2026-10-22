@@ -24,6 +24,8 @@ jobs:
       startsWith(github.head_ref, 'release-cut/v') ||
       contains(github.event.pull_request.title, 'cut release')
     runs-on: ubuntu-latest
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -39,40 +41,34 @@ jobs:
         with:
           version: "0.13.1"
 
-      - name: Validate release cut
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      # release-cut/v0.8 means main goes from 0.8.0-dev to 0.9.0-dev.
+      - name: Read the release from the branch name
         run: |
-          set -euo pipefail
+          [[ "$(./scripts/workflows/version.sh branch "$GITHUB_HEAD_REF")" == release-cut ]] || exit 1
+          MAJOR=$(./scripts/workflows/version.sh branch --major "$GITHUB_HEAD_REF")
+          MINOR=$(./scripts/workflows/version.sh branch --minor "$GITHUB_HEAD_REF")
+          {
+            echo "OLD=$MAJOR.$MINOR.0-dev"
+            echo "NEW=$MAJOR.$((MINOR + 1)).0-dev"
+            echo "MERGE_BASE=$(git merge-base "$BASE_SHA" HEAD)"
+          } >> "$GITHUB_ENV"
 
-          fail() { echo "::error::$1"; exit 1; }
+      - name: Check that main is still on the released version
+        run: |
+          ./scripts/workflows/version.sh get "$MERGE_BASE"
+          [[ "$(./scripts/workflows/version.sh get --mosaicod "$MERGE_BASE")" == "$OLD" ]] || exit 1
+          [[ "$(./scripts/workflows/version.sh get --py "$MERGE_BASE")" == "$OLD" ]] || exit 1
 
-          # 1. The branch name tells which release is cut: release-cut/v0.8
-          #    means main goes from 0.8.0-dev to 0.9.0-dev.
-          [[ "$(./scripts/workflows/version.sh branch --kind "$HEAD_REF" 2> /dev/null)" == release-cut ]] \
-            || fail "Branch '$HEAD_REF' is not release-cut/vX.Y."
-          MAJOR=$(./scripts/workflows/version.sh branch --major "$HEAD_REF")
-          MINOR=$(./scripts/workflows/version.sh branch --minor "$HEAD_REF")
-          OLD="${MAJOR}.${MINOR}.0-dev"
-          NEW="${MAJOR}.$((MINOR + 1)).0-dev"
+      # After the merge, release-cut.yml cuts release/vX.Y from the commit right
+      # before it, which is main before the bump only if the PR holds a single
+      # commit, whatever the merge strategy.
+      - name: Check that the PR holds a single commit
+        run: '[[ "$(git rev-list --count "$MERGE_BASE..HEAD")" == 1 ]] || exit 1'
 
-          # 2. main must still be on the version being released.
-          MERGE_BASE=$(git merge-base "$BASE_SHA" HEAD)
-          for component in --mosaicod --py; do
-            [[ "$(./scripts/workflows/version.sh get "$component" "$MERGE_BASE")" == "$OLD" ]] || fail "main is not on $OLD ($component)."
-          done
+      - name: Check that only the version and lock files changed
+        run: |
+          git diff --name-only "$MERGE_BASE" HEAD
+          [[ "$(git diff --name-only "$MERGE_BASE" HEAD | LC_ALL=C sort | tr '\n' ' ')" == "mosaico-sdk-py/pyproject.toml mosaico-sdk-py/uv.lock mosaicod/Cargo.lock mosaicod/Cargo.toml " ]] || exit 1
 
-          # 3. The PR must hold a single commit: after the merge, release-cut.yml
-          #    cuts release/vX.Y from the commit right before it, which is
-          #    main before the bump with any merge strategy only in this case.
-          COMMITS=$(git rev-list --count "$MERGE_BASE..HEAD")
-          [[ "$COMMITS" == 1 ]] || fail "The PR must hold a single commit, found $COMMITS. Squash them or recreate the PR with scripts/release-cut."
-
-          # 4. Only the version and lock files can change.
-          CHANGED=$(git diff --name-only "$MERGE_BASE" HEAD | LC_ALL=C sort | tr '\n' ' ')
-          [[ "$CHANGED" == "mosaico-sdk-py/pyproject.toml mosaico-sdk-py/uv.lock mosaicod/Cargo.lock mosaicod/Cargo.toml " ]] \
-            || fail "The PR must only change the version and lock files, found: $CHANGED"
-
-          # 5. The files must be on the new version, with lock files in sync.
-          ./scripts/workflows/version.sh check "$NEW" || fail "Version or lock files are not on $NEW."
+      - name: Check that the version and lock files are on the new version
+        run: ./scripts/workflows/version.sh check "$NEW"
