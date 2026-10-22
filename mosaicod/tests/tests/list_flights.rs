@@ -16,7 +16,7 @@ fn cmd(
     cursor: Option<proto_flight::SequenceCursor>,
 ) -> Vec<u8> {
     proto_flight::ListFlightsCmd {
-        order_by: order_by as i32,
+        order_by: Some(order_by as i32),
         limit,
         cursor,
         ..Default::default()
@@ -156,7 +156,7 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
         (
             "unknown order_by",
             proto_flight::ListFlightsCmd {
-                order_by: 7,
+                order_by: Some(7),
                 ..Default::default()
             }
             .encode_to_vec(),

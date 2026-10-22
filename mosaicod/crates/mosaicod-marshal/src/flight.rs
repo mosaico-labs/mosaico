@@ -64,9 +64,17 @@ pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error
     let cmd: proto_flight::ListFlightsCmd = proto_flight::ListFlightsCmd::decode(v)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
-    let order = sequence_order_from_proto(cmd.order_by)?;
     let limit = cmd.limit.map(types::ListLimit::from).unwrap_or_default();
     let cursor = cmd.cursor.map(sequence_cursor_from_proto).transpose()?;
+
+    // An absent order follows the cursor, or is the default on the first page.
+    let order = match cmd.order_by {
+        Some(value) => sequence_order_from_proto(value)?,
+        None => cursor
+            .as_ref()
+            .map(types::SequenceCursor::order)
+            .unwrap_or_default(),
+    };
 
     Ok(types::flight::ListFlightsCmd {
         locator: cmd.locator,
@@ -496,13 +504,36 @@ mod tests {
     }
 
     #[test]
+    fn list_flights_cmd_order() {
+        use super::{proto_flight::SequenceOrder as Proto, types::SequenceOrder as Order};
+
+        let by_name = Some(name_cursor("a"));
+        let cases = [
+            (None, None, Order::CreatedAt),
+            (None, by_name.clone(), Order::Name),
+            (Some(Proto::Unspecified), by_name.clone(), Order::CreatedAt),
+            (Some(Proto::CreatedAt), by_name, Order::CreatedAt),
+        ];
+
+        for (order_by, cursor, expected) in cases {
+            let cmd = decode(super::proto_flight::ListFlightsCmd {
+                order_by: order_by.map(|o| o as i32),
+                cursor: cursor.clone(),
+                ..Default::default()
+            });
+
+            assert_eq!(cmd.unwrap().order, expected, "{order_by:?}, {cursor:?}");
+        }
+    }
+
+    #[test]
     fn list_flights_cmd_invalid_cursors() {
         let no_key = decode(super::proto_flight::ListFlightsCmd {
             cursor: Some(super::proto_flight::SequenceCursor { key: None }),
             ..Default::default()
         });
         let invalid_name = decode(super::proto_flight::ListFlightsCmd {
-            order_by: SequenceOrder::Name as i32,
+            order_by: Some(SequenceOrder::Name as i32),
             cursor: Some(name_cursor("not/a/sequence")),
             ..Default::default()
         });

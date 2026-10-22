@@ -51,16 +51,16 @@ Without `limit: 0`, `list_flights` returns one page at a time. Its `Criteria.exp
 
 ```proto
 message ListFlightsCmd {
-  string locator = 1;          // "" or "/": the root, i.e. list sequences
-  SequenceOrder order_by = 2;  // SEQUENCE_ORDER_CREATED_AT (default) or SEQUENCE_ORDER_NAME
-  optional uint32 limit = 3;   // absent: 50; 0: no limit
-  SequenceCursor cursor = 4;   // absent: first page
+  string locator = 1;                   // "" or "/": the root, i.e. list sequences
+  optional SequenceOrder order_by = 2;  // absent: the cursor's order, else SEQUENCE_ORDER_CREATED_AT
+  optional uint32 limit = 3;            // absent: 50; 0: no limit
+  SequenceCursor cursor = 4;            // absent: first page
 }
 ```
 
 An empty expression is a command with every field at its default: the first 50 sequences, oldest first. Ordering is always ascending.
 
-Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue.
+Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue. The cursor also carries its order, so `order_by` can be left out when sending it back.
 
 ```py title="list_sequences_paged"
 # First page: 20 sequences, by name
@@ -79,7 +79,7 @@ page = list_flights(cmd.SerializeToString())
 - **Errors.** `InvalidArgument` is returned when:
   - the expression is not a valid `ListFlightsCmd`;
   - the locator is not the root;
-  - the cursor was built for a different `order_by`.
+  - `order_by` is set and the cursor was built for a different order.
 
 The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`. `MosaicoClient.list_sequences()` returns every sequence at once.
 
