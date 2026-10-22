@@ -173,6 +173,10 @@ class LeRobotLoader(BaseLoader):
 
         return self._meta
 
+    def _ensure_resolved(self) -> None:
+        """Lazily opens the dataset and resolves its columns (see `_resolve_columns`)."""
+        self._resolve_columns()
+
     # --- Properties ---
 
     @property
@@ -180,6 +184,21 @@ class LeRobotLoader(BaseLoader):
         """The number of episodes of the dataset (`total_episodes` in `meta/info.json`)."""
         meta = self._resolve_metadata()
         return meta.n_episodes
+
+    def msco_topic_name(self, column_name: str) -> Optional[str]:
+        """
+        Returns the Mosaico topic an accepted column is pushed to: `/timeseries` for a
+        timeseries column, its own topic for an image column (e.g. `observation.images.front`
+        -> `/observation/images/front`).
+
+        Args:
+            column_name (str): The column name.
+
+        Returns:
+            Optional[str]: The Mosaico topic name, or `None` if the column is not accepted.
+        """
+        reader = self._resolve_columns()
+        return reader.get_msco_topic_name(column_name)
 
     def msg_count(
         self, topic: Optional[str] = None, episode_index: Optional[int] = None
@@ -212,10 +231,6 @@ class LeRobotLoader(BaseLoader):
 
         # Every column has one row per frame: a filtered column is counted as well
         return self._resolve_metadata().n_frames(episode_index)
-
-    def _ensure_resolved(self) -> None:
-        """Lazily opens the dataset and resolves its columns (see `_resolve_columns`)."""
-        self._resolve_columns()
 
     # --- Core Logic ---
 
@@ -322,7 +337,7 @@ class LeRobotEpisodeLoader:
             except Exception as ex:
                 yield (
                     LeRobotMessage(
-                        reader.image_msco_topic_name(camera_col_name),
+                        reader.get_msco_topic_name(camera_col_name) or "?",
                         [camera_col_name],
                         None,
                         None,

@@ -371,11 +371,6 @@ class LeRobotReader:
         """The ontology of the camera topics (`CompressedImage`)."""
         return CompressedImage
 
-    def image_msco_topic_name(self, camera_column_name: str) -> str:
-        """Returns the Mosaico topic of an image column (`observation.images.front` ->
-        `/observation/images/front`)."""
-        return _dotted_name_to_topic_name(camera_column_name)
-
     @property
     def cameras_column_names(self) -> List[str]:
         """
@@ -392,6 +387,25 @@ class LeRobotReader:
         """The names of the selected timeseries columns, in the order of the timeseries struct
         fields."""
         return self._timeseries_column_names
+
+    def get_msco_topic_name(self, column: str) -> Optional[str]:
+        """
+        Returns the Mosaico topic an accepted column is pushed to: `/timeseries` for a
+        timeseries column, its own topic for an image column (e.g. `observation.images.front`
+        -> `/observation/images/front`).
+
+        Args:
+            column (str): The column name.
+
+        Returns:
+            Optional[str]: The Mosaico topic name, or `None` if the column is not accepted.
+        """
+
+        if column in self.cameras_column_names:
+            return _dotted_name_to_topic_name(column)
+        if column in self.timeseries_column_names:
+            return self.timeseries_msco_topic_name
+        return None
 
     def get_episode_rows(self, episode_number: int) -> int:
         """
@@ -463,7 +477,7 @@ class LeRobotReader:
             full_rbs, pending_rb = self._fit_batch(merged_rb)
             for rb in full_rbs:
                 yield _to_lerobot_message(
-                    _TIMESERIES_MSCO_TOPIC_NAME,
+                    self.timeseries_msco_topic_name,
                     self.timeseries_column_names,
                     rb,
                     self.timeseries_ontology,
@@ -471,7 +485,7 @@ class LeRobotReader:
 
         if pending_rb is not None:
             yield _to_lerobot_message(
-                _TIMESERIES_MSCO_TOPIC_NAME,
+                self.timeseries_msco_topic_name,
                 self.timeseries_column_names,
                 pending_rb,
                 self.timeseries_ontology,
@@ -516,7 +530,7 @@ class LeRobotReader:
 
         all_columns = [_TIMESTAMP_COLUMN_NAME, camera_column_name]
 
-        msco_topic_name = self.image_msco_topic_name(camera_column_name)
+        msco_topic_name = self.get_msco_topic_name(camera_column_name)
 
         # The rows left over by the previous batch, sent together with the next rows
         pending_rb: Optional[pa.RecordBatch] = None
@@ -542,7 +556,7 @@ class LeRobotReader:
             full_rbs, pending_rb = self._fit_batch(merged_rb)
             for rb in full_rbs:
                 yield _to_lerobot_message(
-                    msco_topic_name,
+                    msco_topic_name or "?",
                     [camera_column_name],
                     rb,
                     self.image_ontology,
@@ -550,7 +564,7 @@ class LeRobotReader:
 
         if pending_rb is not None:
             yield _to_lerobot_message(
-                msco_topic_name,
+                msco_topic_name or "?",
                 [camera_column_name],
                 pending_rb,
                 self.image_ontology,

@@ -49,6 +49,7 @@ from ..base_injector import (
     InjectionStatus,
 )
 from ..helpers import _parse_json_arg
+from ..topic_status import to_color
 from .lerobot_message import LeRobotMessage
 from .loader import LeRobotEpisodeLoader, LeRobotLoader
 from .metadata import LeRobotSchemaMetadata
@@ -74,11 +75,16 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             sequence `<sequence_name>_episode_<episode index>`, the index being zero-padded to
             6 digits (e.g. `pusht_episode_000042`).
             If empty, the name of the dataset folder is used. Default: ""
+        column_names (Optional[List[str]]): List of column patterns used to filter the dataset
+            columns (the image and timeseries features of `meta/info.json`).
+            Supports shell-style glob patterns (e.g., ["observation.images.\\*"]).
+            Patterns starting with "!" are treated as exclusions (e.g., ["\\!observation.images.\\*"]).
+            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all columns are loaded.
         metadata (dict): User-defined metadata to attach to every sequence (e.g., operator, location).
         topic_metadata (Optional[Dict[str, dict]]): Mapping of exact Mosaico topic name (e.g.
             `/timeseries`, `/observation/images/front`) to metadata to attach to that topic,
             alongside the `_lerobot_` metadata computed by the bridge. Default: None
-        update_if_exists (bool): Not supported yet by the LeRobot bridge: ignored. Default: False.
+        update_if_exists (bool): Not used by the LeRobot bridge: ignored. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
         on_error (SessionLevelErrorPolicy): Behavior when an episode fails to be uploaded (Delete
@@ -91,7 +97,7 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         serialization_formats (Optional[Dict[str, SerializationFormat]]): Not used by the LeRobot
-            bridge. Default: None
+            bridge: ignored. Default: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
             Default: "INFO"
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
@@ -100,8 +106,8 @@ class LeRobotInjectionConfig(InjectionConfigBase):
         tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
             Default: None
         enable_tls (bool): Enable the TLS communication protocol. Defaults to False.
-        dry_run (bool): Not supported yet: if `True`, `run()` logs an error and returns
-            `InjectionStatus.DRY_RUN` without connecting to the Mosaico server. Default: False.
+        dry_run (bool): If `True`, resolves and reports which columns, topics and sequences would
+            be ingested without connecting to the Mosaico server or writing any data. Default: False.
 
     Example:
         ```python
@@ -122,6 +128,23 @@ class LeRobotInjectionConfig(InjectionConfigBase):
     """
     The prefix of the sequence names: each episode is ingested as the sequence
     `<sequence_name>_episode_<episode index>`. If empty, the name of the dataset folder is used.
+    """
+
+    column_names: Optional[List[str]] = None
+    """List of column patterns used to filter the dataset columns: the image and timeseries
+    features of `meta/info.json` (e.g. "observation.state", "observation.images.front").
+
+    Supports shell-style glob patterns (e.g., "observation.images.*").
+    Patterns starting with '!' are treated as exclusions (e.g., "!observation.images.*").
+
+    **Pattern order matters**:
+        - Each non-'!' pattern adds matching columns to the selection.
+        - Each '!' pattern removes matching columns from the selection.
+        - Later patterns override earlier ones.
+        - If no inclusion pattern is provided, selection starts from ALL columns,
+          and only exclusion patterns reduce the set.
+
+    If None, all columns are loaded.
     """
 
     on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Delete
@@ -188,80 +211,77 @@ class LeRobotInjector:
             self._loader = LeRobotLoader(
                 file_path=self._cfg.file_path,
                 max_batch_size_bytes=max_batch_size_bytes,
-                # columns=self._cfg.to # TODO: fix this
+                columns=self._cfg.column_names,
             )
 
         return self._loader
 
-    def run(self) -> InjectionStatus:
+    def _dry_run_report(self):
         """
-        Main execution entry point for the injection pipeline.
+        Resolves the dataset columns against the current configuration and prints a report of
+        what would be ingested, without connecting to the Mosaico server or writing data.
 
-        Connects to the Mosaico server, opens the dataset and uploads every episode as its own
-        sequence (see `_upload_episode`), with a single progress UI for the whole dataset. A
-        failed episode does not stop the ingestion: each one is logged with its error, then a
-        summary is logged once every episode is processed (see `_report_failed_episodes`).
-
-        If `dry_run` is set, logs an error (dry-run is not supported yet) and returns without
-        connecting to the server.
-
-        Returns:
-            InjectionStatus: `COMPLETED` once every episode is processed, even if some of them
-                failed, `CANCELLED` if the user interrupted the injection (`KeyboardInterrupt`),
-                `DRY_RUN` in dry-run mode.
-
-        Raises:
-            Exception: Any fatal error outside of an episode (e.g. while connecting or opening
-                the dataset) is logged and then re-raised, so callers can detect failure (e.g.
-                `try`/`except` around `run()`, or a non-zero process exit code from the CLI
-                entry point).
+        Reports, per column: acceptance status (or rejection reason), the Mosaico topic it would
+        be pushed to, and its message count over every episode. Also reports the sequences the
+        episodes would be ingested as.
         """
-        if self._cfg.dry_run:
-            # self._dry_run_report()
-            logger.error("dry_run() is not yet available")
-            return InjectionStatus.DRY_RUN
+        from rich.table import Table
 
-        logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
+        logger.info(f"[DRY RUN] Opening LeRobot dataset: '{self._cfg.file_path}'")
 
-        failed_episodes: List[int] = []
+        # No batch is read in a dry run: the maximum batch size, given by the server, is unused
+        lerobot_loader = self._open_or_get_loader(max_batch_size_bytes=0)
 
-        try:
-            # Context: Mosaico Client (Network Connection)
-            with MosaicoClient.connect(
-                host=self._cfg.host,
-                port=self._cfg.port,
-                api_key=self._cfg.mosaico_api_key,
-                enable_tls=self._cfg.enable_tls,
-                tls_cert_path=self._cfg.tls_cert_path,
-            ) as mclient:
-                # Context: LeRobot Loader (Dataset Access)
-                logger.info(f"Opening LeRobot dataset: '{self._cfg.file_path}'")
+        sequence_names = [
+            episode_loader.msco_seq_name(self._cfg.sequence_name or None)
+            for episode_loader in lerobot_loader
+        ]
 
-                lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
+        table = Table(
+            title=(
+                f"Dry Run: '{self._cfg.file_path.resolve().name}' -> "
+                f"{len(sequence_names)} sequence(s)"
+            )
+        )
+        table.add_column("Columns")
+        table.add_column("Status")
+        table.add_column("Mosaico topic")
+        table.add_column("Messages", justify="right")
 
-                # Setup Progress UI: a single UI for every episode of the dataset
-                ui = LeRobotProgressManager(lerobot_loader, lerobot_loader.n_episodes)
-                ui.setup()
+        for column in lerobot_loader.topics:
+            table.add_row(
+                column,
+                "[bright_green]Accepted",
+                lerobot_loader.msco_topic_name(column) or "?",
+                str(lerobot_loader.msg_count(column)),
+            )
 
-                # Main Processing Loop
-                # By passing self.console, any 'logger.info' calls inside
-                # this loop will print cleanly ABOVE the progress bars.
-                with Live(ui.progress, console=self._console):
-                    # Each episode is ingested as its own sequence
-                    for episode_loader in lerobot_loader:
-                        if not self._upload_episode(mclient, episode_loader, ui):
-                            failed_episodes.append(episode_loader.episode_index)
+        for column, status in lerobot_loader.rejected_topics:
+            table.add_row(
+                column,
+                f"[{to_color(status)}]{status.value}",
+                "-",
+                "-",
+            )
 
-        except KeyboardInterrupt:
-            logger.warning("Operation cancelled by user. Shutting down...")
-            return InjectionStatus.CANCELLED
-        except Exception as e:
-            logger.exception(f"Fatal error during ingestion: '{e}'")
-            raise
+        self._console.print(table)
 
-        self._report_failed_episodes(failed_episodes)
+        if sequence_names:
+            self._console.print(
+                f"Episodes would be ingested as the sequences '{sequence_names[0]}' "
+                f"to '{sequence_names[-1]}'."
+            )
 
-        return InjectionStatus.COMPLETED
+        msco_topics = {
+            lerobot_loader.msco_topic_name(column) for column in lerobot_loader.topics
+        }
+
+        self._console.print(
+            f"[bold]{len(lerobot_loader.topics)}[/bold] column(s) would be ingested in "
+            f"[bold]{len(msco_topics)}[/bold] topic(s) per sequence, "
+            f"[bold]{len(lerobot_loader.rejected_topics)}[/bold] rejected. "
+            "No connection to the Mosaico server was made."
+        )
 
     def _get_topic_on_error(self, topic: str) -> TopicLevelErrorPolicy:
         """Returns the `TopicWriter` error policy of `topic` (see `topics_on_error`)."""
@@ -426,6 +446,76 @@ class LeRobotInjector:
                 f"('{twriter.status.value}'): {twriter.last_error}"
             )
 
+    # Public API
+    def run(self) -> InjectionStatus:
+        """
+        Main execution entry point for the injection pipeline.
+
+        Connects to the Mosaico server, opens the dataset and uploads every episode as its own
+        sequence (see `_upload_episode`), with a single progress UI for the whole dataset. A
+        failed episode does not stop the ingestion: each one is logged with its error, then a
+        summary is logged once every episode is processed (see `_report_failed_episodes`).
+
+        If `dry_run` is set, delegates to `_dry_run_report()` and returns without connecting to
+        the server.
+
+        Returns:
+            InjectionStatus: `COMPLETED` once every episode is processed, even if some of them
+                failed, `CANCELLED` if the user interrupted the injection (`KeyboardInterrupt`),
+                `DRY_RUN` in dry-run mode.
+
+        Raises:
+            Exception: Any fatal error outside of an episode (e.g. while connecting or opening
+                the dataset) is logged and then re-raised, so callers can detect failure (e.g.
+                `try`/`except` around `run()`, or a non-zero process exit code from the CLI
+                entry point).
+        """
+        if self._cfg.dry_run:
+            self._dry_run_report()
+            return InjectionStatus.DRY_RUN
+
+        logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
+
+        failed_episodes: List[int] = []
+
+        try:
+            # Context: Mosaico Client (Network Connection)
+            with MosaicoClient.connect(
+                host=self._cfg.host,
+                port=self._cfg.port,
+                api_key=self._cfg.mosaico_api_key,
+                enable_tls=self._cfg.enable_tls,
+                tls_cert_path=self._cfg.tls_cert_path,
+            ) as mclient:
+                # Context: LeRobot Loader (Dataset Access)
+                logger.info(f"Opening LeRobot dataset: '{self._cfg.file_path}'")
+
+                lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
+
+                # Setup Progress UI: a single UI for every episode of the dataset
+                ui = LeRobotProgressManager(lerobot_loader, lerobot_loader.n_episodes)
+                ui.setup()
+
+                # Main Processing Loop
+                # By passing self.console, any 'logger.info' calls inside
+                # this loop will print cleanly ABOVE the progress bars.
+                with Live(ui.progress, console=self._console):
+                    # Each episode is ingested as its own sequence
+                    for episode_loader in lerobot_loader:
+                        if not self._upload_episode(mclient, episode_loader, ui):
+                            failed_episodes.append(episode_loader.episode_index)
+
+        except KeyboardInterrupt:
+            logger.warning("Operation cancelled by user. Shutting down...")
+            return InjectionStatus.CANCELLED
+        except Exception as e:
+            logger.exception(f"Fatal error during ingestion: '{e}'")
+            raise
+
+        self._report_failed_episodes(failed_episodes)
+
+        return InjectionStatus.COMPLETED
+
 
 # --- CLI Entry Point ---
 
@@ -455,14 +545,14 @@ def lerobot_injector():
         "--dry-run",
         action="store_true",
         help=(
-            "Not supported yet: logs an error and exits without connecting to the Mosaico "
-            "server or writing any data."
+            "Resolve columns/topics/sequences/rejections and print a report, without "
+            "connecting to the Mosaico server or writing any data."
         ),
     )
     parser.add_argument(
         "--update-if-exists",
         action="store_true",
-        help="Not supported yet by the LeRobot bridge: ignored.",
+        help="Not used by the LeRobot bridge: ignored.",
     )
 
     # Connection Arguments
@@ -473,11 +563,10 @@ def lerobot_injector():
 
     # Filter Arguments
     parser.add_argument(
-        "--topics",
+        "--column-names",
         nargs="+",
         help=(
-            "Not supported yet: ignored, every column is ingested. Column patterns to filter "
-            "(supports glob wildcards like 'observation.images.*'). "
+            "Column patterns to filter (supports glob wildcards like 'observation.images.*'). "
             "Prefix a pattern with '!' to exclude it (e.g., 'observation.*' '!observation.images.*'). "
             "If only exclusions are provided, all columns are included except those excluded. "
             "Patterns are evaluated in ORDER. "
@@ -550,6 +639,7 @@ def lerobot_injector():
         metadata=user_metadata,
         topic_metadata=user_topic_metadata or None,
         update_if_exists=args.update_if_exists,
+        column_names=args.column_names,
         dry_run=args.dry_run,
         host=args.host,
         port=args.port,
