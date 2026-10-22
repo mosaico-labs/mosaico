@@ -35,14 +35,53 @@ for endpoint in flight_info.endpoints:
 
 ## Sequence List
 
-To find the list of all sequences available in the system, you can call `list_flights` with the root locator:
+To list every sequence available in the system, call `list_flights` with `limit: 0`:
 
 ```py title="list_sequences"
-# List all sequences in the system
-flight_info = list_flights("") # or list_flights("/")
+# List all sequences in the system, oldest first
+cmd = ListFlightsCmd(limit=0)
+flight_info = list_flights(cmd.SerializeToString())
 ```
 
-This will return the list of all sequence resource locators available in the platform, which can then be used to retrieve specific topics or data slices.
+Each returned `FlightInfo` carries the sequence name in its descriptor path, which can then be used to retrieve specific topics or data slices.
+
+### Pagination
+
+Without `limit: 0`, `list_flights` returns one page at a time. Its `Criteria.expression` carries a protobuf `ListFlightsCmd`:
+
+```proto
+message ListFlightsCmd {
+  string locator = 1;          // "" or "/": the root, i.e. list sequences
+  SequenceOrder order_by = 2;  // SEQUENCE_ORDER_CREATED_AT (default) or SEQUENCE_ORDER_NAME
+  optional uint32 limit = 3;   // absent: 50; 0: no limit
+  SequenceCursor cursor = 4;   // absent: first page
+}
+```
+
+An empty expression is a command with every field at its default: the first 50 sequences, oldest first. Ordering is always ascending.
+
+Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue.
+
+```py title="list_sequences_paged"
+# First page: 20 sequences, by name
+cmd = ListFlightsCmd(order_by=SEQUENCE_ORDER_NAME, limit=20)
+page = list_flights(cmd.SerializeToString())
+
+# Next page: resume right after the last sequence received
+last = SequenceListItemAppMetadata.FromString(page[-1].app_metadata)
+cmd.cursor.CopyFrom(last.cursor)
+page = list_flights(cmd.SerializeToString())
+```
+
+- **End of the list.** A page with fewer than `limit` sequences is the last one. When the total is an exact multiple of `limit`, one more request returns an empty page. With `limit: 0`, the stream itself is the whole rest of the list.
+- **Resuming.** Every sequence carries its own cursor, so a client that stops in the middle of a page can resume right after the last sequence it handled. A cursor stays valid even if the sequence it was built from has since been deleted.
+- **Consistency.** The listing is live, not a snapshot. Each page reflects the database when it is fetched: deleted sequences disappear, and sequences created between requests only show up if they sort after the cursor.
+- **Errors.** `InvalidArgument` is returned when:
+  - the expression is not a valid `ListFlightsCmd`;
+  - the locator is not the root;
+  - the cursor was built for a different `order_by`.
+
+The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`. `MosaicoClient.list_sequences()` returns every sequence at once.
 
 ## Metadata Context Headers
 
