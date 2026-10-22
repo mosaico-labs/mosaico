@@ -57,24 +57,13 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Convert a raw `Criteria.expression` into a [`types::flight::ListFlightsCmd`].
-///
-/// An empty expression decodes to a command with no fields set, which is
-/// [`types::flight::ListFlightsCmd::default`].
 pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error> {
     let cmd: proto_flight::ListFlightsCmd = proto_flight::ListFlightsCmd::decode(v)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
+    let order = sequence_order_from_proto(cmd.order_by)?;
     let limit = types::ListLimit::from(cmd.limit);
     let cursor = cmd.cursor.map(sequence_cursor_from_proto).transpose()?;
-
-    // An absent order follows the cursor, or is the default on the first page.
-    let order = match cmd.order_by {
-        Some(value) => sequence_order_from_proto(value)?,
-        None => cursor
-            .as_ref()
-            .map(types::SequenceCursor::order)
-            .unwrap_or_default(),
-    };
 
     Ok(types::flight::ListFlightsCmd {
         locator: cmd.locator,
@@ -86,10 +75,11 @@ pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error
 
 fn sequence_order_from_proto(value: i32) -> Result<types::SequenceOrder, Error> {
     match proto_flight::SequenceOrder::try_from(value) {
-        Ok(proto_flight::SequenceOrder::Unspecified | proto_flight::SequenceOrder::CreatedAt) => {
-            Ok(types::SequenceOrder::CreatedAt)
-        }
+        Ok(proto_flight::SequenceOrder::CreatedAt) => Ok(types::SequenceOrder::CreatedAt),
         Ok(proto_flight::SequenceOrder::Name) => Ok(types::SequenceOrder::Name),
+        Ok(proto_flight::SequenceOrder::Unspecified) => Err(Error::DeserializationError(
+            "order_by must be set".to_owned(),
+        )),
         Err(_) => Err(Error::DeserializationError(format!(
             "unknown order_by value `{value}`"
         ))),
@@ -489,13 +479,12 @@ mod tests {
         super::list_flights_cmd(&cmd.encode_to_vec())
     }
 
-    /// The locator is passed through unchecked, like in `get_flight_info_cmd`:
-    /// validating it is up to the endpoint.
     #[test]
     fn list_flights_cmd_passes_locator_through() {
         for locator in ["", "/", "my_sequence"] {
             let cmd = decode(super::proto_flight::ListFlightsCmd {
                 locator: locator.to_owned(),
+                order_by: SequenceOrder::CreatedAt as i32,
                 ..Default::default()
             });
 
@@ -504,36 +493,22 @@ mod tests {
     }
 
     #[test]
-    fn list_flights_cmd_order() {
-        use super::{proto_flight::SequenceOrder as Proto, types::SequenceOrder as Order};
-
-        let by_name = Some(name_cursor("a"));
-        let cases = [
-            (None, None, Order::CreatedAt),
-            (None, by_name.clone(), Order::Name),
-            (Some(Proto::Unspecified), by_name.clone(), Order::CreatedAt),
-            (Some(Proto::CreatedAt), by_name, Order::CreatedAt),
-        ];
-
-        for (order_by, cursor, expected) in cases {
-            let cmd = decode(super::proto_flight::ListFlightsCmd {
-                order_by: order_by.map(|o| o as i32),
-                cursor: cursor.clone(),
-                ..Default::default()
-            });
-
-            assert_eq!(cmd.unwrap().order, expected, "{order_by:?}, {cursor:?}");
-        }
+    fn list_flights_cmd_requires_order() {
+        assert!(matches!(
+            super::list_flights_cmd(&[]),
+            Err(Error::DeserializationError(_))
+        ));
     }
 
     #[test]
     fn list_flights_cmd_invalid_cursors() {
         let no_key = decode(super::proto_flight::ListFlightsCmd {
+            order_by: SequenceOrder::CreatedAt as i32,
             cursor: Some(super::proto_flight::SequenceCursor { key: None }),
             ..Default::default()
         });
         let invalid_name = decode(super::proto_flight::ListFlightsCmd {
-            order_by: Some(SequenceOrder::Name as i32),
+            order_by: SequenceOrder::Name as i32,
             cursor: Some(name_cursor("not/a/sequence")),
             ..Default::default()
         });

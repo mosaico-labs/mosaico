@@ -20,7 +20,7 @@ pub struct GetSchemaCmd {
 }
 
 /// Request a page of sequences
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListFlightsCmd {
     pub locator: String,
     pub order: types::SequenceOrder,
@@ -69,9 +69,13 @@ mod tests {
         }
     }
 
-    #[test]
-    fn default_cmd_is_valid() {
-        assert!(ListFlightsCmd::default().validate().is_ok());
+    fn cmd(order: types::SequenceOrder, cursor: Option<types::SequenceCursor>) -> ListFlightsCmd {
+        ListFlightsCmd {
+            locator: String::new(),
+            order,
+            limit: types::ListLimit::Unlimited,
+            cursor,
+        }
     }
 
     #[test]
@@ -79,7 +83,7 @@ mod tests {
         for locator in ["", "/"] {
             let cmd = ListFlightsCmd {
                 locator: locator.to_owned(),
-                ..Default::default()
+                ..cmd(types::SequenceOrder::CreatedAt, None)
             };
 
             assert!(cmd.validate().is_ok(), "locator {locator:?}");
@@ -90,7 +94,7 @@ mod tests {
     fn non_root_locator_is_unsupported() {
         let cmd = ListFlightsCmd {
             locator: "my_sequence".to_owned(),
-            ..Default::default()
+            ..cmd(types::SequenceOrder::CreatedAt, None)
         };
 
         let err = cmd.validate().unwrap_err();
@@ -99,16 +103,8 @@ mod tests {
 
     #[test]
     fn cursor_matching_order_is_valid() {
-        let by_created_at = ListFlightsCmd {
-            order: types::SequenceOrder::CreatedAt,
-            cursor: Some(created_at_cursor()),
-            ..Default::default()
-        };
-        let by_name = ListFlightsCmd {
-            order: types::SequenceOrder::Name,
-            cursor: Some(name_cursor()),
-            ..Default::default()
-        };
+        let by_created_at = cmd(types::SequenceOrder::CreatedAt, Some(created_at_cursor()));
+        let by_name = cmd(types::SequenceOrder::Name, Some(name_cursor()));
 
         assert!(by_created_at.validate().is_ok());
         assert!(by_name.validate().is_ok());
@@ -116,16 +112,8 @@ mod tests {
 
     #[test]
     fn cursor_order_mismatch_is_rejected() {
-        let name_cursor_by_created_at = ListFlightsCmd {
-            order: types::SequenceOrder::CreatedAt,
-            cursor: Some(name_cursor()),
-            ..Default::default()
-        };
-        let created_at_cursor_by_name = ListFlightsCmd {
-            order: types::SequenceOrder::Name,
-            cursor: Some(created_at_cursor()),
-            ..Default::default()
-        };
+        let name_cursor_by_created_at = cmd(types::SequenceOrder::CreatedAt, Some(name_cursor()));
+        let created_at_cursor_by_name = cmd(types::SequenceOrder::Name, Some(created_at_cursor()));
 
         for cmd in [name_cursor_by_created_at, created_at_cursor_by_name] {
             let err = cmd.validate().unwrap_err();

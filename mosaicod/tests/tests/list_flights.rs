@@ -16,7 +16,7 @@ fn cmd(
     cursor: Option<proto_flight::SequenceCursor>,
 ) -> Vec<u8> {
     proto_flight::ListFlightsCmd {
-        order_by: Some(order_by as i32),
+        order_by: order_by as i32,
         limit,
         cursor,
         ..Default::default()
@@ -53,10 +53,8 @@ async fn create_sequences(client: &mut common::Client, count: usize) -> Vec<Stri
     names
 }
 
-/// An empty request returns every sequence by creation time, each with a cursor;
-/// so does the root locator `/`.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_list_flights_defaults(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_list_flights_root(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -64,19 +62,22 @@ async fn test_list_flights_defaults(pool: sqlx::Pool<db::DatabaseType>) {
 
     let created = create_sequences(&mut client, 5).await;
 
-    let empty = actions::list_flights(&mut client, vec![]).await.unwrap();
-    assert_eq!(names(&empty), created);
-    for info in &empty {
-        cursor(info);
-    }
+    for locator in ["", "/"] {
+        let expression = proto_flight::ListFlightsCmd {
+            locator: locator.to_owned(),
+            order_by: proto_flight::SequenceOrder::CreatedAt as i32,
+            ..Default::default()
+        }
+        .encode_to_vec();
+        let infos = actions::list_flights(&mut client, expression)
+            .await
+            .unwrap();
 
-    let root = proto_flight::ListFlightsCmd {
-        locator: "/".to_owned(),
-        ..Default::default()
+        assert_eq!(names(&infos), created, "locator {locator:?}");
+        for info in &infos {
+            cursor(info);
+        }
     }
-    .encode_to_vec();
-    let root = actions::list_flights(&mut client, root).await.unwrap();
-    assert_eq!(names(&root), created);
 
     server.shutdown().await;
 }
@@ -134,13 +135,18 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
     };
 
     let requests = [
-        // A raw `/` is not a protobuf message.
+        ("empty expression", vec![]),
+        (
+            "unspecified order_by",
+            cmd(proto_flight::SequenceOrder::Unspecified, 10, None),
+        ),
         ("raw slash", b"/".to_vec()),
         ("undecodable bytes", b"my_sequence".to_vec()),
         (
             "non-root locator",
             proto_flight::ListFlightsCmd {
                 locator: "my_sequence".to_owned(),
+                order_by: proto_flight::SequenceOrder::CreatedAt as i32,
                 ..Default::default()
             }
             .encode_to_vec(),
@@ -148,7 +154,7 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
         (
             "unknown order_by",
             proto_flight::ListFlightsCmd {
-                order_by: Some(7),
+                order_by: 7,
                 ..Default::default()
             }
             .encode_to_vec(),

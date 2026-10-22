@@ -770,7 +770,7 @@ class MosaicoClient:
         self,
         limit: int = 50,
         cursor: bytes | None = None,
-        order_by: SequenceOrder | None = None,
+        order_by: SequenceOrder = SequenceOrder.CreatedAt,
     ) -> SequencePage:
         """
         Retrieves one page of sequence names.
@@ -785,9 +785,8 @@ class MosaicoClient:
                 sequence after the cursor.
             cursor (bytes | None): The `next_cursor` of the previous page, or `None`
                 for the first page.
-            order_by (SequenceOrder | None): The sort order, always ascending. `None`
-                uses the cursor's order, or the server's default order on the first page.
-                When set, it must match the order of the page the cursor came from.
+            order_by (SequenceOrder): The sort order, always ascending. With a
+                cursor, it must match the order of the page the cursor came from.
 
         Returns:
             SequencePage: The sequence names and the cursor of the next page, which is
@@ -814,7 +813,7 @@ class MosaicoClient:
     def iter_sequences(
         self,
         page_size: int = 50,
-        order_by: SequenceOrder | None = None,
+        order_by: SequenceOrder = SequenceOrder.CreatedAt,
     ) -> Iterator[str]:
         """
         Iterates over every sequence name, fetching pages lazily.
@@ -829,8 +828,7 @@ class MosaicoClient:
         Args:
             page_size (int): Number of sequences fetched per request. `0` fetches
                 every sequence in a single request.
-            order_by (SequenceOrder | None): The sort order, always ascending. `None`
-                uses the server's default order.
+            order_by (SequenceOrder): The sort order, always ascending.
 
         Yields:
             str: The sequence names, in the requested order.
