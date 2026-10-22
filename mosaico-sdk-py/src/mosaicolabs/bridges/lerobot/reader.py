@@ -3,10 +3,13 @@ LeRobot dataset reader.
 
 This module reads the `data/` folder of a LeRobot v3.0 dataset with `pyarrow`, one episode at a time.
 
-All the data parquet files are opened as a single `pyarrow` dataset. Each file holds several
-episodes, stored contiguously, and LeRobot writes one parquet row group per episode: the rows of
-an episode are selected with a filter on the `episode_index` column, and the row-group statistics
-let `pyarrow` skip the other episodes without reading them.
+The data parquet file holding an episode is found from its `meta/episodes` row (see
+`LeRobotDatasetMeta.get_parquet_file`). Each file can hold several episodes, stored
+contiguously: the rows of the other episodes are filtered out on the `episode_index` column.
+
+The row groups are decoded a batch at a time, not as a whole as the `pyarrow` dataset scanner
+does: this bounds the memory used, and a row group of high-resolution images can hold more than
+the 2 GiB `pyarrow` can decode at once within a nested column (the image struct).
 
 The timeseries (every data column except `timestamp` and the images) are rearranged into a single
 struct, without copying them: the Mosaico server rejects field names containing `.`, so dotted
@@ -25,8 +28,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.dataset as ds
 import pyarrow.ipc as pa_ipc
+import pyarrow.parquet as pq
 
 from mosaicolabs import CompressedImage, Header, Serializable
 from mosaicolabs.models.core import Message, resolve_ontology_class
@@ -42,7 +45,9 @@ DEFAULT_BATCH_SIZE = 131_072
 IMAGE_BATCH_SIZE = 100
 """The maximum number of rows read at a time from an image column, to bound the memory used."""
 
-_DATA_DIR = "data"
+READ_BUFFER_SIZE = 32 * 1024 * 1024
+"""The size of the buffer the column chunks are read through, instead of being loaded whole."""
+
 _EPISODE_INDEX_COLUMN = "episode_index"
 _NESTED_NAME_SEP = "."
 _NOT_FOUND = -1
@@ -210,29 +215,20 @@ class LeRobotReader:
                 none if empty.
 
         Raises:
-            FileNotFoundError: If `data/` is missing or holds no parquet file.
-            ValueError: If the data files have no `timestamp` column, or the timeseries columns
-                cannot be nested (a name is both a column and a struct).
+            FileNotFoundError: If the data file of the first episode, holding the schema of the
+                data files, is missing (see `LeRobotDatasetMeta.read_schema`).
+            ValueError: If the dataset has no episode, the data files have no `timestamp`
+                column, or the timeseries columns cannot be nested (a name is both a column and
+                a struct).
         """
-        data_dir = Path(root) / _DATA_DIR
-        if not data_dir.is_dir():
-            raise FileNotFoundError(f"'{data_dir}' is not a directory.")
-
-        data_files = sorted(data_dir.rglob("*.parquet"))
-        if not data_files:
-            raise FileNotFoundError(f"No data parquet file found in '{data_dir}'.")
-
         # Get default metadata from input root
         if not meta:
             meta = LeRobotDatasetMeta.load(root)
 
         self._meta = meta
         self._max_batch_size_bytes = max_batch_size_bytes
-        self._dataset: ds.Dataset = ds.dataset(
-            [str(data_file) for data_file in data_files], format="parquet"
-        )
 
-        schema = self._dataset.schema
+        schema = self._meta.read_schema()
         if _TIMESTAMP_COLUMN_NAME not in schema.names:
             raise ValueError(
                 f"The data files have no '{_TIMESTAMP_COLUMN_NAME}' column."
@@ -264,45 +260,63 @@ class LeRobotReader:
         """
         Reads the rows of an episode, in file order, as record batches.
 
-        Only the row groups holding the episode are read. The number of rows of the episode is
-        checked against its `meta/episodes` row before any batch is yielded.
+        Only the data file holding the episode is read (see `LeRobotDatasetMeta.get_parquet_file`),
+        `batch_size` rows at a time with `ParquetFile.iter_batches`. The rows of the other episodes
+        of the file, if any, are filtered out.
 
         Args:
             episode_index (int): The episode index.
-            columns (Optional[List[str]]): The columns to read (all of them if `None`).
-            batch_size (int): The maximum number of rows of each batch. Batches can be smaller,
-                as they never span more than one row group.
+            columns (Optional[List[str]]): The columns to read, in this order (all of them if
+                `None`).
+            batch_size (int): The maximum number of rows of each batch. Batches can be smaller
+                (e.g. the last one, or those holding rows of other episodes, filtered out).
 
         Yields:
             pa.RecordBatch: The episode rows, with the requested columns.
 
         Raises:
+            FileNotFoundError: If the data file of the episode is missing.
             ValueError: If the episode is not defined in `meta/episodes`, or its number of
-                rows in the data files differs from its `length`.
+                rows in its data file differs from its `length`.
         """
-        episode = self._meta.episodes_map.get(episode_index)
-        if episode is None:
-            raise ValueError(
-                f"Episode {episode_index} is not defined in 'meta/episodes'."
-            )
+        episode_parquet_path = self._meta.get_parquet_file(episode_index)
+        episode_length = self._meta.episodes_map[episode_index].length
 
-        episode_filter = ds.field(_EPISODE_INDEX_COLUMN) == episode_index
-
-        # Counted from the row-group statistics when a row group holds a single episode
-        num_rows = self._dataset.count_rows(filter=episode_filter)
-        if num_rows != episode.length:
-            raise ValueError(
-                f"Episode {episode_index} has {num_rows} rows in '{_DATA_DIR}/', "
-                f"but its length in 'meta/episodes' is {episode.length}."
-            )
-
-        batches = self._dataset.to_batches(
-            columns=columns, filter=episode_filter, batch_size=batch_size
+        # `episode_index` is always read, to keep the rows of the episode only
+        read_columns = (
+            None
+            if columns is None
+            else list(dict.fromkeys([*columns, _EPISODE_INDEX_COLUMN]))
         )
 
-        for batch in batches:
-            if batch.num_rows > 0:
-                yield batch
+        # The data file can hold other episodes too
+        episode_filter = pc.field(_EPISODE_INDEX_COLUMN) == episode_index
+
+        with pq.ParquetFile(
+            episode_parquet_path,
+            pre_buffer=False,
+            buffer_size=READ_BUFFER_SIZE,
+        ) as data_file:
+            # Check that the number of rows of the episode coincides with its length in the metadata
+            episode_indexes = data_file.read(columns=[_EPISODE_INDEX_COLUMN])
+            num_rows = episode_indexes.filter(episode_filter).num_rows
+            if num_rows != episode_length:
+                raise ValueError(
+                    f"Episode {episode_index} has {num_rows} rows in "
+                    f"'{episode_parquet_path}', but its length in 'meta/episodes' is "
+                    f"{episode_length}."
+                )
+
+            for batch in data_file.iter_batches(
+                batch_size=batch_size, columns=read_columns
+            ):
+                batch = batch.filter(episode_filter)
+
+                if columns is not None:
+                    batch = batch.select(columns)
+
+                if batch.num_rows > 0:
+                    yield batch
 
     def _fit_batch(
         self, batch: pa.RecordBatch

@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 
 from mosaicolabs.handlers.helpers import _validate_metadata_keys
@@ -403,6 +404,53 @@ class LeRobotDatasetMeta:
             if feature.is_image or feature.is_timeserie
         ]
 
+    def get_parquet_file(self, episode_index: int) -> Path:
+        """
+        Returns the path of the data parquet file holding an episode, as LeRobot finds it: the
+        `data_path` template of `meta/info.json` (e.g.
+        `data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet`), filled with the
+        `data/chunk_index` and `data/file_index` of the episode. The file can hold other
+        episodes too.
+
+        Args:
+            episode_index (int): The episode index.
+
+        Returns:
+            Path: The path of the data file, under `root`.
+
+        Raises:
+            ValueError: If the episode is not defined in `meta/episodes`.
+        """
+        episode = self.episodes_map.get(episode_index)
+        if episode is None:
+            raise ValueError(
+                f"Episode {episode_index} is not defined in 'meta/episodes'."
+            )
+
+        return self.root / self.info["data_path"].format(
+            chunk_index=episode.data_chunk_index, file_index=episode.data_file_index
+        )
+
+    def read_schema(self) -> pa.Schema:
+        """
+        Reads the `pyarrow` schema of the data files from the footer of the data file of the
+        first episode: LeRobot writes every data file with the same features.
+
+        Returns:
+            pa.Schema: The schema of the data files.
+
+        Raises:
+            FileNotFoundError: If the data file of the first episode is missing.
+            ValueError: If the dataset has no episode.
+        """
+        if not self.episode_indexes:
+            raise ValueError(
+                f"The LeRobot dataset '{self.root}' has no episode in 'meta/episodes': the "
+                "schema of its data files cannot be read."
+            )
+
+        return pq.read_schema(self.get_parquet_file(self.episode_indexes[0]))
+
     def n_frames(self, episode_index: Optional[int] = None) -> int:
         """
         Returns the number of frames of an episode (its `length` in `meta/episodes`), or of
@@ -443,6 +491,13 @@ class LeRobotDatasetMeta:
             raise ValueError(
                 f"Unsupported LeRobot dataset version '{codebase_version}': only "
                 f"'{SUPPORTED_CODEBASE_VERSION}' is supported."
+            )
+
+        # The template of the data file paths (see `get_parquet_file`)
+        if not isinstance(info.get("data_path"), str):
+            raise ValueError(
+                f"'{meta_dir / _INFO_FILE}' has no 'data_path' (the template of the data "
+                "file paths)."
             )
 
         features = {
