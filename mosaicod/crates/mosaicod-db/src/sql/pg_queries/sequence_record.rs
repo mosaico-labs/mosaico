@@ -141,8 +141,7 @@ async fn page_by_created_at(
     sequence_id: i32,
     limit: Option<i64>,
 ) -> Result<Vec<types::SequenceListEntry>, Error> {
-    let rows = sqlx::query_as!(
-        CreatedAtRow,
+    let rows = sqlx::query!(
         r#"
             SELECT creation_unix_tstamp, sequence_id, locator_name
             FROM sequence_t
@@ -158,7 +157,15 @@ async fn page_by_created_at(
     .await?;
 
     rows.into_iter()
-        .map(types::SequenceListEntry::try_from)
+        .map(|row| {
+            Ok(types::SequenceListEntry {
+                locator: parse_locator(row.locator_name)?,
+                cursor: types::SequenceCursor::CreatedAt {
+                    created_at: row.creation_unix_tstamp.into(),
+                    sequence_id: row.sequence_id,
+                },
+            })
+        })
         .collect()
 }
 
@@ -182,37 +189,16 @@ async fn page_by_name(
     .fetch_all(exe.as_exec())
     .await?;
 
-    names.into_iter().map(name_entry).collect()
-}
-
-/// Row of a page ordered by creation time: the locator plus the cursor key.
-struct CreatedAtRow {
-    creation_unix_tstamp: i64,
-    sequence_id: i32,
-    locator_name: String,
-}
-
-impl TryFrom<CreatedAtRow> for types::SequenceListEntry {
-    type Error = Error;
-
-    fn try_from(row: CreatedAtRow) -> Result<Self, Self::Error> {
-        Ok(Self {
-            locator: parse_locator(row.locator_name)?,
-            cursor: types::SequenceCursor::CreatedAt {
-                created_at: row.creation_unix_tstamp.into(),
-                sequence_id: row.sequence_id,
-            },
+    names
+        .into_iter()
+        .map(|name| {
+            let locator = parse_locator(name)?;
+            Ok(types::SequenceListEntry {
+                cursor: types::SequenceCursor::Name(locator.clone()),
+                locator,
+            })
         })
-    }
-}
-
-fn name_entry(name: String) -> Result<types::SequenceListEntry, Error> {
-    let locator = parse_locator(name)?;
-
-    Ok(types::SequenceListEntry {
-        cursor: types::SequenceCursor::Name(locator.clone()),
-        locator,
-    })
+        .collect()
 }
 
 fn parse_locator(name: String) -> Result<types::SequenceLocator, Error> {
