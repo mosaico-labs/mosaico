@@ -1,0 +1,33 @@
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary > h2,
+.summary > h3 {
+  margin: 0;
+}
+
+.section {
+  margin-bottom: var(--ifm-leading);
+}
+
+.section[open] > .summary {
+  margin-bottom: calc(1.5 * var(--ifm-leading));
+}
+
+.caret {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.section[open] > .summary .caret {
+  transform: rotate(90deg);
+}
