@@ -19,7 +19,6 @@ pub struct GetSchemaCmd {
 }
 
 /// Request a page of sequences
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListFlightsCmd {
     pub start: types::ListStart,
     pub limit: types::ListLimit,
