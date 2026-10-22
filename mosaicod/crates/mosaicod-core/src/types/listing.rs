@@ -18,18 +18,13 @@ pub enum SequenceOrder {
 }
 
 /// Maximum number of sequences returned by a listing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum ListLimit {
     /// Every sequence after the cursor.
+    #[default]
     Unlimited,
     /// At most this many sequences.
     Bounded(NonZeroU32),
-}
-
-impl Default for ListLimit {
-    fn default() -> Self {
-        Self::Bounded(const { NonZeroU32::new(50).unwrap() })
-    }
 }
 
 impl From<u32> for ListLimit {

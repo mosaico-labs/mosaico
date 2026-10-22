@@ -33,14 +33,6 @@ def test_criteria_rejects_negative_limit():
         _list_flights_criteria(-1, None, SequenceOrder.CreatedAt)
 
 
-def test_criteria_sends_zero_limit():
-    """`limit=0` must reach the server, otherwise it returns a single page."""
-    cmd = flight_pb2.ListFlightsCmd.FromString(_list_flights_criteria(0, None, None))
-
-    assert cmd.HasField("limit")
-    assert cmd.limit == 0
-
-
 def test_full_page_has_next_cursor():
     page = _page_from_flight_infos([_flight_info("a"), _flight_info("b")], limit=2)
 
@@ -60,14 +52,7 @@ def test_unlimited_page_is_the_last():
     assert page == SequencePage(names=["a", "b"], next_cursor=None)
 
 
-def test_server_default_limit_page_has_next_cursor():
-    """Without an explicit limit, a non-empty page may not be the last."""
-    page = _page_from_flight_infos([_flight_info("a")], limit=None)
-
-    assert page.next_cursor == _name_cursor("a").SerializeToString()
-
-
 def test_empty_page_is_the_last():
-    page = _page_from_flight_infos([], limit=None)
+    page = _page_from_flight_infos([], limit=2)
 
     assert page == SequencePage(names=[], next_cursor=None)

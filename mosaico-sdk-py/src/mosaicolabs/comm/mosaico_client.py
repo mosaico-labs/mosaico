@@ -768,7 +768,7 @@ class MosaicoClient:
 
     def list_sequences_page(
         self,
-        limit: int | None = None,
+        limit: int = 50,
         cursor: bytes | None = None,
         order_by: SequenceOrder | None = None,
     ) -> SequencePage:
@@ -781,8 +781,8 @@ class MosaicoClient:
         sort after the cursor.
 
         Args:
-            limit (int | None): Maximum number of sequences in the page. `0` returns
-                every sequence after the cursor. `None` uses the server's default page size.
+            limit (int): Maximum number of sequences in the page. `0` returns every
+                sequence after the cursor.
             cursor (bytes | None): The `next_cursor` of the previous page, or `None`
                 for the first page.
             order_by (SequenceOrder | None): The sort order, always ascending. `None`
@@ -813,7 +813,7 @@ class MosaicoClient:
 
     def iter_sequences(
         self,
-        page_size: int | None = None,
+        page_size: int = 50,
         order_by: SequenceOrder | None = None,
     ) -> Iterator[str]:
         """
@@ -827,9 +827,8 @@ class MosaicoClient:
             `read` permission.
 
         Args:
-            page_size (int | None): Number of sequences fetched per request. `0` fetches
-                every sequence in a single request. `None` uses the server's default
-                page size.
+            page_size (int): Number of sequences fetched per request. `0` fetches
+                every sequence in a single request.
             order_by (SequenceOrder | None): The sort order, always ascending. `None`
                 uses the server's default order.
 

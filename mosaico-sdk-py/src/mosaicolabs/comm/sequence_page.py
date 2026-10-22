@@ -34,20 +34,18 @@ _ORDER_TO_PROTO = {
 
 
 def _list_flights_criteria(
-    limit: int | None,
+    limit: int,
     cursor: bytes | None,
     order_by: SequenceOrder | None,
 ) -> bytes:
     """Builds the `Criteria.expression` of a `list_flights` call."""
-    cmd = flight_pb2.ListFlightsCmd()
+    if limit < 0:
+        raise ValueError(f"limit must be >= 0, got {limit}")
+
+    cmd = flight_pb2.ListFlightsCmd(limit=limit)
 
     if order_by is not None:
         cmd.order_by = _ORDER_TO_PROTO[order_by]
-
-    if limit is not None:
-        if limit < 0:
-            raise ValueError(f"limit must be >= 0, got {limit}")
-        cmd.limit = limit
 
     if cursor is not None:
         cmd.cursor.CopyFrom(flight_pb2.SequenceCursor.FromString(cursor))
@@ -55,17 +53,14 @@ def _list_flights_criteria(
     return cmd.SerializeToString()
 
 
-def _page_from_flight_infos(
-    infos: list[fl.FlightInfo], limit: int | None
-) -> SequencePage:
+def _page_from_flight_infos(infos: list[fl.FlightInfo], limit: int) -> SequencePage:
     """
     Builds a [`SequencePage`][mosaicolabs.comm.SequencePage] from the response
-    to a `list_flights` call made with `limit` (`None` for the server's default).
+    to a `list_flights` call made with `limit`.
 
-    A page is the last when it is empty, unlimited (`limit=0`), or shorter than an
-    explicit `limit`.
+    A page is the last when it is unlimited (`limit=0`) or shorter than `limit`.
     """
-    is_last = not infos or limit == 0 or (limit is not None and len(infos) < limit)
+    is_last = limit == 0 or len(infos) < limit
 
     next_cursor = None
     if not is_last:
