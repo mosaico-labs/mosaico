@@ -396,7 +396,7 @@ mod tests {
                 .collect::<Vec<_>>()
         };
 
-        // Default command: creation order, first page.
+        // Default command: every sequence, in creation order.
         let by_created_at = page(&context, &types::flight::ListFlightsCmd::default())
             .await
             .unwrap();

@@ -12,7 +12,7 @@ use tests::{actions, common};
 /// Builds a `ListFlightsCmd` request, as a client would.
 fn cmd(
     order_by: proto_flight::SequenceOrder,
-    limit: Option<u32>,
+    limit: u32,
     cursor: Option<proto_flight::SequenceCursor>,
 ) -> Vec<u8> {
     proto_flight::ListFlightsCmd {
@@ -53,8 +53,8 @@ async fn create_sequences(client: &mut common::Client, count: usize) -> Vec<Stri
     names
 }
 
-/// An empty request returns the first 50 sequences by creation time, each with a
-/// cursor; so does the root locator `/`. `limit: 0` returns all of them.
+/// An empty request returns every sequence by creation time, each with a cursor;
+/// so does the root locator `/`.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_list_flights_defaults(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
@@ -62,10 +62,10 @@ async fn test_list_flights_defaults(pool: sqlx::Pool<db::DatabaseType>) {
         .build()
         .await;
 
-    let created = create_sequences(&mut client, 55).await;
+    let created = create_sequences(&mut client, 5).await;
 
     let empty = actions::list_flights(&mut client, vec![]).await.unwrap();
-    assert_eq!(names(&empty), created[..50]);
+    assert_eq!(names(&empty), created);
     for info in &empty {
         cursor(info);
     }
@@ -76,15 +76,7 @@ async fn test_list_flights_defaults(pool: sqlx::Pool<db::DatabaseType>) {
     }
     .encode_to_vec();
     let root = actions::list_flights(&mut client, root).await.unwrap();
-    assert_eq!(names(&root), created[..50]);
-
-    let all = actions::list_flights(
-        &mut client,
-        cmd(proto_flight::SequenceOrder::CreatedAt, Some(0), None),
-    )
-    .await
-    .unwrap();
-    assert_eq!(names(&all), created);
+    assert_eq!(names(&root), created);
 
     server.shutdown().await;
 }
@@ -102,7 +94,7 @@ async fn test_list_flights_resume_mid_page(pool: sqlx::Pool<db::DatabaseType>) {
 
     let page = actions::list_flights(
         &mut client,
-        cmd(proto_flight::SequenceOrder::CreatedAt, Some(3), None),
+        cmd(proto_flight::SequenceOrder::CreatedAt, 3, None),
     )
     .await
     .unwrap();
@@ -112,7 +104,7 @@ async fn test_list_flights_resume_mid_page(pool: sqlx::Pool<db::DatabaseType>) {
         &mut client,
         cmd(
             proto_flight::SequenceOrder::CreatedAt,
-            Some(0),
+            0,
             Some(cursor(&page[0])),
         ),
     )
@@ -165,17 +157,13 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
             "cursor without key",
             cmd(
                 proto_flight::SequenceOrder::CreatedAt,
-                None,
+                0,
                 Some(proto_flight::SequenceCursor { key: None }),
             ),
         ),
         (
             "cursor order mismatch",
-            cmd(
-                proto_flight::SequenceOrder::CreatedAt,
-                None,
-                Some(name_cursor),
-            ),
+            cmd(proto_flight::SequenceOrder::CreatedAt, 0, Some(name_cursor)),
         ),
     ];
 

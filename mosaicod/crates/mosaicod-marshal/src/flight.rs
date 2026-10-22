@@ -64,7 +64,7 @@ pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error
     let cmd: proto_flight::ListFlightsCmd = proto_flight::ListFlightsCmd::decode(v)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
-    let limit = cmd.limit.map(types::ListLimit::from).unwrap_or_default();
+    let limit = types::ListLimit::from(cmd.limit);
     let cursor = cmd.cursor.map(sequence_cursor_from_proto).transpose()?;
 
     // An absent order follows the cursor, or is the default on the first page.

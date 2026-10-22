@@ -35,30 +35,29 @@ for endpoint in flight_info.endpoints:
 
 ## Sequence List
 
-To list every sequence available in the system, call `list_flights` with `limit: 0`:
+To list every sequence available in the system, call `list_flights` with an empty expression:
 
 ```py title="list_sequences"
 # List all sequences in the system, oldest first
-cmd = ListFlightsCmd(limit=0)
-flight_info = list_flights(cmd.SerializeToString())
+flight_info = list_flights("")
 ```
 
 Each returned `FlightInfo` carries the sequence name in its descriptor path, which can then be used to retrieve specific topics or data slices.
 
 ### Pagination
 
-Without `limit: 0`, `list_flights` returns one page at a time. Its `Criteria.expression` carries a protobuf `ListFlightsCmd`:
+With a positive `limit`, `list_flights` returns one page at a time. Its `Criteria.expression` carries a protobuf `ListFlightsCmd`:
 
 ```proto
 message ListFlightsCmd {
   string locator = 1;                   // "" or "/": the root, i.e. list sequences
   optional SequenceOrder order_by = 2;  // absent: the cursor's order, else SEQUENCE_ORDER_CREATED_AT
-  optional uint32 limit = 3;            // absent: 50; 0: no limit
+  uint32 limit = 3;                     // 0: no limit
   SequenceCursor cursor = 4;            // absent: first page
 }
 ```
 
-An empty expression is a command with every field at its default: the first 50 sequences, oldest first. Ordering is always ascending.
+An empty expression is a command with every field at its default: every sequence, oldest first. Ordering is always ascending.
 
 Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue. The cursor also carries its order, so `order_by` can be left out when sending it back.
 
@@ -81,7 +80,7 @@ page = list_flights(cmd.SerializeToString())
   - the locator is not the root;
   - `order_by` is set and the cursor was built for a different order.
 
-The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`. `MosaicoClient.list_sequences()` returns every sequence at once.
+The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`, which fetch 50 sequences per page by default. `MosaicoClient.list_sequences()` returns every sequence at once.
 
 ## Metadata Context Headers
 

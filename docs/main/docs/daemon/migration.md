@@ -89,15 +89,11 @@ This release changes the database schema. The migrations are applied automatical
 
 #### `list_flights`
 
-`list_flights` now returns sequences one page at a time, and `Criteria.expression` must be a serialized `ListFlightsCmd`. See [Sequence List](retrieval.md#sequence-list) for the request format and pagination.
+`list_flights` can now return sequences one page at a time, and `Criteria.expression` must be a serialized `ListFlightsCmd`. See [Sequence List](retrieval.md#sequence-list) for the request format and pagination. An empty expression still lists every sequence.
 
-* **An empty expression returns the first 50 sequences**, not all of them. To keep listing every sequence in a single call, send `limit: 0`:
+A raw `"/"` expression is now rejected with `InvalidArgument`, like any expression that is not a valid `ListFlightsCmd`. Send an empty expression instead:
 
-  ```diff
-  - flight_info = list_flights("")
-  + flight_info = list_flights(ListFlightsCmd(limit=0).SerializeToString())
-  ```
-
-* **A raw `"/"` expression is rejected** with `InvalidArgument`, like any expression that is not a valid `ListFlightsCmd`. The root locator now goes in the `locator` field, where `""` and `"/"` are both accepted.
-
-Upgrade the Python SDK together with the server. Older SDK versions send an empty expression from `MosaicoClient.list_sequences()`, so against a 0.8 server they silently get at most 50 sequences.
+```diff
+- flight_info = list_flights("/")
++ flight_info = list_flights("")
+```
