@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n                    SELECT creation_unix_tstamp, sequence_id, locator_name\n                    FROM sequence_t\n                    WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)\n                    ORDER BY creation_unix_tstamp, sequence_id\n                    LIMIT $3\n                ",
+  "query": "\n            SELECT creation_unix_tstamp, sequence_id, locator_name\n            FROM sequence_t\n            WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)\n            ORDER BY creation_unix_tstamp, sequence_id\n            LIMIT $3\n        ",
   "describe": {
     "columns": [
       {
@@ -32,5 +32,5 @@
       false
     ]
   },
-  "hash": "8e81f58d7bf2b8430cd501e3d0d919604f4a6c190cac997d79b5337460367918"
+  "hash": "b251594c7b899835330df477d8b355d77f5ea4a8a4fc06559f8aa9af7e6779d3"
 }

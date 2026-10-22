@@ -118,82 +118,71 @@ pub async fn sequence_find_page(
         types::ListLimit::Bounded(limit) => Some(i64::from(limit.get())),
     };
 
-    match after {
-        None if order == types::SequenceOrder::CreatedAt => {
-            let rows = sqlx::query_as!(
-                CreatedAtRow,
-                r#"
-                    SELECT creation_unix_tstamp, sequence_id, locator_name
-                    FROM sequence_t
-                    ORDER BY creation_unix_tstamp, sequence_id
-                    LIMIT $1
-                "#,
-                limit,
-            )
-            .fetch_all(exe.as_exec())
-            .await?;
-
-            rows.into_iter()
-                .map(types::SequenceListEntry::try_from)
-                .collect()
+    match (order, after) {
+        (
+            _,
+            Some(types::SequenceCursor::CreatedAt {
+                created_at,
+                sequence_id,
+            }),
+        ) => page_by_created_at(exe, created_at.as_i64(), *sequence_id, limit).await,
+        (types::SequenceOrder::CreatedAt, None) => {
+            page_by_created_at(exe, i64::MIN, i32::MIN, limit).await
         }
-        Some(types::SequenceCursor::CreatedAt {
-            created_at,
-            sequence_id,
-        }) => {
-            let rows = sqlx::query_as!(
-                CreatedAtRow,
-                r#"
-                    SELECT creation_unix_tstamp, sequence_id, locator_name
-                    FROM sequence_t
-                    WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)
-                    ORDER BY creation_unix_tstamp, sequence_id
-                    LIMIT $3
-                "#,
-                created_at.as_i64(),
-                *sequence_id,
-                limit,
-            )
-            .fetch_all(exe.as_exec())
-            .await?;
-
-            rows.into_iter()
-                .map(types::SequenceListEntry::try_from)
-                .collect()
-        }
-        None => {
-            let names = sqlx::query_scalar!(
-                r#"
-                    SELECT locator_name
-                    FROM sequence_t
-                    ORDER BY locator_name
-                    LIMIT $1
-                "#,
-                limit,
-            )
-            .fetch_all(exe.as_exec())
-            .await?;
-
-            names.into_iter().map(name_entry).collect()
-        }
-        Some(types::SequenceCursor::Name(name)) => {
-            let names = sqlx::query_scalar!(
-                r#"
-                    SELECT locator_name
-                    FROM sequence_t
-                    WHERE locator_name > $1
-                    ORDER BY locator_name
-                    LIMIT $2
-                "#,
-                name as &str,
-                limit,
-            )
-            .fetch_all(exe.as_exec())
-            .await?;
-
-            names.into_iter().map(name_entry).collect()
-        }
+        (_, Some(types::SequenceCursor::Name(name))) => page_by_name(exe, name, limit).await,
+        (types::SequenceOrder::Name, None) => page_by_name(exe, "", limit).await,
     }
+}
+
+/// Returns the sequences after `(created_at, sequence_id)`, in creation order.
+async fn page_by_created_at(
+    exe: &mut impl AsExec,
+    created_at: i64,
+    sequence_id: i32,
+    limit: Option<i64>,
+) -> Result<Vec<types::SequenceListEntry>, Error> {
+    let rows = sqlx::query_as!(
+        CreatedAtRow,
+        r#"
+            SELECT creation_unix_tstamp, sequence_id, locator_name
+            FROM sequence_t
+            WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)
+            ORDER BY creation_unix_tstamp, sequence_id
+            LIMIT $3
+        "#,
+        created_at,
+        sequence_id,
+        limit,
+    )
+    .fetch_all(exe.as_exec())
+    .await?;
+
+    rows.into_iter()
+        .map(types::SequenceListEntry::try_from)
+        .collect()
+}
+
+/// Returns the sequences whose name sorts after `after`, in name order.
+async fn page_by_name(
+    exe: &mut impl AsExec,
+    after: &str,
+    limit: Option<i64>,
+) -> Result<Vec<types::SequenceListEntry>, Error> {
+    let names = sqlx::query_scalar!(
+        r#"
+            SELECT locator_name
+            FROM sequence_t
+            WHERE locator_name > $1
+            ORDER BY locator_name
+            LIMIT $2
+        "#,
+        after,
+        limit,
+    )
+    .fetch_all(exe.as_exec())
+    .await?;
+
+    names.into_iter().map(name_entry).collect()
 }
 
 /// Row of a page ordered by creation time: the locator plus the cursor key.
