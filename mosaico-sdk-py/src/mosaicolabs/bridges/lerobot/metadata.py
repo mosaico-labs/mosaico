@@ -105,8 +105,10 @@ class LeRobotSchemaMetadata(BaseSchemaMetadata):
     """
     Encapsulates Mosaico's reserved ``_lerobot_`` metadata namespace in a single place.
 
-    Sequences created by the LeRobot bridge carry the dataset `meta/*.json` files and the
-    episode information, topics carry the description of the LeRobot features they store.
+    It is meant to hold, on the sequences created by the LeRobot bridge, the dataset `meta/*.json`
+    files and the episode information, and on their topics the description of the LeRobot
+    features they store. Today, the bridge only sets the source dataset (`source_file`) on the
+    topics.
 
     Every field set on this namespace is made server-compatible on the fly: keys containing
     `.` (e.g. the feature name `observation.state`) are nested, non-finite floats are replaced
@@ -375,12 +377,12 @@ class LeRobotDatasetMeta:
 
     @property
     def n_episodes(self) -> int:
-        """The total number of episodes."""
+        """The total number of episodes (`total_episodes` in `meta/info.json`)."""
         return self.info["total_episodes"]
 
     @property
     def episode_indexes(self) -> List[int]:
-        """Return all the episodes by their associated index"""
+        """The indexes of the episodes defined in `meta/episodes`, in increasing order."""
         return list(self.episodes_map.keys())
 
     @property

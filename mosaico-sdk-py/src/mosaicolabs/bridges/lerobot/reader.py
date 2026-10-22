@@ -336,14 +336,17 @@ class LeRobotReader:
 
     @property
     def n_episodes(self) -> int:
+        """The number of episodes of the dataset (`total_episodes` in `meta/info.json`)."""
         return self._meta.n_episodes
 
     @property
     def episode_indexes(self) -> List[int]:
+        """The indexes of the episodes defined in `meta/episodes`, in increasing order."""
         return self._meta.episode_indexes
 
     @property
     def timeseries_msco_topic_name(self) -> str:
+        """The Mosaico topic of the timeseries (`/timeseries`)."""
         return _TIMESERIES_MSCO_TOPIC_NAME
 
     @property
@@ -357,22 +360,27 @@ class LeRobotReader:
 
     @property
     def timeseries_ontology(self) -> Type[Serializable]:
+        """The `Unmodeled` ontology of the timeseries topic (tag `LeRobotTimeserie`), built
+        from `timeseries_struct`."""
         return resolve_ontology_class(
             ontology_tag=_TIMESERIES_ONTOLOGY_TAG, schema=self.timeseries_struct
         )
 
     @property
     def image_ontology(self) -> Type[Serializable]:
+        """The ontology of the camera topics (`CompressedImage`)."""
         return CompressedImage
 
     def image_msco_topic_name(self, camera_column_name: str) -> str:
+        """Returns the Mosaico topic of an image column (`observation.images.front` ->
+        `/observation/images/front`)."""
         return _dotted_name_to_topic_name(camera_column_name)
 
     @property
     def cameras_column_names(self) -> List[str]:
         """
-        Returns the names of the image columns of the data files (the features of type `image`),
-        as accepted by `iter_image_by_name_batches`.
+        Returns the names of the selected image columns (the features of type `image`, restricted
+        to `column_names`), as accepted by `iter_image_by_name_batches`.
 
         Returns:
             List[str]: The image column names (e.g. `observation.images.front`).
@@ -381,10 +389,20 @@ class LeRobotReader:
 
     @property
     def timeseries_column_names(self) -> List[str]:
+        """The names of the selected timeseries columns, in the order of the timeseries struct
+        fields."""
         return self._timeseries_column_names
 
     def get_episode_rows(self, episode_number: int) -> int:
-        """TODO"""
+        """
+        Returns the number of rows (frames) of an episode: its `length` in `meta/episodes`.
+
+        Args:
+            episode_number (int): The episode index.
+
+        Returns:
+            int: The number of rows, or 0 if the episode is not defined in `meta/episodes`.
+        """
         episode = self._meta.episodes_map.get(episode_number)
 
         return episode.length if episode else 0
@@ -399,7 +417,7 @@ class LeRobotReader:
         sends, their combination, is as large as possible within `max_batch_size_bytes`: only
         the last one of the episode can be smaller. Only the `timestamp` and timeseries columns
         are read: the images are never loaded. Nothing is yielded if no timeseries column is
-        selected (see `topics`).
+        selected (see `column_names`).
 
         Args:
             episode_index (int): The episode index.
@@ -482,7 +500,7 @@ class LeRobotReader:
                 `timestamp_ns` column and the image rows.
 
         Raises:
-            ValueError: If `camera_column_name` is not an image column, the episode is not
+            ValueError: If `camera_column_name` is not a selected image column, the episode is not
                 defined in `meta/episodes`, its number of rows in the data files differs from
                 its `length`, or a single row exceeds `max_batch_size_bytes`.
         """

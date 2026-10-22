@@ -34,7 +34,9 @@ class LeRobotProgressManager(ProgressManager):
     def __init__(self, loader: LoaderUIAPI, n_episodes: int):
         """
         Args:
-            loader (LoaderUIAPI): The loader of the dataset, used to size the bars.
+            loader (LoaderUIAPI): The loader of the dataset, used to size the column bars and
+                the global bar.
+            n_episodes (int): The number of episodes, the total of the episode bar.
         """
         super().__init__(loader)
         self.episode_task: Optional[TaskID] = None
@@ -65,10 +67,12 @@ class LeRobotProgressManager(ProgressManager):
 
     def start_episode(self, episode_index: int, episode_rows: int):
         """
-        Shows `episode_index` as the episode being uploaded.
+        Shows `episode_index` as the episode being uploaded, and adds its rows to the counts the
+        column bars must reach once it is finished (see `finish_episode`).
 
         Args:
             episode_index (int): The index of the episode.
+            episode_rows (int): The number of rows of the episode, the same for every column.
         """
         self._current_episode = episode_index
 

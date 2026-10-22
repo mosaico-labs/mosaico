@@ -25,29 +25,27 @@ logger = get_logger(__name__)
 
 class LeRobotLoader(BaseLoader):
     """
-    FIXME
-    Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
+    Loader of a LeRobot v3.0 dataset folder, ingested one episode at a time.
 
-    The `ROSLoader` acts as a resource manager that abstracts the underlying `rosbags` library.
-    It provides a standardized Pythonic interface for filtering topics and streaming data
-    into the Mosaico adaptation pipeline, against a caller-supplied `Typestore`.
+    Its topics (in the `BaseLoader` sense) are the data columns of the dataset: the image and
+    timeseries features of `meta/info.json`, filtered by the `columns` patterns. The `timestamp`
+    column (the time of every message) and the video features (not supported yet) are not part of
+    them. Iterating over the loader yields one `LeRobotEpisodeLoader` per episode, which streams
+    the messages of that episode: each episode is ingested as its own sequence.
 
-    Note: `ROSLoader` does not itself consult the [`ROSTypeRegistry`][mosaicolabs.bridges.ros.ROSTypeRegistry].
-        Resolving `ros_distro`/`custom_msgs` into a concrete `Typestore` (including any custom
-        `.msg` registration) is the caller's responsibility — [`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]
-        does this internally before constructing a `ROSLoader`.
+    The message counts are per column, every column having one row per frame. The loader conforms
+    to the `LoaderUIAPI` protocol, making it usable with `LeRobotProgressManager`.
 
-    ### Key Features
-    * **Multi-Format Support**: Automatically detects and handles ROS 1 and ROS 2 bag containers.
-    * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
-        with `!`-prefixed patterns for exclusion (e.g., `!/sensors/debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
-    * **Configurable Serialization**: Non-adapted message types can be assigned a specific
-        [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat] via `serialization_formats`,
-        overriding the `SerializationFormat.Default` used otherwise.
-    * **Memory Efficient**: Implements a generator-based iteration pattern to process large bags without loading them into RAM.
-
-    Attributes:
-        ACCEPTED_EXTENSIONS: Set of supported file extensions {'.bag', '.db3', '.mcap'}.
+    Example:
+        ```python
+        loader = LeRobotLoader(
+            "datasets/pusht", client.max_batch_size_bytes, columns=["observation.*"]
+        )
+        for episode_loader in loader:
+            for msg, exc in episode_loader:
+                if exc is None:
+                    print(f"{msg.n_rows} rows for topic {msg.msco_topic_name}")
+        ```
     """
 
     def __init__(
@@ -57,47 +55,17 @@ class LeRobotLoader(BaseLoader):
         columns: Optional[Union[str, List[str]]] = None,
     ):
         """
-        FIXME
-        Initializes the ROSbag loader against a caller-supplied `Typestore` or ROS distro.
-
-        `ROSLoader` performs no `ROSTypeRegistry` lookups itself — pass in a `Typestore`
-        that already has any custom `.msg` definitions registered (e.g. via
-        `get_typestore(ros_distro)` plus `Typestore.register(...)`, or the `Typestore`
-        that `RosbagInjector` builds internally from `ROSInjectionConfig.ros_distro`/
-        `custom_msgs`).
-
-        Example:
-            ```python
-            from rosbags.typesys import Stores
-            from mosaicolabs.enum.serialization_format import SerializationFormat
-            from mosaicolabs.bridges.ros import ROSLoader
-
-            # Initialize to read only IMU and GPS data from an MCAP file
-            with ROSLoader(
-                file_path="mission_01.mcap",
-                topics=["/imu*", "/gps/fix"],
-                typestore_or_distro=Stores.ROS2_HUMBLE,
-                # Non-adapted (Unmodeled) messages of this type will be
-                # serialized as Ragged instead of the Default format
-                serialization_formats={
-                    "sensor_msgs/msg/CustomPointCloud2": SerializationFormat.Ragged,
-                },
-            ) as loader:
-                for msg, exc in loader:
-                    if not exc:
-                        print(f"Read {msg.msg_type} from {msg.topic}")
-            ```
+        Initializes the loader. Nothing is read here: the dataset is opened lazily, on the first
+        access to a property or on iteration.
 
         Args:
-            file_path (Union[str, Path]): Path to the bag file or directory.
-            typestore_or_distro (Typestore | Stores): The typestore or ROS distro to use for message type resolution.
-            topics (Optional[Union[str, List[str]]]): A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
-                If None, all available topics are loaded.
-            serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
-                to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
-                used when synthesizing an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
-                ontology for that type. Only applies to topics that have **no** hand-written Mosaico
-                adapter. Message types not present in this mapping default to `SerializationFormat.Default`.
+            file_path (Union[str, Path]): The root folder of the LeRobot dataset.
+            max_batch_size_bytes (int): The maximum size of the batches sent to the server
+                (see `MosaicoClient.max_batch_size_bytes`).
+            columns (Optional[Union[str, List[str]]]): A single column name, a list of names, or
+                glob patterns (e.g. `observation.images.*`), with `!`-prefixed patterns for
+                exclusion. Patterns are evaluated in ORDER (gitignore-like semantics). If None,
+                every column is loaded.
         """
 
         super().__init__(
@@ -108,6 +76,7 @@ class LeRobotLoader(BaseLoader):
 
         # Configuration
         self._requested_columns = [columns] if isinstance(columns, str) else columns
+        """The user-specified column patterns (`None` loads every column)."""
 
         # State
         self._max_batch_size_bytes = max_batch_size_bytes
@@ -120,15 +89,24 @@ class LeRobotLoader(BaseLoader):
         """The dataset metadata, lazily loaded (see `_resolve_metadata`)."""
 
     def _validate_folder(self):
+        """Raises `FileNotFoundError` if the dataset folder does not exist."""
         if not self._file_path.exists():
             raise FileNotFoundError(f"LeRobot dataset not found: {self._file_path}")
 
     def _resolve_columns(self) -> LeRobotReader:
         """
-        Lazily opens the LeRobot dataset and resolves requested column patterns.
+        Lazily opens the LeRobot dataset and resolves the requested column patterns.
 
-        This method performs "Smart Filtering" by matching requested glob patterns against
-        the actual columns available in the .parquet file.
+        The columns that do not match the patterns are rejected as `FILTERED`, and the reader is
+        restricted to the accepted ones.
+
+        Returns:
+            LeRobotReader: The reader of the dataset data files, restricted to the accepted
+                columns.
+
+        Raises:
+            IOError: If the dataset cannot be opened.
+            RuntimeError: If no column matches the requested patterns.
         """
         if self._reader is not None:
             return self._reader
@@ -198,7 +176,8 @@ class LeRobotLoader(BaseLoader):
     # --- Properties ---
 
     @property
-    def n_episodes(self):
+    def n_episodes(self) -> int:
+        """The number of episodes of the dataset (`total_episodes` in `meta/info.json`)."""
         meta = self._resolve_metadata()
         return meta.n_episodes
 
@@ -235,7 +214,7 @@ class LeRobotLoader(BaseLoader):
         return self._resolve_metadata().n_frames(episode_index)
 
     def _ensure_resolved(self) -> None:
-        """Lazily opens the bag file and resolves topics (see `_resolve_columns`)."""
+        """Lazily opens the dataset and resolves its columns (see `_resolve_columns`)."""
         self._resolve_columns()
 
     # --- Core Logic ---
@@ -280,13 +259,13 @@ class LeRobotEpisodeLoader:
 
     @property
     def n_rows(self) -> int:
-        """The number of rows for the current episode"""
+        """The number of rows (frames) of the episode: its `length` in `meta/episodes`."""
         return self._reader.get_episode_rows(self._episode_index)
 
     def msco_seq_name(self, prefix: Optional[str] = None) -> str:
         """
-        Returns the name of the Mosaico sequence of the episode: the prefix followed by the
-        episode index, zero-padded to 5 digits (e.g. `pusht_00012`).
+        Returns the name of the Mosaico sequence of the episode: `<prefix>_episode_<index>`, the
+        episode index being zero-padded to 6 digits (e.g. `pusht_episode_000012`).
 
         Args:
             prefix (Optional[str]): The prefix of the sequence name. If `None`, the name of the
@@ -299,8 +278,8 @@ class LeRobotEpisodeLoader:
             # `resolve()` gives the folder name even for a relative root such as `.`
             prefix = self._reader._meta.root.resolve().name
 
-        width = 5
-        return f"{prefix}_{self.episode_index:0{width}d}"
+        width = 6
+        return f"{prefix}_episode_{self.episode_index:0{width}d}"
 
     def __iter__(
         self,

@@ -1,24 +1,26 @@
 """
-FIXME
-ROS Bag Injection Tool.
+LeRobot Dataset Injection Tool.
 
-This module provides a command-line interface (CLI) and a Python API for injecting
-data from ROS 1/2 bag files (MCAP, DB3, BAG) into the Mosaico data platform.
+This module provides a command-line interface (CLI) and a Python API for injecting a LeRobot
+v3.0 dataset folder into the Mosaico data platform, each episode as its own sequence, named
+`<name>_episode_<episode index>` (e.g. `pusht_episode_000042`).
 
-It handles the complex orchestration of:
-1.  **Ingestion:** Reading raw messages from bag files using `ROSLoader`.
-2.  **Adaptation:** converting ROS-specific types (e.g., `sensor_msgs/Image`) into
-    Mosaico Ontology types (e.g., `Image`) via `ROSAdapter`.
-3.  **Transmission:** streaming the converted data to the Mosaico server using
-    `MosaicoClient` with efficient batching and parallelism.
-4.  **Configuration:** Managing custom message definitions via `ROSTypeRegistry`.
+It handles the orchestration of:
+1.  **Loading:** reading the `meta/` and `data/` folders with `pyarrow` (without the `lerobot`
+    package) through `LeRobotLoader`, one episode at a time.
+2.  **Topics:** pushing the timeseries columns together to the `/timeseries` topic, with an
+    `Unmodeled` ontology, and each image column to its own `CompressedImage` topic.
+3.  **Transmission:** streaming the rows as Arrow record batches with `TopicWriter.push_batch`,
+    each as large as possible within `MosaicoClient.max_batch_size_bytes`.
+4.  **Failures:** an episode that fails to be uploaded applies the `on_error` policy to its
+    sequence (by default `Delete`), without stopping the ingestion of the next episodes.
 
 Typical usage as a script:
-    $ mosaicolabs.lerobot_injector ./data.mcap --name "Test_Run_01"
+    $ mosaicolabs.lerobot_injector ./datasets/pusht --name pusht
 
 Typical usage as a library:
-    config = ROSInjectionConfig(file_path=Path("data.mcap"), ...)
-    injector = RosbagInjector(config)
+    config = LeRobotInjectionConfig(file_path=Path("datasets/pusht"), sequence_name="pusht")
+    injector = LeRobotInjector(config)
     injector.run()
 """
 
@@ -60,41 +62,36 @@ logger = get_logger(__name__)
 @dataclass
 class LeRobotInjectionConfig(InjectionConfigBase):
     """
-    FIXME
-    The central configuration object for the ROS Bag injection process.
+    The configuration of the LeRobot dataset injection.
 
-    This data class serves as the single source of truth for all injection settings,
-    decoupling the orchestration logic from CLI arguments or configuration files.
-    It extends `InjectionConfigBase`, which holds the settings shared by all bridge
-    injectors (sequence, server connection, error policies, metadata, logging, dry-run),
-    with the ROS-specific options: `ros_distro`, custom message definitions, `topics`
-    filtering and `adapter_overrides`.
+    It extends `InjectionConfigBase`, which holds the settings shared by all bridge injectors,
+    with the LeRobot defaults: `sequence_name` is the prefix of the sequence names (one sequence
+    per episode), and a failed episode deletes its sequence by default (`on_error`).
 
     Attributes:
-        file_path (Path): Absolute or relative path to the input ROS bag file (.mcap, .db3, or .bag).
+        file_path (Path): Path to the root folder of the LeRobot v3.0 dataset.
         sequence_name (str): The prefix of the sequence names: each episode is ingested as the
-            sequence `<sequence_name>_<episode index>`, the index being zero-padded to 5 digits.
+            sequence `<sequence_name>_episode_<episode index>`, the index being zero-padded to
+            6 digits (e.g. `pusht_episode_000042`).
             If empty, the name of the dataset folder is used. Default: ""
-        metadata (dict): User-defined metadata to attach to the sequence (e.g., driver, weather, location).
-            Ignored when an existing sequence is updated.
-        topic_metadata (Optional[Dict[str, dict]]): Mapping of exact topic name to metadata to
-            attach to that topic, alongside the `_lerobot_` metadata computed from the message schema and
-            the source bag file. Default: None
-        update_if_exists (bool): If `True`, append this bag's topics to an existing sequence with
-            the same name instead of raising an error. Default: False.
+        metadata (dict): User-defined metadata to attach to every sequence (e.g., operator, location).
+        topic_metadata (Optional[Dict[str, dict]]): Mapping of exact Mosaico topic name (e.g.
+            `/timeseries`, `/observation/images/front`) to metadata to attach to that topic,
+            alongside the `_lerobot_` metadata computed by the bridge. Default: None
+        update_if_exists (bool): Not supported yet by the LeRobot bridge: ignored. Default: False.
         host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
         port (int): Port of the Mosaico server. Defaults to 6726.
-        on_error (SessionLevelErrorPolicy): Behavior when an episode fails to be uploaded (Delete the partial sequence or Report the error).
+        on_error (SessionLevelErrorPolicy): Behavior when an episode fails to be uploaded (Delete
+            its partial sequence or Report the error). The next episodes are uploaded in any case.
             Default: [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]
-        topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
+        topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior
+            of the topic writers when a write fails. Whatever the policy, a batch that is not
+            written fails its episode.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
-        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
-            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
-            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
-            present in this mapping default to `SerializationFormat.Default`.
-            Default: None
+        serialization_formats (Optional[Dict[str, SerializationFormat]]): Not used by the LeRobot
+            bridge. Default: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL").
             Default: "INFO"
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
@@ -103,35 +100,20 @@ class LeRobotInjectionConfig(InjectionConfigBase):
         tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
             Default: None
         enable_tls (bool): Enable the TLS communication protocol. Defaults to False.
-        dry_run (bool): If `True`, resolves and reports which topics would be ingested without
-            connecting to the Mosaico server or writing any data. Default: False.
-        ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
-            See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-        custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
-        registry (Optional[ROSTypeRegistry]): Registry to register `custom_msgs` into; a private
-            one is created if `None`. Pass a shared instance to reuse definitions across runs.
-        topics (Optional[List[str]]): List of topic patterns used to filter available topics.
-            Supports shell-style glob patterns (e.g., ["/cam/\\*", "\\*camera_info"]).
-            Patterns starting with "!" are treated as exclusions (e.g., ["\\!/cam/debug\\*"]).
-            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available topics are loaded.
-        adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
-            allowing the use of specific adapters instead of the default for designated topics.
-            Default: None
+        dry_run (bool): Not supported yet: if `True`, `run()` logs an error and returns
+            `InjectionStatus.DRY_RUN` without connecting to the Mosaico server. Default: False.
 
     Example:
         ```python
         from pathlib import Path
-        from rosbags.typesys import Stores
-        from mosaicolabs.enum import SessionLevelErrorPolicy, TopicLevelErrorPolicy
-        from mosaicolabs.bridges.ros import ROSInjectionConfig
+        from mosaicolabs.enum import SessionLevelErrorPolicy
+        from mosaicolabs.bridges.lerobot.injector import LeRobotInjectionConfig
 
-        config = ROSInjectionConfig(
-            file_path=Path("recording.mcap"),
-            sequence_name="test_drive_01",
-            metadata={"environment": "urban", "vehicle": "robot_alpha"},
-            ros_distro=Stores.ROS2_FOXY,
-            on_error=SessionLevelErrorPolicy.Delete,
-            topics_on_error=TopicLevelErrorPolicy.Finalize,
+        config = LeRobotInjectionConfig(
+            file_path=Path("datasets/pusht"),
+            sequence_name="pusht",
+            metadata={"operator": "John"},
+            on_error=SessionLevelErrorPolicy.Report,
         )
         ```
     """
@@ -139,7 +121,7 @@ class LeRobotInjectionConfig(InjectionConfigBase):
     sequence_name: str = ""
     """
     The prefix of the sequence names: each episode is ingested as the sequence
-    `<sequence_name>_<episode index>`. If empty, the name of the dataset folder is used.
+    `<sequence_name>_episode_<episode index>`. If empty, the name of the dataset folder is used.
     """
 
     on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Delete
@@ -154,35 +136,33 @@ class LeRobotInjectionConfig(InjectionConfigBase):
 
 class LeRobotInjector:
     """
-    FIXME
-    Main controller for the ROS Bag ingestion workflow.
+    Main controller of the LeRobot dataset ingestion workflow.
 
-    The `LeRobotInjector` orchestrates the entire data pipeline from the physical storage
-    to the remote Mosaico server. It manages the initialization of the registry,
-    establishes network connections, and drives the main adaptation loop.
+    For each episode of the dataset (see `LeRobotLoader`), it creates a sequence, creates the
+    `/timeseries` topic and one topic per camera on their first batch, and pushes the batches of
+    the episode. A single `LeRobotProgressManager` shows the progress of the whole dataset.
 
-    **Core Workflow Architecture:**
-
-    1.  **Registry Initialization**: Pre-loads custom message definitions via the `ROSTypeRegistry`.
-    2.  **Resource Management**: Opens the `ROSLoader` for file access and the `MosaicoClient` for networking.
-    3.  **Stream Negotiation**: Creates a `SequenceWriter` on the server and opens individual `TopicWriter` streams.
-    4.  **Adaptation Loop**: Iterates through ROS records, translates them via the `ROSBridge`, and pushes them to the server.
+    An episode that fails to be uploaded, for any reason, exits its sequence with an error, so
+    that the sequence applies the `on_error` policy (by default `Delete`); the failure is logged
+    and counted in the UI, and the ingestion continues with the next episode. A summary of the
+    failed episodes is logged at the end. A `KeyboardInterrupt` stops the whole ingestion.
 
     Example:
         ```python
-        from mosaicolabs.bridges.ros import LeRobotInjector, ROSInjectionConfig
+        from pathlib import Path
+        from mosaicolabs.bridges.lerobot.injector import (
+            LeRobotInjectionConfig,
+            LeRobotInjector,
+        )
 
-        # Define configuration
-        config = ROSInjectionConfig(file_path=Path("data.db3"), sequence_name="auto_ingest")
-
-        # Initialize and run
-        injector = RosbagInjector(config)
-        injector.run() # This handles the full lifecycle including cleanup on failure
+        config = LeRobotInjectionConfig(file_path=Path("datasets/pusht"), sequence_name="pusht")
+        injector = LeRobotInjector(config)
+        injector.run()
         ```
 
     Attributes:
-        cfg (ROSInjectionConfig): The active configuration settings.
-        console (Console): The rich console instance for logging and UI output.
+        _cfg (LeRobotInjectionConfig): The active configuration settings.
+        _console (Console): The rich console instance for logging and UI output.
     """
 
     def __init__(self, config: LeRobotInjectionConfig):
@@ -200,9 +180,10 @@ class LeRobotInjector:
         )
 
         self._loader: Optional[LeRobotLoader] = None
-        """TODO"""
+        """The loader of the dataset, lazily created by `_open_or_get_loader`."""
 
     def _open_or_get_loader(self, max_batch_size_bytes: int) -> LeRobotLoader:
+        """Returns the loader of the dataset, created on the first call."""
         if self._loader is None:
             self._loader = LeRobotLoader(
                 file_path=self._cfg.file_path,
@@ -214,24 +195,26 @@ class LeRobotInjector:
 
     def run(self) -> InjectionStatus:
         """
-        FIXME
         Main execution entry point for the injection pipeline.
 
-        This method establishes the necessary contexts (Network Client, File Loader, Server Writer)
-        and executes the processing loop. It handles graceful shutdowns in case of
-        user interrupts and provides a summary report upon completion.
+        Connects to the Mosaico server, opens the dataset and uploads every episode as its own
+        sequence (see `_upload_episode`), with a single progress UI for the whole dataset. A
+        failed episode does not stop the ingestion: each one is logged with its error, then a
+        summary is logged once every episode is processed (see `_report_failed_episodes`).
 
-        If `self.cfg.dry_run` is `True`, delegates to `_dry_run_report()` and returns
-        without connecting to the server.
+        If `dry_run` is set, logs an error (dry-run is not supported yet) and returns without
+        connecting to the server.
 
         Returns:
-            InjectionStatus: `COMPLETED` if the file was injected, `CANCELLED` if the user
-                interrupted the injection (`KeyboardInterrupt`), `DRY_RUN` in dry-run mode.
+            InjectionStatus: `COMPLETED` once every episode is processed, even if some of them
+                failed, `CANCELLED` if the user interrupted the injection (`KeyboardInterrupt`),
+                `DRY_RUN` in dry-run mode.
 
         Raises:
-            Exception: Any fatal error encountered during connection, loading, or upload is
-                logged and then re-raised, so callers can detect failure (e.g. `try`/`except`
-                around `run()`, or a non-zero process exit code from the CLI entry point).
+            Exception: Any fatal error outside of an episode (e.g. while connecting or opening
+                the dataset) is logged and then re-raised, so callers can detect failure (e.g.
+                `try`/`except` around `run()`, or a non-zero process exit code from the CLI
+                entry point).
         """
         if self._cfg.dry_run:
             # self._dry_run_report()
@@ -251,8 +234,8 @@ class LeRobotInjector:
                 enable_tls=self._cfg.enable_tls,
                 tls_cert_path=self._cfg.tls_cert_path,
             ) as mclient:
-                # Context: ROS Loader (File Access)
-                logger.info(f"Opening LeRobotdataset: '{self._cfg.file_path}'")
+                # Context: LeRobot Loader (Dataset Access)
+                logger.info(f"Opening LeRobot dataset: '{self._cfg.file_path}'")
 
                 lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
 
@@ -281,6 +264,7 @@ class LeRobotInjector:
         return InjectionStatus.COMPLETED
 
     def _get_topic_on_error(self, topic: str) -> TopicLevelErrorPolicy:
+        """Returns the `TopicWriter` error policy of `topic` (see `topics_on_error`)."""
         if isinstance(self._cfg.topics_on_error, dict):
             return self._cfg.topics_on_error.get(topic, _DEFAULT_TOPIC_ON_ERROR)
         elif isinstance(self._cfg.topics_on_error, TopicLevelErrorPolicy):
@@ -380,8 +364,7 @@ class LeRobotInjector:
         session_writer: AnySessionWriter,
     ):
         """
-        Uploads a batch of an episode to its topic, creating the topic on its first batch, and
-        advances the bars of the columns of the batch.
+        Uploads a batch of an episode to its topic, creating the topic on its first batch.
 
         Args:
             lerobot_msg (LeRobotMessage): The batch to upload.
@@ -396,12 +379,12 @@ class LeRobotInjector:
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = session_writer.get_topic_writer(lerobot_msg.msco_topic_name)
 
-        # Should theoretically not be None if exists returned True
+        # The topic is created on its first batch
         if twriter is None:
             # --- Schema metadata Resolution ---
             lerobot_meta = LeRobotSchemaMetadata.from_dict({})
 
-            # Record which bag file introduced this topic, inside the reserved `_lerobot_`
+            # Record which dataset introduced this topic, inside the reserved `_lerobot_`
             # namespace. This lets the source of each topic remain traceable even after
             # later updates to the same sequence (e.g. multi-part recordings or merged
             # reprocessing results), since sequence metadata cannot be changed once the
@@ -456,7 +439,7 @@ def lerobot_injector():
 
     # Required Arguments
     parser.add_argument(
-        "dataset_path", type=Path, help="Path to Hugging Face Project Folder"
+        "dataset_path", type=Path, help="Path to the LeRobot v3.0 dataset folder"
     )
     parser.add_argument(
         "--name",
@@ -464,25 +447,22 @@ def lerobot_injector():
         default="",
         help=(
             "Prefix of the sequence names: each episode is ingested as the sequence "
-            "'<name>_<episode index>'. Defaults to the name of the dataset folder."
+            "'<name>_episode_<episode index>' (e.g. 'pusht_episode_000042'). Defaults to the "
+            "name of the dataset folder."
         ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help=(
-            "Resolve topics/adapters/rejections and print a report, without connecting "
-            "to the Mosaico server or writing any data."
+            "Not supported yet: logs an error and exits without connecting to the Mosaico "
+            "server or writing any data."
         ),
     )
     parser.add_argument(
         "--update-if-exists",
         action="store_true",
-        help=(
-            "If a sequence named --name already exists, append this bag's topics to it "
-            "instead of raising an error (e.g. for multi-part bags or merging reprocessed "
-            "results into an already-ingested sequence)."
-        ),
+        help="Not supported yet by the LeRobot bridge: ignored.",
     )
 
     # Connection Arguments
@@ -496,12 +476,13 @@ def lerobot_injector():
         "--topics",
         nargs="+",
         help=(
-            "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
-            "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
-            "If only exclusions are provided, all topics are included except those excluded. "
+            "Not supported yet: ignored, every column is ingested. Column patterns to filter "
+            "(supports glob wildcards like 'observation.images.*'). "
+            "Prefix a pattern with '!' to exclude it (e.g., 'observation.*' '!observation.images.*'). "
+            "If only exclusions are provided, all columns are included except those excluded. "
             "Patterns are evaluated in ORDER. "
             "Note: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
-            'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
+            'should be quoted or escaped (e.g., "!observation.images.*").'
         ),
     )
 
@@ -513,9 +494,9 @@ def lerobot_injector():
     parser.add_argument(
         "--topic-metadata",
         help=(
-            "JSON string or path to JSON file containing a mapping of exact topic name to "
-            'metadata, e.g. \'{"/imu": {"unit": "rad/s"}}\'. Only applied to topics that are '
-            "actually ingested (see --topics)."
+            "JSON string or path to JSON file containing a mapping of exact Mosaico topic name "
+            'to metadata, e.g. \'{"/timeseries": {"robot": "so100"}}\'. Only applied to '
+            "topics that are actually ingested."
         ),
     )
 
@@ -541,7 +522,7 @@ def lerobot_injector():
         "--log",
         "-l",
         help="Set the logging verbosity level",
-        default="WARNING",  # Optional: defaults to INFO
+        default="WARNING",  # Optional: defaults to WARNING
         type=str.upper,  # Automatically converts input (e.g., 'debug') to uppercase
         choices=[
             "DEBUG",
