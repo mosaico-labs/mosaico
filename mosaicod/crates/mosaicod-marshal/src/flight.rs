@@ -357,8 +357,6 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
 // ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::Error;
-    use mosaicod_core::types::flight::ListFlightsCmd;
     use mosaicod_proto::v1::time as proto_time;
     use prost::Message;
 
@@ -464,46 +462,5 @@ mod tests {
         let dest = super::get_schema_cmd(&cmd.encode_to_vec()).unwrap();
 
         assert_eq!(dest.locator, "test_sequence/topic/a");
-    }
-
-    // ////////////////////////////////////////////////////////////////////////
-    // LIST FLIGHTS
-    // ////////////////////////////////////////////////////////////////////////
-
-    fn name_cursor(name: &str) -> super::proto_flight::SequenceCursor {
-        super::proto_flight::SequenceCursor {
-            key: Some(super::proto_flight::sequence_cursor::Key::Name(
-                name.to_owned(),
-            )),
-        }
-    }
-
-    fn decode(cmd: super::proto_flight::ListFlightsCmd) -> Result<ListFlightsCmd, Error> {
-        super::list_flights_cmd(&cmd.encode_to_vec())
-    }
-
-    #[test]
-    fn list_flights_cmd_requires_order_or_cursor() {
-        assert!(matches!(
-            super::list_flights_cmd(&[]),
-            Err(Error::DeserializationError(_))
-        ));
-    }
-
-    #[test]
-    fn list_flights_cmd_invalid_cursors() {
-        use super::proto_flight::list_flights_cmd::Start;
-
-        for cursor in [
-            super::proto_flight::SequenceCursor { key: None },
-            name_cursor("not/a/sequence"),
-        ] {
-            let cmd = decode(super::proto_flight::ListFlightsCmd {
-                start: Some(Start::Cursor(cursor)),
-                ..Default::default()
-            });
-
-            assert!(matches!(cmd, Err(Error::DeserializationError(_))));
-        }
     }
 }

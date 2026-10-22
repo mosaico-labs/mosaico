@@ -136,6 +136,17 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
             "cursor without key",
             next_page(proto_flight::SequenceCursor { key: None }, 0),
         ),
+        (
+            "invalid name in cursor",
+            next_page(
+                proto_flight::SequenceCursor {
+                    key: Some(proto_flight::sequence_cursor::Key::Name(
+                        "not/a/sequence".to_owned(),
+                    )),
+                },
+                0,
+            ),
+        ),
     ];
 
     for (case, expression) in requests {

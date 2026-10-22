@@ -19,7 +19,7 @@ pub enum SequenceOrder {
 /// Maximum number of sequences returned by a listing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ListLimit {
-    /// Every sequence after the cursor.
+    /// Every remaining sequence.
     Unlimited,
     /// At most this many sequences.
     Bounded(NonZeroU32),

@@ -379,41 +379,4 @@ mod tests {
                 .is_empty()
         );
     }
-
-    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
-    async fn sequence_page(pool: sqlx::Pool<db::DatabaseType>) {
-        let context = test_context(pool);
-
-        for name in ["charlie", "alpha", "bravo"] {
-            try_create(&context, &name.parse().unwrap(), None)
-                .await
-                .expect("Error creating sequence");
-        }
-
-        let names = |page: &[types::SequenceListEntry]| {
-            page.iter()
-                .map(|e| e.locator.to_string())
-                .collect::<Vec<_>>()
-        };
-
-        // Every sequence, in creation order.
-        let by_created_at = types::flight::ListFlightsCmd {
-            start: types::ListStart::First(types::SequenceOrder::CreatedAt),
-            limit: types::ListLimit::Unlimited,
-        };
-        let all = page(&context, &by_created_at).await.unwrap();
-        assert_eq!(names(&all), vec!["charlie", "alpha", "bravo"]);
-
-        // Name order, two pages of two.
-        let mut cmd = types::flight::ListFlightsCmd {
-            start: types::ListStart::First(types::SequenceOrder::Name),
-            limit: types::ListLimit::from(2),
-        };
-        let first = page(&context, &cmd).await.unwrap();
-        assert_eq!(names(&first), vec!["alpha", "bravo"]);
-
-        cmd.start = types::ListStart::After(first.last().unwrap().cursor.clone());
-        let second = page(&context, &cmd).await.unwrap();
-        assert_eq!(names(&second), vec!["charlie"]);
-    }
 }
