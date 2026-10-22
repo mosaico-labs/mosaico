@@ -35,11 +35,12 @@ for endpoint in flight_info.endpoints:
 
 ## Sequence List
 
-To list every sequence available in the system, call `list_flights` with an empty expression:
+To list every sequence available in the system, call `list_flights` with a `ListFlightsCmd`:
 
 ```py title="list_sequences"
 # List all sequences in the system, oldest first
-flight_info = list_flights("")
+cmd = ListFlightsCmd(order_by=SEQUENCE_ORDER_CREATED_AT)
+flight_info = list_flights(cmd.SerializeToString())
 ```
 
 Each returned `FlightInfo` carries the sequence name in its descriptor path, which can then be used to retrieve specific topics or data slices.
@@ -50,16 +51,16 @@ With a positive `limit`, `list_flights` returns one page at a time. Its `Criteri
 
 ```proto
 message ListFlightsCmd {
-  string locator = 1;                   // "" or "/": the root, i.e. list sequences
-  optional SequenceOrder order_by = 2;  // absent: the cursor's order, else SEQUENCE_ORDER_CREATED_AT
-  uint32 limit = 3;                     // 0: no limit
-  SequenceCursor cursor = 4;            // absent: first page
+  string locator = 1;          // "" or "/": the root, i.e. list sequences
+  SequenceOrder order_by = 2;  // SEQUENCE_ORDER_CREATED_AT or SEQUENCE_ORDER_NAME
+  uint32 limit = 3;            // 0: no limit
+  SequenceCursor cursor = 4;   // absent: first page
 }
 ```
 
-An empty expression is a command with every field at its default: every sequence, oldest first. Ordering is always ascending.
+Ordering is always ascending.
 
-Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue. The cursor also carries its order, so `order_by` can be left out when sending it back.
+Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue.
 
 ```py title="list_sequences_paged"
 # First page: 20 sequences, by name
@@ -78,9 +79,9 @@ page = list_flights(cmd.SerializeToString())
 - **Errors.** `InvalidArgument` is returned when:
   - the expression is not a valid `ListFlightsCmd`;
   - the locator is not the root;
-  - `order_by` is set and the cursor was built for a different order.
+  - the cursor was built for a different `order_by`.
 
-The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`, which fetch 50 sequences per page by default. `MosaicoClient.list_sequences()` returns every sequence at once.
+The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`, which fetch 50 sequences per page, oldest first, by default. `MosaicoClient.list_sequences()` returns every sequence at once.
 
 ## Metadata Context Headers
 

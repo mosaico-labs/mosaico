@@ -19,8 +19,7 @@ class SequencePage:
         names (list[str]): The sequence names in this page, in the requested order.
         next_cursor (bytes | None): Pass it as `cursor` to get the next page.
             `None` when there are no more pages. The cursor is meant to be stored
-            and sent back unchanged. It carries the page's order, so `order_by` can
-            be left out.
+            and sent back unchanged, with the same `order_by`.
     """
 
     names: list[str]
@@ -36,16 +35,13 @@ _ORDER_TO_PROTO = {
 def _list_flights_criteria(
     limit: int,
     cursor: bytes | None,
-    order_by: SequenceOrder | None,
+    order_by: SequenceOrder,
 ) -> bytes:
     """Builds the `Criteria.expression` of a `list_flights` call."""
     if limit < 0:
         raise ValueError(f"limit must be >= 0, got {limit}")
 
-    cmd = flight_pb2.ListFlightsCmd(limit=limit)
-
-    if order_by is not None:
-        cmd.order_by = _ORDER_TO_PROTO[order_by]
+    cmd = flight_pb2.ListFlightsCmd(limit=limit, order_by=_ORDER_TO_PROTO[order_by])
 
     if cursor is not None:
         cmd.cursor.CopyFrom(flight_pb2.SequenceCursor.FromString(cursor))

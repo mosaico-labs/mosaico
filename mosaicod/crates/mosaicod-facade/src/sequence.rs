@@ -396,17 +396,21 @@ mod tests {
                 .collect::<Vec<_>>()
         };
 
-        // Default command: every sequence, in creation order.
-        let by_created_at = page(&context, &types::flight::ListFlightsCmd::default())
-            .await
-            .unwrap();
-        assert_eq!(names(&by_created_at), vec!["charlie", "alpha", "bravo"]);
+        // Every sequence, in creation order.
+        let by_created_at = types::flight::ListFlightsCmd {
+            locator: String::new(),
+            order: types::SequenceOrder::CreatedAt,
+            limit: types::ListLimit::Unlimited,
+            cursor: None,
+        };
+        let all = page(&context, &by_created_at).await.unwrap();
+        assert_eq!(names(&all), vec!["charlie", "alpha", "bravo"]);
 
         // Name order, two pages of two.
         let mut cmd = types::flight::ListFlightsCmd {
             order: types::SequenceOrder::Name,
             limit: types::ListLimit::from(2),
-            ..Default::default()
+            ..by_created_at
         };
         let first = page(&context, &cmd).await.unwrap();
         assert_eq!(names(&first), vec!["alpha", "bravo"]);

@@ -8,20 +8,18 @@ use super::{SequenceLocator, Timestamp};
 use std::num::NonZeroU32;
 
 /// Sort order used when listing sequences. Ordering is always ascending.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SequenceOrder {
     /// Order by creation timestamp, ties broken by the sequence id.
-    #[default]
     CreatedAt,
     /// Order by locator name, in byte order.
     Name,
 }
 
 /// Maximum number of sequences returned by a listing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ListLimit {
     /// Every sequence after the cursor.
-    #[default]
     Unlimited,
     /// At most this many sequences.
     Bounded(NonZeroU32),
