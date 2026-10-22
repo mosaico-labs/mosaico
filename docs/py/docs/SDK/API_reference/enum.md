@@ -6,6 +6,7 @@ description: API Reference for Enum Module
 ::: mosaicolabs.enum.SerializationFormat
 ::: mosaicolabs.enum.SessionStatus
 ::: mosaicolabs.enum.SequenceStatus
+::: mosaicolabs.enum.SequenceOrder
 ::: mosaicolabs.enum.TopicWriterStatus
 ::: mosaicolabs.enum.SessionLevelErrorPolicy
 ::: mosaicolabs.enum.TopicLevelErrorPolicy
