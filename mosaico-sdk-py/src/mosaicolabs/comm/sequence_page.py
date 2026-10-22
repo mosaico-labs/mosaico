@@ -1,0 +1,91 @@
+"""
+Paged listing of sequences, built on the `list_flights` endpoint.
+"""
+
+from dataclasses import dataclass
+
+import pyarrow.flight as fl
+
+from ..enum import SequenceOrder
+from ..logging_config import get_logger
+from ..proto.v1 import flight_pb2
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class SequencePage:
+    """
+    A page of sequences..
+
+    Attributes:
+        names (list[str]): The sequence names in this page, in the requested order.
+        next_cursor (bytes | None): Pass it as `cursor` to get the next page.
+            `None` when there are no more pages. The cursor is is meant to be stored
+            and sent back unchanged, with the same `order_by`.
+    """
+
+    names: list[str]
+    next_cursor: bytes | None
+
+
+_ORDER_TO_PROTO = {
+    SequenceOrder.CreatedAt: flight_pb2.SEQUENCE_ORDER_CREATED_AT,
+    SequenceOrder.Name: flight_pb2.SEQUENCE_ORDER_NAME,
+}
+
+
+def _list_flights_criteria(
+    limit: int | None,
+    cursor: bytes | None,
+    order_by: SequenceOrder | None,
+) -> bytes:
+    """Builds the `Criteria.expression` of a `list_flights` call."""
+    cmd = flight_pb2.ListFlightsCmd()
+
+    if order_by is not None:
+        cmd.order_by = _ORDER_TO_PROTO[order_by]
+
+    if limit is not None:
+        if limit < 0:
+            raise ValueError(f"limit must be >= 0, got {limit}")
+        cmd.limit = limit
+
+    if cursor is not None:
+        cmd.cursor.CopyFrom(flight_pb2.SequenceCursor.FromString(cursor))
+
+    return cmd.SerializeToString()
+
+
+def _sequence_names(infos: list[fl.FlightInfo]) -> list[str]:
+    """Extracts the sequence names, carried in the descriptor path."""
+    names = []
+    for info in infos:
+        if info.descriptor.path is None:
+            logger.debug("`None` path found in `list_flights` endpoint")
+            continue
+        names.extend(p.decode("utf-8") for p in info.descriptor.path)
+    return names
+
+
+def _page_from_flight_infos(
+    infos: list[fl.FlightInfo], limit: int | None
+) -> SequencePage:
+    """
+    Builds a [`SequencePage`][mosaicolabs.comm.SequencePage] from the response
+    to a `list_flights` call made with `limit` (`None` for the server's default).
+
+    A page is the last when it is empty, unlimited (`limit=0`), or shorter than an
+    explicit `limit`.
+    """
+    is_last = not infos or limit == 0 or (limit is not None and len(infos) < limit)
+
+    next_cursor = None
+    if not is_last:
+        metadata = flight_pb2.SequenceListItemAppMetadata.FromString(
+            infos[-1].app_metadata
+        )
+        next_cursor = metadata.cursor.SerializeToString()
+
+    return SequencePage(names=_sequence_names(infos), next_cursor=next_cursor)

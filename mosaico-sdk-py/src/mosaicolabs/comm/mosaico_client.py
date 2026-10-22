@@ -8,6 +8,7 @@ and executing queries.
 """
 
 import os
+from collections.abc import Iterator
 from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
@@ -17,6 +18,7 @@ from mosaicolabs.helpers.helpers import sanitize_sequence_name, sanitize_topic_n
 from ..enum import (
     FlightAction,
     GRPCCompressionAlgorithm,
+    SequenceOrder,
     SessionLevelErrorPolicy,
 )
 from ..handlers.config import SessionWriterConfig
@@ -43,6 +45,11 @@ from .do_action import (
 )
 from .middlewares import MosaicoAuthMiddlewareFactory
 from .notifications import Notification
+from .sequence_page import (
+    SequencePage,
+    _list_flights_criteria,
+    _page_from_flight_infos,
+)
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -757,13 +764,99 @@ class MosaicoClient:
                 print(f"Available sequences: {sequences}")
             ```
         """
-        out_list = []
-        for finfo in self._connection.flight_client.list_flights():
-            if finfo.descriptor.path is None:
-                logger.debug("`None` path found in `list_flights` endpoint")
-                continue
-            out_list.extend([p.decode("utf-8") for p in finfo.descriptor.path])
-        return out_list
+        return self.list_sequences_page(limit=0).names
+
+    def list_sequences_page(
+        self,
+        limit: int | None = None,
+        cursor: bytes | None = None,
+        order_by: SequenceOrder | None = None,
+    ) -> SequencePage:
+        """
+        Retrieves one page of sequence names.
+
+        Pages are stateless: each page is a separate request, and the returned
+        `next_cursor` is all that's needed to get the next one. The listing is
+        live, not a snapshot: sequences created between requests appear if they
+        sort after the cursor.
+
+        Args:
+            limit (int | None): Maximum number of sequences in the page. `0` returns
+                every sequence after the cursor. `None` uses the server's default page size.
+            cursor (bytes | None): The `next_cursor` of the previous page, or `None`
+                for the first page. It must come from a page with the same `order_by`.
+            order_by (SequenceOrder | None): The sort order, always ascending. `None`
+                uses the server's default order.
+
+        Returns:
+            SequencePage: The sequence names and the cursor of the next page, which is
+                `None` when there are no more pages.
+
+        Raises:
+            ValueError: If `limit` is negative.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                page = client.list_sequences_page(limit=20)
+                print(page.names)
+                if page.next_cursor is not None:
+                    page = client.list_sequences_page(limit=20, cursor=page.next_cursor)
+            ```
+        """
+        criteria = _list_flights_criteria(limit, cursor, order_by)
+        infos = list(self._connection.flight_client.list_flights(criteria=criteria))
+        return _page_from_flight_infos(infos, limit)
+
+    def iter_sequences(
+        self,
+        page_size: int | None = None,
+        order_by: SequenceOrder | None = None,
+    ) -> Iterator[str]:
+        """
+        Iterates over every sequence name, fetching pages lazily.
+
+        Each page is fetched when the previous one has been consumed, so stopping
+        early skips the remaining requests.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
+
+        Args:
+            page_size (int | None): Number of sequences fetched per request. `0` fetches
+                every sequence in a single request. `None` uses the server's default
+                page size.
+            order_by (SequenceOrder | None): The sort order, always ascending. `None`
+                uses the server's default order.
+
+        Yields:
+            str: The sequence names, in the requested order.
+
+        Raises:
+            ValueError: If `page_size` is negative.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, SequenceOrder
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                for name in client.iter_sequences(order_by=SequenceOrder.Name):
+                    print(name)
+            ```
+        """
+        cursor = None
+        while True:
+            page = self.list_sequences_page(
+                limit=page_size, cursor=cursor, order_by=order_by
+            )
+            yield from page.names
+
+            if page.next_cursor is None:
+                return
+            cursor = page.next_cursor
 
     def list_sequence_notifications(self, sequence_name: str) -> List[Notification]:
         """
