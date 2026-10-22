@@ -13,12 +13,12 @@ from ..proto.v1 import flight_pb2
 @dataclass(frozen=True)
 class SequencePage:
     """
-    A page of sequences..
+    A page of sequences.
 
     Attributes:
         names (list[str]): The sequence names in this page, in the requested order.
         next_cursor (bytes | None): Pass it as `cursor` to get the next page.
-            `None` when there are no more pages. The cursor is is meant to be stored
+            `None` when there are no more pages. The cursor is meant to be stored
             and sent back unchanged, with the same `order_by`.
     """
 
