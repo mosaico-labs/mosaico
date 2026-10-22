@@ -101,36 +101,32 @@ pub async fn sequence_find_all_sessions(
     Ok(res)
 }
 
-/// Returns a page of sequences in ascending order, starting strictly after `after`.
-///
-/// Without a cursor, `order` selects the order of the first page. With a cursor, the
-/// cursor's own order is used (callers validate that it matches `order`).
+/// Returns a page of sequences in ascending order: the first page in the given order, or
+/// the page strictly after a cursor, in the cursor's order.
 pub async fn sequence_find_page(
     exe: &mut impl AsExec,
-    order: types::SequenceOrder,
-    after: Option<&types::SequenceCursor>,
+    start: &types::ListStart,
     limit: types::ListLimit,
 ) -> Result<Vec<types::SequenceListEntry>, Error> {
-    trace!("retrieving a page of sequences by {:?}", order);
+    trace!("retrieving a page of sequences from {:?}", start);
 
     let limit = match limit {
         types::ListLimit::Unlimited => None,
         types::ListLimit::Bounded(limit) => Some(i64::from(limit.get())),
     };
 
-    match (order, after) {
-        (
-            _,
-            Some(types::SequenceCursor::CreatedAt {
-                created_at,
-                sequence_id,
-            }),
-        ) => page_by_created_at(exe, created_at.as_i64(), *sequence_id, limit).await,
-        (types::SequenceOrder::CreatedAt, None) => {
+    match start {
+        types::ListStart::First(types::SequenceOrder::CreatedAt) => {
             page_by_created_at(exe, i64::MIN, i32::MIN, limit).await
         }
-        (_, Some(types::SequenceCursor::Name(name))) => page_by_name(exe, name, limit).await,
-        (types::SequenceOrder::Name, None) => page_by_name(exe, "", limit).await,
+        types::ListStart::First(types::SequenceOrder::Name) => page_by_name(exe, "", limit).await,
+        types::ListStart::After(types::SequenceCursor::CreatedAt {
+            created_at,
+            sequence_id,
+        }) => page_by_created_at(exe, created_at.as_i64(), *sequence_id, limit).await,
+        types::ListStart::After(types::SequenceCursor::Name(name)) => {
+            page_by_name(exe, name, limit).await
+        }
     }
 }
 
@@ -339,7 +335,7 @@ mod tests {
     // PAGINATED LISTING
     // ////////////////////////////////////////////////////////////////////////
 
-    use types::{ListLimit, SequenceOrder};
+    use types::{ListLimit, ListStart, SequenceOrder};
 
     /// Inserts a sequence with an explicit creation timestamp.
     async fn insert(exe: &mut impl AsExec, name: &str, created_at: i64) {
@@ -363,10 +359,10 @@ mod tests {
     /// Walks the whole listing page by page, returning each page's names.
     async fn walk(exe: &mut impl AsExec, order: SequenceOrder, page_size: u32) -> Vec<Vec<String>> {
         let mut pages = vec![];
-        let mut cursor = None;
+        let mut start = ListStart::First(order);
 
         loop {
-            let page = sequence_find_page(exe, order, cursor.as_ref(), ListLimit::from(page_size))
+            let page = sequence_find_page(exe, &start, ListLimit::from(page_size))
                 .await
                 .unwrap();
             pages.push(names(&page));
@@ -374,7 +370,7 @@ mod tests {
             if page.len() < page_size as usize {
                 return pages;
             }
-            cursor = page.last().map(|e| e.cursor.clone());
+            start = ListStart::After(page.last().unwrap().cursor.clone());
         }
     }
 
@@ -461,13 +457,14 @@ mod tests {
         insert_fixture(&mut cx).await;
 
         for order in [SequenceOrder::CreatedAt, SequenceOrder::Name] {
-            let first = sequence_find_page(&mut cx, order, None, ListLimit::from(2))
+            let first = sequence_find_page(&mut cx, &ListStart::First(order), ListLimit::from(2))
                 .await
                 .unwrap();
             let last = first.last().unwrap();
+            let after = ListStart::After(last.cursor.clone());
 
             let expected = names(
-                &sequence_find_page(&mut cx, order, Some(&last.cursor), ListLimit::Unlimited)
+                &sequence_find_page(&mut cx, &after, ListLimit::Unlimited)
                     .await
                     .unwrap(),
             );
@@ -477,7 +474,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            let next = sequence_find_page(&mut tx, order, Some(&last.cursor), ListLimit::Unlimited)
+            let next = sequence_find_page(&mut tx, &after, ListLimit::Unlimited)
                 .await
                 .unwrap();
             assert_eq!(names(&next), expected, "{order:?}");
@@ -493,9 +490,13 @@ mod tests {
         let mut cx = database.connection();
         insert_fixture(&mut cx).await;
 
-        let first = sequence_find_page(&mut cx, SequenceOrder::CreatedAt, None, ListLimit::from(2))
-            .await
-            .unwrap();
+        let first = sequence_find_page(
+            &mut cx,
+            &ListStart::First(SequenceOrder::CreatedAt),
+            ListLimit::from(2),
+        )
+        .await
+        .unwrap();
         assert_eq!(names(&first), vec!["charlie", "alpha"]);
 
         insert(&mut cx, "behind", 150).await;
@@ -503,8 +504,7 @@ mod tests {
 
         let rest = sequence_find_page(
             &mut cx,
-            SequenceOrder::CreatedAt,
-            Some(&first.last().unwrap().cursor),
+            &ListStart::After(first.last().unwrap().cursor.clone()),
             ListLimit::Unlimited,
         )
         .await
@@ -519,9 +519,13 @@ mod tests {
         let mut cx = database.connection();
         insert_fixture(&mut cx).await;
 
-        let all = sequence_find_page(&mut cx, SequenceOrder::Name, None, ListLimit::Unlimited)
-            .await
-            .unwrap();
+        let all = sequence_find_page(
+            &mut cx,
+            &ListStart::First(SequenceOrder::Name),
+            ListLimit::Unlimited,
+        )
+        .await
+        .unwrap();
         assert_eq!(
             names(&all),
             vec!["alpha", "bravo", "charlie", "delta", "echo"]

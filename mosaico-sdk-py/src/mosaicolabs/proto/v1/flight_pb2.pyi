@@ -41,7 +41,7 @@ class ListFlightsCmd(_message.Message):
     cursor: SequenceCursor
     limit: int
     order_by: SequenceOrder
-    def __init__(self, order_by: _Optional[_Union[SequenceOrder, str]] = ..., limit: _Optional[int] = ..., cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
+    def __init__(self, limit: _Optional[int] = ..., order_by: _Optional[_Union[SequenceOrder, str]] = ..., cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
 
 class SequenceAppMetadata(_message.Message):
     __slots__ = ["created_at_ns", "locator", "sessions", "user_metadata"]

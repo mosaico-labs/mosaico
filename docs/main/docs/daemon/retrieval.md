@@ -51,15 +51,17 @@ With a positive `limit`, `list_flights` returns one page at a time. Its `Criteri
 
 ```proto
 message ListFlightsCmd {
-  SequenceOrder order_by = 1;  // SEQUENCE_ORDER_CREATED_AT or SEQUENCE_ORDER_NAME
-  uint32 limit = 2;            // 0: no limit
-  SequenceCursor cursor = 3;   // absent: first page
+  uint32 limit = 1;              // 0: no limit
+  oneof start {
+    SequenceOrder order_by = 2;  // first page: SEQUENCE_ORDER_CREATED_AT or SEQUENCE_ORDER_NAME
+    SequenceCursor cursor = 3;   // next pages, in the cursor's order
+  }
 }
 ```
 
 Ordering is always ascending.
 
-Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request to continue.
+Each returned `FlightInfo` also carries a `SequenceListItemAppMetadata` in `app_metadata`. Its `cursor` points just past that sequence: copy it into the next request, in place of `order_by`, to continue.
 
 ```py title="list_sequences_paged"
 # First page: 20 sequences, by name
@@ -75,9 +77,7 @@ page = list_flights(cmd.SerializeToString())
 - **End of the list.** A page with fewer than `limit` sequences is the last one. When the total is an exact multiple of `limit`, one more request returns an empty page. With `limit: 0`, the stream itself is the whole rest of the list.
 - **Resuming.** Every sequence carries its own cursor, so a client that stops in the middle of a page can resume right after the last sequence it handled. A cursor stays valid even if the sequence it was built from has since been deleted.
 - **Consistency.** The listing is live, not a snapshot. Each page reflects the database when it is fetched: deleted sequences disappear, and sequences created between requests only show up if they sort after the cursor.
-- **Errors.** `InvalidArgument` is returned when:
-  - the expression is not a valid `ListFlightsCmd`;
-  - the cursor was built for a different `order_by`.
+- **Errors.** `InvalidArgument` is returned when the expression is not a valid `ListFlightsCmd`, or sets neither `order_by` nor `cursor`.
 
 The Python SDK wraps this in `MosaicoClient.list_sequences_page()` and `MosaicoClient.iter_sequences()`, which fetch 50 sequences per page, oldest first, by default. `MosaicoClient.list_sequences()` returns every sequence at once.
 

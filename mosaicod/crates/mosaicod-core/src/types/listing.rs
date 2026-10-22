@@ -46,14 +46,13 @@ pub enum SequenceCursor {
     Name(SequenceLocator),
 }
 
-impl SequenceCursor {
-    /// Returns the sort order this cursor was built for.
-    pub fn order(&self) -> SequenceOrder {
-        match self {
-            Self::CreatedAt { .. } => SequenceOrder::CreatedAt,
-            Self::Name(_) => SequenceOrder::Name,
-        }
-    }
+/// Where a listing starts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ListStart {
+    /// The first page, in the given order.
+    First(SequenceOrder),
+    /// The page right after the cursor, in the cursor's order.
+    After(SequenceCursor),
 }
 
 /// A sequence returned by a paginated listing.
