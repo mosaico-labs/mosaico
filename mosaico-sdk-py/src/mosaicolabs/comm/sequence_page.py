@@ -7,11 +7,7 @@ from dataclasses import dataclass
 import pyarrow.flight as fl
 
 from ..enum import SequenceOrder
-from ..logging_config import get_logger
 from ..proto.v1 import flight_pb2
-
-# Set the hierarchical logger
-logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -58,17 +54,6 @@ def _list_flights_criteria(
     return cmd.SerializeToString()
 
 
-def _sequence_names(infos: list[fl.FlightInfo]) -> list[str]:
-    """Extracts the sequence names, carried in the descriptor path."""
-    names = []
-    for info in infos:
-        if info.descriptor.path is None:
-            logger.debug("`None` path found in `list_flights` endpoint")
-            continue
-        names.extend(p.decode("utf-8") for p in info.descriptor.path)
-    return names
-
-
 def _page_from_flight_infos(
     infos: list[fl.FlightInfo], limit: int | None
 ) -> SequencePage:
@@ -88,4 +73,7 @@ def _page_from_flight_infos(
         )
         next_cursor = metadata.cursor.SerializeToString()
 
-    return SequencePage(names=_sequence_names(infos), next_cursor=next_cursor)
+    # Each sequence name is carried in the descriptor path.
+    names = [info.descriptor.path[0].decode("utf-8") for info in infos]
+
+    return SequencePage(names=names, next_cursor=next_cursor)
