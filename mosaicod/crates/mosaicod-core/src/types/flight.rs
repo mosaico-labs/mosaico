@@ -1,4 +1,3 @@
-use crate::Error;
 use crate::types;
 use crate::types::TimestampRange;
 
@@ -22,23 +21,8 @@ pub struct GetSchemaCmd {
 /// Request a page of sequences
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListFlightsCmd {
-    pub order: types::SequenceOrder,
+    pub start: types::ListStart,
     pub limit: types::ListLimit,
-    pub cursor: Option<types::SequenceCursor>,
-}
-
-impl ListFlightsCmd {
-    pub fn validate(&self) -> Result<(), Error> {
-        if let Some(cursor) = &self.cursor
-            && cursor.order() != self.order
-        {
-            return Err(Error::bad_request(
-                "cursor does not match order_by".to_owned(),
-            ));
-        }
-
-        Ok(())
-    }
 }
 
 pub struct TicketTopic {
@@ -46,49 +30,4 @@ pub struct TicketTopic {
     pub locator: types::TopicLocator,
     /// Optional timestamp range used to limit the data stream
     pub timestamp_range: Option<TimestampRange>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::ErrorKind;
-
-    fn name_cursor() -> types::SequenceCursor {
-        types::SequenceCursor::Name("my_sequence".parse().unwrap())
-    }
-
-    fn created_at_cursor() -> types::SequenceCursor {
-        types::SequenceCursor::CreatedAt {
-            created_at: types::Timestamp::from(1_760_000_000_000_000_000),
-            sequence_id: 42,
-        }
-    }
-
-    fn cmd(order: types::SequenceOrder, cursor: Option<types::SequenceCursor>) -> ListFlightsCmd {
-        ListFlightsCmd {
-            order,
-            limit: types::ListLimit::Unlimited,
-            cursor,
-        }
-    }
-
-    #[test]
-    fn cursor_matching_order_is_valid() {
-        let by_created_at = cmd(types::SequenceOrder::CreatedAt, Some(created_at_cursor()));
-        let by_name = cmd(types::SequenceOrder::Name, Some(name_cursor()));
-
-        assert!(by_created_at.validate().is_ok());
-        assert!(by_name.validate().is_ok());
-    }
-
-    #[test]
-    fn cursor_order_mismatch_is_rejected() {
-        let name_cursor_by_created_at = cmd(types::SequenceOrder::CreatedAt, Some(name_cursor()));
-        let created_at_cursor_by_name = cmd(types::SequenceOrder::Name, Some(created_at_cursor()));
-
-        for cmd in [name_cursor_by_created_at, created_at_cursor_by_name] {
-            let err = cmd.validate().unwrap_err();
-            assert!(matches!(err.kind(), ErrorKind::BadRequest(_)));
-        }
-    }
 }

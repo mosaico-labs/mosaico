@@ -128,7 +128,7 @@ pub async fn page(
     cmd: &types::flight::ListFlightsCmd,
 ) -> Result<Vec<types::SequenceListEntry>> {
     let mut cx = context.db.connection();
-    Ok(db::sequence_find_page(&mut cx, cmd.order, cmd.cursor.as_ref(), cmd.limit).await?)
+    Ok(db::sequence_find_page(&mut cx, &cmd.start, cmd.limit).await?)
 }
 
 /// Add a notification to the sequence
@@ -398,23 +398,21 @@ mod tests {
 
         // Every sequence, in creation order.
         let by_created_at = types::flight::ListFlightsCmd {
-            order: types::SequenceOrder::CreatedAt,
+            start: types::ListStart::First(types::SequenceOrder::CreatedAt),
             limit: types::ListLimit::Unlimited,
-            cursor: None,
         };
         let all = page(&context, &by_created_at).await.unwrap();
         assert_eq!(names(&all), vec!["charlie", "alpha", "bravo"]);
 
         // Name order, two pages of two.
         let mut cmd = types::flight::ListFlightsCmd {
-            order: types::SequenceOrder::Name,
+            start: types::ListStart::First(types::SequenceOrder::Name),
             limit: types::ListLimit::from(2),
-            ..by_created_at
         };
         let first = page(&context, &cmd).await.unwrap();
         assert_eq!(names(&first), vec!["alpha", "bravo"]);
 
-        cmd.cursor = first.last().map(|e| e.cursor.clone());
+        cmd.start = types::ListStart::After(first.last().unwrap().cursor.clone());
         let second = page(&context, &cmd).await.unwrap();
         assert_eq!(names(&second), vec!["charlie"]);
     }

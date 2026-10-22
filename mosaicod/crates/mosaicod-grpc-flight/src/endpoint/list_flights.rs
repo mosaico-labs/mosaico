@@ -19,9 +19,8 @@ pub async fn list_flights(
     criteria: Criteria,
 ) -> grpc_common::Result<BoxStream<'static, grpc_common::Result<FlightInfo>>> {
     let cmd = marshal::flight::list_flights_cmd(&criteria.expression)?;
-    cmd.validate()?;
 
-    info!("listing sequences by {:?} ({:?})", cmd.order, cmd.limit);
+    info!("listing sequences from {:?} ({:?})", cmd.start, cmd.limit);
 
     let entries = facade::sequence::page(ctx, &cmd).await?;
 

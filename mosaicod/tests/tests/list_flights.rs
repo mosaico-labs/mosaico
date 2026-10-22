@@ -3,22 +3,27 @@ use arrow_flight::FlightInfo;
 use mosaicod_db as db;
 use mosaicod_proto::v1::flight as proto_flight;
 use prost::Message;
+use proto_flight::list_flights_cmd::Start;
 use tests::{actions, common};
 
 // ===========================================================================
 // list_flights tests
 // ===========================================================================
 
-/// Builds a `ListFlightsCmd` request, as a client would.
-fn cmd(
-    order_by: proto_flight::SequenceOrder,
-    limit: u32,
-    cursor: Option<proto_flight::SequenceCursor>,
-) -> Vec<u8> {
+/// Builds a first-page `ListFlightsCmd` request, as a client would.
+fn first_page(order_by: proto_flight::SequenceOrder, limit: u32) -> Vec<u8> {
     proto_flight::ListFlightsCmd {
-        order_by: order_by as i32,
         limit,
-        cursor,
+        start: Some(Start::OrderBy(order_by as i32)),
+    }
+    .encode_to_vec()
+}
+
+/// Builds a next-page `ListFlightsCmd` request, as a client would.
+fn next_page(cursor: proto_flight::SequenceCursor, limit: u32) -> Vec<u8> {
+    proto_flight::ListFlightsCmd {
+        limit,
+        start: Some(Start::Cursor(cursor)),
     }
     .encode_to_vec()
 }
@@ -63,7 +68,7 @@ async fn test_list_flights_all(pool: sqlx::Pool<db::DatabaseType>) {
 
     let infos = actions::list_flights(
         &mut client,
-        cmd(proto_flight::SequenceOrder::CreatedAt, 0, None),
+        first_page(proto_flight::SequenceOrder::CreatedAt, 0),
     )
     .await
     .unwrap();
@@ -89,22 +94,15 @@ async fn test_list_flights_resume_mid_page(pool: sqlx::Pool<db::DatabaseType>) {
 
     let page = actions::list_flights(
         &mut client,
-        cmd(proto_flight::SequenceOrder::CreatedAt, 3, None),
+        first_page(proto_flight::SequenceOrder::CreatedAt, 3),
     )
     .await
     .unwrap();
 
     // Stop after the first item of the page.
-    let rest = actions::list_flights(
-        &mut client,
-        cmd(
-            proto_flight::SequenceOrder::CreatedAt,
-            0,
-            Some(cursor(&page[0])),
-        ),
-    )
-    .await
-    .unwrap();
+    let rest = actions::list_flights(&mut client, next_page(cursor(&page[0]), 0))
+        .await
+        .unwrap();
     assert_eq!(names(&rest), created[1..]);
 
     server.shutdown().await;
@@ -118,43 +116,25 @@ async fn test_list_flights_invalid_requests(pool: sqlx::Pool<db::DatabaseType>) 
         .build()
         .await;
 
-    actions::sequence_create(&mut client, "my_sequence", "")
-        .await
-        .unwrap();
-
-    let name_cursor = proto_flight::SequenceCursor {
-        key: Some(proto_flight::sequence_cursor::Key::Name(
-            "my_sequence".to_owned(),
-        )),
-    };
-
     let requests = [
         ("empty expression", vec![]),
         (
             "unspecified order_by",
-            cmd(proto_flight::SequenceOrder::Unspecified, 10, None),
+            first_page(proto_flight::SequenceOrder::Unspecified, 10),
         ),
         ("raw slash", b"/".to_vec()),
         ("undecodable bytes", b"my_sequence".to_vec()),
         (
             "unknown order_by",
             proto_flight::ListFlightsCmd {
-                order_by: 7,
-                ..Default::default()
+                limit: 0,
+                start: Some(Start::OrderBy(7)),
             }
             .encode_to_vec(),
         ),
         (
             "cursor without key",
-            cmd(
-                proto_flight::SequenceOrder::CreatedAt,
-                0,
-                Some(proto_flight::SequenceCursor { key: None }),
-            ),
-        ),
-        (
-            "cursor order mismatch",
-            cmd(proto_flight::SequenceOrder::CreatedAt, 0, Some(name_cursor)),
+            next_page(proto_flight::SequenceCursor { key: None }, 0),
         ),
     ];
 

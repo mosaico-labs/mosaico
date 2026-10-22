@@ -33,6 +33,29 @@ def test_criteria_rejects_negative_limit():
         _list_flights_criteria(-1, None, SequenceOrder.CreatedAt)
 
 
+def test_criteria_first_page_defaults_to_created_at():
+    cmd = flight_pb2.ListFlightsCmd.FromString(_list_flights_criteria(50, None, None))
+
+    assert cmd.WhichOneof("start") == "order_by"
+    assert cmd.order_by == flight_pb2.SEQUENCE_ORDER_CREATED_AT
+
+
+def test_criteria_next_page_sends_only_the_cursor():
+    cursor = _name_cursor("a")
+    expression = _list_flights_criteria(50, cursor.SerializeToString(), None)
+    cmd = flight_pb2.ListFlightsCmd.FromString(expression)
+
+    assert cmd.WhichOneof("start") == "cursor"
+    assert cmd.cursor == cursor
+
+
+def test_criteria_rejects_cursor_with_order_by():
+    cursor = _name_cursor("a").SerializeToString()
+
+    with pytest.raises(ValueError):
+        _list_flights_criteria(50, cursor, SequenceOrder.Name)
+
+
 def test_full_page_has_next_cursor():
     page = _page_from_flight_infos([_flight_info("a"), _flight_info("b")], limit=2)
 

@@ -770,7 +770,7 @@ class MosaicoClient:
         self,
         limit: int = 50,
         cursor: bytes | None = None,
-        order_by: SequenceOrder = SequenceOrder.CreatedAt,
+        order_by: SequenceOrder | None = None,
     ) -> SequencePage:
         """
         Retrieves one page of sequence names.
@@ -785,15 +785,16 @@ class MosaicoClient:
                 sequence after the cursor.
             cursor (bytes | None): The `next_cursor` of the previous page, or `None`
                 for the first page.
-            order_by (SequenceOrder): The sort order, always ascending. With a
-                cursor, it must match the order of the page the cursor came from.
+            order_by (SequenceOrder | None): The sort order of the first page, always
+                ascending. `None` means `SequenceOrder.CreatedAt`. Leave it unset with a
+                cursor, which carries its own order.
 
         Returns:
             SequencePage: The sequence names and the cursor of the next page, which is
                 `None` when there are no more pages.
 
         Raises:
-            ValueError: If `limit` is negative.
+            ValueError: If `limit` is negative, or both `cursor` and `order_by` are set.
 
         Example:
             ```python
@@ -845,16 +846,12 @@ class MosaicoClient:
                     print(name)
             ```
         """
-        cursor = None
-        while True:
-            page = self.list_sequences_page(
-                limit=page_size, cursor=cursor, order_by=order_by
-            )
-            yield from page.names
+        page = self.list_sequences_page(limit=page_size, order_by=order_by)
+        yield from page.names
 
-            if page.next_cursor is None:
-                return
-            cursor = page.next_cursor
+        while page.next_cursor is not None:
+            page = self.list_sequences_page(limit=page_size, cursor=page.next_cursor)
+            yield from page.names
 
     def list_sequence_notifications(self, sequence_name: str) -> List[Notification]:
         """

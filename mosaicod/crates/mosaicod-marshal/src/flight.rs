@@ -58,17 +58,24 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 
 /// Convert a raw `Criteria.expression` into a [`types::flight::ListFlightsCmd`].
 pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error> {
+    use proto_flight::list_flights_cmd::Start;
+
     let cmd: proto_flight::ListFlightsCmd = proto_flight::ListFlightsCmd::decode(v)
         .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
-    let order = sequence_order_from_proto(cmd.order_by)?;
-    let limit = types::ListLimit::from(cmd.limit);
-    let cursor = cmd.cursor.map(sequence_cursor_from_proto).transpose()?;
+    let start = match cmd.start {
+        Some(Start::OrderBy(order)) => types::ListStart::First(sequence_order_from_proto(order)?),
+        Some(Start::Cursor(cursor)) => types::ListStart::After(sequence_cursor_from_proto(cursor)?),
+        None => {
+            return Err(Error::DeserializationError(
+                "either order_by or cursor must be set".to_owned(),
+            ));
+        }
+    };
 
     Ok(types::flight::ListFlightsCmd {
-        order,
-        limit,
-        cursor,
+        start,
+        limit: types::ListLimit::from(cmd.limit),
     })
 }
 
@@ -76,12 +83,9 @@ fn sequence_order_from_proto(value: i32) -> Result<types::SequenceOrder, Error> 
     match proto_flight::SequenceOrder::try_from(value) {
         Ok(proto_flight::SequenceOrder::CreatedAt) => Ok(types::SequenceOrder::CreatedAt),
         Ok(proto_flight::SequenceOrder::Name) => Ok(types::SequenceOrder::Name),
-        Ok(proto_flight::SequenceOrder::Unspecified) => Err(Error::DeserializationError(
-            "order_by must be set".to_owned(),
+        Ok(proto_flight::SequenceOrder::Unspecified) | Err(_) => Err(Error::DeserializationError(
+            format!("invalid order_by value `{value}`"),
         )),
-        Err(_) => Err(Error::DeserializationError(format!(
-            "unknown order_by value `{value}`"
-        ))),
     }
 }
 
@@ -353,7 +357,7 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
 // ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::{Error, proto_flight::SequenceOrder};
+    use super::Error;
     use mosaicod_core::types::flight::ListFlightsCmd;
     use mosaicod_proto::v1::time as proto_time;
     use prost::Message;
@@ -479,7 +483,7 @@ mod tests {
     }
 
     #[test]
-    fn list_flights_cmd_requires_order() {
+    fn list_flights_cmd_requires_order_or_cursor() {
         assert!(matches!(
             super::list_flights_cmd(&[]),
             Err(Error::DeserializationError(_))
@@ -488,18 +492,18 @@ mod tests {
 
     #[test]
     fn list_flights_cmd_invalid_cursors() {
-        let no_key = decode(super::proto_flight::ListFlightsCmd {
-            order_by: SequenceOrder::CreatedAt as i32,
-            cursor: Some(super::proto_flight::SequenceCursor { key: None }),
-            ..Default::default()
-        });
-        let invalid_name = decode(super::proto_flight::ListFlightsCmd {
-            order_by: SequenceOrder::Name as i32,
-            cursor: Some(name_cursor("not/a/sequence")),
-            ..Default::default()
-        });
+        use super::proto_flight::list_flights_cmd::Start;
 
-        assert!(matches!(no_key, Err(Error::DeserializationError(_))));
-        assert!(matches!(invalid_name, Err(Error::DeserializationError(_))));
+        for cursor in [
+            super::proto_flight::SequenceCursor { key: None },
+            name_cursor("not/a/sequence"),
+        ] {
+            let cmd = decode(super::proto_flight::ListFlightsCmd {
+                start: Some(Start::Cursor(cursor)),
+                ..Default::default()
+            });
+
+            assert!(matches!(cmd, Err(Error::DeserializationError(_))));
+        }
     }
 }
