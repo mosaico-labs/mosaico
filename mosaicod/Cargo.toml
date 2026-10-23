@@ -34,7 +34,7 @@ mosaicod-task = { path = "crates/mosaicod-task" }
 
 # Arrow stack dependencies
 arrow = { version = "58.1.0", default-features = false, features = ["prettyprint", "ipc_compression"] }
-arrow-cast = { version = "58.1.0", default-features = false }
+arrow-cast = { version = "60.0.0", default-features = false }
 arrow-flight = { version = "58.1.0", default-features = false }
 arrow-schema = { version = "58.1.0", default-features = false }
 parquet = { version = "58.1.0", default-features = false, features = ["arrow", "async", "object_store", "zstd", "simdutf8"] }
