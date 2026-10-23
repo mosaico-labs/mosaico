@@ -67,6 +67,8 @@ class _TopicWriteState:
         self.writer: Optional[fl.FlightStreamWriter] = writer
         self.data_schema: pa.StructType = data_schema
         self.max_batch_size_bytes = max_batch_size_bytes
+        # The schema of the record batches sent on the wire (envelope + payload fields)
+        self.wire_schema: pa.Schema = Message._get_schema(data_schema)
 
         # --- Buffering State ---
         self._current_data_batch: List[Message] = []
@@ -85,7 +87,7 @@ class _TopicWriteState:
 
         return pa.RecordBatch.from_pydict(
             _encode_messages(msgs),
-            schema=Message._get_schema(self.data_schema),
+            schema=self.wire_schema,
         )
 
     def _get_serialized_size(self, batch: pa.RecordBatch) -> int:
@@ -171,6 +173,68 @@ class _TopicWriteState:
             self._oversized_records += 1
 
         return pushed
+
+    def push_batch(self, timestamp_ns: pa.Array, data: pa.RecordBatch):
+        """
+        Sends a whole batch of records, bypassing the `Message` buffer.
+
+        The `timestamp_ns` envelope column is prepended to the payload columns,
+        producing a batch with the same wire schema used for buffered messages
+        (see `Message._get_schema`). Any buffered `Message` is flushed first, so
+        the records reach the server in the same order they were pushed.
+
+        Args:
+            timestamp_ns (pa.Array): The `int64` timestamps of the records, one per row of `data`.
+            data (pa.RecordBatch): The payload columns, matching the topic's ontology schema.
+
+        Raises:
+            ValueError: If the writer is None, if `data` does not match the ontology schema,
+                if `timestamp_ns` is not a null-free `int64` array as long as `data`, or if
+                the batch exceeds `max_batch_size_bytes`.
+        """
+        if self.writer is None:
+            raise ValueError("push_batch() called on uninitialized state.")
+
+        expected_data_schema = pa.schema(list(self.data_schema))
+        if not data.schema.equals(expected_data_schema, check_metadata=False):
+            raise ValueError(
+                f"Batch schema does not match the ontology schema of topic '{self.topic_name}'.\n"
+                f"Expected:\n{expected_data_schema}\nGot:\n{data.schema}"
+            )
+
+        if timestamp_ns.type != pa.int64():
+            raise ValueError(
+                f"'timestamp_ns' must be of type int64, got '{timestamp_ns.type}'."
+            )
+        if timestamp_ns.null_count > 0:
+            raise ValueError("'timestamp_ns' must not contain null values.")
+        if len(timestamp_ns) != data.num_rows:
+            raise ValueError(
+                f"'timestamp_ns' has {len(timestamp_ns)} values, but the batch has "
+                f"{data.num_rows} rows."
+            )
+
+        batch = pa.RecordBatch.from_arrays(
+            [timestamp_ns, *data.columns], schema=self.wire_schema
+        )
+
+        batch_size = self._get_serialized_size(batch)
+        if batch_size > self.max_batch_size_bytes:
+            raise ValueError(
+                f"Batch size ({batch_size} bytes) exceeds the maximum batch size "
+                f"({self.max_batch_size_bytes} bytes) for topic '{self.topic_name}'."
+            )
+
+        # Keep the records ordered with respect to the buffered messages
+        self._write_current_batch()
+
+        try:
+            self.writer.write(batch)
+        except Exception as e:
+            raise Exception(f"Write failed for topic '{self.topic_name}': '{e}'")
+
+        self._pushed_records += batch.num_rows
+        self._written_records += batch.num_rows
 
     def _submit_write_task(self, msgs_to_write: List[Message]):
         """
