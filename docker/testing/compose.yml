@@ -19,6 +19,31 @@ services:
       retries: 3
       start_period: 60s
 
+  # PostgreSQL instance with TLS enabled, using the self-signed certificate
+  # shipped with the official image.
+  mosaico-pg-tls-testing:
+    image: postgres:16
+    command: >
+      -c ssl=on
+      -c ssl_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+      -c ssl_key_file=/etc/ssl/private/ssl-cert-snakeoil.key
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mosaico
+    ports:
+      - "127.0.0.1:6544:5432"
+    volumes:
+      - mosaico-testing-pg-tls-data:/var/lib/postgresql/data
+    networks:
+      - mosaico-pg-testing-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   mosaico-store-testing:
     image: ghcr.io/versity/versitygw:latest
     ports:
@@ -45,6 +70,7 @@ services:
 
 volumes:
   mosaico-testing-pg-data:
+  mosaico-testing-pg-tls-data:
   mosaico-testing-store-data:
 
 networks:

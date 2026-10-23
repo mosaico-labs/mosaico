@@ -63,6 +63,7 @@ sqlx = { version = "0.8.6", default-features = false, features = [
     "postgres",
     "macros",
     "runtime-tokio",
+    "tls-rustls-ring-native-roots",
     "uuid",
     "json",
     "migrate",

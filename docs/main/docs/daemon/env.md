@@ -56,7 +56,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 ## DBMS
 
-- <Link id="mosaicod-db-url" />`MOSAICOD_DB_URL`: Database connection URL, without credentials (e.g. `postgresql://host:port/dbname`). Use `MOSAICOD_DB_USER` and `MOSAICOD_DB_PASSWORD` to provide credentials. **Required**.
+- <Link id="mosaicod-db-url" />`MOSAICOD_DB_URL`: Database connection URL, without credentials (e.g. `postgresql://host:port/dbname`). Use `MOSAICOD_DB_USER` and `MOSAICOD_DB_PASSWORD` to provide credentials. TLS is configured through the standard PostgreSQL URL parameters `sslmode`, `sslrootcert`, `sslcert` and `sslkey`. **Required**.
 
 - <Link id="mosaicod-db-user" />`MOSAICOD_DB_USER`: Database user used to establish the connection. Default is an empty string, as some databases do not require a user to be specified.
 

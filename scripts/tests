@@ -10,7 +10,9 @@ DOCKER_DIR="docker/testing"
 
 # Environment variables (with defaults)
 export RUST_LOG="mosaico=trace"
-export MOSAICOD_DB_URL="postgresql://localhost:6543/mosaico"
+DB_URL="postgresql://localhost:6543/mosaico"
+DB_TLS_URL="postgresql://localhost:6544/mosaico"
+export MOSAICOD_DB_URL="${DB_URL}"
 export MOSAICOD_DB_USER=postgres
 export MOSAICOD_DB_PASSWORD=password
 export MOSAICOD_STORE_ENDPOINT="file:///tmp"
@@ -124,7 +126,7 @@ Options:
     --mosaicod                  Run mosaicod unit tests (requires Docker for PostgreSQL)
     --sdk-python                Run Python SDK unit tests (no Docker required)
     --full-stack                Run full-stack tests (requires Docker + mosaicod build)
-    --full-stack-tls            Run full-stack tests with TLS (requires Docker + mosaicod build)
+    --full-stack-tls            Run full-stack tests with TLS, including the database connection (requires Docker + mosaicod build)
     --full-stack-api-key        Run full-stack tests on API KEY (requires Docker + mosaicod build)
     --full-stack-gzip           Run full-stack tests with gzip compression enabled (requires Docker + mosaicod build)
     --full-stack-all            Run all full-stack tests (requires (Docker + mosaicod build)
@@ -189,6 +191,7 @@ run_full_stack_tests() {
     export MOSAICOD_TLS_ENABLED=false
     export MOSAICOD_GZIP_ENABLED=false
     export MOSAICOD_API_KEY_ENABLED=false
+    export MOSAICOD_DB_URL="${DB_URL}"
 
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -200,6 +203,9 @@ run_full_stack_tests() {
                 export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
                 export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
                 export MOSAICO_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/ca.pem"
+
+                # Require TLS on the database connection.
+                export MOSAICOD_DB_URL="${DB_TLS_URL}?sslmode=require"
 
                 shift
                 ;;
@@ -261,6 +267,13 @@ run_full_stack_tests() {
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"
     echo "Waiting starver to startup ..."
     sleep 1
+
+    if ! kill -0 "${MOSAICOD_PID}" 2>/dev/null; then
+        MOSAICOD_PID=""
+        echo "${RED}${BOLD}mosaicod exited during startup, last log lines:${RESET}"
+        tail -n 20 "${MOSAICOD_OUTPUT}"
+        exit 1
+    fi
 
     # Run full-stack tests
     title "running full-stack tests" "." "${BLUE}"
