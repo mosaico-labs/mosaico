@@ -19,7 +19,7 @@ import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Tuple
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -28,6 +28,9 @@ from mosaicolabs.handlers.helpers import _validate_metadata_keys
 from mosaicolabs.logging_config import get_logger
 
 from ..base_schema_metadata import BaseSchemaMetadata
+
+if TYPE_CHECKING:
+    from mosaicolabs.handlers import SequenceHandler
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -100,6 +103,45 @@ def _load_json_object(path: Path) -> Dict[str, Any]:
             f"`{type(content).__name__}`."
         )
     return content
+
+
+def _holds_feature(value: Any) -> bool:
+    """Whether `value` is a feature description, or a dict holding one at any depth."""
+    return isinstance(value, dict) and (
+        "dtype" in value or any(_holds_feature(v) for v in value.values())
+    )
+
+
+def _flatten_features(nested: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+    """
+    Rebuilds the `features` dict of `meta/info.json` from its `_lerobot_` form, where ingestion
+    nested the dotted feature names: a name is the path, joined with `.`, down to the first dict
+    holding a `dtype` (`{"observation": {"state": {"dtype": ...}}}` -> `observation.state`).
+
+    Raises:
+        ValueError: If a feature holds another feature: a dataset with both `a` and `a.b`, which
+            ingestion merges into the description of `a`.
+    """
+    flat: Dict[str, Any] = {}
+    for key, value in nested.items():
+        name = f"{prefix}.{key}" if prefix else key
+        if "dtype" not in value:
+            flat.update(_flatten_features(value, name))
+        elif any(_holds_feature(v) for v in value.values()):
+            raise ValueError(
+                f"Feature '{name}' holds another feature: its name cannot be rebuilt."
+            )
+        else:
+            flat[name] = value
+    return flat
+
+
+def _feature_signature(features: Dict[str, Any]) -> Dict[str, Tuple[Any, ...]]:
+    """The part of each feature that must match to merge datasets: dtype, shape and names."""
+    return {
+        key: (feature["dtype"], list(feature.get("shape") or []), feature.get("names"))
+        for key, feature in features.items()
+    }
 
 
 class LeRobotSchemaMetadata(BaseSchemaMetadata):
@@ -485,7 +527,77 @@ class LeRobotDatasetMeta:
         """
         meta_dir = Path(root) / _META_DIR
         info, stats = cls._load_meta_json(meta_dir)
+        # Checked before reading the episodes, whose layout differs in other versions
+        cls._check_info(root, info)
 
+        episodes_files = sorted((meta_dir / _EPISODES_DIR).rglob("*.parquet"))
+        if not episodes_files:
+            raise FileNotFoundError(
+                f"No episodes parquet file found in '{meta_dir / _EPISODES_DIR}'."
+            )
+
+        episodes = [
+            LeRobotEpisode.from_row(row)
+            for episodes_file in episodes_files
+            for row in pq.read_table(episodes_file).to_pylist()
+        ]
+        return cls.from_data(root, info, episodes, stats)
+
+    @classmethod
+    def from_data(
+        cls,
+        root: Path,
+        info: Dict[str, Any],
+        episodes: List[LeRobotEpisode],
+        stats: Optional[Dict[str, Any]] = None,
+    ) -> "LeRobotDatasetMeta":
+        """
+        Creates the metadata of a LeRobot dataset from its content, without reading any file.
+
+        Args:
+            root (Path): The root folder of the dataset.
+            info (Dict[str, Any]): The content of `meta/info.json`.
+            episodes (List[LeRobotEpisode]): The episodes of the dataset.
+            stats (Optional[Dict[str, Any]]): The content of `meta/stats.json`, if any.
+
+        Returns:
+            LeRobotDatasetMeta: The dataset metadata.
+
+        Raises:
+            ValueError: If the dataset format version is not supported, or the metadata is malformed.
+        """
+        cls._check_info(root, info)
+
+        features = {
+            key: LeRobotFeature.from_dict(key, feature)
+            for key, feature in (info.get("features") or {}).items()
+        }
+
+        episodes_map: Dict[int, LeRobotEpisode] = {}
+        for episode in episodes:
+            if episode.episode_index in episodes_map:
+                raise ValueError(
+                    f"Episode {episode.episode_index} is defined more than once in "
+                    f"the LeRobot dataset '{root}'."
+                )
+            episodes_map[episode.episode_index] = episode
+
+        return cls(
+            root=Path(root),
+            info=info,
+            stats=stats,
+            features=features,
+            episodes_map=dict(sorted(episodes_map.items())),
+        )
+
+    @staticmethod
+    def _check_info(root: Path, info: Dict[str, Any]) -> None:
+        """
+        Checks the dataset format version and the `data_path` template of `meta/info.json`.
+
+        Raises:
+            ValueError: If the version is not supported, or `data_path` is missing.
+        """
         codebase_version = info.get("codebase_version")
         if codebase_version != SUPPORTED_CODEBASE_VERSION:
             raise ValueError(
@@ -496,39 +608,9 @@ class LeRobotDatasetMeta:
         # The template of the data file paths (see `get_parquet_file`)
         if not isinstance(info.get("data_path"), str):
             raise ValueError(
-                f"'{meta_dir / _INFO_FILE}' has no 'data_path' (the template of the data "
-                "file paths)."
+                f"The 'meta/info.json' of the LeRobot dataset '{root}' has no 'data_path' "
+                "(the template of the data file paths)."
             )
-
-        features = {
-            key: LeRobotFeature.from_dict(key, feature)
-            for key, feature in (info.get("features") or {}).items()
-        }
-
-        episodes_files = sorted((meta_dir / _EPISODES_DIR).rglob("*.parquet"))
-        if not episodes_files:
-            raise FileNotFoundError(
-                f"No episodes parquet file found in '{meta_dir / _EPISODES_DIR}'."
-            )
-
-        episodes: Dict[int, LeRobotEpisode] = {}
-        for episodes_file in episodes_files:
-            for row in pq.read_table(episodes_file).to_pylist():
-                episode = LeRobotEpisode.from_row(row)
-                if episode.episode_index in episodes:
-                    raise ValueError(
-                        f"Episode {episode.episode_index} is defined more than once in "
-                        f"'{meta_dir / _EPISODES_DIR}'."
-                    )
-                episodes[episode.episode_index] = episode
-
-        return cls(
-            root=Path(root),
-            info=info,
-            stats=stats,
-            features=features,
-            episodes_map=dict(sorted(episodes.items())),
-        )
 
     @staticmethod
     def _load_meta_json(
@@ -561,3 +643,138 @@ class LeRobotDatasetMeta:
         stats = _load_json_object(stats_path) if stats_path.is_file() else None
 
         return info, stats
+
+
+def sequences_to_lerobot_meta(
+    root: Path, sequences: List["SequenceHandler"]
+) -> LeRobotDatasetMeta:
+    """
+    Creates the metadata of the dataset exported from Mosaico sequences, one episode per
+    sequence, from their `_lerobot_` metadata (see `LeRobotSchemaMetadata`).
+
+    The episodes are renumbered in the order of `sequences`: the position of a sequence is its
+    new `episode_index`, and `dataset_from_index` / `dataset_to_index` are the running sum of
+    the episode lengths. Only `tasks` and `length` are kept from the source episode; the
+    source sequence name and episode index are kept in `extra` for traceability. The video
+    features are dropped, and the totals and `splits` of `info` are rewritten.
+
+    Args:
+        root (Path): The output folder of the export.
+        sequences (List[SequenceHandler]): The sequences to export, in episode order.
+
+    Returns:
+        LeRobotDatasetMeta: The metadata of the exported dataset, with no `stats`.
+
+    Raises:
+        ValueError: If `sequences` is empty, if the `_lerobot_` metadata of a sequence is
+            missing or malformed, or if two sequences differ in `fps` or features.
+    """
+    if not sequences:
+        raise ValueError("No sequence to export.")
+
+    info: Dict[str, Any] = {}
+    #TODO - features will become LeRobotFeature
+    features: Dict[str, Any] = {}
+    episodes: List[LeRobotEpisode] = []
+    for position, sequence in enumerate(sequences):
+        start = episodes[-1].dataset_to_index if episodes else 0
+        seq_info, seq_features, fps, episode = _read_sequence(sequence, position, start)
+
+        # merge_info: the first sequence sets fps and features, the others must match (FR-3)
+        if not info:
+            info, features = seq_info, seq_features
+        else:
+            #TODO -> feature != seq_features beacuse the two are DataClass
+            differing = _differing_features(features, seq_features)
+            if fps != info["fps"] or differing:
+                raise ValueError(
+                    f"Sequence '{sequence.name}' cannot be exported with "
+                    f"'{sequences[0].name}': fps {fps} vs {info['fps']}, differing "
+                    f"features {differing}."
+                )
+        episodes.append(episode)
+
+    return LeRobotDatasetMeta.from_data(
+        root, _export_info(info, features, episodes), episodes
+    )
+
+
+def _read_sequence(
+    sequence: "SequenceHandler", position: int, start: int
+) -> Tuple[Dict[str, Any], Dict[str, Any], Any, LeRobotEpisode]:
+    """
+    Reads the `_lerobot_` metadata of a sequence: its `info`, its flattened features, its
+    `fps` and its episode, renumbered at `position` from the frame `start` (FR-7).
+
+    Raises:
+        ValueError: If the `_lerobot_` metadata is missing or malformed.
+    """
+    block = LeRobotSchemaMetadata.extract(sequence.user_metadata)
+    try:
+        info = block["info"]
+        #TODO - use LeRobotFeature 
+        features = _flatten_features(info["features"])
+        fps = info["fps"]
+        episode = block["episode"]
+        tasks = list(episode["tasks"])
+        length = int(episode["length"])
+        source_index = episode["episode_index"]
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        raise ValueError(
+            f"Sequence '{sequence.name}' has missing or malformed "
+            f"'{LeRobotSchemaMetadata.KEY}' metadata: {e!r}"
+        ) from e
+
+    return (
+        info,
+        features,
+        fps,
+        LeRobotEpisode(
+            episode_index=position,
+            tasks=tasks,
+            length=length,
+            # v1: one data file for the whole export; split by data_files_size_in_mb when needed
+            data_chunk_index=0,
+            data_file_index=0,
+            dataset_from_index=start,
+            dataset_to_index=start + length,
+            extra={
+                "source_sequence": sequence.name,
+                "source_episode_index": source_index,
+            },
+        ),
+    )
+
+
+def _differing_features(expected: Dict[str, Any], found: Dict[str, Any]) -> List[str]:
+    """Returns the sorted keys of the features that differ between two feature sets."""
+    expected_sig, found_sig = _feature_signature(expected), _feature_signature(found)
+    return sorted(
+        key
+        for key in expected_sig.keys() | found_sig.keys()
+        if expected_sig.get(key) != found_sig.get(key)
+    )
+
+
+def _export_info(
+    info: Dict[str, Any], features: Dict[str, Any], episodes: List[LeRobotEpisode]
+) -> Dict[str, Any]:
+    """Returns `info` without the video features, with the totals and `splits` of the
+    renumbered `episodes`."""
+    #TODO -Convert Dict to LeRobotFeature
+    video_features = [key for key, f in features.items() if f["dtype"] == "video"]
+    if video_features:
+        logger.warning(
+            f"Skipping video features {video_features}: video files are not supported yet."
+        )
+
+    return {
+        **info,
+        "features": {
+            key: f for key, f in features.items() if key not in video_features
+        },
+        "total_episodes": len(episodes),
+        "total_frames": episodes[-1].dataset_to_index,
+        "total_tasks": len(set({task for e in episodes for task in e.tasks})),
+        "splits": {"train": f"0:{len(episodes)}"},
+    }
