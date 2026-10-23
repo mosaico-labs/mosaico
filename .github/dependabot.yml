@@ -5,15 +5,21 @@ updates:
     target-branch: "main"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "chore(mosaicod)"
 
   - package-ecosystem: "uv"
     directory: "/mosaico-sdk-py"
     target-branch: "main"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "chore(py)"
 
   - package-ecosystem: "uv"
     directory: "/docs/py"
     target-branch: "main"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "chore(docs)"
