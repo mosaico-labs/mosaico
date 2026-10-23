@@ -60,7 +60,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-db-user" />`MOSAICOD_DB_USER`: Database user used to establish the connection. Default is an empty string, as some databases do not require a user to be specified.
 
-- <Link id="mosaicod-db-password" />`MOSAICOD_DB_PASSWORD`: Database password used to establish the connection. Default is an empty string, as some databases do not require a password to be specified. May also be provided via `MOSAICOD_DB_PASSWORD_FILE`, set to the path of a file containing the password, instead of setting it directly; setting both `MOSAICOD_DB_PASSWORD` and `MOSAICOD_DB_PASSWORD_FILE` is an error.
+- <Link id="mosaicod-db-password" />`MOSAICOD_DB_PASSWORD`: Database password used to establish the connection. Default is an empty string, as some databases do not require a password to be specified. May also be provided via `MOSAICOD_DB_PASSWORD_FILE`, set to the path of a file containing the password, instead of setting it directly; setting both `MOSAICOD_DB_PASSWORD` and `MOSAICOD_DB_PASSWORD_FILE` is an error. Trailing newlines in the file are ignored; any other whitespace is kept and considered part of the password.
 
 - <Link id="mosaicod-max-db-connections" />`MOSAICOD_MAX_DB_CONNECTIONS`: Maximum number of database connections that can be established. Default is `10`.
 
@@ -68,13 +68,13 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-store-endpoint" />`MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Use `file:///some/absolute/path` to set up a local storage directory. **Required**.
 
-- <Link id="mosaicod-store-bucket" />`MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. **Required**.
+- <Link id="mosaicod-store-bucket" />`MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. May only contain ASCII letters, digits, `.` and `-`, and cannot be `.` or `..`. **Required**.
 
-- <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region of the object storage service. Only used with S3-compatible endpoints, ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Default is an empty string.
+- <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region of the object storage service. Only used with S3-compatible endpoints, ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Must not contain whitespace, control characters or `/`. Default is an empty string.
 
-- <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Default is an empty string.
+- <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Required with S3-compatible endpoints. Must not contain whitespace, control characters or `,`. Default is an empty string.
 
-- <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error.
+- <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Required with S3-compatible endpoints. Must not start or end with whitespace. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error. Trailing newlines in the file are ignored.
 
 ## Cleanup
 

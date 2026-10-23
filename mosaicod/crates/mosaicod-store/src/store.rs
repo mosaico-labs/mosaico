@@ -23,6 +23,12 @@ pub enum Error {
     MissingCredentials(String),
     #[error("the provided bucket `{0}` is not valid")]
     InvalidBucket(String),
+    #[error("the provided region `{0}` is not valid")]
+    InvalidRegion(String),
+    #[error("the provided access key is not valid")]
+    InvalidAccessKey,
+    #[error("the provided secret key is not valid")]
+    InvalidSecretKey,
     #[error("the provided endpoint `{0}` is not valid")]
     InvalidEndpoint(String),
     #[error("unable to create directory `{0}`: {1}")]
@@ -44,6 +50,15 @@ impl mosaicod_core::error::PublicError for Error {
             Self::InvalidBucket(_) => {
                 Error::invalid_configuration("object store bucket".to_owned(), self.to_string())
             }
+            Self::InvalidRegion(_) => {
+                Error::invalid_configuration("object store region".to_owned(), self.to_string())
+            }
+            Self::InvalidAccessKey => {
+                Error::invalid_configuration("object store access key".to_owned(), self.to_string())
+            }
+            Self::InvalidSecretKey => {
+                Error::invalid_configuration("object store secret key".to_owned(), self.to_string())
+            }
             Self::DirCreationFailed(_, _) => Error::invalid_configuration(
                 "object store local directory".to_owned(),
                 self.to_string(),
@@ -60,13 +75,42 @@ fn to_object_path(path: impl AsRef<std::path::Path>) -> object_store::path::Path
 }
 
 #[inline]
-/// Check if a given bucket name is valid
+/// Check if a given bucket name is valid: non-empty, only ASCII letters, digits, `.`
+/// and `-`, and not `.` or `..`.
 fn is_valid_bucket_name(bucket: &str) -> bool {
-    bucket
-        .chars()
-        .filter(|c| !c.is_alphabetic() && !c.is_numeric() && !matches!(c, '.' | '-'))
-        .count()
-        == 0
+    !bucket.is_empty()
+        && !matches!(bucket, "." | "..")
+        && bucket
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-'))
+}
+
+#[inline]
+/// Check if a given region is valid.
+fn is_valid_region(region: &str) -> bool {
+    !region.is_empty()
+        && !region
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || c == '/')
+}
+
+#[inline]
+/// Check if a given access key is valid. Providers pick their own allowed characters
+/// (e.g. MinIO accepts `/` and `=`), so only what breaks the header itself is rejected.
+fn is_valid_access_key(access_key: &str) -> bool {
+    !access_key.is_empty()
+        && !access_key
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || c == ',')
+}
+
+#[inline]
+/// Check if a given secret key is valid. The secret is only used as the HMAC key when
+/// signing, so no character can break a request, and inner whitespace is accepted by
+/// some providers (e.g. MinIO). Surrounding whitespace never works: AWS secrets don't
+/// contain whitespace, and MinIO trims its own secret.
+fn is_valid_secret_key(secret_key: &str) -> bool {
+    !secret_key.is_empty() && secret_key.trim() == secret_key
 }
 
 /// A configuration builder for initializing a storage backend.
@@ -154,6 +198,20 @@ impl Builder {
         let Some(secret_key) = self.secret_key else {
             return Err(Error::MissingCredentials("secret key".to_owned()));
         };
+
+        if !is_valid_access_key(&access_key) {
+            return Err(Error::InvalidAccessKey);
+        }
+
+        if !is_valid_secret_key(&secret_key) {
+            return Err(Error::InvalidSecretKey);
+        }
+
+        if let Some(region) = &self.region
+            && !is_valid_region(region)
+        {
+            return Err(Error::InvalidRegion(region.clone()));
+        }
 
         Store::try_from_s3_store(
             self.endpoint,
@@ -542,6 +600,28 @@ mod test {
     }
 
     #[test]
+    fn test_is_valid_bucket_name() {
+        for bucket in ["my-bucket", "my.bucket", "MyBucket", "20261020"] {
+            assert!(is_valid_bucket_name(bucket), "{bucket:?} should be valid");
+        }
+
+        for bucket in [
+            "",
+            ".",
+            "..",
+            "bücket",
+            "my_bucket",
+            "my bucket",
+            "bad/bucket",
+        ] {
+            assert!(
+                !is_valid_bucket_name(bucket),
+                "{bucket:?} should be invalid"
+            );
+        }
+    }
+
+    #[test]
     fn test_filesystem_store_remote_missing_credentials() {
         let bucket = "my-bucket".to_owned();
 
@@ -589,8 +669,8 @@ mod test {
         assert_eq!(buffer, read_buffer);
     }
 
-    /// Checks that regions are not validated, since S3-compatible
-    /// services (e.g. MinIO, Ceph) allow custom region names
+    /// Checks that custom region names are accepted, since S3-compatible
+    /// services (e.g. MinIO, Ceph) allow them
     #[test]
     fn test_remote_store_custom_region() {
         let bucket = "my-bucket".to_owned();
@@ -604,5 +684,106 @@ mod test {
 
         dbg!(&res);
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_is_valid_region() {
+        for region in ["eu-south-1", "auto", "My_Region"] {
+            assert!(is_valid_region(region), "{region:?} should be valid");
+        }
+
+        for region in [
+            "",
+            " eu-south-1",
+            "eu-south-1 ",
+            " ",
+            "eu\tsouth-1",
+            "eu\u{0}south",
+            "eu/south-1",
+        ] {
+            assert!(!is_valid_region(region), "{region:?} should be invalid");
+        }
+    }
+
+    #[test]
+    fn test_is_valid_access_key() {
+        for access_key in ["AKIAIOSFODNN7EXAMPLE", "minio/user", "key=value"] {
+            assert!(
+                is_valid_access_key(access_key),
+                "{access_key:?} should be valid"
+            );
+        }
+
+        for access_key in [
+            "",
+            " access-key",
+            "access-key ",
+            " ",
+            "access\tkey",
+            "access\u{0}key",
+            "access,key",
+        ] {
+            assert!(
+                !is_valid_access_key(access_key),
+                "{access_key:?} should be invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn test_remote_store_invalid_region() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket)
+            .with_region(" eu-south-1".to_owned())
+            .with_credentials("access-key".to_owned(), "secret".to_owned())
+            .build();
+
+        assert!(matches!(res, Err(Error::InvalidRegion(_))));
+    }
+
+    #[test]
+    fn test_remote_store_invalid_access_key() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket)
+            .with_credentials("access key".to_owned(), "secret".to_owned())
+            .build();
+
+        assert!(matches!(res, Err(Error::InvalidAccessKey)));
+    }
+
+    #[test]
+    fn test_is_valid_secret_key() {
+        for secret_key in ["wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY", "pass word 123"] {
+            assert!(
+                is_valid_secret_key(secret_key),
+                "{secret_key:?} should be valid"
+            );
+        }
+
+        for secret_key in ["", " ", " secret", "secret ", "secret\n", "\tsecret"] {
+            assert!(
+                !is_valid_secret_key(secret_key),
+                "{secret_key:?} should be invalid"
+            );
+        }
+    }
+
+    #[test]
+    fn test_remote_store_invalid_secret_key() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket)
+            .with_credentials("access-key".to_owned(), "secret ".to_owned())
+            .build();
+
+        assert!(matches!(res, Err(Error::InvalidSecretKey)));
     }
 }

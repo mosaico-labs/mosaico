@@ -220,11 +220,12 @@ fn env_var(name: &str, ignore_env: bool) -> Result<String, env::VarError> {
     }
 }
 
-/// Reads a file's content and trims surrounding whitespace (e.g. a trailing newline).
+/// Reads a file's content and strips trailing newlines (`\n` or `\r\n`).
+/// Whitespace is kept, since it may be part of a password.
 fn read_file_trimmed(path: &str) -> error::PublicResult<String> {
     Ok(std::fs::read_to_string(path)
         .map_err(|e| error::Error::invalid_configuration(path.to_owned(), e.to_string()))?
-        .trim()
+        .trim_end_matches(['\n', '\r'])
         .to_owned())
 }
 
@@ -888,7 +889,7 @@ mod tests {
     }
 
     #[test]
-    fn optional_or_file_reads_and_trims_file_when_file_var_set() {
+    fn optional_or_file_reads_file_when_file_var_set() {
         let name = "TEST_OPTIONAL_OR_FILE_FROM_FILE";
         let file_env = format!("{name}_FILE");
 
@@ -901,7 +902,18 @@ mod tests {
         unsafe { env::remove_var(&file_env) };
         let _ = std::fs::remove_file(&path);
 
-        assert_eq!(result.unwrap().value, "secret-from-file");
+        assert_eq!(result.unwrap().value, " secret-from-file");
+    }
+
+    #[test]
+    fn read_file_trimmed_strips_only_trailing_newlines() {
+        let path = std::env::temp_dir().join("mosaicod_test_read_file_trimmed");
+        std::fs::write(&path, "  pass word \r\n\n").unwrap();
+
+        let result = read_file_trimmed(path.to_str().unwrap());
+        let _ = std::fs::remove_file(&path);
+
+        assert_eq!(result.unwrap(), "  pass word ");
     }
 
     #[test]
