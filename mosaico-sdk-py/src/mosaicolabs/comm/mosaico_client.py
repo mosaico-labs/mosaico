@@ -1056,6 +1056,22 @@ class MosaicoClient:
 
         return self._connection.server_info
 
+    @property
+    def max_batch_size_bytes(self) -> int:
+        """
+        The maximum size (in bytes) of a single `RecordBatch` the client can send to the server.
+
+        It is derived from the server's gRPC message-size limit (see
+        [`info()`][mosaicolabs.comm.MosaicoClient.info]), reduced by a safety margin, and it is the
+        same limit enforced by [`TopicWriter`][mosaicolabs.handlers.TopicWriter] when flushing data.
+        Use it to size the batches passed to
+        [`TopicWriter.push_batch()`][mosaicolabs.handlers.TopicWriter.push_batch].
+
+        Returns:
+            int: The maximum batch size in bytes.
+        """
+        return self._connection.default_max_batch_size_bytes()
+
     def clear_sequence_handlers_cache(self):
         """
         Clears the internal cache of [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] objects.
