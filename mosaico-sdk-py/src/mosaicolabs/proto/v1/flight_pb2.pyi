@@ -1,11 +1,15 @@
 from mosaicolabs.proto.v1 import time_pb2 as _time_pb2
 from mosaicolabs.proto.v1 import core_pb2 as _core_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
+SEQUENCE_ORDER_CREATED_AT: SequenceOrder
+SEQUENCE_ORDER_NAME: SequenceOrder
+SEQUENCE_ORDER_UNSPECIFIED: SequenceOrder
 
 class DoPutCmd(_message.Message):
     __slots__ = ["locator", "topic_uuid"]
@@ -29,6 +33,16 @@ class GetSchemaCmd(_message.Message):
     locator: str
     def __init__(self, locator: _Optional[str] = ...) -> None: ...
 
+class ListFlightsCmd(_message.Message):
+    __slots__ = ["cursor", "limit", "order_by"]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    cursor: SequenceCursor
+    limit: int
+    order_by: SequenceOrder
+    def __init__(self, limit: _Optional[int] = ..., order_by: _Optional[_Union[SequenceOrder, str]] = ..., cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
+
 class SequenceAppMetadata(_message.Message):
     __slots__ = ["created_at_ns", "locator", "sessions", "user_metadata"]
     CREATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
@@ -40,6 +54,28 @@ class SequenceAppMetadata(_message.Message):
     sessions: _containers.RepeatedCompositeFieldContainer[SessionAppMetadata]
     user_metadata: bytes
     def __init__(self, created_at_ns: _Optional[int] = ..., locator: _Optional[str] = ..., sessions: _Optional[_Iterable[_Union[SessionAppMetadata, _Mapping]]] = ..., user_metadata: _Optional[bytes] = ...) -> None: ...
+
+class SequenceCursor(_message.Message):
+    __slots__ = ["created_at", "name"]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    created_at: SequenceCursorCreatedAt
+    name: str
+    def __init__(self, created_at: _Optional[_Union[SequenceCursorCreatedAt, _Mapping]] = ..., name: _Optional[str] = ...) -> None: ...
+
+class SequenceCursorCreatedAt(_message.Message):
+    __slots__ = ["created_at_ns", "sequence_id"]
+    CREATED_AT_NS_FIELD_NUMBER: _ClassVar[int]
+    SEQUENCE_ID_FIELD_NUMBER: _ClassVar[int]
+    created_at_ns: int
+    sequence_id: int
+    def __init__(self, created_at_ns: _Optional[int] = ..., sequence_id: _Optional[int] = ...) -> None: ...
+
+class SequenceListItemAppMetadata(_message.Message):
+    __slots__ = ["cursor"]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    cursor: SequenceCursor
+    def __init__(self, cursor: _Optional[_Union[SequenceCursor, _Mapping]] = ...) -> None: ...
 
 class SessionAppMetadata(_message.Message):
     __slots__ = ["completed_at_ns", "created_at_ns", "locator", "locked", "topics"]
@@ -106,3 +142,6 @@ class TopicAppMetadataTimeWindow(_message.Message):
     interval: _time_pb2.TimestampRange
     row_count: int
     def __init__(self, interval: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ..., row_count: _Optional[int] = ...) -> None: ...
+
+class SequenceOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []

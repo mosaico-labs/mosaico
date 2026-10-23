@@ -1,0 +1,36 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT creation_unix_tstamp, sequence_id, locator_name\n            FROM sequence_t\n            WHERE (creation_unix_tstamp, sequence_id) > ($1, $2)\n            ORDER BY creation_unix_tstamp, sequence_id\n            LIMIT $3\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "creation_unix_tstamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "locator_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b251594c7b899835330df477d8b355d77f5ea4a8a4fc06559f8aa9af7e6779d3"
+}

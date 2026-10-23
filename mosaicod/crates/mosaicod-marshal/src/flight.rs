@@ -53,6 +53,87 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 }
 
 // ////////////////////////////////////////////////////////////////////////////
+// LIST FLIGHTS
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Convert a raw `Criteria.expression` into a [`types::flight::ListFlightsCmd`].
+pub fn list_flights_cmd(v: &[u8]) -> Result<types::flight::ListFlightsCmd, Error> {
+    use proto_flight::list_flights_cmd::Start;
+
+    let cmd = proto_flight::ListFlightsCmd::decode(v)
+        .map_err(|e| Error::DeserializationError(e.to_string()))?;
+
+    let start = match cmd.start {
+        Some(Start::OrderBy(order)) => types::ListStart::First(sequence_order_from_proto(order)?),
+        Some(Start::Cursor(cursor)) => types::ListStart::After(sequence_cursor_from_proto(cursor)?),
+        None => {
+            return Err(Error::DeserializationError(
+                "either order_by or cursor must be set".to_owned(),
+            ));
+        }
+    };
+
+    Ok(types::flight::ListFlightsCmd {
+        start,
+        limit: types::ListLimit::from(cmd.limit),
+    })
+}
+
+fn sequence_order_from_proto(value: i32) -> Result<types::SequenceOrder, Error> {
+    match proto_flight::SequenceOrder::try_from(value) {
+        Ok(proto_flight::SequenceOrder::CreatedAt) => Ok(types::SequenceOrder::CreatedAt),
+        Ok(proto_flight::SequenceOrder::Name) => Ok(types::SequenceOrder::Name),
+        Ok(proto_flight::SequenceOrder::Unspecified) | Err(_) => Err(Error::DeserializationError(
+            format!("invalid order_by value `{value}`"),
+        )),
+    }
+}
+
+fn sequence_cursor_to_proto(value: &types::SequenceCursor) -> proto_flight::SequenceCursor {
+    use proto_flight::sequence_cursor::Key;
+
+    let key = match value {
+        types::SequenceCursor::CreatedAt {
+            created_at,
+            sequence_id,
+        } => Key::CreatedAt(proto_flight::SequenceCursorCreatedAt {
+            created_at_ns: created_at.as_i64(),
+            sequence_id: *sequence_id,
+        }),
+        types::SequenceCursor::Name(locator) => Key::Name(locator.to_string()),
+    };
+
+    proto_flight::SequenceCursor { key: Some(key) }
+}
+
+fn sequence_cursor_from_proto(
+    value: proto_flight::SequenceCursor,
+) -> Result<types::SequenceCursor, Error> {
+    use proto_flight::sequence_cursor::Key;
+
+    match value.key {
+        Some(Key::CreatedAt(key)) => Ok(types::SequenceCursor::CreatedAt {
+            created_at: key.created_at_ns.into(),
+            sequence_id: key.sequence_id,
+        }),
+        Some(Key::Name(name)) => Ok(types::SequenceCursor::Name(name.parse().map_err(|_| {
+            Error::DeserializationError(format!("invalid sequence name `{name}` in cursor"))
+        })?)),
+        None => Err(Error::DeserializationError(
+            "cursor has no key set".to_owned(),
+        )),
+    }
+}
+
+/// Encodes the `FlightInfo.app_metadata` of a sequence in a `list_flights` listing.
+pub fn sequence_list_item_app_metadata_to_bytes(cursor: &types::SequenceCursor) -> Vec<u8> {
+    proto_flight::SequenceListItemAppMetadata {
+        cursor: Some(sequence_cursor_to_proto(cursor)),
+    }
+    .encode_to_vec()
+}
+
+// ////////////////////////////////////////////////////////////////////////////
 // SEQUENCE APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 

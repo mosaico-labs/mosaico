@@ -4,3 +4,4 @@ from .notifications import (
     Notification as Notification,
     NotificationType as NotificationType,
 )
+from .sequence_page import SequencePage as SequencePage

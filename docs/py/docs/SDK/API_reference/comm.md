@@ -7,4 +7,5 @@ description: API Reference for Communication Module
 ::: mosaicolabs.comm.GRPCCompression
 ::: mosaicolabs.comm.NotificationType
 ::: mosaicolabs.comm.Notification
+::: mosaicolabs.comm.SequencePage
 ::: mosaicolabs.comm.middlewares

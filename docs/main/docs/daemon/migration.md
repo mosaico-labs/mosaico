@@ -78,3 +78,25 @@ mosaicod store-optimizer --time-interval 3600
 
 * **Config file**: `mosaicod` can now be configured through a [`config.toml` file](config.md), as an alternative to environment variables.
 * **`mosaicod ps`**: lists the running `server`, `cleanup` and `store-optimizer` instances. See the [CLI reference](cli.md#mosaicod-ps).
+
+## From 0.7 to 0.8
+
+### Database schema changes
+
+This release changes the database schema. The migrations are applied automatically on the first startup of `mosaicod` 0.8.
+
+### Flight endpoints
+
+#### `list_flights`
+
+`list_flights` can now return sequences one page at a time, and `Criteria.expression` must be a serialized `ListFlightsCmd`. See [Sequence List](retrieval.md#sequence-list) for the request format and pagination.
+
+An empty or raw `"/"` expression is now rejected with `InvalidArgument`, like any expression that is not a valid `ListFlightsCmd`. To keep listing every sequence:
+
+```diff
+- flight_info = list_flights("")
++ cmd = ListFlightsCmd(order_by=SEQUENCE_ORDER_CREATED_AT)
++ flight_info = list_flights(cmd.SerializeToString())
+```
+
+Upgrade the Python SDK together with the server. Older SDK versions send an empty expression from `MosaicoClient.list_sequences()`, which a 0.8 server rejects.

@@ -18,6 +18,12 @@ pub struct GetSchemaCmd {
     pub locator: String,
 }
 
+/// Request a page of sequences
+pub struct ListFlightsCmd {
+    pub start: types::ListStart,
+    pub limit: types::ListLimit,
+}
+
 pub struct TicketTopic {
     /// Locator for the topic
     pub locator: types::TopicLocator,
