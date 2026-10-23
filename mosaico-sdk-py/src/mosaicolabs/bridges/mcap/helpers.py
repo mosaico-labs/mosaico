@@ -4,7 +4,7 @@ from mcap.records import Channel, Schema
 
 from mosaicolabs import TopicHandler
 
-from ..helpers import _filter_from_list
+from ..helpers import _dotted_name_to_topic_name, _filter_from_list
 from .adapter_base import MCAPSchemaMetadata
 
 
@@ -98,8 +98,7 @@ def _sanitize_mcap_name(channel_name: str) -> str:
     """Turns an MCAP name into a Mosaico topic name: dots become slashes, with a leading
     `/` (e.g. `front_car.imu` -> `/front_car/imu`)."""
 
-    prefix = "" if channel_name.startswith("/") else "/"
-    return prefix + channel_name.replace(".", "/")
+    return _dotted_name_to_topic_name(channel_name)
 
 
 def _class_name_from_mcap_schema(schema: Schema) -> str:
