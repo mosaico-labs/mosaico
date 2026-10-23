@@ -114,18 +114,39 @@ ontology {
 | `AGGREGATOR_MAX` | Maximum value of the field over the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
 | `AGGREGATOR_MIN` | Minimum value of the field over the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
 | `AGGREGATOR_RANGE` | Spread of the field over the topic, i.e. `max - min` | Numeric | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_COUNT` | Number of samples of the field over the topic, null and NaN included | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_COUNT_SAMPLE` | Number of valid samples of the field over the topic, i.e. neither null nor NaN | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_MEAN` | Mean of the valid samples of the field over the topic | Numeric | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_VAR` | Sample variance (divided by `n - 1`) of the valid samples of the field over the topic | Numeric | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_STD` | Sample standard deviation of the valid samples of the field over the topic, i.e. the square root of `AGGREGATOR_VAR` | Numeric | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
+| `AGGREGATOR_FIRST` | Value of the field at the first timestamp of the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
+| `AGGREGATOR_LAST` | Value of the field at the last timestamp of the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE`, `OPERATOR_MATCH` (text only) |
+| `AGGREGATOR_RATE` | Samples per second (Hz) of the field over the topic, null and NaN included, i.e. `(count - 1) / duration`, where `count` is `AGGREGATOR_COUNT` and the duration goes from the first to the last timestamp of the topic | Numeric, text | `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE`, `OPERATOR_IN`, `OPERATOR_BETWEEN`, `OPERATOR_OUTSIDE` |
 
-On text fields, `AGGREGATOR_MAX` and `AGGREGATOR_MIN` compare the values lexicographically (bytewise), and `OPERATOR_MATCH` checks the pattern against the aggregated value, e.g. `AGGREGATOR_MAX` with `OPERATOR_MATCH` `"z*"` matches the topics whose greatest value starts with `z`.
+On text fields, `AGGREGATOR_MAX` and `AGGREGATOR_MIN` compare the values lexicographically (bytewise), and `OPERATOR_MATCH` checks the pattern against the aggregated value, e.g. `AGGREGATOR_MAX` with `OPERATOR_MATCH` `"z*"` matches the topics whose greatest value starts with `z`. The same holds for `AGGREGATOR_FIRST` and `AGGREGATOR_LAST`.
 
+`AGGREGATOR_COUNT`, `AGGREGATOR_COUNT_SAMPLE` and `AGGREGATOR_RATE` always compare against a number, whatever the type of the field, e.g. `AGGREGATOR_COUNT` with `OPERATOR_GT` `100` on a text field.
 
-Aggregated predicates are resolved on the statistics computed for each chunk at ingestion time (the same min/max bounds used to prune chunks), so they never scan the data stored in the object store.
+Some aggregated values can't be computed for a topic, e.g. the mean of a field that is always null, or the standard deviation of a single sample. Such a topic is never returned by a predicate using that aggregator, whatever the condition. This happens when:
+* `AGGREGATOR_FIRST` or `AGGREGATOR_LAST` find a null or NaN value at the first or last timestamp of the topic;
+* `AGGREGATOR_MEAN` finds no valid sample;
+* `AGGREGATOR_VAR` or `AGGREGATOR_STD` find less than two valid samples;
+* `AGGREGATOR_RATE` finds less than two samples;
+* `AGGREGATOR_RATE` finds the first and last timestamps of the topic equal.
+
+`AGGREGATOR_RATE` counts the samples where the field is null or NaN too, so it measures the frequency of the samples of the topic, not of the valid values of the field, e.g. three samples `[null, 2, 5]` 5 ns apart have a rate of `(3 - 1) / 10 ns`.
+
+Aggregated predicates are resolved on the statistics computed for each chunk at ingestion time (e.g. the same min/max bounds used to prune chunks), so they never scan the data stored in the object store.
 
 :::warning
 The following predicates are rejected with an *invalid argument* error:
-* An aggregator on a list field, i.e. a field path with an index specifier (`[i]`, `[?]`, `[!]`).
+* An aggregator on a list field with an index specifier (`[i]`, `[?]`, `[!]`).
+* An aggregator other than `AGGREGATOR_MAX`, `AGGREGATOR_MIN`, `AGGREGATOR_RANGE`, `AGGREGATOR_COUNT` and `AGGREGATOR_RATE` on a list field without index specifier. On a list field, `AGGREGATOR_MAX`, `AGGREGATOR_MIN` and `AGGREGATOR_RANGE` are computed on the elements of the lists, while `AGGREGATOR_COUNT` and `AGGREGATOR_RATE` count the samples, not the elements.
 * An operator not listed for the aggregator in the table above, e.g. `OPERATOR_EX` or `OPERATOR_NEX`, or `OPERATOR_MATCH` with `AGGREGATOR_RANGE`.
-* `AGGREGATOR_RANGE` on a text field.
-* Any aggregator on a boolean field: a boolean has only two values, so aggregating it is meaningless.
+* `AGGREGATOR_RANGE`, `AGGREGATOR_MEAN`, `AGGREGATOR_VAR` or `AGGREGATOR_STD` on a text field.
+* A text operand with an aggregator other than `AGGREGATOR_MAX`, `AGGREGATOR_MIN`, `AGGREGATOR_FIRST` and `AGGREGATOR_LAST`.
+* A boolean operand, e.g. `OPERATOR_EQ` `true`: a boolean has only two values, so comparing it with an aggregated value is meaningless.
+* An array operand with `OPERATOR_EQ`, `OPERATOR_NE`, `OPERATOR_LT`, `OPERATOR_LE`, `OPERATOR_GT`, `OPERATOR_GE` or `OPERATOR_MATCH`: the aggregated value is a single value.
 * An `aggregator` field set to `AGGREGATOR_UNSPECIFIED`: a regular predicate must leave the field unset.
 * Any aggregator defined in the protocol but not listed in the table above, which are not supported yet.
 :::

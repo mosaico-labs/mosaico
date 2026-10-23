@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM instance_registry_t ORDER BY kind ASC, instance_id ASC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "instance_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "hostname",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "pid",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "started_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "last_heartbeat_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "one_shot",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "7a7351145886d8fb1dfa2a97bb6cc5547c8026eb9a477d15b1b3bed7edb4cff8"
+}

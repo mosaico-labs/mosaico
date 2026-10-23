@@ -12,6 +12,9 @@ pub struct ChunkMetadata {
     /// opposed to [`Self::size_bytes`], which measures the encoded, compressed buffer.
     pub arrow_size_bytes: usize,
     pub row_count: usize,
+
+    pub first_sample_timestamp_ns: i64,
+    pub last_sample_timestamp_ns: i64,
 }
 
 /// The [`InMemoryChunkEncoder`] is used to encode [`RecordBatch`] instances into a single in-memory block,
@@ -27,6 +30,8 @@ pub struct InMemoryChunkEncoder {
     schema: SchemaRef,
     row_count: usize,
     arrow_size_bytes: usize,
+    first_sample_timestamp_ns: Option<i64>,
+    last_sample_timestamp_ns: Option<i64>,
 }
 
 impl InMemoryChunkEncoder {
@@ -42,6 +47,8 @@ impl InMemoryChunkEncoder {
             schema,
             row_count: 0,
             arrow_size_bytes: 0,
+            first_sample_timestamp_ns: None,
+            last_sample_timestamp_ns: None,
         })
     }
 
@@ -50,11 +57,14 @@ impl InMemoryChunkEncoder {
     /// The [`RecordBatch`] is serialized according to the writer's format, and the internal statistics
     /// are updated based on the data in the batch. The method returns an error if the serialization fails
     pub fn write(&mut self, batch: &RecordBatch) -> Result<(), Error> {
+        let (first_idx, last_idx) = self.update_timestamp_bounds(batch)?;
         match &mut self.writer {
             Writer::Parquet(writer) => {
                 mosaicod_ext::arrow::ontology_model_stats_inspect_record_batch(
                     &mut self.stats,
                     batch,
+                    first_idx,
+                    last_idx,
                 )?;
 
                 writer.write(batch)?;
@@ -63,6 +73,37 @@ impl InMemoryChunkEncoder {
         self.row_count += batch.num_rows();
         self.arrow_size_bytes += batch.get_array_memory_size();
         Ok(())
+    }
+
+    /// Updates the chunk first/last sample timestamps with the bounds of `batch`.
+    ///
+    /// Returns the row indices (within `batch`) of the samples that became the new
+    /// chunk first/last, or `None` if the current bound was not replaced by this batch.
+    fn update_timestamp_bounds(
+        &mut self,
+        batch: &RecordBatch,
+    ) -> Result<(Option<usize>, Option<usize>), Error> {
+        let Some(((first_idx, first_ts), (last_idx, last_ts))) =
+            mosaicod_ext::arrow::timestamps_bounds(batch)?
+        else {
+            return Ok((None, None));
+        };
+
+        let first = self
+            .first_sample_timestamp_ns
+            .is_none_or(|ts| first_ts < ts)
+            .then(|| {
+                self.first_sample_timestamp_ns = Some(first_ts);
+                first_idx
+            });
+        let last = self
+            .last_sample_timestamp_ns
+            .is_none_or(|ts| last_ts >= ts)
+            .then(|| {
+                self.last_sample_timestamp_ns = Some(last_ts);
+                last_idx
+            });
+        Ok((first, last))
     }
 
     /// Returns a reference to the current statistics of the serialized data.
@@ -124,6 +165,12 @@ impl InMemoryChunkEncoder {
         // close but takes no ownership of the writer. And we return the internal data buffer.
         let row_count = self.row_count;
         let arrow_size_bytes = self.arrow_size_bytes;
+        let (Some(first_sample_timestamp_ns), Some(last_sample_timestamp_ns)) = (
+            self.first_sample_timestamp_ns,
+            self.last_sample_timestamp_ns,
+        ) else {
+            return Err(Error::EmptyChunk);
+        };
         let buffer = match self.writer {
             Writer::Parquet(w) => w.buffer()?,
         };
@@ -131,6 +178,8 @@ impl InMemoryChunkEncoder {
             size_bytes: buffer.len(),
             arrow_size_bytes,
             row_count,
+            first_sample_timestamp_ns,
+            last_sample_timestamp_ns,
         };
         Ok((buffer, self.stats, metadata))
     }
@@ -149,10 +198,14 @@ mod tests {
 
     /// Helper function to create a test RecordBatch.
     /// This provides a schema with numeric, string, and nested struct types,
-    /// along with nulls and NaN values to test the statistics generation.
+    /// along with nulls and nan values to test the statistics generation.
     fn create_test_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
-            Field::new("timestamp", DataType::Int64, false),
+            Field::new(
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
             Field::new("label", DataType::Utf8, true),
             Field::new("is_braking", DataType::Boolean, false),
             Field::new(
@@ -217,22 +270,25 @@ mod tests {
         // The schema should be flattened into 5 fields: timestamp, label, is_braking, pose.x, pose.y, image
         assert_eq!(cstats.cols.len(), 6);
 
-        // Check stats for "timestamp"
-        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("timestamp") {
+        // Check stats for "timestamp_ns"
+        if let Some(types::Stats::Numeric(s)) = cstats
+            .cols
+            .get(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+        {
             assert_eq!(s.min, 1.0);
             assert_eq!(s.max, 3.0);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
+            assert_eq!(s.null_count, 0);
+            assert_eq!(s.nan_count, 0);
         } else {
-            panic!("Missing or incorrect type for `timestamp` stats");
+            panic!("Missing or incorrect type for `timestamp_ns` stats");
         }
 
         // Check  stats for "is_braking"
         if let Some(types::Stats::Numeric(v)) = cstats.cols.get("is_braking") {
             assert_eq!(v.min, 0.0);
             assert_eq!(v.max, 1.0);
-            assert!(!v.has_null);
-            assert!(!v.has_nan);
+            assert_eq!(v.null_count, 0);
+            assert_eq!(v.nan_count, 0);
         } else {
             panic!("Missing or incorrect type for `is_braking` stats");
         }
@@ -243,7 +299,11 @@ mod tests {
             assert_eq!(s.min.as_deref(), Some("a"));
             assert_eq!(s.max.as_deref(), Some("c"));
 
-            assert!(s.has_null);
+            assert_eq!(s.null_count, 1);
+
+            // Values at the first and last timestamp
+            assert_eq!(s.first_sample_value.as_deref(), Some("a"));
+            assert_eq!(s.last_sample_value.as_deref(), Some("c"));
         } else {
             panic!("Missing or incorrect type for label stats");
         }
@@ -252,8 +312,17 @@ mod tests {
         if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.x") {
             assert!((s.min - 0.1).abs() < constants::EPSILON);
             assert!((s.max - 0.3).abs() < constants::EPSILON);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
+            assert_eq!(s.null_count, 0);
+            assert_eq!(s.nan_count, 0);
+
+            // Values at the first and last timestamp
+            assert_eq!(s.first_sample_value, Some(0.1));
+            assert_eq!(s.last_sample_value, Some(0.3));
+
+            // Mean and M2 = sum((x - mean)^2) of [0.1, 0.2, 0.3]
+            assert_eq!(s.valid_sample_count, 3);
+            assert!((s.mean_value.unwrap() - 0.2).abs() < constants::EPSILON);
+            assert!((s.m2_value.unwrap() - 0.02).abs() < constants::EPSILON);
         } else {
             panic!("Missing or incorrect type for pose.x stats");
         }
@@ -262,8 +331,8 @@ mod tests {
         if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.y") {
             assert!((s.min - 1.1).abs() < constants::EPSILON);
             assert!((s.max - 1.3).abs() < constants::EPSILON);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
+            assert_eq!(s.null_count, 0);
+            assert_eq!(s.nan_count, 0);
         } else {
             panic!("Missing or incorrect type for pose.y stats");
         }
@@ -282,6 +351,8 @@ mod tests {
         // Check metadata
         assert_eq!(metadata.row_count, 3);
         assert_eq!(metadata.size_bytes, buffer.len());
+        assert_eq!(metadata.first_sample_timestamp_ns, 1);
+        assert_eq!(metadata.last_sample_timestamp_ns, 3);
 
         assert_eq!(metadata.arrow_size_bytes, batch.get_array_memory_size());
     }

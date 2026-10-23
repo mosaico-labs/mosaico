@@ -20,6 +20,8 @@ pub async fn update_chunk_stats(
             metadata.size_bytes as i64,
             metadata.arrow_size_bytes as i64,
             metadata.row_count as i64,
+            metadata.first_sample_timestamp_ns,
+            metadata.last_sample_timestamp_ns,
         ),
     )
     .await?;
@@ -34,47 +36,24 @@ pub async fn update_chunk_stats(
         }
 
         let column = db::column_get_or_create(tx, &field, ontology_tag).await?;
+        let is_list = stats.is_list();
 
         match stats {
-            types::Stats::Textual(stats) => {
-                let (min, max, has_null) = stats.into_owned();
-                textual_batch.push(db::ColumnChunkTextualRecord::try_new(
+            types::Stats::Textual(stats) | types::Stats::ListTextual(stats) => {
+                textual_batch.push(db::ColumnChunkTextualRecord::new(
                     column.column_id,
                     chunk.chunk_id,
-                    min,
-                    max,
-                    has_null,
-                )?);
+                    stats,
+                    is_list,
+                ));
             }
-            types::Stats::Numeric(stats) => {
+            types::Stats::Numeric(stats) | types::Stats::ListNumeric(stats) => {
                 numeric_batch.push(db::ColumnChunkNumericRecord::new(
                     column.column_id,
                     chunk.chunk_id,
-                    stats.min,
-                    stats.max,
-                    stats.has_null,
-                    stats.has_nan,
+                    &stats,
+                    is_list,
                 ));
-            }
-            types::Stats::ListNumeric(stats) => {
-                numeric_batch.push(db::ColumnChunkNumericRecord::new(
-                    column.column_id,
-                    chunk.chunk_id,
-                    stats.min,
-                    stats.max,
-                    stats.has_null,
-                    stats.has_nan,
-                ));
-            }
-            types::Stats::ListTextual(stats) => {
-                let (min, max, has_null) = stats.into_owned();
-                textual_batch.push(db::ColumnChunkTextualRecord::try_new(
-                    column.column_id,
-                    chunk.chunk_id,
-                    min,
-                    max,
-                    has_null,
-                )?);
             }
             types::Stats::Unsupported => {}
         }

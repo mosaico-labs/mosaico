@@ -379,7 +379,12 @@ fn list_leaf_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
 }
 
 /// Inspects an array and updates the provided statistics using SIMD-optimized Arrow compute kernels.
-pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result<(), Error> {
+pub fn stats_inspect_array(
+    stats: &mut types::Stats,
+    array: &ArrayRef,
+    first_idx: Option<usize>,
+    last_idx: Option<usize>,
+) -> Result<(), Error> {
     use arrow::array::Array;
     use arrow::compute;
     use types::Stats;
@@ -393,14 +398,45 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             let min_val = compute::min(primitive);
             let max_val = compute::max(primitive);
 
-            // Check for nulls (O(1) - Arrow tracks this in metadata)
-            let has_null = primitive.null_count() > 0;
+            let null_count = primitive.null_count() as i64;
 
-            // Check for NaN values - Arrow's min/max excludes NaN, so we check separately
-            // This is still efficient: single pass, branch-prediction friendly
-            let has_nan = primitive.values().iter().any(|v| v.is_nan());
+            let (mut nan_count, mut valid_count, mut sum) = (0i64, 0i64, 0.0);
+            for v in primitive.iter().flatten() {
+                if v.is_nan() {
+                    nan_count += 1;
+                } else {
+                    valid_count += 1;
+                    sum += v;
+                }
+            }
 
-            stats.merge(min_val, max_val, has_null, has_nan);
+            let mean = if valid_count > 0 {
+                sum / valid_count as f64
+            } else {
+                0.0
+            };
+            let m2: f64 = primitive
+                .iter()
+                .flatten()
+                .filter(|v| !v.is_nan())
+                .map(|v| (v - mean) * (v - mean))
+                .sum();
+
+            stats.merge(min_val, max_val, null_count, nan_count);
+            stats.merge_moments(valid_count, mean, m2);
+
+            let value_at = |i: usize| {
+                primitive
+                    .is_valid(i)
+                    .then(|| primitive.value(i))
+                    .filter(|v| !v.is_nan())
+            };
+            if let Some(i) = first_idx {
+                stats.first_sample_value = value_at(i);
+            }
+            if let Some(i) = last_idx {
+                stats.last_sample_value = value_at(i);
+            }
         }
         Stats::Textual(stats) => {
             let sarray = cast_array_to_textual(array)?;
@@ -410,10 +446,21 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             let min_val = compute::min_string(string_array);
             let max_val = compute::max_string(string_array);
 
-            // Check for nulls (O(1))
-            let has_null = string_array.null_count() > 0;
+            // Count nulls (O(1))
+            let null_count = string_array.null_count() as i64;
 
-            stats.merge(min_val, max_val, has_null);
+            stats.merge(min_val, max_val, null_count);
+            let value_at = |i: usize| {
+                string_array
+                    .is_valid(i)
+                    .then(|| string_array.value(i).to_owned())
+            };
+            if let Some(i) = first_idx {
+                stats.first_sample_value = value_at(i);
+            }
+            if let Some(i) = last_idx {
+                stats.last_sample_value = value_at(i);
+            }
         }
         Stats::ListNumeric(stats) => {
             let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
@@ -424,9 +471,9 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
             let min_val = compute::min(primitive);
             let max_val = compute::max(primitive);
-            let has_null = primitive.null_count() > 0;
-            let has_nan = primitive.values().iter().any(|v| v.is_nan());
-            stats.merge(min_val, max_val, has_null, has_nan);
+            let null_count = primitive.null_count() as i64;
+            let nan_count = primitive.iter().flatten().filter(|v| v.is_nan()).count() as i64;
+            stats.merge(min_val, max_val, null_count, nan_count);
         }
         Stats::ListTextual(stats) => {
             let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
@@ -437,8 +484,8 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             let string_array = sarray.as_string::<i32>();
             let min_val = compute::min_string(string_array);
             let max_val = compute::max_string(string_array);
-            let has_null = string_array.null_count() > 0;
-            stats.merge(min_val, max_val, has_null);
+            let null_count = string_array.null_count() as i64;
+            stats.merge(min_val, max_val, null_count);
         }
         Stats::Unsupported => { /* do nothing */ }
     }
@@ -446,14 +493,39 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
     Ok(())
 }
 
+/// Row index and timestamp of first and last sample of a batch.
+pub type TimestampBounds = ((usize, i64), (usize, i64));
+
+/// Finds the earliest and latest samples of a batch.
+pub fn timestamps_bounds(batch: &RecordBatch) -> Result<Option<TimestampBounds>, Error> {
+    let ts =
+        array_from_flat_field_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP, batch)?;
+    let ts = ts.as_primitive::<arrow::datatypes::Int64Type>();
+
+    let mut bounds: Option<TimestampBounds> = None;
+    for (i, t) in ts.iter().enumerate() {
+        let Some(t) = t else { continue };
+        bounds = Some(match bounds {
+            None => ((i, t), (i, t)),
+            Some((first, last)) => (
+                if t < first.1 { (i, t) } else { first },
+                if t >= last.1 { (i, t) } else { last },
+            ),
+        });
+    }
+    Ok(bounds)
+}
+
 /// Inspects a [`RecordBatch`] and updates the columns statistics accordingly.
 pub fn ontology_model_stats_inspect_record_batch(
     cstats: &mut types::OntologyModelStats,
     batch: &RecordBatch,
+    first_idx: Option<usize>,
+    last_idx: Option<usize>,
 ) -> Result<(), Error> {
     for (col_name, stats) in &mut cstats.cols {
         let array = array_from_flat_field_name(col_name, batch)?;
-        stats_inspect_array(stats, &array)?;
+        stats_inspect_array(stats, &array, first_idx, last_idx)?;
     }
     Ok(())
 }
@@ -891,7 +963,7 @@ mod tests {
             "List<List<Float32>> must be classified as ListNumeric"
         );
 
-        stats_inspect_array(&mut stats, &array)
+        stats_inspect_array(&mut stats, &array, None, None)
             .expect("nested list stats inspection must not fail");
 
         let types::Stats::ListNumeric(n) = stats else {
@@ -919,7 +991,7 @@ mod tests {
         let mut stats = stats_from_arrow_field(&field);
         assert!(matches!(stats, types::Stats::ListNumeric(_)));
 
-        stats_inspect_array(&mut stats, &array)
+        stats_inspect_array(&mut stats, &array, None, None)
             .expect("triple-nested list stats inspection must not fail");
 
         let types::Stats::ListNumeric(n) = stats else {
