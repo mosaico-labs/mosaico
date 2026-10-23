@@ -21,7 +21,6 @@ Typical usage as a library:
 """
 
 import argparse
-import json
 import os
 import sys
 from dataclasses import dataclass
@@ -44,6 +43,7 @@ from ..base_injector import (
     InjectionConfigBase,
     InjectionStatus,
 )
+from ..helpers import _parse_json_arg
 from ..topic_status import to_color
 from ..ui import ProgressManager
 from .adapter_base import MCAPSchemaMetadata
@@ -563,56 +563,6 @@ class MCAPInjector:
 
 
 # --- CLI Entry Point ---
-
-
-def _parse_json_arg(arg_input: Optional[str], arg_name: str = "Metadata") -> dict:
-    """
-    Parses a CLI argument that may be a raw JSON string or a path to a JSON file.
-
-    Supports two formats:
-    1. A raw JSON string: '{"driver": "John"}'
-    2. A path to a JSON file: './configs/meta.json'
-
-    Args:
-        arg_input (Optional[str]): The raw CLI argument value.
-        arg_name (str): Human-readable name of the argument, used in log/error messages.
-
-    Returns:
-        dict: The parsed JSON object, or empty dict if `arg_input` is falsy.
-    """
-    if not arg_input:
-        return {}
-
-    # Attempt JSON Parse
-    try:
-        data = json.loads(arg_input)
-        logger.info(f"{arg_name} parsed successfully from JSON string.")
-        return data
-    except json.JSONDecodeError:
-        pass  # Not a valid JSON string, proceed to check file
-
-    # Attempt File Read
-    file_path = Path(arg_input)
-    if file_path.is_file():
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            logger.info(f"{arg_name} loaded successfully from file: '{file_path}'")
-            return data
-        except json.JSONDecodeError as e:
-            logger.error(
-                f"File found at '{file_path}' but contained invalid JSON: '{e}'"
-            )
-            sys.exit(1)
-        except Exception as e:
-            logger.error(f"Error reading {arg_name.lower()} file '{file_path}': '{e}'")
-            sys.exit(1)
-
-    # Failure
-    logger.error(
-        f"{arg_name} argument is neither a valid JSON string nor a valid file path: '{arg_input}'"
-    )
-    sys.exit(1)
 
 
 def mcap_injector():
