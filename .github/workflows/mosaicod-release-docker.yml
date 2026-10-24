@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v[0-9].*.*'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -94,13 +95,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/mosaicod
+          # The git tag vX.Y.Z (on a tag push, or the tag the Release
+          # workflow dispatches this workflow on) gives X.Y.Z and X.Y.
           tags: |
             # Tag with x.y.z
-            type=match,pattern=mosaicod/v(.*),group=1
-            
+            type=semver,pattern={{version}}
             # Tag with x.y
-            type=match,pattern=mosaicod/v(\d+\.\d+)\.\d+,group=1
-            
+            type=semver,pattern={{major}}.{{minor}}
             # Tag with latest
             type=raw,value=latest
 

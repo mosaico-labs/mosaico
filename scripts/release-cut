@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+# Opens the pull request that starts a new release cycle. See
+# docs/main/docs/dev/how_to_release.md for the full process.
+
+set -euo pipefail
+
+FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+VERSION_TOOL="${FILE_DIR}/workflows/version.sh"
+cd "${FILE_DIR}/.."
+
+show_help() {
+    cat << EOF
+Mosaico release-cut tool. Opens the pull request that moves main from X.Y.0-dev to X.(Y+1).0-dev. Once it is merged, CI creates release/vX.Y at X.Y.0-rc.
+
+Usage: release-cut [--help]
+
+Requires git, gh, cargo and uv.
+EOF
+}
+
+die() {
+    echo "Error: $1"
+    exit 1
+}
+
+if [[ $# -gt 0 ]]; then
+    show_help
+    [[ "$1" == "--help" || "$1" == "-h" ]] && exit 0 || exit 1
+fi
+
+# Check everything before changing anything.
+REPO=$(git remote get-url origin | sed -E 's#^(git@github\.com:|https://github\.com/)##; s#\.git$##')
+[[ "$(gh repo view "$REPO" --json viewerPermission --jq .viewerPermission 2> /dev/null)" =~ ^(ADMIN|MAINTAIN|WRITE)$ ]] \
+    || die "gh cannot push to $REPO. Check 'gh auth status' and your access to the repository."
+[[ "$(git branch --show-current)" == main ]] || die "run it from main."
+[[ -z "$(git status --porcelain)" ]] || die "commit or stash your changes first."
+git fetch --quiet origin main
+[[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]] || die "main is not in sync with origin/main."
+
+CURRENT=$("$VERSION_TOOL" get --mosaicod)
+PY_CURRENT=$("$VERSION_TOOL" get --py)
+[[ "$PY_CURRENT" == "$CURRENT" ]] || die "mosaicod is on $CURRENT but the Python SDK is on $PY_CURRENT."
+[[ "$CURRENT" =~ ^([0-9]+)\.([0-9]+)\.0-dev$ ]] || die "version $CURRENT is not X.Y.0-dev."
+RELEASE="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+RC="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0-rc"
+NEXT_DEV="${BASH_REMATCH[1]}.$((BASH_REMATCH[2] + 1)).0-dev"
+RELEASE_BRANCH="release/${RELEASE}"
+CUT_BRANCH="release-cut/${RELEASE}"
+
+[[ -z "$(git ls-remote --heads origin "$RELEASE_BRANCH" "$CUT_BRANCH")" ]] \
+    || die "$RELEASE_BRANCH or $CUT_BRANCH already exists on origin."
+if git rev-parse --verify --quiet "refs/heads/${CUT_BRANCH}" > /dev/null; then
+    die "delete the local branch $CUT_BRANCH first."
+fi
+
+# Pad the branch and target version columns to the longest value.
+BRANCH_WIDTH=${#RELEASE_BRANCH}
+VERSION_WIDTH=$(( ${#NEXT_DEV} > ${#RC} ? ${#NEXT_DEV} : ${#RC} ))
+echo "Cutting release ${RELEASE}"
+echo ""
+printf "  %-${BRANCH_WIDTH}s  %s → %-${VERSION_WIDTH}s  %s\n" \
+    "main" "$CURRENT" "$NEXT_DEV" "(via PR from ${CUT_BRANCH})" \
+    "$RELEASE_BRANCH" "$CURRENT" "$RC" "(created by CI after merge)"
+echo ""
+read -r -p "Continue? [y/N] " confirm
+[[ "$confirm" =~ ^[yY]$ ]] || { echo "Aborted."; exit 0; }
+
+# On failure, go back to an unchanged main.
+trap 'git checkout --quiet --force main; git branch --quiet -D "$CUT_BRANCH" 2> /dev/null; echo "Error: release cut failed, main is unchanged. If $CUT_BRANCH was pushed, open the PR from it or delete it."' ERR
+
+git checkout --quiet -b "$CUT_BRANCH"
+"$VERSION_TOOL" set "$NEXT_DEV" > /dev/null
+git commit --quiet -am "chore: cut release ${RELEASE}, bump main to ${NEXT_DEV}"
+git push --quiet -u origin "$CUT_BRANCH"
+gh pr create --repo "$REPO" --base main --head "$CUT_BRANCH" \
+    --title "chore: cut release ${RELEASE}" \
+    --body "Bumps \`main\` to \`${NEXT_DEV}\`. Merging it creates \`${RELEASE_BRANCH}\` at \`${RC}\`. Opened by \`scripts/release-cut\`."
+
+trap - ERR
+git checkout --quiet main

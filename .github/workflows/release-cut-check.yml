@@ -1,0 +1,74 @@
+name: Release Cut Check
+
+# Validates the pull request opened by `scripts/release-cut`: it must only bump
+# the version and lock files from X.Y.0-dev to X.(Y+1).0-dev, where X.Y comes
+# from the branch name release-cut/vX.Y. Lock files are verified by
+# `scripts/workflows/version.sh check`.
+#
+# It runs on any pull request whose branch starts with `release-cut/v` or whose
+# title contains "cut release", so a PR that looks like a release cut but was
+# not opened by the script fails here instead of going unchecked.
+
+on:
+  pull_request:
+    branches: ["main"]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: "Check release cut"
+    if: >-
+      startsWith(github.head_ref, 'release-cut/v') ||
+      contains(github.event.pull_request.title, 'cut release')
+    runs-on: ubuntu-latest
+    env:
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.13.1"
+
+      # release-cut/v0.8 means main goes from 0.8.0-dev to 0.9.0-dev.
+      - name: Read the release from the branch name
+        run: |
+          [[ "$(./scripts/workflows/version.sh branch "$GITHUB_HEAD_REF")" == release-cut ]] || exit 1
+          MAJOR=$(./scripts/workflows/version.sh branch --major "$GITHUB_HEAD_REF")
+          MINOR=$(./scripts/workflows/version.sh branch --minor "$GITHUB_HEAD_REF")
+          {
+            echo "OLD=$MAJOR.$MINOR.0-dev"
+            echo "NEW=$MAJOR.$((MINOR + 1)).0-dev"
+            echo "MERGE_BASE=$(git merge-base "$BASE_SHA" HEAD)"
+          } >> "$GITHUB_ENV"
+
+      - name: Check that main is still on the released version
+        run: |
+          ./scripts/workflows/version.sh get "$MERGE_BASE"
+          [[ "$(./scripts/workflows/version.sh get --mosaicod "$MERGE_BASE")" == "$OLD" ]] || exit 1
+          [[ "$(./scripts/workflows/version.sh get --py "$MERGE_BASE")" == "$OLD" ]] || exit 1
+
+      # After the merge, release-cut.yml cuts release/vX.Y from the commit right
+      # before it, which is main before the bump only if the PR holds a single
+      # commit, whatever the merge strategy.
+      - name: Check that the PR holds a single commit
+        run: '[[ "$(git rev-list --count "$MERGE_BASE..HEAD")" == 1 ]] || exit 1'
+
+      - name: Check that only the version and lock files changed
+        run: |
+          git diff --name-only "$MERGE_BASE" HEAD
+          [[ "$(git diff --name-only "$MERGE_BASE" HEAD | LC_ALL=C sort | tr '\n' ' ')" == "mosaico-sdk-py/pyproject.toml mosaico-sdk-py/uv.lock mosaicod/Cargo.lock mosaicod/Cargo.toml " ]] || exit 1
+
+      - name: Check that the version and lock files are on the new version
+        run: ./scripts/workflows/version.sh check "$NEW"

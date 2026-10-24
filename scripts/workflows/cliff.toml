@@ -1,0 +1,87 @@
+# git-cliff configuration used by scripts/workflows/changelog.sh. Do not run git-cliff with
+# it directly: the script selects the component, the commit range and the
+# paths to include.
+#
+# A commit belongs to a component when its scope names it (`mosaicod`, `py` or
+# `sdk-py`), or when it has no component scope and touches the component's
+# directory. Commits scoped to the other component are left out.
+#
+# Each entry ends with its author: the GitHub username, fetched from the GitHub
+# API, or the git author name when GitHub has none for the commit. Bots are not
+# credited.
+
+[changelog]
+body = """
+{%- macro author(commit) -%}
+    {%- if commit.remote.username -%}
+        {%- if commit.remote.username is not ending_with("[bot]") %} by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% endif -%}
+    {%- elif commit.author.name is not ending_with("[bot]") %} by {{ commit.author.name }}
+    {%- endif -%}
+{%- endmacro author -%}
+
+{%- set component = get_env(name="MOSAICO_COMPONENT") -%}
+{%- if component == "mosaicod" -%}
+    {%- set excluded_scopes = ["py", "sdk-py"] -%}
+{%- else -%}
+    {%- set excluded_scopes = ["mosaicod"] -%}
+{%- endif -%}
+
+## [{{ version | trim_start_matches(pat="py/") | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{%- set_global breaking = [] -%}
+{%- for commit in commits -%}
+    {%- if commit.breaking and commit.scope not in excluded_scopes -%}
+        {%- set_global breaking = breaking | concat(with=commit) -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- if breaking | length > 0 %}
+
+### Breaking Changes
+{% for commit in breaking %}
+- {{ commit.message | upper_first }}{{ self::author(commit=commit) }}
+{%- endfor -%}
+{%- endif -%}
+
+{%- for group, group_commits in commits | group_by(attribute="group") -%}
+    {%- set_global entries = [] -%}
+    {%- for commit in group_commits -%}
+        {%- if not commit.breaking and commit.scope not in excluded_scopes -%}
+            {%- set_global entries = entries | concat(with=commit) -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- if entries | length > 0 %}
+
+### {{ group | striptags | trim }}
+{% for commit in entries %}
+- {{ commit.message | upper_first }}{{ self::author(commit=commit) }}
+{%- endfor -%}
+    {%- endif -%}
+{%- endfor %}
+"""
+trim = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+sort_commits = "oldest"
+commit_preprocessors = [
+    # Turn the squash-merge suffix "(#123)" into a link to the pull request.
+    # Only the first line of the message is used.
+    { pattern = '(?m)[ \t]*\(#([0-9]+)\)[ \t]*$', replace = " ([#${1}](https://github.com/mosaico-labs/mosaico/pull/${1}))" },
+    { pattern = '[ \t]{2,}', replace = " " },
+]
+# The HTML comments only set the order of the sections; they are not printed.
+commit_parsers = [
+    { message = '^feat', group = "<!-- 0 -->Features" },
+    { message = '^(fix|bug)', group = "<!-- 1 -->Bug Fixes" },
+    { message = '^(refactor|perf)', group = "<!-- 2 -->Refactoring & Performance" },
+    { message = '^docs?', group = "<!-- 3 -->Documentation" },
+    { message = '^chore\(deps', group = "<!-- 4 -->Dependencies" },
+    { message = '^revert', group = "<!-- 5 -->Reverts" },
+    { message = '.*', skip = true },
+]
+
+[remote.github]
+owner = "mosaico-labs"
+repo = "mosaico"
