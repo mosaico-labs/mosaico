@@ -18,6 +18,9 @@ pub enum SchemaError {
     /// Returned when two top-level fields share a name, so a query path can't tell them apart.
     #[error("duplicate field `{0}`")]
     DuplicateField(String),
+    /// Returned when a field name contains a character that query paths use as a separator.
+    #[error("field `{0}` contains a reserved character (`.` or `[`)")]
+    ReservedCharacterInField(String),
 }
 
 impl core::error::PublicError for SchemaError {
@@ -68,7 +71,11 @@ impl std::error::Error for Error {
 ///
 /// Returns the first [`SchemaError`] found if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
-    let rules = [timestamp_shape_rule, no_duplicates_rule];
+    let rules = [
+        timestamp_shape_rule,
+        no_duplicates_rule,
+        no_reserved_characters_rule,
+    ];
     rules.iter().try_for_each(|rule| rule(schema))
 }
 
@@ -91,6 +98,19 @@ fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
         .find(|f| !seen.insert(f.name().as_str()))
     {
         return Err(SchemaError::DuplicateField(field.name().clone()));
+    }
+    Ok(())
+}
+
+/// Query paths use `.` to separate fields and `[` to start a list specifier, so a field whose
+/// name contains either character can't be queried.
+fn no_reserved_characters_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
+    if let Some(field) = schema
+        .fields()
+        .iter()
+        .find(|f| f.name().contains(['.', '[']))
+    {
+        return Err(SchemaError::ReservedCharacterInField(field.name().clone()));
     }
     Ok(())
 }
@@ -750,6 +770,24 @@ mod tests {
         let schema = create_schema(fields);
 
         assert!(check_schema(&schema).is_ok());
+    }
+
+    #[test]
+    fn reserved_character_in_field() {
+        for name in ["pose.x", "a[0]"] {
+            let fields = vec![
+                Field::new("timestamp_ns", DataType::Int64, false),
+                Field::new(name, DataType::Float64, true),
+            ];
+            let schema = create_schema(fields);
+
+            let result = check_schema(&schema);
+
+            assert!(
+                matches!(result, Err(SchemaError::ReservedCharacterInField(ref n)) if n == name),
+                "`{name}` should be rejected"
+            );
+        }
     }
 
     // Helper function to create a simplified schema reference
