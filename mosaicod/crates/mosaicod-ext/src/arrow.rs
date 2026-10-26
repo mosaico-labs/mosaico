@@ -66,12 +66,11 @@ impl std::error::Error for Error {
 /// Returns [`SchemaError`] if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
     let field = schema.field_with_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
-    if let Ok(field) = field {
-        if DataType::Int64 != *field.data_type() {
-            return Err(SchemaError::WrongTimestampType);
-        }
-    } else {
+    let Ok(field) = field else {
         return Err(SchemaError::MissingTimestampInSchema);
+    };
+    if DataType::Int64 != *field.data_type() {
+        return Err(SchemaError::WrongTimestampType);
     }
     Ok(())
 }
