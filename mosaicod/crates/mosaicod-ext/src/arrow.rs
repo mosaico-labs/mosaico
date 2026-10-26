@@ -5,7 +5,7 @@ use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use mosaicod_core::{self as core, constants, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]
@@ -15,6 +15,9 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
+    /// Returned when two top-level fields share a name, so a query path can't tell them apart.
+    #[error("duplicate field `{0}`")]
+    DuplicateField(String),
 }
 
 impl core::error::PublicError for SchemaError {
@@ -63,14 +66,31 @@ impl std::error::Error for Error {
 ///
 /// # Errors
 ///
-/// Returns [`SchemaError`] if the schema structural requirements are not met.
+/// Returns the first [`SchemaError`] found if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
+    let rules = [timestamp_shape_rule, no_duplicates_rule];
+    rules.iter().try_for_each(|rule| rule(schema))
+}
+
+fn timestamp_shape_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
     let field = schema.field_with_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
     let Ok(field) = field else {
         return Err(SchemaError::MissingTimestampInSchema);
     };
     if DataType::Int64 != *field.data_type() {
         return Err(SchemaError::WrongTimestampType);
+    }
+    Ok(())
+}
+
+fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
+    let mut seen = HashSet::new();
+    if let Some(field) = schema
+        .fields()
+        .iter()
+        .find(|f| !seen.insert(f.name().as_str()))
+    {
+        return Err(SchemaError::DuplicateField(field.name().clone()));
     }
     Ok(())
 }
@@ -702,6 +722,34 @@ mod tests {
 
         // The check uses field_with_name, which is case-sensitive, so it should fail.
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn duplicate_field() {
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, false),
+            Field::new("value", DataType::Float64, true),
+            Field::new("value", DataType::Float64, true),
+        ];
+        let schema = create_schema(fields);
+
+        let result = check_schema(&schema);
+
+        assert!(matches!(result, Err(SchemaError::DuplicateField(name)) if name == "value"));
+    }
+
+    /// Only top-level names must be unique: `x` is both a top-level field and a child of `pose`.
+    #[test]
+    fn nested_field_named_like_top_level_field() {
+        let pose = DataType::Struct(vec![Field::new("x", DataType::Float64, true)].into());
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, false),
+            Field::new("x", DataType::Float64, true),
+            Field::new("pose", pose, true),
+        ];
+        let schema = create_schema(fields);
+
+        assert!(check_schema(&schema).is_ok());
     }
 
     // Helper function to create a simplified schema reference
