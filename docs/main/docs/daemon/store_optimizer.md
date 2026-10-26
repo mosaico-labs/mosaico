@@ -17,7 +17,7 @@ The routine is started with the `mosaicod store-optimizer` subcommand and config
 | Option | Default | Description |
 | :--- | :--- | :--- |
 | `--time-interval <SECONDS>` | `0` | Minimum interval between an optimization run and the next one. When set to `0` a single run is performed and then the process terminates. Any value greater than `0` runs the routine in a loop, sleeping `time_interval` seconds between runs. |
-| `--max-chunk-size <BYTES>` | `256000000` | Maximum size (in bytes) for an output chunk after optimization. This is a soft limit: actual files in the store may exceed this value slightly. |
+| `--max-chunk-size <BYTES>` | `268435456` (256 MiB) | Maximum size (in bytes) for an output chunk after optimization. This is a soft limit: actual files in the store may exceed this value slightly. Must be greater than `0`. |
 
 Run a single optimization pass and exit:
 
