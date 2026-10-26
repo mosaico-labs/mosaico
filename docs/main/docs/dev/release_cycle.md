@@ -10,7 +10,7 @@ Mosaico uses a monorepo that holds `mosaicod`, the SDK and the documentation. Al
 
 ## Versioning
 
-Mosaico does not follow semantic versioning, neither for `mosaicod` nor for the SDK. Both use a version in the form `0.N.S`:
+Neither `mosaicod` nor the SDK follows semantic versioning. Both use a version in the form `0.N.S`:
 
 - `N` is an incremental number, increased by one with every weekly release.
 - `S` is an incremental number for security updates to the `0.N` release. Every weekly release starts at `S = 0`.
