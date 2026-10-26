@@ -1,7 +1,7 @@
 use arrow::array::{
     ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
 };
-use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef};
 use mosaicod_core::{self as core, constants, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
@@ -15,7 +15,7 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
-    /// Returned when two top-level fields share a name, so a query path can't tell them apart.
+    /// Returned when two sibling fields share a name, so a query path can't tell them apart.
     #[error("duplicate field `{0}`")]
     DuplicateField(String),
     /// Returned when a field name contains a character that query paths use as a separator.
@@ -91,13 +91,35 @@ fn timestamp_shape_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
 }
 
 fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
+    check_unique_names(schema.fields(), "")
+}
+
+/// Checks that no two of `fields` share a name, then does the same for the children of every
+/// struct among them, including structs inside lists. `parent` is the path of `fields` (empty
+/// for the top level), used to report the full path of a duplicate (e.g. `pose.x`).
+///
+/// The child of a list (usually `item`) is never part of a query path, so it isn't checked.
+fn check_unique_names(fields: &Fields, parent: &str) -> Result<(), SchemaError> {
     let mut seen = HashSet::new();
-    if let Some(field) = schema
-        .fields()
-        .iter()
-        .find(|f| !seen.insert(f.name().as_str()))
-    {
-        return Err(SchemaError::DuplicateField(field.name().clone()));
+    for field in fields {
+        let path = if parent.is_empty() {
+            field.name().clone()
+        } else {
+            format!("{parent}.{}", field.name())
+        };
+        if !seen.insert(field.name()) {
+            return Err(SchemaError::DuplicateField(path));
+        }
+        let mut data_type = field.data_type();
+        while let DataType::List(inner)
+        | DataType::LargeList(inner)
+        | DataType::FixedSizeList(inner, _) = data_type
+        {
+            data_type = inner.data_type();
+        }
+        if let DataType::Struct(children) = data_type {
+            check_unique_names(children, &path)?;
+        }
     }
     Ok(())
 }
@@ -106,8 +128,8 @@ fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
 /// name contains either character can't be queried.
 fn no_reserved_characters_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
     if let Some(field) = schema
-        .fields()
-        .iter()
+        .flattened_fields()
+        .into_iter()
         .find(|f| f.name().contains(['.', '[']))
     {
         return Err(SchemaError::ReservedCharacterInField(field.name().clone()));
@@ -758,14 +780,56 @@ mod tests {
         assert!(matches!(result, Err(SchemaError::DuplicateField(name)) if name == "value"));
     }
 
-    /// Only top-level names must be unique: `x` is both a top-level field and a child of `pose`.
+    /// A struct whose children are `Float64` fields with the given names.
+    fn struct_of(names: &[&str]) -> DataType {
+        DataType::Struct(
+            names
+                .iter()
+                .map(|n| Field::new(*n, DataType::Float64, true))
+                .collect(),
+        )
+    }
+
     #[test]
-    fn nested_field_named_like_top_level_field() {
-        let pose = DataType::Struct(vec![Field::new("x", DataType::Float64, true)].into());
+    fn duplicate_nested_field() {
+        let cases = [
+            (
+                "points",
+                DataType::new_list(struct_of(&["x", "x"]), true),
+                "points.x",
+            ),
+            (
+                "b",
+                DataType::Struct(vec![Field::new("a", struct_of(&["x", "x"]), true)].into()),
+                "b.a.x",
+            ),
+        ];
+        for (name, data_type, path) in cases {
+            let fields = vec![
+                Field::new("timestamp_ns", DataType::Int64, false),
+                Field::new(name, data_type, true),
+            ];
+            let schema = create_schema(fields);
+
+            let result = check_schema(&schema);
+
+            assert!(
+                matches!(result, Err(SchemaError::DuplicateField(ref p)) if p == path),
+                "`{path}` should be rejected"
+            );
+        }
+    }
+
+    /// Names only need to be unique among siblings: `x` is a top-level field and a child of both
+    /// `a` and `b.a`.
+    #[test]
+    fn same_name_under_different_parents() {
+        let b = DataType::Struct(vec![Field::new("a", struct_of(&["x"]), true)].into());
         let fields = vec![
             Field::new("timestamp_ns", DataType::Int64, false),
             Field::new("x", DataType::Float64, true),
-            Field::new("pose", pose, true),
+            Field::new("a", struct_of(&["x"]), true),
+            Field::new("b", b, true),
         ];
         let schema = create_schema(fields);
 
@@ -774,18 +838,23 @@ mod tests {
 
     #[test]
     fn reserved_character_in_field() {
-        for name in ["pose.x", "a[0]"] {
+        let cases = [
+            ("pose.x", DataType::Float64, "pose.x"),
+            ("a[0]", DataType::Float64, "a[0]"),
+            ("pose", struct_of(&["x.y"]), "x.y"),
+        ];
+        for (name, data_type, rejected) in cases {
             let fields = vec![
                 Field::new("timestamp_ns", DataType::Int64, false),
-                Field::new(name, DataType::Float64, true),
+                Field::new(name, data_type, true),
             ];
             let schema = create_schema(fields);
 
             let result = check_schema(&schema);
 
             assert!(
-                matches!(result, Err(SchemaError::ReservedCharacterInField(ref n)) if n == name),
-                "`{name}` should be rejected"
+                matches!(result, Err(SchemaError::ReservedCharacterInField(ref n)) if n == rejected),
+                "`{rejected}` should be rejected"
             );
         }
     }
