@@ -6,7 +6,7 @@ description: "Mosaico's monorepo branching strategy, versioning scheme, and week
 
 ## Monorepo
 
-Mosaico uses a monorepo that holds `mosaicod`, the SDK and the documentation. All development happens on `main`, and every weekly release of every component is a tag on `main`.
+Mosaico uses a monorepo that holds `mosaicod`, the SDK and the documentation. All development happens on main: releases are weekly, and each one is a tag on main, one per component.
 
 ## Versioning
 
