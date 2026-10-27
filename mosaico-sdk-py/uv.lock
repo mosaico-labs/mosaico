@@ -445,28 +445,28 @@ wheels = [
 
 [[package]]
 name = "mcap"
-version = "1.5.0"
+version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "lz4" },
     { name = "zstandard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/26/16/2ac1cbeaa524453d616050db9fda14010eda507fd8130e0676879bb8faf9/mcap-1.5.0.tar.gz", hash = "sha256:9c385cc5e5a6bccff4aa0c6814b305faa2c3239ece46778661eaa6d809b1768a", size = 23110, upload-time = "2026-09-24T21:45:44.714Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/6a/5039c5204c30478a27c9bd28ef2b5d1e947cae35b2636fae786ff777c1c6/mcap-1.6.0.tar.gz", hash = "sha256:d9aa1d9706ada964740536c7598b735a5aab677493d52c2be59fbd7467ec5664", size = 25657, upload-time = "2026-10-19T17:48:51.008Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/13/59/caa4d60a58f129659ea5403e6fb52808f87005dfcbaa03e84f0e07f0033e/mcap-1.5.0-py3-none-any.whl", hash = "sha256:44ba129d381abdca474fbf5bcee036db87d7075d9059b139bf2fee2975c8bd52", size = 21021, upload-time = "2026-09-24T21:45:43.51Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/15/fa7ff687a128ec51084a48fb1e039b247a9add47b974c125278d97f370be/mcap-1.6.0-py3-none-any.whl", hash = "sha256:7cd37fba2cf51d033f2139ca837d2ed3024dcec3cd9f8ecdf3d4d15930df6e17", size = 21955, upload-time = "2026-10-19T17:48:49.61Z" },
 ]
 
 [[package]]
 name = "mcap-protobuf-support"
-version = "0.5.4"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mcap" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/8e/98af824adce25082f1c7fb8e8aab48b1678a370f97633a55bfb06c40e3fd/mcap_protobuf_support-0.5.4.tar.gz", hash = "sha256:3af2de2c2dbda9d1dbb1a526d2ad0cf3604ab44947dd1c99a52a2f990b1eb308", size = 7059, upload-time = "2025-12-24T21:22:57.716Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/42/b7/cf5617e7458de28501b08f77b053294c8de6947a78d89421e6bae3824e45/mcap_protobuf_support-0.6.0.tar.gz", hash = "sha256:4378cab3262b9976f3b9fdb0ee514c4dde9a5cd1b563102c83f90a3ccedd9928", size = 7704, upload-time = "2026-10-19T17:53:06.43Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/ee/cb4beace2bbaf3877848dbc555366c5a72ec1dabba5d620bf746143d91c4/mcap_protobuf_support-0.5.4-py3-none-any.whl", hash = "sha256:072f83b7b147b5faa25df21c175cbf6e53bf959f8a6aea534167055bc4526649", size = 7286, upload-time = "2025-12-24T21:22:56.393Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/a7/9ff7159b8fe081d2d658e1a6823b444b208dc91020d9fa43b7209a1a1cd2/mcap_protobuf_support-0.6.0-py3-none-any.whl", hash = "sha256:11318f7c51ad72ef595fb1e239c0d3ce6f76f1ae7bc79bbffac94065edd436a2", size = 7549, upload-time = "2026-10-19T17:53:05.273Z" },
 ]
 
 [[package]]
@@ -520,7 +520,7 @@ requires-dist = [
     { name = "av", specifier = ">=17.0.0,<18.0.0" },
     { name = "click", specifier = ">=8.3.1,<9.0.0" },
     { name = "mcap", specifier = ">=1.4.0,<2.0.0" },
-    { name = "mcap-protobuf-support", specifier = ">=0.5.4,<0.6.0" },
+    { name = "mcap-protobuf-support", specifier = ">=0.5.4,<0.7.0" },
     { name = "numpy", specifier = ">=2.0.0,<2.5.0" },
     { name = "pandas", specifier = ">=2.3.3,<4.0.0" },
     { name = "pillow", specifier = ">=11.3.0,<13.0.0" },
