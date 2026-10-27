@@ -52,7 +52,7 @@ from ..helpers import _parse_json_arg
 from ..topic_status import to_color
 from .lerobot_message import LeRobotMessage
 from .loader import LeRobotEpisodeLoader, LeRobotLoader
-from .metadata import LeRobotSchemaMetadata
+from .schema_metadata import LeRobotSchemaMetadata
 from .ui_lerobot import LeRobotProgressManager
 
 # Set the hierarchical logger
@@ -335,8 +335,7 @@ class LeRobotInjector:
 
         # --- Schema metadata Resolution ---
         lerobot_meta = LeRobotSchemaMetadata(
-            info=episode_loader._reader._meta.info,
-            stats=episode_loader._reader._meta.stats or {},
+            info=episode_loader._reader._meta.info.to_dict(),
             episode=episode_loader.episode_metadata.to_dict(),
         )
 

@@ -37,7 +37,8 @@ from mosaicolabs.models.core import Message, resolve_ontology_class
 from ..helpers import _dotted_name_to_topic_name
 from .helpers import _max_rows_within, _to_timestamp_ns
 from .lerobot_message import LeRobotMessage
-from .metadata import _TIMESTAMP_COLUMN_NAME, LeRobotDatasetMeta
+from .metadata import LeRobotDatasetMeta
+from .metadata.feature import _TIMESTAMP_COLUMN_NAME
 
 DEFAULT_BATCH_SIZE = 131_072
 """The default maximum number of rows of a batch (the `pyarrow` default)."""
@@ -236,15 +237,17 @@ class LeRobotReader:
 
         # `None` selects every column, an empty list none of them
         self._image_column_names: List[str] = [
-            key
-            for key, feature in meta.features.items()
-            if feature.is_image and (column_names is None or key in column_names)
+            feature.key
+            for feature in meta.features
+            if feature.is_image
+            and (column_names is None or feature.key in column_names)
         ]
         # The order of the columns is the order of the timeseries struct fields
         self._timeseries_column_names: List[str] = [
-            key
-            for key, feature in meta.features.items()
-            if feature.is_timeserie and (column_names is None or key in column_names)
+            feature.key
+            for feature in meta.features
+            if feature.is_timeserie
+            and (column_names is None or feature.key in column_names)
         ]
 
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
