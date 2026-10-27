@@ -1465,7 +1465,7 @@ wheels = [
 
 [[package]]
 name = "rosbags"
-version = "0.11.8"
+version = "0.11.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "apsw" },
@@ -1476,9 +1476,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/bd/ba/f26c1635f840f050d933f44fa544290f8fe6a2515a3a70a482db77446820/rosbags-0.11.8.tar.gz", hash = "sha256:4f1323b6ef95b65bba1a0969e91c162921cfc68c8f166b78989ff76a96a8925c", size = 337516, upload-time = "2026-10-16T08:59:07.637Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/eb/f8/84529aea85bec7395bb5aa7f4401ea2d7e6135cb367e36493851b859917b/rosbags-0.11.9.tar.gz", hash = "sha256:2d0df7de565dc13abd444a3c2681911fc6ef88095da3faced5c99719e5dc0fa4", size = 350540, upload-time = "2026-10-20T08:13:45.854Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a1/53/f3d245a8a53e32ebecf47a1e6261bf0b3c955adbd7b9429dc163f78918c0/rosbags-0.11.8-py3-none-any.whl", hash = "sha256:017ada9c2f24d8a2e626e48a3c4f20f53e03516a14c079294feff3e1fea6cf99", size = 150914, upload-time = "2026-10-16T08:59:05.794Z" },
+    { url = "https://files.pythonhosted.org/packages/10/9b/81c8c39d95acc791a13de90434478d2952b83ad2a713cc0f92d492570ca2/rosbags-0.11.9-py3-none-any.whl", hash = "sha256:010c5a48b326e4dad6a79183db243c7b59188121d37b629d8c166ecaed3fc890", size = 151127, upload-time = "2026-10-20T08:13:44.209Z" },
 ]
 
 [[package]]
