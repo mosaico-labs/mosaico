@@ -110,6 +110,8 @@ fn check_unique_names(fields: &Fields, parent: &str) -> Result<(), SchemaError> 
         let mut data_type = field.data_type();
         while let DataType::List(inner)
         | DataType::LargeList(inner)
+        | DataType::ListView(inner)
+        | DataType::LargeListView(inner)
         | DataType::FixedSizeList(inner, _) = data_type
         {
             data_type = inner.data_type();
