@@ -100,7 +100,7 @@ fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
 ///
 /// The child of a list (usually `item`) is never part of a query path, so it isn't checked.
 fn check_unique_names(fields: &Fields, parent: &str) -> Result<(), SchemaError> {
-    let mut seen = HashSet::new();
+    let mut seen = HashSet::with_capacity(fields.len());
     for field in fields {
         let path = if parent.is_empty() {
             field.name().clone()
