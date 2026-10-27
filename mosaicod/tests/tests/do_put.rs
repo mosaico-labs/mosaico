@@ -1,7 +1,9 @@
 #![allow(unused_crate_dependencies)]
+use arrow::array::{ArrayRef, Int64Array, RecordBatch};
 use mosaicod_core::types::Uuid;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
+use std::sync::Arc;
 use tests::{self, actions, common};
 
 // ===========================================================================
@@ -208,6 +210,47 @@ async fn test_do_put_schema_with_empty_batches(pool: sqlx::Pool<db::DatabaseType
         res.is_ok(),
         "do_put with schema but empty batches should not fail."
     );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_do_put_duplicate_field(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/duplicate_field", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
+        .await
+        .unwrap();
+
+    // Two columns named `value`.
+    let column = |v: i64| Arc::new(Int64Array::from(vec![v])) as ArrayRef;
+    let batch = RecordBatch::try_from_iter([
+        ("timestamp_ns", column(1)),
+        ("value", column(1)),
+        ("value", column(200)),
+    ])
+    .unwrap();
+
+    let res = actions::do_put(&mut client, &topic_uuid, topic_name, vec![batch], false).await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+
+    // The schema is rejected before anything is written, so the topic still accepts a valid upload.
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
 
     server.shutdown().await;
 }

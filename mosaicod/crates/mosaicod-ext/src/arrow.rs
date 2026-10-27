@@ -1,11 +1,11 @@
 use arrow::array::{
     ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
 };
-use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef};
 use mosaicod_core::{self as core, constants, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]
@@ -15,6 +15,12 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
+    /// Returned when two sibling fields share a name.
+    #[error("duplicate field `{0}`")]
+    DuplicateField(String),
+    /// Returned when a field name doesn't match `[A-Za-z0-9_]+`.
+    #[error("invalid field name `{0}`, expected `[A-Za-z0-9_]+`")]
+    InvalidFieldName(String),
 }
 
 impl core::error::PublicError for SchemaError {
@@ -63,17 +69,74 @@ impl std::error::Error for Error {
 ///
 /// # Errors
 ///
-/// Returns [`SchemaError`] if the schema structural requirements are not met.
+/// Returns the first [`SchemaError`] found if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
+    let rules = [
+        timestamp_shape_rule,
+        no_duplicates_rule,
+        valid_field_names_rule,
+    ];
+    rules.iter().try_for_each(|rule| rule(schema))
+}
+
+fn timestamp_shape_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
     let field = schema.field_with_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
-    if let Ok(field) = field {
-        if DataType::Int64 != *field.data_type() {
-            return Err(SchemaError::WrongTimestampType);
-        }
-    } else {
+    let Ok(field) = field else {
         return Err(SchemaError::MissingTimestampInSchema);
+    };
+    if DataType::Int64 != *field.data_type() {
+        return Err(SchemaError::WrongTimestampType);
     }
     Ok(())
+}
+
+fn no_duplicates_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
+    check_unique_names(schema.fields(), "")
+}
+
+/// Checks that sibling names are unique, recursing into structs (also inside lists).
+/// `parent` is the path of `fields`, used to report duplicates (e.g. `pose.x`).
+fn check_unique_names(fields: &Fields, parent: &str) -> Result<(), SchemaError> {
+    let mut seen = HashSet::with_capacity(fields.len());
+    for field in fields {
+        let path = if parent.is_empty() {
+            field.name().clone()
+        } else {
+            format!("{parent}.{}", field.name())
+        };
+        if !seen.insert(field.name()) {
+            return Err(SchemaError::DuplicateField(path));
+        }
+        let mut data_type = field.data_type();
+        while let DataType::List(inner)
+        | DataType::LargeList(inner)
+        | DataType::ListView(inner)
+        | DataType::LargeListView(inner)
+        | DataType::FixedSizeList(inner, _) = data_type
+        {
+            data_type = inner.data_type();
+        }
+        if let DataType::Struct(children) = data_type {
+            check_unique_names(children, &path)?;
+        }
+    }
+    Ok(())
+}
+
+/// Field names are query path segments, so they're limited to `[A-Za-z0-9_]+`.
+fn valid_field_names_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
+    if let Some(field) = schema
+        .flattened_fields()
+        .into_iter()
+        .find(|f| !is_valid_field_name(f.name()))
+    {
+        return Err(SchemaError::InvalidFieldName(field.name().clone()));
+    }
+    Ok(())
+}
+
+fn is_valid_field_name(name: &str) -> bool {
+    !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 /// Return a arrow empty schema
@@ -703,6 +766,97 @@ mod tests {
 
         // The check uses field_with_name, which is case-sensitive, so it should fail.
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn duplicate_field() {
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, false),
+            Field::new("value", DataType::Float64, true),
+            Field::new("value", DataType::Float64, true),
+        ];
+        let schema = create_schema(fields);
+
+        let result = check_schema(&schema);
+
+        assert!(matches!(result, Err(SchemaError::DuplicateField(name)) if name == "value"));
+    }
+
+    fn struct_of(names: &[&str]) -> DataType {
+        DataType::Struct(
+            names
+                .iter()
+                .map(|n| Field::new(*n, DataType::Float64, true))
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn duplicate_nested_field() {
+        let cases = [
+            (
+                "points",
+                DataType::new_list(struct_of(&["x", "x"]), true),
+                "points.x",
+            ),
+            (
+                "b",
+                DataType::Struct(vec![Field::new("a", struct_of(&["x", "x"]), true)].into()),
+                "b.a.x",
+            ),
+        ];
+        for (name, data_type, path) in cases {
+            let fields = vec![
+                Field::new("timestamp_ns", DataType::Int64, false),
+                Field::new(name, data_type, true),
+            ];
+            let schema = create_schema(fields);
+
+            let result = check_schema(&schema);
+
+            assert!(
+                matches!(result, Err(SchemaError::DuplicateField(ref p)) if p == path),
+                "`{path}` should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn same_name_under_different_parents() {
+        let b = DataType::Struct(vec![Field::new("a", struct_of(&["x"]), true)].into());
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, false),
+            Field::new("x", DataType::Float64, true),
+            Field::new("a", struct_of(&["x"]), true),
+            Field::new("b", b, true),
+        ];
+        let schema = create_schema(fields);
+
+        assert!(check_schema(&schema).is_ok());
+    }
+
+    #[test]
+    fn invalid_field_name() {
+        let cases = [
+            ("pose.x", DataType::Float64, "pose.x"),
+            ("posé", DataType::Float64, "posé"),
+            ("", DataType::Float64, ""),
+            ("pose", struct_of(&["x y"]), "x y"),
+        ];
+        for (name, data_type, rejected) in cases {
+            let fields = vec![
+                Field::new("timestamp_ns", DataType::Int64, false),
+                Field::new(name, data_type, true),
+            ];
+            let schema = create_schema(fields);
+
+            let result = check_schema(&schema);
+
+            assert!(
+                matches!(result, Err(SchemaError::InvalidFieldName(ref n)) if n == rejected),
+                "`{rejected}` should be rejected"
+            );
+        }
     }
 
     // Helper function to create a simplified schema reference
