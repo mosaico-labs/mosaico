@@ -114,7 +114,7 @@ class LeRobotLoader(BaseLoader):
         metadata = self._resolve_metadata()
 
         video_columns = [
-            key for key, feature in metadata.features.items() if feature.is_video
+            feature.key for feature in metadata.features if feature.is_video
         ]
         if video_columns:
             logger.warning(
