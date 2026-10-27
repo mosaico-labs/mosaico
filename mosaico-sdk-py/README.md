@@ -110,12 +110,18 @@ with MosaicoClient.connect(host="localhost", port=6726) as client:
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
-### ROS Data Injector
+### Command Line
 
-Inject ROS bags (MCAP or legacy) directly into the platform:
+Install the `mosaico` CLI with `pip install "mosaicolabs[cli]"`, set up a connection profile (`mosaico profile add dev`), then move ROS bags and MCAP files in and out of the platform:
 
 ```bash
-mosaicolabs.ros_injector --file path/to/your/data.mcap --sequence my_test_run
+# Inject a ROS bag (MCAP, db3 or legacy .bag) or an MCAP file into a new sequence
+mosaico ros inject path/to/your/data.mcap --name my_test_run
+mosaico mcap inject path/to/your/data.mcap --name my_test_run
+
+# Extract a sequence back to a ROS bag or an MCAP file
+mosaico ros extract my_test_run --rosbag-path ./exports
+mosaico mcap extract my_test_run --mcap-path ./exports
 ```
 
 ### Interactive Examples
