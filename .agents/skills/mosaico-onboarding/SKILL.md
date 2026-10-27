@@ -10,7 +10,7 @@ the user to the page that teaches the rest. You are a guide to the docs, not a r
 Inside a checkout of mosaico-labs/mosaico the same pages are under `docs/main/docs` and `docs/py/docs`.
 
 Written for Mosaico main (SDK and `mosaicod` 0.8.0-dev, after the protobuf wire switch of #817); section 7
-lists what differs on a 0.6 or 0.7 daemon and on SDK 0.6.3, the latest on PyPI.
+lists what differs on a 0.6 or 0.7 daemon and on the SDKs on PyPI (0.7.0, the latest, and 0.6.3).
 
 ## 1. Rules
 
@@ -159,10 +159,11 @@ Checked against the SDK and mosaicod 0.8.0-dev on main. Say it when the user hit
 
 Check the versions first: SDK with
 `python -c "import importlib.metadata as m; print(m.version('mosaicolabs'))"`, daemon with
-`client.info().version` (SDK 0.7+). On SDK 0.6.3 and 0.7, or a 0.6/0.7 daemon:
+`client.info().version` (SDK 0.7+). On SDK 0.6.3 or 0.7.0 (both on PyPI), or a 0.6/0.7 daemon:
 
 - **SDK and daemon must be on the same side of #817.** Main speaks protobuf on the wire; 0.6 and 0.7
-  speak JSON. Route a mismatch to **mosaico-setup**.
+  speak JSON. `pip install mosaicolabs` gives 0.7.0, which fails against main with
+  `Last error: ... Bad request: body decode error`. Route a mismatch to **mosaico-setup**.
 - **SDK 0.6.3 has no MCAP bridge and no watchdog** (no `mosaicolabs.mcap_injector` or
   `mosaicolabs.watchdog`); its ROS bridge is `mosaicolabs.ros_bridge`, not `mosaicolabs.bridges.ros`.
   Both arrive in 0.7, with the pages section 2 cites by repository path.

@@ -16,9 +16,9 @@ same pages are under `docs/main/docs` and `docs/py/docs`.
   never run them.
 - **Versions.** Written for Mosaico main (`0.8.0-dev` after #817). The query API used here (builders,
   `.Q`, `clusterize()`, `intersect()`, handlers, streamer bounds) is the same in SDK 0.6.3 and 0.7. What
-  differs: SDK and daemon must be on the same side of #817 (protobuf after, JSON before, so a 0.6/0.7
-  daemon needs SDK 0.6.3/0.7), and SDK 0.6.x reads the daemon version with `client.version()`, 0.7 on
-  with `client.info().version`. A mismatch fails at connect, not in the query: use mosaico-setup.
+  differs: SDK and daemon must be on the same side of #817 (protobuf after, JSON before: a 0.6 daemon
+  needs SDK 0.6.x, a 0.7 daemon SDK 0.7.x, e.g. 0.7.0 from PyPI), and SDK 0.6.x reads the daemon
+  version with `client.version()`, 0.7 on with `client.info().version`. A mismatch fails at connect, not in the query: use mosaico-setup.
 
 ## 1. Discover before you filter
 

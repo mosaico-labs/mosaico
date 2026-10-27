@@ -16,9 +16,9 @@ bags of the UZH-FPV dataset ingested with
 `race_1`, `race_2`, `indoor_forward_3_davis_with_gt`. It is the same dataset as the
 `mosaico-sdk-query` eval (see its README for the bag URLs).
 
-At the time of writing, PyPI's newest `mosaicolabs` is 0.6.3, older than the daemon. Scenarios 1 and 8
-depend on that gap; if a matching release reaches PyPI, scenario 8 needs an older pin
-(`mosaicolabs[cli]==0.6.3`) to reproduce it.
+PyPI's newest `mosaicolabs` is 0.7.0, still older than the 0.8.0-dev daemon. Scenarios 1 and 8 depend
+on that gap. An unpinned install now gets 0.7.0, which fails with `Last error: ... Bad request: body
+decode error`, so scenario 8 needs the pin `mosaicolabs[cli]==0.6.3` to reproduce its evidence.
 
 ## Running it
 

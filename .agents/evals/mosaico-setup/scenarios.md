@@ -26,7 +26,7 @@ pointing to an empty scratch directory. Do not create, change or delete anything
 7. **TLS mismatch.** "Our admin said to enable TLS, so I created the profile with `--tls`, and now
    nothing connects." Reproduce it and say what to change.
 
-8. **SDK older than the daemon.** "I did `pip install "mosaicolabs[cli]"` in a new venv and my script
+8. **SDK older than the daemon.** "I did `pip install "mosaicolabs[cli]==0.6.3"` in a new venv and my script
    fails with `Server did not become available within 5s`, but a colleague's `mosaico sequence ls`
    works against the same daemon." Reproduce it in a separate venv, find the cause and fix it.
 

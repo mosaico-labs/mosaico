@@ -14,7 +14,7 @@
       "mosaico --help prints the command list (profile, sequence, topic, extension)"
     ],
     "must_say": [
-      "the SDK version must match the daemon (0.8.0-dev); PyPI's newest (0.6.3) is older, so it is installed from the repository (git+https://github.com/mosaico-labs/mosaico...#subdirectory=mosaico-sdk-py or ./mosaico-sdk-py)"
+      "the SDK version must match the daemon (0.8.0-dev); PyPI's newest (0.7.0) is older, so it is installed from the repository (git+https://github.com/mosaico-labs/mosaico...#subdirectory=mosaico-sdk-py or ./mosaico-sdk-py)"
     ],
     "must_not_say": [
       "installation done with mosaicolabs 0.6.3 and no version warning"
@@ -110,7 +110,7 @@
   },
   "8": {
     "title": "SDK older than the daemon",
-    "reproduce": "new venv + pip install \"mosaicolabs[cli]\" -> 0.6.3; MosaicoClient.connect(\"localhost\", 6726)",
+    "reproduce": "new venv + pip install \"mosaicolabs[cli]==0.6.3\"; MosaicoClient.connect(\"localhost\", 6726)",
     "error_pattern": "Inner err: 'Server did not become available within 5s'$",
     "evidence": "the Flight 'info' action (pyarrow.flight) with an empty body answers a protobuf message whose bytes contain 0.8.0-dev, while pip show reports 0.6.3; the cause is that SDK 0.6.3 probes with the 'version' action, which #789 replaced with 'info' (the daemon answers it with: no available action for string `version`)",
     "diagnosis": "the daemon is up; the SDK 0.6.3 is older than the daemon 0.8.0-dev and cannot talk to it",
