@@ -1,7 +1,15 @@
 version: 2
 updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "main"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(ci)"
+
   - package-ecosystem: "cargo"
-    directory: "/mosaicod" 
+    directory: "/mosaicod"
     target-branch: "main"
     schedule:
       interval: "weekly"
