@@ -51,6 +51,10 @@ READ_BUFFER_SIZE = 32 * 1024 * 1024
 
 _EPISODE_INDEX_COLUMN = "episode_index"
 _TASK_INDEX_COLUMN = "task_index"
+# Pushed as `task`, but selected and reported by its dataset name `task_index`:
+# https://github.com/mosaico-labs/mosaico/discussions/971
+_TASK_COLUMN = "task"
+_TASK_FIELD = pa.field(_TASK_COLUMN, pa.string())
 _NESTED_NAME_SEP = "."
 _NOT_FOUND = -1
 _TIMESERIES_MSCO_TOPIC_NAME = "/timeseries"
@@ -123,7 +127,7 @@ def _adapt_timeseries_rb_to_schema(
 def _task_indexes_to_tasks(batch: pa.RecordBatch, tasks: List[str]) -> pa.RecordBatch:
     """
     Converts the `task_index` column of `batch`, if any, into the tasks it refers to (see
-    `LeRobotDatasetMeta.tasks`): same position and name, type `string` instead of `int64`.
+    `LeRobotDatasetMeta.tasks`): same position, named `task`, type `string` instead of `int64`.
 
     Raises:
         ValueError: If a task index is not defined in `meta/tasks.parquet`.
@@ -141,9 +145,7 @@ def _task_indexes_to_tasks(batch: pa.RecordBatch, tasks: List[str]) -> pa.Record
             f"'meta/tasks.parquet' ({len(tasks)} tasks defined): {e}"
         ) from e
 
-    return batch.set_column(
-        column_index, pa.field(_TASK_INDEX_COLUMN, pa.string()), task_array
-    )
+    return batch.set_column(column_index, _TASK_FIELD, task_array)
 
 
 def _adapt_image_rb_to_schema(
@@ -277,14 +279,10 @@ class LeRobotReader:
             and (column_names is None or feature.key in column_names)
         ]
 
-        # `task_index` is pushed as the task it refers to (see `_task_indexes_to_tasks`)
+        # `task_index` is pushed as the `task` it refers to (see `_task_indexes_to_tasks`)
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
             [
-                (
-                    schema.field(name).with_type(pa.string())
-                    if name == _TASK_INDEX_COLUMN
-                    else schema.field(name)
-                )
+                (_TASK_FIELD if name == _TASK_INDEX_COLUMN else schema.field(name))
                 for name in self._timeseries_column_names
             ]
         )
@@ -499,9 +497,11 @@ class LeRobotReader:
 
         for batch in self._iter_episode_batches(episode_index, all_columns):
             timestamp_array = _to_timestamp_ns(batch.column(_TIMESTAMP_COLUMN_NAME))
-            batch = _task_indexes_to_tasks(batch, self._meta.tasks)
+            batch = _task_indexes_to_tasks(
+                batch.select(self._timeseries_column_names), self._meta.tasks
+            )
             timeseries_rb = _adapt_timeseries_rb_to_schema(
-                batch.select(self._timeseries_column_names), self._timeseries_schema
+                batch, self._timeseries_schema
             )
 
             merged_rb = pa.RecordBatch.from_arrays(
