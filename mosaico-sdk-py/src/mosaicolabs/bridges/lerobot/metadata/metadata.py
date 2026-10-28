@@ -210,7 +210,7 @@ class LeRobotDatasetMeta:
             for row in pq.read_table(episodes_file).to_pylist()
         ]
         # A list, not a dict: LeRobot resolves a task index by row position (`tasks.iloc[i]`)
-        tasks =pd.read_parquet(meta_dir / _TASKS_FILE).index.tolist()
+        tasks = pd.read_parquet(meta_dir / _TASKS_FILE).index.tolist()
 
         return cls.from_data(root, info, episodes, tasks, stats)
 
