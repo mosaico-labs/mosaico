@@ -12,8 +12,9 @@ https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/ (inside a checkout of mosaic
 `docs/py/docs/SDK/bridges/ml.md`); the installed `mosaicolabs.ml` code is the authority where the two
 disagree (section 6).
 
-Written for Mosaico main (SDK 0.8.0-dev, after the protobuf wire switch). `mosaicolabs.ml` is the same
-in SDK 0.6.3 and 0.7, so sections 2–6 hold there too; what differs is connecting. The SDK and the daemon
+Covers the 0.7 release (SDK 0.7.0 from PyPI with a `release/v0.7` daemon) and Mosaico main (SDK
+0.8.0-dev, after the protobuf wire switch). `mosaicolabs.ml` is the same in both and in SDK 0.6.3, so
+sections 2–6 hold on each; what differs is connecting. The SDK and the daemon
 must share `X.Y` (patch numbers are independent) and, on `-dev` builds, the same side of #817 (`python -c "import importlib.metadata as m; print(m.version('mosaicolabs'))"`):
 SDK 0.6.3 against a 0.7 or newer daemon fails in `connect()` with "Server did not become available
 within 5s" (it probes the `version` action, replaced by `info` in 0.7), and a 0.7 SDK or daemon cannot

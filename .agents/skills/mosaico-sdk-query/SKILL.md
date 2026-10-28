@@ -14,9 +14,10 @@ same pages are under `docs/main/docs` and `docs/py/docs`.
   `sequence_delete` or `session_delete`, and never run `mosaicolabs.ros_injector`,
   `mosaicolabs.mcap_injector` or `mosaicolabs.watchdog`: all of them write to the daemon. Explain them,
   never run them.
-- **Versions.** Written for Mosaico main (`0.8.0-dev` after #817). The query API used here (builders,
-  `.Q`, `clusterize()`, `intersect()`, handlers, streamer bounds) is the same in SDK 0.6.3 and 0.7. What
-  differs: SDK and daemon must be on the same side of #817 (protobuf after, JSON before: a 0.6 daemon
+- **Versions.** Covers the 0.7 release (SDK 0.7.0 from PyPI with a `release/v0.7` daemon) and Mosaico
+  main (`0.8.0-dev` after #817). The query API used here (builders, `.Q`, `clusterize()`,
+  `intersect()`, handlers, streamer bounds) is the same in both and in SDK 0.6.3. What differs: SDK
+  and daemon must be on the same side of #817 (protobuf after, JSON before: a 0.6 daemon
   needs SDK 0.6.x, a 0.7 daemon SDK 0.7.x, e.g. 0.7.0 from PyPI), and SDK 0.6.x reads the daemon
   version with `client.version()`, 0.7 on with `client.info().version`. A mismatch fails at connect, not in the query: use mosaico-setup.
 
@@ -104,10 +105,12 @@ Pages to read before writing:
 - **Metadata operators are keyword arguments**: `.with_user_metadata("vmax_ms", gt=20)`,
   `.with_user_metadata("section", match="*Track*")`, `eq=`, `lt=` and the others listed in
   the query_sequences page. Nested keys use dot notation (`"project.name"`).
-- **NaN values can hide a whole topic from value conditions.** Observed on mosaicod 0.8.0-dev with a
-  bridged ROS odometry topic, not documented: when samples of a topic hold NaN in the field you filter
-  on, the daemon left that topic out of every `QueryOntologyCatalog` condition on it, even an always-true
-  one, with no error, while conditions on `timestamp_ns` still found it. Section 5 says how to detect it.
+- **NaN values can hide a whole topic from value conditions.** Reproduced on mosaicod 0.7.0 and
+  0.8.0-dev with a bridged ROS odometry topic, not documented: when samples of a topic hold NaN in the
+  field you filter on, the daemon left that topic out of every `QueryOntologyCatalog` condition on it,
+  even an always-true one or one its finite values satisfy, with no error, while conditions on
+  `timestamp_ns` still found it. The daemon skips chunks by a stored min/max per field, and the NaN
+  left that range unset. Section 5 says how to detect it.
 - **`client.query()` returns `None` when the server sends no response**; any other error raises: a connection
   error inside the call, while an invalid field path (`AttributeError`) or a field used twice
   (`NotImplementedError`) already fails while the query is being built, before the call. Otherwise it returns a `QueryResponse`, a list of

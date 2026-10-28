@@ -11,11 +11,13 @@ Inside a checkout of mosaico-labs/mosaico the same pages are under `docs/main/do
 a page marked "not on the site yet" exists only there. For what the SDK really does, read the installed
 package (`python -c "import inspect, mosaicolabs as m; print(inspect.getsourcefile(m.MosaicoClient))"`).
 
-Written for Mosaico `main` (0.8.0-dev) after #817. On older versions: a 0.6 daemon knows the `version`
-action, not `info`, and turns TLS and key enforcement on with the `mosaicod server --tls` / `--api-key`
-flags, not `MOSAICOD_TLS_ENABLED` / `MOSAICOD_API_KEY_ENABLED`; 0.6 and 0.7 daemons speak JSON, not
-protobuf; SDK 0.6.3 has `client.version()` instead of `client.info()` and no `Last error` line; before
-0.7 the database login sits in `MOSAICOD_DB_URL`.
+Covers the two lines in use: the 0.7 release (`mosaicolabs` 0.7.0 from PyPI with a daemon from the
+`release/v0.7` branch) and `main` (0.8.0-dev after #817). They cannot talk to each other (0.6 and 0.7
+speak JSON on the wire, `main` protobuf), so follow the line of the user's daemon: ask, or run the probe at
+the end of section 4. On older versions: a 0.6 daemon knows the `version` action, not `info`, and
+turns TLS and key enforcement on with the `mosaicod server --tls` / `--api-key` flags, not
+`MOSAICOD_TLS_ENABLED` / `MOSAICOD_API_KEY_ENABLED`; SDK 0.6.3 has `client.version()` instead of
+`client.info()` and no `Last error` line; before 0.7 the database login sits in `MOSAICOD_DB_URL`.
 
 Scope and limits:
 
@@ -137,7 +139,8 @@ mosaico sequence ls --locator run_01 | mosaico sequence stat
 
 `run_01` and `/front/imu` are placeholders: take the real names from `sequence ls` and `topic ls`.
 
-Where the CLI differs from its documentation (observed on 0.8.0-dev):
+Where the CLI differs from its documentation (observed on 0.8.0-dev; the CLI code is the same in SDK
+0.7.0, and the `--locator` and `ts_max` points were reproduced against a 0.7.0 daemon):
 
 - `topic ls --locator` matches the topic name (`/front/imu`), not `<sequence>/<topic>`:
   `"run_01/*"` matches nothing. Filter by sequence with `grep` on the output.

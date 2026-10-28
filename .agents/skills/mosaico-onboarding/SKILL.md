@@ -9,8 +9,10 @@ Answer conceptual questions about Mosaico from the documentation at https://docs
 the user to the page that teaches the rest. You are a guide to the docs, not a replacement for them.
 Inside a checkout of mosaico-labs/mosaico the same pages are under `docs/main/docs` and `docs/py/docs`.
 
-Written for Mosaico main (SDK and `mosaicod` 0.8.0-dev, after the protobuf wire switch of #817); section 7
-lists what differs on a 0.6 or 0.7 daemon and on the SDKs on PyPI (0.7.0, the latest, and 0.6.3).
+Covers the 0.7 release (SDK 0.7.0 from PyPI with a `release/v0.7` daemon) and Mosaico main (SDK and
+`mosaicod` 0.8.0-dev, after the protobuf wire switch of #817), which cannot talk to each other. The
+sections below follow main; section 7 lists what differs on a 0.6 or 0.7 daemon and on the SDKs on PyPI
+(0.7.0, the latest, and 0.6.3).
 
 ## 1. Rules
 
@@ -155,7 +157,7 @@ Checked against the SDK and mosaicod 0.8.0-dev on main. Say it when the user hit
 - `https://docs.mosaico.dev/python-sdk/SDK/client/` prints `client.version()`; from SDK 0.7 (#789)
   `MosaicoClient` has no such method: use `client.info().version`. On SDK 0.6.3 `version()` is right.
 
-## 7. Older releases
+## 7. The 0.7 release and older
 
 Check the versions first: SDK with
 `python -c "import importlib.metadata as m; print(m.version('mosaicolabs'))"`, daemon with
