@@ -28,6 +28,10 @@ pub enum Format {
     /// Resource format for images and dense multi-dimensional arrays.
     /// This format is optimized for storing high-dimensional data efficiently.
     Image,
+
+    /// Resource format for a sequence of encoded images (e.g. PNG, TIFF), each
+    /// with its capture time.
+    ImageSequence,
 }
 
 impl Format {
@@ -37,6 +41,7 @@ impl Format {
             Format::Default => "default",
             Format::Ragged => "ragged",
             Format::Image => "image",
+            Format::ImageSequence => "image_sequence",
         }
     }
 }
@@ -49,6 +54,7 @@ impl std::str::FromStr for Format {
             "default" => Ok(Self::Default),
             "ragged" => Ok(Self::Ragged),
             "image" => Ok(Self::Image),
+            "image_sequence" => Ok(Self::ImageSequence),
             _ => Err(FormatError::unknown_format(value)),
         }
     }
@@ -62,7 +68,8 @@ impl std::fmt::Display for Format {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::Format;
+
     use std::str::FromStr;
 
     #[test]
@@ -78,6 +85,10 @@ mod tests {
         let image = Format::from_str("image");
         assert!(image.is_ok());
         assert_eq!(image.as_ref().unwrap(), &Format::Image);
+
+        let image_sequence = Format::from_str("image_sequence");
+        assert!(image_sequence.is_ok());
+        assert_eq!(image_sequence.as_ref().unwrap(), &Format::ImageSequence);
     }
 
     #[test]
@@ -85,5 +96,6 @@ mod tests {
         assert_eq!("ragged", Format::Ragged.to_string());
         assert_eq!("default", Format::Default.to_string());
         assert_eq!("image", Format::Image.to_string());
+        assert_eq!("image_sequence", Format::ImageSequence.to_string());
     }
 }

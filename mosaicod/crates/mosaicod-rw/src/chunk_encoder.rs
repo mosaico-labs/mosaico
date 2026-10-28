@@ -138,7 +138,6 @@ impl InMemoryChunkEncoder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use arrow::array::{
         ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray, StructArray,
     };
@@ -146,6 +145,10 @@ mod tests {
     use arrow_schema::DataType;
     use mosaicod_config::params as config_params;
     use mosaicod_core::constants;
+    use parquet::basic::{Compression, Encoding};
+    use parquet::file::reader::{FileReader, SerializedFileReader};
+
+    use super::*;
 
     /// Helper function to create a test RecordBatch.
     /// This provides a schema with numeric, string, and nested struct types,
@@ -284,5 +287,75 @@ mod tests {
         assert_eq!(metadata.size_bytes, buffer.len());
 
         assert_eq!(metadata.arrow_size_bytes, batch.get_array_memory_size());
+    }
+
+    #[test]
+    fn image_sequence_column_encoding() {
+        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("format", DataType::Utf8, false),
+            Field::new("capture_timestamp_ns", DataType::Int64, false),
+            Field::new("data", DataType::Binary, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![1_100, 1_200, 1_300])),
+                Arc::new(StringArray::from(vec!["png", "png", "png"])),
+                Arc::new(Int64Array::from(vec![1_000, 1_033, 1_066])),
+                Arc::new(BinaryArray::from(vec![
+                    b"\x89PNG first".as_ref(),
+                    b"\x89PNG second".as_ref(),
+                    b"\x89PNG third".as_ref(),
+                ])),
+            ],
+        )
+        .unwrap();
+
+        let mut encoder = InMemoryChunkEncoder::try_new(schema, types::Format::ImageSequence)
+            .expect("Failed to create encoder");
+        encoder.write(&batch).expect("Failed to write batch");
+        let (buffer, _, _) = encoder.finalize().expect("Failed to finalize");
+
+        let reader = SerializedFileReader::new(bytes::Bytes::from(buffer)).unwrap();
+        let row_group = reader.metadata().row_group(0);
+        let column = |name: &str| {
+            row_group
+                .columns()
+                .iter()
+                .find(|c| c.column_path().string() == name)
+                .unwrap()
+        };
+
+        let ts = column(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+        assert_eq!(ts.compression(), Compression::UNCOMPRESSED);
+        assert!(ts.statistics().is_some());
+        assert!(ts.bloom_filter_offset().is_some());
+
+        let capture = column("capture_timestamp_ns");
+        assert!(matches!(capture.compression(), Compression::ZSTD(_)));
+        let stats = capture
+            .statistics()
+            .expect("capture_timestamp_ns statistics");
+        assert_eq!(stats.min_bytes_opt(), Some(1_000i64.to_le_bytes().as_ref()));
+        assert_eq!(stats.max_bytes_opt(), Some(1_066i64.to_le_bytes().as_ref()));
+
+        let format = column("format");
+        assert!(matches!(format.compression(), Compression::ZSTD(_)));
+        assert!(format.encodings().any(|e| e == Encoding::RLE_DICTIONARY));
+        let stats = format.statistics().expect("format statistics");
+        assert_eq!(stats.min_bytes_opt(), Some(b"png".as_ref()));
+        assert_eq!(stats.max_bytes_opt(), Some(b"png".as_ref()));
+
+        let data = column("data");
+        assert!(matches!(data.compression(), Compression::ZSTD(_)));
+        assert!(data.statistics().is_none());
+        assert!(data.encodings().all(|e| e != Encoding::RLE_DICTIONARY));
     }
 }

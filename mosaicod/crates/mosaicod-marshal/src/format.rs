@@ -7,6 +7,7 @@ pub(crate) fn format_to_proto(value: types::Format) -> Format {
         types::Format::Default => Format::Default,
         types::Format::Ragged => Format::Ragged,
         types::Format::Image => Format::Image,
+        types::Format::ImageSequence => Format::ImageSequence,
     }
 }
 
@@ -24,6 +25,7 @@ fn try_format_from_proto(value: Format) -> Result<types::Format, Error> {
         Format::Default => types::Format::Default,
         Format::Ragged => types::Format::Ragged,
         Format::Image => types::Format::Image,
+        Format::ImageSequence => types::Format::ImageSequence,
     })
 }
 

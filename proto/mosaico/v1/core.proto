@@ -9,6 +9,7 @@ enum Format {
   FORMAT_DEFAULT = 1;
   FORMAT_RAGGED = 2;
   FORMAT_IMAGE = 3;
+  FORMAT_IMAGE_SEQUENCE = 4;
 }
 
 // Generic empty message.

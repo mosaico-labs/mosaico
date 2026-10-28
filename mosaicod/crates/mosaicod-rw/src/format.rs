@@ -5,6 +5,9 @@
 //! configurations. Each format variant has its own strategy that defines compression settings,
 //! file extensions, and reading options.
 
+use std::sync::Arc;
+
+use arrow::array::{AsArray, RecordBatch};
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
 use datafusion::prelude::*;
@@ -15,7 +18,8 @@ use parquet::{
     file::properties::{EnabledStatistics, WriterProperties, WriterVersion},
     schema::types::ColumnPath,
 };
-use std::sync::Arc;
+
+use crate::Error;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Format Properties Traits
@@ -198,6 +202,123 @@ impl ParquetFormatProperties for ImageFormatProperties {
     }
 }
 
+/// Format properties for sequences of encoded images (e.g. PNG, TIFF), each
+/// with its capture time. All the images of a sequence have the same format.
+///
+/// Configures each column of the image sequence ontology:
+/// - Timestamp column is uncompressed, with page-level statistics and bloom
+///   filters
+/// - `capture_timestamp_ns` is ZSTD level 5 compressed, with page-level
+///   statistics for predicate pushdown
+/// - `format` is dictionary encoded and ZSTD level 5 compressed, with
+///   page-level statistics for predicate pushdown
+/// - Image data is ZSTD level 3 compressed, without statistics
+/// - Any other column is uncompressed, without statistics
+pub struct ImageSequenceFormatProperties;
+
+impl ImageSequenceFormatProperties {
+    const COMPRESSION_LEVEL: i32 = 5;
+    /// Compression level of the image data: faster than [`Self::COMPRESSION_LEVEL`]
+    /// on large images that can be compressed, such as uncompressed TIFFs.
+    const DATA_COMPRESSION_LEVEL: i32 = 3;
+    /// Column holding the capture time of each image, in nanoseconds.
+    const CAPTURE_TIMESTAMP_COLUMN: &str = "capture_timestamp_ns";
+    /// Column holding the encoding of each image (e.g. `png`, `tiff`).
+    const FORMAT_COLUMN: &str = "format";
+    /// Column holding the encoded images.
+    const DATA_COLUMN: &str = "data";
+
+    // FIXME: `ZstdLevel` can only be built at runtime with the fallible `try_new`,
+    // even for a level known to be valid. Propose upstream (apache/arrow-rs) an
+    // infallible API for valid levels (e.g. a `const fn`), then remove this `expect`.
+    fn zstd(level: i32) -> Compression {
+        Compression::ZSTD(ZstdLevel::try_new(level).expect("valid ZSTD compression level"))
+    }
+
+    /// Returns the format shared by all the images of `batch`, or `None` if
+    /// the batch holds no images.
+    ///
+    /// An image sequence holds images of a single format (e.g. all PNGs or
+    /// all TIFFs), so a batch mixing formats is rejected.
+    pub fn image_format(batch: &RecordBatch) -> Result<Option<String>, Error> {
+        let column = batch
+            .column_by_name(Self::FORMAT_COLUMN)
+            .and_then(|column| column.as_string_opt::<i32>())
+            .ok_or_else(|| Error::MissingImageSequenceFormat(Self::FORMAT_COLUMN.to_owned()))?;
+
+        let mut formats = column.iter().flatten();
+        let Some(first) = formats.next() else {
+            return Ok(None);
+        };
+        if let Some(found) = formats.find(|format| *format != first) {
+            return Err(Error::MixedImageSequenceFormats {
+                expected: first.to_owned(),
+                found: found.to_owned(),
+            });
+        }
+
+        Ok(Some(first.to_owned()))
+    }
+}
+
+impl AsExtension for ImageSequenceFormatProperties {
+    fn as_extension(&self) -> String {
+        constants::ext::PARQUET.to_owned()
+    }
+}
+
+impl FormatProperties for ImageSequenceFormatProperties {
+    fn name(&self) -> &'static str {
+        "image_sequence"
+    }
+}
+
+impl ParquetFormatProperties for ImageSequenceFormatProperties {
+    fn writer_properties(&self) -> WriterProperties {
+        let ts_path = ColumnPath::from(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+        let capture_path = ColumnPath::from(Self::CAPTURE_TIMESTAMP_COLUMN);
+        let format_path = ColumnPath::from(Self::FORMAT_COLUMN);
+        let data_path = ColumnPath::from(Self::DATA_COLUMN);
+
+        WriterProperties::builder()
+            .set_writer_version(WriterVersion::PARQUET_2_0)
+            // Any column not configured below: uncompressed, without
+            // dictionary and statistics
+            .set_compression(Compression::UNCOMPRESSED)
+            .set_dictionary_enabled(false)
+            .set_statistics_enabled(EnabledStatistics::None)
+            // Timestamp column: uncompressed for fast seeking
+            .set_column_compression(ts_path.clone(), Compression::UNCOMPRESSED)
+            .set_column_statistics_enabled(ts_path.clone(), EnabledStatistics::Page)
+            .set_column_bloom_filter_enabled(ts_path, true)
+            // Capture time: compressed, with statistics for pruning
+            .set_column_compression(capture_path.clone(), Self::zstd(Self::COMPRESSION_LEVEL))
+            .set_column_statistics_enabled(capture_path, EnabledStatistics::Page)
+            // Image format: few distinct values, so dictionary encoded and
+            // compressed, with statistics for pruning
+            .set_column_dictionary_enabled(format_path.clone(), true)
+            .set_column_compression(format_path.clone(), Self::zstd(Self::COMPRESSION_LEVEL))
+            .set_column_statistics_enabled(format_path, EnabledStatistics::Page)
+            // Image data: compressed, without statistics.
+            // Parquet compresses a whole column chunk at once, so compressing
+            // can't be fiddled with each image's format.
+            // A further compression for PNG images is unnecessary: its pixels
+            // are already compressed, so ZSTD stores its blocks as they are, at
+            // a negligible cost in size and time.
+            // A TIFF is often uncompressed, so ZSTD makes it smaller.
+            .set_column_compression(data_path, Self::zstd(Self::DATA_COMPRESSION_LEVEL))
+            .build()
+    }
+
+    fn buffer_capacity(&self) -> usize {
+        // Same as the image format: not tuned yet
+        ((config_params::params()
+            .parquet_in_memory_encoding_buffer_size
+            .value as f64)
+            * 1.3) as usize
+    }
+}
+
 /// Returns the base properties for this format variant.
 ///
 /// Use this method when you only need format-agnostic behavior like
@@ -222,6 +343,7 @@ fn as_format_property(format: &types::Format) -> Box<dyn FormatProperties> {
         types::Format::Default => Box::new(DefaultFormatProperties),
         types::Format::Ragged => Box::new(RaggedFormatProperties),
         types::Format::Image => Box::new(ImageFormatProperties),
+        types::Format::ImageSequence => Box::new(ImageSequenceFormatProperties),
     }
 }
 
@@ -258,6 +380,7 @@ fn as_parquet_properties(format: &types::Format) -> Option<Box<dyn ParquetFormat
         types::Format::Default => Some(Box::new(DefaultFormatProperties)),
         types::Format::Ragged => Some(Box::new(RaggedFormatProperties)),
         types::Format::Image => Some(Box::new(ImageFormatProperties)),
+        types::Format::ImageSequence => Some(Box::new(ImageSequenceFormatProperties)),
         // Future non-Parquet formats would return None here
     }
 }
@@ -274,6 +397,8 @@ impl ToParquetProperties for types::Format {
 
 #[cfg(test)]
 mod tests {
+    use arrow::array::{Int64Array, StringArray};
+    use arrow::datatypes::{DataType, Field, Schema};
     use mosaicod_core::types::Format;
 
     use super::*;
@@ -283,6 +408,10 @@ mod tests {
         assert_eq!(Format::Default.to_properties().name(), "default");
         assert_eq!(Format::Ragged.to_properties().name(), "ragged");
         assert_eq!(Format::Image.to_properties().name(), "image");
+        assert_eq!(
+            Format::ImageSequence.to_properties().name(),
+            "image_sequence"
+        );
     }
 
     #[test]
@@ -290,6 +419,10 @@ mod tests {
         assert_eq!(Format::Default.to_properties().as_extension(), "parquet");
         assert_eq!(Format::Ragged.to_properties().as_extension(), "parquet");
         assert_eq!(Format::Image.to_properties().as_extension(), "parquet");
+        assert_eq!(
+            Format::ImageSequence.to_properties().as_extension(),
+            "parquet"
+        );
     }
 
     #[test]
@@ -303,6 +436,10 @@ mod tests {
             .unwrap()
             .writer_properties();
         let _ = Format::Image
+            .to_parquet_properties()
+            .unwrap()
+            .writer_properties();
+        let _ = Format::ImageSequence
             .to_parquet_properties()
             .unwrap()
             .writer_properties();
@@ -322,6 +459,10 @@ mod tests {
             .to_parquet_properties()
             .unwrap()
             .listing_options();
+        let _ = Format::ImageSequence
+            .to_parquet_properties()
+            .unwrap()
+            .listing_options();
     }
 
     #[test]
@@ -329,5 +470,92 @@ mod tests {
         assert!(Format::Default.to_parquet_properties().is_some());
         assert!(Format::Ragged.to_parquet_properties().is_some());
         assert!(Format::Image.to_parquet_properties().is_some());
+        assert!(Format::ImageSequence.to_parquet_properties().is_some());
+    }
+
+    #[test]
+    fn image_sequence_column_properties() {
+        let props = Format::ImageSequence
+            .to_parquet_properties()
+            .unwrap()
+            .writer_properties();
+
+        let ts = ColumnPath::from(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
+        assert_eq!(props.compression(&ts), Compression::UNCOMPRESSED);
+        assert_eq!(props.statistics_enabled(&ts), EnabledStatistics::Page);
+        assert!(props.bloom_filter_properties(&ts).is_some());
+
+        let capture = ColumnPath::from("capture_timestamp_ns");
+        assert_eq!(
+            props.compression(&capture),
+            Compression::ZSTD(ZstdLevel::try_new(5).unwrap())
+        );
+        assert_eq!(props.statistics_enabled(&capture), EnabledStatistics::Page);
+        assert!(!props.dictionary_enabled(&capture));
+
+        let format = ColumnPath::from("format");
+        assert_eq!(
+            props.compression(&format),
+            Compression::ZSTD(ZstdLevel::try_new(5).unwrap())
+        );
+        assert_eq!(props.statistics_enabled(&format), EnabledStatistics::Page);
+        assert!(props.dictionary_enabled(&format));
+
+        let data = ColumnPath::from("data");
+        assert_eq!(
+            props.compression(&data),
+            Compression::ZSTD(ZstdLevel::try_new(3).unwrap())
+        );
+        assert_eq!(props.statistics_enabled(&data), EnabledStatistics::None);
+        assert!(!props.dictionary_enabled(&data));
+        assert!(props.bloom_filter_properties(&data).is_none());
+    }
+
+    fn image_sequence_batch(formats: Vec<&str>) -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "format",
+            DataType::Utf8,
+            false,
+        )]));
+        RecordBatch::try_new(schema, vec![Arc::new(StringArray::from(formats))]).unwrap()
+    }
+
+    #[test]
+    fn image_sequence_image_format() {
+        let batch = image_sequence_batch(vec!["tiff", "tiff"]);
+        assert_eq!(
+            ImageSequenceFormatProperties::image_format(&batch).unwrap(),
+            Some("tiff".to_owned())
+        );
+
+        let batch = image_sequence_batch(vec![]);
+        assert_eq!(
+            ImageSequenceFormatProperties::image_format(&batch).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn image_sequence_rejects_mixed_image_formats() {
+        let batch = image_sequence_batch(vec!["png", "png", "tiff"]);
+        assert!(matches!(
+            ImageSequenceFormatProperties::image_format(&batch),
+            Err(Error::MixedImageSequenceFormats { expected, found }) if expected == "png" && found == "tiff"
+        ));
+    }
+
+    #[test]
+    fn image_sequence_rejects_missing_image_format() {
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "format",
+            DataType::Int64,
+            false,
+        )]));
+        let batch =
+            RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1]))]).unwrap();
+        assert!(matches!(
+            ImageSequenceFormatProperties::image_format(&batch),
+            Err(Error::MissingImageSequenceFormat(_))
+        ));
     }
 }

@@ -31,6 +31,10 @@ pub struct ChunkWriter<W> {
 
     /// Callback used to format file path when new data needs to be serialized
     path_provider: Box<dyn Fn(usize) -> std::path::PathBuf + Send>,
+
+    /// Format of the images already written, used to impose that an image
+    /// sequence holds images of a single format.
+    image_format: Option<String>,
 }
 
 impl<W> ChunkWriter<W> {
@@ -45,6 +49,27 @@ impl<W> ChunkWriter<W> {
             schema,
             chunk_count: 0,
             path_provider: Box::new(path_provider),
+            image_format: None,
+        }
+    }
+
+    /// Checks that `batch` holds images of the same format as the ones
+    /// already written.
+    fn check_image_format(&mut self, batch: &RecordBatch) -> Result<(), Error> {
+        let Some(found) = ImageSequenceFormatProperties::image_format(batch)? else {
+            return Ok(());
+        };
+
+        match &self.image_format {
+            Some(expected) if *expected != found => Err(Error::MixedImageSequenceFormats {
+                expected: expected.clone(),
+                found,
+            }),
+            Some(_) => Ok(()),
+            None => {
+                self.image_format = Some(found);
+                Ok(())
+            }
         }
     }
 
@@ -57,6 +82,10 @@ impl<W> ChunkWriter<W> {
         A: traits::AsyncWriteToPath,
         W: AsRef<A>,
     {
+        if self.format == types::Format::ImageSequence {
+            self.check_image_format(&batch)?;
+        }
+
         let mut writer = InMemoryChunkEncoder::try_new(self.schema.clone(), self.format)?;
 
         let encoding_time = Instant::now();
@@ -105,5 +134,101 @@ impl<W> ChunkWriter<W> {
             .await?;
 
         Ok(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use arrow::array::{BinaryArray, Int64Array, StringArray};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use mosaicod_config::params as config_params;
+    use mosaicod_core::constants;
+
+    use super::*;
+
+    /// Write target keeping the paths of the stored chunks in memory insteadù
+    /// of writing something in the storage.
+    #[derive(Default)]
+    struct MemoryTarget {
+        paths: Mutex<Vec<std::path::PathBuf>>,
+    }
+
+    impl traits::AsyncWriteToPath for MemoryTarget {
+        async fn write_to_path(
+            &self,
+            path: impl AsRef<std::path::Path>,
+            _buf: impl Into<bytes::Bytes>,
+        ) -> std::io::Result<()> {
+            self.paths
+                .lock()
+                .map_err(|e| std::io::Error::other(e.to_string()))?
+                .push(path.as_ref().to_path_buf());
+            Ok(())
+        }
+    }
+
+    fn image_sequence_schema() -> SchemaRef {
+        Arc::new(Schema::new(vec![
+            Field::new(
+                constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("format", DataType::Utf8, false),
+            Field::new("capture_timestamp_ns", DataType::Int64, false),
+            Field::new("data", DataType::Binary, false),
+        ]))
+    }
+
+    fn image_sequence_batch(formats: Vec<&str>) -> RecordBatch {
+        let timestamps = vec![0; formats.len()];
+        let images = vec![[0u8].as_slice(); formats.len()];
+        RecordBatch::try_new(
+            image_sequence_schema(),
+            vec![
+                Arc::new(Int64Array::from(timestamps.clone())),
+                Arc::new(StringArray::from(formats)),
+                Arc::new(Int64Array::from(timestamps)),
+                Arc::new(BinaryArray::from(images)),
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn image_sequence_rejects_image_format_change_across_batches() {
+        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+
+        let target = Arc::new(MemoryTarget::default());
+        let mut writer = ChunkWriter::new(
+            target.clone(),
+            types::Format::ImageSequence,
+            image_sequence_schema(),
+            |chunk_number| std::path::PathBuf::from(chunk_number.to_string()),
+        );
+
+        writer
+            .write::<MemoryTarget>(image_sequence_batch(vec!["png", "png"]))
+            .await
+            .unwrap();
+        writer
+            .write::<MemoryTarget>(image_sequence_batch(vec![]))
+            .await
+            .unwrap();
+        writer
+            .write::<MemoryTarget>(image_sequence_batch(vec!["png"]))
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            writer
+                .write::<MemoryTarget>(image_sequence_batch(vec!["tiff"]))
+                .await,
+            Err(Error::MixedImageSequenceFormats { expected, found }) if expected == "png" && found == "tiff"
+        ));
+        // The rejected batch is not stored
+        assert_eq!(target.paths.lock().unwrap().len(), 3);
     }
 }
