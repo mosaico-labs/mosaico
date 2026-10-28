@@ -1,5 +1,6 @@
 import json
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
@@ -52,9 +53,13 @@ def test_load_reads_folder(tmp_path):
     pq.write_table(
         pa.Table.from_pylist(rows), tmp_path / "meta" / "episodes" / "file-000.parquet"
     )
+    pd.DataFrame({"task_index": [0]}, index=pd.Index(["pick"], name="task")).to_parquet(
+        tmp_path / "meta" / "tasks.parquet"
+    )
 
     meta = LeRobotDatasetMeta.load(tmp_path)
 
     assert meta.episode_indexes == [0, 1]
     assert meta.n_frames() == 30
     assert meta.stats is None
+    assert meta.tasks == ["pick"]

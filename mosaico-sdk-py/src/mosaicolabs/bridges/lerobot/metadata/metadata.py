@@ -69,6 +69,9 @@ class LeRobotDatasetMeta:
     stats: Optional[Dict[str, Any]]
     """The content of `meta/stats.json`, or `None` if the dataset has no `stats.json`."""
 
+    tasks: List[str]
+    """The content of `meta/tasks.parquet`: the dataset tasks, in task index order."""
+
     episodes_map: Dict[int, LeRobotEpisode]
     """The dataset episodes, keyed by episode index."""
 
@@ -186,7 +189,8 @@ class LeRobotDatasetMeta:
             LeRobotDatasetMeta: The dataset metadata.
 
         Raises:
-            FileNotFoundError: If `meta/`, `meta/info.json` or the episodes parquet files are missing.
+            FileNotFoundError: If `meta/`, `meta/info.json`, `meta/tasks.parquet` or the episodes
+                parquet files are missing.
             ValueError: If the dataset format version is not supported, or the metadata is malformed.
         """
         meta_dir = Path(root) / _META_DIR
@@ -205,7 +209,9 @@ class LeRobotDatasetMeta:
             for episodes_file in episodes_files
             for row in pq.read_table(episodes_file).to_pylist()
         ]
-        return cls.from_data(root, info, episodes, stats)
+        tasks = pd.read_parquet(meta_dir / _TASKS_FILE).index.tolist()
+
+        return cls.from_data(root, info, episodes, tasks, stats)
 
     @classmethod
     def from_data(
@@ -213,6 +219,7 @@ class LeRobotDatasetMeta:
         root: Path,
         info: LeRobotInfo,
         episodes: List[LeRobotEpisode],
+        tasks: List[str],
         stats: Optional[Dict[str, Any]] = None,
     ) -> "LeRobotDatasetMeta":
         """
@@ -222,6 +229,7 @@ class LeRobotDatasetMeta:
             root (Path): The root folder of the dataset.
             info (LeRobotInfo): The content of `meta/info.json`.
             episodes (List[LeRobotEpisode]): The episodes of the dataset.
+            tasks (List[str]): The dataset tasks, in task index order.
             stats (Optional[Dict[str, Any]]): The content of `meta/stats.json`, if any.
 
         Returns:
@@ -243,6 +251,7 @@ class LeRobotDatasetMeta:
             root=Path(root),
             info=info,
             stats=stats,
+            tasks=tasks,
             episodes_map=dict(sorted(episodes_map.items())),
         )
 
@@ -251,8 +260,7 @@ class LeRobotDatasetMeta:
         Writes the `meta/` folder of the dataset under `root`, as `load` reads it:
 
         - `info.json`, and `stats.json` if `stats` is not `None`;
-        - `tasks.parquet`: the distinct tasks of the episodes, in the order they first appear,
-          indexed by task as LeRobot reads them;
+        - `tasks.parquet`: `tasks`, indexed by task as LeRobot reads them;
         - the episodes parquet files, each episode in the one given by its
           `meta/episodes/chunk_index` and `meta/episodes/file_index` (0 if not set).
 
@@ -265,11 +273,9 @@ class LeRobotDatasetMeta:
         if self.stats is not None:
             (meta_dir / _STATS_FILE).write_text(json.dumps(self.stats, indent=4))
 
-        tasks = list(
-            dict.fromkeys(task for e in self.episodes_map.values() for task in e.tasks)
-        )
         pd.DataFrame(
-            {"task_index": range(len(tasks))}, index=pd.Index(tasks, name="task")
+            {"task_index": range(len(self.tasks))},
+            index=pd.Index(self.tasks, name="task"),
         ).to_parquet(meta_dir / _TASKS_FILE)
 
         # The `meta/episodes` rows, grouped by the episodes file holding them

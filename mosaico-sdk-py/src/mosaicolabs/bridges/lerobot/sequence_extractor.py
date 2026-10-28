@@ -232,7 +232,7 @@ class LeRobotSequenceExtractor:
             raise ValueError("No episode to export.")
 
         return LeRobotDatasetMeta.from_data(
-            self._cfg.saving_path, builder.info, builder.episodes
+            self._cfg.saving_path, builder.info, builder.episodes, builder.tasks
         )
 
 
