@@ -15,6 +15,7 @@ from mosaicolabs.bridges.lerobot.reader import (
     LeRobotReader,
     _adapt_image_rb_to_schema,
     _adapt_timeseries_rb_to_schema,
+    _task_indexes_to_tasks,
     _timeseries_fields_to_msco_schema,
 )
 
@@ -26,6 +27,7 @@ from .config import (
     EPISODES_PATH,
     INDEX_COLUMN_NAMES,
     STATE_COLUMN_NAME,
+    TASK,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
     action_value,
@@ -286,7 +288,8 @@ def test_reader_timeseries_struct_nests_the_dotted_columns(reader):
         [
             pa.field("action", VECTOR_TYPE),
             pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
-            *[pa.field(name, pa.int64()) for name in INDEX_COLUMN_NAMES],
+            *[pa.field(name, pa.int64()) for name in INDEX_COLUMN_NAMES[:-1]],
+            pa.field("task_index", pa.string()),
         ]
     )
 
@@ -378,7 +381,14 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
     assert batch.column("frame_index").to_pylist() == list(range(length))
     assert batch.column("episode_index").to_pylist() == [episode_index] * length
     assert batch.column("index").to_pylist() == list(frames)
-    assert batch.column("task_index").to_pylist() == [0] * length
+    assert batch.column("task_index").to_pylist() == [TASK] * length
+
+
+def test_task_index_not_in_tasks_raises():
+    batch = pa.record_batch({"task_index": [0, 1]})
+
+    with pytest.raises(ValueError, match="meta/tasks.parquet"):
+        _task_indexes_to_tasks(batch, [TASK])
 
 
 def test_timeseries_batches_are_messages_of_the_timeseries_topic(reader):

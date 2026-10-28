@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from PIL import Image as PILImage
@@ -298,9 +299,8 @@ def make_lerobot_dataset(
             pa.Table.from_pylist(rows),
             root / EPISODES_PATH.format(chunk_index=0, file_index=file_index),
         )
-    _write_parquet(
-        pa.Table.from_pylist([{"task_index": 0, "task": TASK}]),
-        root / "meta" / "tasks.parquet",
+    pd.DataFrame({"task_index": [0]}, index=pd.Index([TASK], name="task")).to_parquet(
+        root / "meta" / "tasks.parquet"
     )
 
     _write_json(
