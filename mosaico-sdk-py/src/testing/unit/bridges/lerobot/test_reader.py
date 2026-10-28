@@ -385,10 +385,8 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
 
 
 def test_task_index_not_in_tasks_raises():
-    batch = pa.record_batch({"task_index": [0, 1]})
-
     with pytest.raises(ValueError, match="meta/tasks.parquet"):
-        _task_indexes_to_tasks(batch, [TASK])
+        _task_indexes_to_tasks(pa.array([0, 1]), [TASK])
 
 
 def test_timeseries_batches_are_messages_of_the_timeseries_topic(reader):

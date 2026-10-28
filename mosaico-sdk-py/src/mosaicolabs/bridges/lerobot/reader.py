@@ -124,28 +124,22 @@ def _adapt_timeseries_rb_to_schema(
     )
 
 
-def _task_indexes_to_tasks(batch: pa.RecordBatch, tasks: List[str]) -> pa.RecordBatch:
+def _task_indexes_to_tasks(task_index: pa.Array, tasks: List[str]) -> pa.Array:
     """
-    Converts the `task_index` column of `batch`, if any, into the tasks it refers to (see
-    `LeRobotDatasetMeta.tasks`): same position, named `task`, type `string` instead of `int64`.
+    Converts LeRobot task indexes (int64) into the tasks they refer to (string, see
+    `LeRobotDatasetMeta.tasks`).
 
     Raises:
         ValueError: If a task index is not defined in `meta/tasks.parquet`.
     """
-    column_index = batch.schema.get_field_index(_TASK_INDEX_COLUMN)
-    if column_index == _NOT_FOUND:
-        return batch
-
     # As LeRobot reads it: a task index is the row of the task in `meta/tasks.parquet`
     try:
-        task_array = pc.take(pa.array(tasks, pa.string()), batch.column(column_index))
+        return pa.array(tasks, pa.string()).take(task_index)
     except pa.ArrowIndexError as e:
         raise ValueError(
             f"The '{_TASK_INDEX_COLUMN}' column holds an index not defined in "
             f"'meta/tasks.parquet' ({len(tasks)} tasks defined): {e}"
         ) from e
-
-    return batch.set_column(column_index, _TASK_FIELD, task_array)
 
 
 def _adapt_image_rb_to_schema(
@@ -497,9 +491,13 @@ class LeRobotReader:
 
         for batch in self._iter_episode_batches(episode_index, all_columns):
             timestamp_array = _to_timestamp_ns(batch.column(_TIMESTAMP_COLUMN_NAME))
-            batch = _task_indexes_to_tasks(
-                batch.select(self._timeseries_column_names), self._meta.tasks
-            )
+            batch = batch.select(self._timeseries_column_names)
+            # Only when `task_index` was selected through `column_names`
+            if batch.schema.get_field_index(_TASK_INDEX_COLUMN) != _NOT_FOUND:
+                task_array = _task_indexes_to_tasks(
+                    batch.column(_TASK_INDEX_COLUMN), self._meta.tasks
+                )
+                batch = batch.append_column(_TASK_FIELD, task_array)
             timeseries_rb = _adapt_timeseries_rb_to_schema(
                 batch, self._timeseries_schema
             )
