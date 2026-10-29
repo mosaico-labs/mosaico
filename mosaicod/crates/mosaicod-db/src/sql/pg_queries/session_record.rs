@@ -7,12 +7,16 @@ use crate::{
     sql::schema,
 };
 
-fn rowlock2str(rl: RowLocking) -> &'static str {
-    match rl {
-        RowLocking::None => "",
-        RowLocking::Shared => "FOR SHARE",
-        RowLocking::Exclusive => "FOR UPDATE",
-    }
+/// Appends the row locking clause to `$sql`, which must be a string literal,
+/// so the query is still a `&'static str`.
+macro_rules! with_row_locking {
+    ($rl:expr, $sql:literal) => {
+        match $rl {
+            RowLocking::None => $sql,
+            RowLocking::Shared => concat!($sql, " FOR SHARE"),
+            RowLocking::Exclusive => concat!($sql, " FOR UPDATE"),
+        }
+    };
 }
 
 pub async fn session_create(
@@ -49,12 +53,8 @@ pub async fn session_find_by_id(
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by id `{}`", id);
 
-    let query = format!(
-        "SELECT * FROM session_t WHERE session_id=$1 {}",
-        rowlock2str(row_locking)
-    );
-
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    let query = with_row_locking!(row_locking, "SELECT * FROM session_t WHERE session_id = $1");
+    let res = sqlx::query_as::<_, schema::SessionRecord>(query)
         .bind(id)
         .fetch_one(exe.as_exec())
         .await?;
@@ -70,12 +70,11 @@ pub async fn session_find_by_uuid(
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by uuid `{}`", uuid);
 
-    let query = format!(
-        "SELECT * FROM session_t WHERE session_uuid=$1 {}",
-        rowlock2str(row_locking)
+    let query = with_row_locking!(
+        row_locking,
+        "SELECT * FROM session_t WHERE session_uuid = $1"
     );
-
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    let res = sqlx::query_as::<_, schema::SessionRecord>(query)
         .bind(uuid.as_ref())
         .fetch_one(exe.as_exec())
         .await?;

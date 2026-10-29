@@ -219,7 +219,11 @@ pub async fn chunks_from_filters(
     // the same text is built for operands of different types (e.g. `3` and `3.5`).
     // A cached statement keeps the parameter types of its first execution, so an
     // operand of another type would be silently misread (an integer decoded as a float).
-    let mut r = sqlx::query(&query).persistent(false);
+    //
+    // SAFETY (SQL): the only user input in `query` is the ontology field paths,
+    // which `OntologyField::try_new` restricts to ASCII alphanumerics and
+    // underscores. All values are bound as parameters.
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query)).persistent(false);
 
     for v in values {
         r = bind_value(r, v);
@@ -317,7 +321,11 @@ pub async fn topic_ids_from_aggregated_filters(
     // the same text is built for operands of different types (e.g. `3` and `3.5`).
     // A cached statement keeps the parameter types of its first execution, so an
     // operand of another type would be silently misread (an integer decoded as a float).
-    let mut r = sqlx::query(&query).persistent(false);
+    //
+    // SAFETY (SQL): the only user input in `query` is the ontology field paths,
+    // which `OntologyField::try_new` restricts to ASCII alphanumerics and
+    // underscores. All values are bound as parameters.
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query)).persistent(false);
     for v in values {
         r = bind_value(r, v);
     }
