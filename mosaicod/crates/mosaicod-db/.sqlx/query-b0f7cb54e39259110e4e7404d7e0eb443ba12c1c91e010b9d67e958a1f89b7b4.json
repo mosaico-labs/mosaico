@@ -6,37 +6,79 @@
       {
         "ordinal": 0,
         "name": "cleanup_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "cleanup_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "start_unix_tstamp_secs",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "start_unix_tstamp_secs"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "end_unix_tstamp_secs",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "end_unix_tstamp_secs"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "marked_folders",
-        "type_info": "Jsonb"
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "marked_folders"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "deleted_folders",
-        "type_info": "Jsonb"
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "deleted_folders"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "failed_folders",
-        "type_info": "Jsonb"
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "failed_folders"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "instance_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "cleanup_log_t",
+            "name": "instance_id"
+          }
+        }
       }
     ],
     "parameters": {
