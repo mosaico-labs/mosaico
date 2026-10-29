@@ -5,10 +5,11 @@
 //! nullability, `dict_is_ordered`, metadata and type, with the parameters that change what a type
 //! means (widths, units, time zones, precision and scale, fixed sizes).
 //!
-//! Layouts don't change it:
+//! Layouts don't change it, since they don't change meaning:
 //! - `Utf8`/`LargeUtf8`/`Utf8View`, `Binary`/`LargeBinary`/`BinaryView` and the four list types
-//!   are encoded alike. mosaicod reads stored schemas through DataFusion, which returns a top-level
-//!   `Utf8` or `LargeUtf8` as `Utf8View`, so a hash that kept layouts wouldn't match after a read.
+//!   are encoded alike. For strings and binaries it's also needed: mosaicod reads stored schemas
+//!   through DataFusion, which returns top-level ones as `Utf8View` and `BinaryView`, so a hash
+//!   that kept their layouts wouldn't match after a read.
 //! - The children of lists, maps and run-end encoded arrays are encoded without their names, which
 //!   vary by producer (`item`, `element`).
 //!
