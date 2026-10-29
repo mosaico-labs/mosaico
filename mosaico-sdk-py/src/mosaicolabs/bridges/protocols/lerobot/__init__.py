@@ -1,0 +1,1 @@
+from .schema_converter import LeRobotSchemaConverter as LeRobotSchemaConverter

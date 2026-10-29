@@ -63,19 +63,26 @@ CAMERA_COLUMN_NAMES = ["observation.images.front", "observation.images.wrist"]
 VIDEO_COLUMN_NAME = "observation.images.side"
 """The video feature declared by `with_video`, which has no data column."""
 TIMESTAMP_COLUMN_NAME = "timestamp"
-INDEX_COLUMN_NAMES = ["frame_index", "episode_index", "index", "task_index"]
+POSITION_COLUMN_NAMES = ["frame_index", "episode_index", "index"]
+"""The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
+TASK_INDEX_COLUMN_NAME = "task_index"
+INDEX_COLUMN_NAMES = [*POSITION_COLUMN_NAMES, TASK_INDEX_COLUMN_NAME]
 
-TIMESERIES_COLUMN_NAMES = [ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *INDEX_COLUMN_NAMES]
+TIMESERIES_COLUMN_NAMES = [
+    ACTION_COLUMN_NAME,
+    STATE_COLUMN_NAME,
+    TASK_INDEX_COLUMN_NAME,
+]
 """The timeseries columns, in the order of the features."""
 
 COLUMN_NAMES = [
     ACTION_COLUMN_NAME,
     STATE_COLUMN_NAME,
     *CAMERA_COLUMN_NAMES,
-    *INDEX_COLUMN_NAMES,
+    TASK_INDEX_COLUMN_NAME,
 ]
-"""The columns read by the bridge (all but the timestamp and the video), in the order of the
-features."""
+"""The columns read by the bridge (all but the timestamp, the position of the frames and the
+video), in the order of the features."""
 
 _IMAGE_TYPE = pa.struct([("bytes", pa.binary()), ("path", pa.string())])
 _VECTOR_TYPE = pa.list_(pa.float32(), len(JOINT_NAMES))
