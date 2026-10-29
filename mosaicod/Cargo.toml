@@ -9,7 +9,7 @@ homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
 license = "Apache-2.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.94"
 
 [workspace.dependencies]
 # Internal crates
