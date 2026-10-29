@@ -457,8 +457,12 @@ pub fn stats_inspect_array(
             let narray = cast_array_to_numeric(array)?;
             let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
 
-            let min_val = compute::min(primitive);
-            // compute::max treats nan as the greatest value
+            // compute::min/max order nan above every value, and a negative nan below
+            let min_val = primitive
+                .iter()
+                .flatten()
+                .filter(|v| !v.is_nan())
+                .reduce(f64::min);
             let max_val = primitive
                 .iter()
                 .flatten()
@@ -534,8 +538,12 @@ pub fn stats_inspect_array(
 
             let narray = cast_array_to_numeric(&flatten_list)?;
             let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
-            let min_val = compute::min(primitive);
-            // compute::max treats nan as the greatest value
+            // compute::min/max order nan above every value, and a negative nan below
+            let min_val = primitive
+                .iter()
+                .flatten()
+                .filter(|v| !v.is_nan())
+                .reduce(f64::min);
             let max_val = primitive
                 .iter()
                 .flatten()
@@ -1172,26 +1180,27 @@ mod tests {
         use arrow::array::{Float64Array, ListArray};
         use arrow::buffer::OffsetBuffer;
 
-        // nan is the greatest value for the Arrow kernels: it must not hide the max
-        let values: ArrayRef = Arc::new(Float64Array::from(vec![1.0, 5.0, f64::NAN]));
+        // the Arrow kernels order nan above every value, and a negative nan below every
+        // value: neither must hide the min and the max
+        let values: ArrayRef = Arc::new(Float64Array::from(vec![1.0, -f64::NAN, 5.0, f64::NAN]));
         let mut stats = stats_from_arrow_field(&Field::new("v", DataType::Float64, true));
         stats_inspect_array(&mut stats, &values, None, None).unwrap();
         let types::Stats::Numeric(n) = &stats else {
             panic!("expected Numeric stats");
         };
-        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 1));
+        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 2));
 
-        // the same for the elements of a list: [1, nan], [5]
+        // the same for the elements of a list: [1, -nan], [5, nan]
         let item = Arc::new(Field::new("item", DataType::Float64, true));
         let list: ArrayRef = Arc::new(
-            ListArray::try_new(item, OffsetBuffer::from_lengths([2, 1]), values, None).unwrap(),
+            ListArray::try_new(item, OffsetBuffer::from_lengths([2, 2]), values, None).unwrap(),
         );
         let mut stats = stats_from_arrow_field(&Field::new("l", list.data_type().clone(), true));
         stats_inspect_array(&mut stats, &list, None, None).unwrap();
         let types::Stats::ListNumeric(n) = &stats else {
             panic!("expected ListNumeric stats");
         };
-        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 1));
+        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 2));
 
         // only nan: no min and max
         let values: ArrayRef = Arc::new(Float64Array::from(vec![f64::NAN]));
