@@ -1,6 +1,5 @@
 use arrow::datatypes::{
-    DataType, Field, FieldRef, Fields, IntervalUnit, Schema, SchemaRef, TimeUnit, UnionFields,
-    UnionMode,
+    DataType, Field, Fields, IntervalUnit, Schema, SchemaRef, TimeUnit, UnionFields, UnionMode,
 };
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -83,10 +82,8 @@ impl Encoder {
     }
 
     fn fields(&mut self, fields: &Fields) {
-        let mut sorted: Vec<&FieldRef> = fields.iter().collect();
-        sorted.sort_unstable_by(|a, b| a.name().cmp(b.name()));
-        self.len(sorted.len());
-        for field in sorted {
+        self.len(fields.len());
+        for field in fields {
             self.field(field);
         }
     }
@@ -108,10 +105,8 @@ impl Encoder {
     }
 
     fn union_fields(&mut self, fields: &UnionFields) {
-        let mut sorted: Vec<(i8, &FieldRef)> = fields.iter().collect();
-        sorted.sort_unstable_by_key(|(type_id, _)| *type_id);
-        self.len(sorted.len());
-        for (type_id, field) in sorted {
+        self.len(fields.len());
+        for (type_id, field) in fields.iter() {
             self.i8(type_id);
             self.field(field);
         }
@@ -328,18 +323,6 @@ mod tests {
     }
 
     #[test]
-    fn field_order_is_ignored() {
-        let x = || field("x", DataType::Float64);
-        let y = || field("y", DataType::Utf8);
-
-        assert_eq!(hash(vec![x(), y()]), hash(vec![y(), x()]));
-        assert_eq!(
-            hash(vec![field("s", structure(vec![x(), y()]))]),
-            hash(vec![field("s", structure(vec![y(), x()]))])
-        );
-    }
-
-    #[test]
     fn layout_variants_are_ignored() {
         let groups = [
             vec![DataType::Utf8, DataType::LargeUtf8, DataType::Utf8View],
@@ -416,6 +399,37 @@ mod tests {
                 "field name",
                 hash(vec![base()]),
                 hash(vec![field("y", DataType::Float64)]),
+            ),
+            (
+                "field order",
+                hash(vec![base(), field("y", DataType::Utf8)]),
+                hash(vec![field("y", DataType::Utf8), base()]),
+            ),
+            (
+                "struct field order",
+                hash(vec![field(
+                    "s",
+                    structure(vec![base(), field("y", DataType::Utf8)]),
+                )]),
+                hash(vec![field(
+                    "s",
+                    structure(vec![field("y", DataType::Utf8), base()]),
+                )]),
+            ),
+            (
+                "union member order",
+                hash(vec![field("u", union([0, 1], UnionMode::Dense))]),
+                hash(vec![field(
+                    "u",
+                    DataType::Union(
+                        UnionFields::try_new(
+                            [1, 0],
+                            [field("b", DataType::Utf8), field("a", DataType::Int32)],
+                        )
+                        .unwrap(),
+                        UnionMode::Dense,
+                    ),
+                )]),
             ),
             (
                 "nullability",
@@ -575,7 +589,7 @@ mod tests {
         // If this changes, every stored hash changes with it: bump `DOMAIN` on purpose instead.
         assert_eq!(
             SchemaHash::new(&schema).to_string(),
-            "816d54a2f17e733c982d7667d9afe6e8513c2837890272fba4efccaa4dda69a2"
+            "de7e320bb39782e71e48c32033507f67bd9adde77386e55b38785188d95c4ff6"
         );
     }
 
