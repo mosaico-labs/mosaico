@@ -101,13 +101,14 @@ class LeRobotDatasetMeta:
     def column_names(self) -> List[str]:
         """
         The data columns read by the bridge: the image and timeseries features. The `timestamp`
-        column (the time of every message) and the video features (stored in separate video
-        files, not supported yet) are excluded.
+        column (the time of every message), the position of the frames (`index`,
+        `frame_index` and `episode_index`, rebuilt on export) and the video features (stored
+        in separate video files, not supported yet) are excluded.
         """
         return [
             feature.key
             for feature in self.features
-            if feature.is_image or feature.is_timeserie
+            if feature.is_image() or feature.is_timeserie()
         ]
 
     def get_parquet_file(self, episode_index: int) -> Path:
