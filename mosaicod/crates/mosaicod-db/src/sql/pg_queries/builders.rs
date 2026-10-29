@@ -2,8 +2,6 @@ use mosaicod_query as query;
 
 use super::stats_kind::StatsKind;
 
-// (cabba) TODO: this code is dog shit, we need to fix it ASAP
-
 pub struct ChunkQueryBuilder {
     placeholder_counter: usize,
 }

@@ -41,6 +41,7 @@ pub struct NumericStats {
     pub min: f64,
     pub max: f64,
 
+    // Counts are `i64` to map the `BIGINT` columns of Postgres
     pub null_count: i64,
     pub nan_count: i64,
 
@@ -102,13 +103,28 @@ impl NumericStats {
             return;
         }
 
-        let (mean_a, m2_a) = (self.mean_value.unwrap_or(0.0), self.m2_value.unwrap_or(0.0));
         let n = self.valid_sample_count + count;
-        let delta = mean - mean_a;
-        self.mean_value = Some(mean_a + delta * count as f64 / n as f64);
-        self.m2_value = Some(
-            m2_a + m2 + delta * delta * self.valid_sample_count as f64 * count as f64 / n as f64,
-        );
+        let (mean, m2) = match (self.mean_value, self.m2_value) {
+            // First valid samples, nothing to merge with
+            _ if self.valid_sample_count == 0 => (mean, m2),
+            (Some(mean_a), Some(m2_a)) => {
+                let delta = mean - mean_a;
+
+                let weight = count as f64 / n as f64;
+                (
+                    mean_a + delta * weight,
+                    m2_a + m2 + delta * delta * self.valid_sample_count as f64 * weight,
+                )
+            }
+            // Moments already discarded as not finite
+            _ => (f64::NAN, f64::NAN),
+        };
+
+        (self.mean_value, self.m2_value) = if mean.is_finite() && m2.is_finite() {
+            (Some(mean), Some(m2))
+        } else {
+            (None, None)
+        };
         self.valid_sample_count = n;
     }
 }
@@ -118,6 +134,7 @@ pub struct TextualStats {
     pub min: Option<String>,
     pub max: Option<String>,
 
+    // `i64` to map the `BIGINT` column of Postgres
     pub null_count: i64,
 
     pub first_sample_value: Option<String>,

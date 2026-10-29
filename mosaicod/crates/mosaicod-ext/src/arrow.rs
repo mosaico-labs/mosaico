@@ -267,20 +267,24 @@ pub fn array_from_flat_field_name(
                 ))
             })?;
 
-        current_array = Arc::clone(struct_array.column_by_name(subfield).ok_or_else(|| {
+        // The fields of a null struct can hold any value: `flatten` makes them null as well
+        let (fields, columns) = struct_array.flatten();
+        let (pos, _) = fields.find(subfield).ok_or_else(|| {
             arrow::error::ArrowError::SchemaError(format!(
                 "can't find subfield `{0}` for top level field `{1}`",
                 subfield, top_level_name
             ))
-        })?);
+        })?;
+        current_array = Arc::clone(&columns[pos]);
     }
 
     Ok(current_array)
 }
 
 pub struct SchemaFlattenerIter {
-    // A queue to hold fields and their current name prefix.
-    field_queue: VecDeque<(String, FieldRef)>,
+    // A queue to hold fields, their current name prefix and whether they are inside
+    // a list of structs.
+    field_queue: VecDeque<(String, FieldRef, bool)>,
 }
 
 impl SchemaFlattenerIter {
@@ -289,7 +293,7 @@ impl SchemaFlattenerIter {
 
         // Traverse the schema to build a queue of fields
         for field in schema.fields() {
-            queue.push_back((String::new(), field.clone()));
+            queue.push_back((String::new(), field.clone(), false));
         }
 
         SchemaFlattenerIter { field_queue: queue }
@@ -297,11 +301,11 @@ impl SchemaFlattenerIter {
 }
 
 impl Iterator for SchemaFlattenerIter {
-    type Item = (String, FieldRef);
+    type Item = (String, (FieldRef, bool));
 
     fn next(&mut self) -> Option<Self::Item> {
         // Continue looping until the queue is empty OR we find a simple field
-        while let Some((prefix, field)) = self.field_queue.pop_front() {
+        while let Some((prefix, field, in_list)) = self.field_queue.pop_front() {
             let current_name = if prefix.is_empty() {
                 field.name().clone()
             } else {
@@ -314,36 +318,33 @@ impl Iterator for SchemaFlattenerIter {
                     // Push children onto the front of the queue (DFS-like processing).
                     // We reverse the children before pushing to maintain order when popping from the front.
                     for child_field in children.iter().rev() {
-                        self.field_queue
-                            .push_front((current_name.clone(), child_field.clone()));
+                        self.field_queue.push_front((
+                            current_name.clone(),
+                            child_field.clone(),
+                            in_list,
+                        ));
                     }
                     // Skip the struct itself and continue to process its children.
                 }
-                // 2) List<Struct<...>> - recurse into the struct's children.
-                //    List<primitive> falls through to the leaf case below.
-                DataType::List(inner) | DataType::LargeList(inner) => {
-                    if let DataType::Struct(children) = inner.data_type() {
-                        for child_field in children.iter().rev() {
-                            self.field_queue
-                                .push_front((current_name.clone(), child_field.clone()));
-                        }
-                    } else {
-                        return Some((current_name, field));
-                    }
-                }
-                DataType::FixedSizeList(inner, _) => {
-                    if let DataType::Struct(children) = inner.data_type() {
-                        for child_field in children.iter().rev() {
-                            self.field_queue
-                                .push_front((current_name.clone(), child_field.clone()));
-                        }
-                    } else {
-                        return Some((current_name, field));
+                // 2) List<Struct<...>> - recurse into the struct's children, which hold a list
+                //    of values per sample. List<primitive> is yielded as a leaf.
+                DataType::List(inner)
+                | DataType::LargeList(inner)
+                | DataType::FixedSizeList(inner, _) => {
+                    let DataType::Struct(children) = inner.data_type() else {
+                        return Some((current_name, (field, in_list)));
+                    };
+                    for child_field in children.iter().rev() {
+                        self.field_queue.push_front((
+                            current_name.clone(),
+                            child_field.clone(),
+                            true,
+                        ));
                     }
                 }
                 // 3) Primitive/Leaf Type - This is a field we want to yield.
                 _ => {
-                    return Some((current_name, field));
+                    return Some((current_name, (field, in_list)));
                 }
             }
         }
@@ -377,7 +378,8 @@ pub trait SquashedIterator {
 }
 
 impl SquashedIterator for SchemaRef {
-    type Value = FieldRef;
+    /// The leaf field and whether it is inside a list of structs
+    type Value = (FieldRef, bool);
     type Iter = SchemaFlattenerIter;
 
     fn squashed_iter(&self) -> Self::Iter {
@@ -428,17 +430,15 @@ fn list_child_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
     None
 }
 
-/// Recursively unwraps nested list layers (e.g. `List<List<float>>`, or any
-/// number of nesting levels) until it reaches a non-list (leaf) array,
-/// returning that innermost values array.
-///
-/// Returns `None` if the input is not a list type at all.
-fn list_leaf_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
-    let mut current = list_child_values_from_array(array)?;
+/// Unwraps any number of nested list layers (e.g. `List<List<f64>>`), returning the
+/// innermost values. An array that is not a list, e.g. the field of a list of structs
+/// already flattened by `array_from_flat_field_name`, is returned as is.
+fn list_leaf_values(array: &ArrayRef) -> ArrayRef {
+    let mut current = array.clone();
     while let Some(inner) = list_child_values_from_array(&current) {
         current = inner;
     }
-    Some(current)
+    current
 }
 
 /// Inspects an array and updates the provided statistics using SIMD-optimized Arrow compute kernels.
@@ -457,9 +457,13 @@ pub fn stats_inspect_array(
             let narray = cast_array_to_numeric(array)?;
             let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
 
-            // Use SIMD-optimized min/max from Arrow compute
             let min_val = compute::min(primitive);
-            let max_val = compute::max(primitive);
+            // compute::max treats nan as the greatest value
+            let max_val = primitive
+                .iter()
+                .flatten()
+                .filter(|v| !v.is_nan())
+                .reduce(f64::max);
 
             let null_count = primitive.null_count() as i64;
 
@@ -526,22 +530,23 @@ pub fn stats_inspect_array(
             }
         }
         Stats::ListNumeric(stats) => {
-            let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
-                arrow::error::ArrowError::CastError("expected list array".to_string())
-            })?;
+            let flatten_list = list_leaf_values(array);
 
             let narray = cast_array_to_numeric(&flatten_list)?;
             let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
             let min_val = compute::min(primitive);
-            let max_val = compute::max(primitive);
+            // compute::max treats nan as the greatest value
+            let max_val = primitive
+                .iter()
+                .flatten()
+                .filter(|v| !v.is_nan())
+                .reduce(f64::max);
             let null_count = primitive.null_count() as i64;
             let nan_count = primitive.iter().flatten().filter(|v| v.is_nan()).count() as i64;
             stats.merge(min_val, max_val, null_count, nan_count);
         }
         Stats::ListTextual(stats) => {
-            let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
-                arrow::error::ArrowError::CastError("expected list array".to_string())
-            })?;
+            let flatten_list = list_leaf_values(array);
 
             let sarray = cast_array_to_textual(&flatten_list)?;
             let string_array = sarray.as_string::<i32>();
@@ -593,16 +598,23 @@ pub fn ontology_model_stats_inspect_record_batch(
     Ok(())
 }
 
-/// Creates an empty chunk that holds al schema fields.
+/// Creates the empty stats of every leaf field of the schema, keyed by its flattened
+/// name (e.g. `pose.x`).
 ///
-/// The schema fields are flattened inside the chunk.
+/// The kind of the stats (numeric or textual) comes from the type of the leaf, while
+/// whether they are list stats comes from its ancestors too: a field inside a list of
+/// structs holds a list of values per sample, so it gets the list stats of its leaf
+/// type. E.g. with `readings: List<Struct<x: f64>>`, `readings.x` is handled as a
+/// `List<f64>`: a sample `[{x: 1}, {x: 4}]` holds `[1, 4]`.
 pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyModelStats {
     let mut cs = types::OntologyModelStats::empty();
-    for (squashed_name, field) in schema.squashed_iter() {
-        cs.cols.insert(
-            squashed_name.clone(),
-            stats_from_arrow_field(field.as_ref()),
-        );
+    for (squashed_name, (field, in_list)) in schema.squashed_iter() {
+        let stats = match stats_from_arrow_field(field.as_ref()) {
+            types::Stats::Numeric(stats) if in_list => types::Stats::ListNumeric(stats),
+            types::Stats::Textual(stats) if in_list => types::Stats::ListTextual(stats),
+            stats => stats,
+        };
+        cs.cols.insert(squashed_name, stats);
     }
     cs
 }
@@ -1153,5 +1165,80 @@ mod tests {
         };
         assert_eq!(n.min, 5.0);
         assert_eq!(n.max, 42.0);
+    }
+
+    #[test]
+    fn numeric_stats_ignore_nan_in_min_max() {
+        use arrow::array::{Float64Array, ListArray};
+        use arrow::buffer::OffsetBuffer;
+
+        // nan is the greatest value for the Arrow kernels: it must not hide the max
+        let values: ArrayRef = Arc::new(Float64Array::from(vec![1.0, 5.0, f64::NAN]));
+        let mut stats = stats_from_arrow_field(&Field::new("v", DataType::Float64, true));
+        stats_inspect_array(&mut stats, &values, None, None).unwrap();
+        let types::Stats::Numeric(n) = &stats else {
+            panic!("expected Numeric stats");
+        };
+        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 1));
+
+        // the same for the elements of a list: [1, nan], [5]
+        let item = Arc::new(Field::new("item", DataType::Float64, true));
+        let list: ArrayRef = Arc::new(
+            ListArray::try_new(item, OffsetBuffer::from_lengths([2, 1]), values, None).unwrap(),
+        );
+        let mut stats = stats_from_arrow_field(&Field::new("l", list.data_type().clone(), true));
+        stats_inspect_array(&mut stats, &list, None, None).unwrap();
+        let types::Stats::ListNumeric(n) = &stats else {
+            panic!("expected ListNumeric stats");
+        };
+        assert_eq!((n.min, n.max, n.nan_count), (1.0, 5.0, 1));
+
+        // only nan: no min and max
+        let values: ArrayRef = Arc::new(Float64Array::from(vec![f64::NAN]));
+        let mut stats = stats_from_arrow_field(&Field::new("v", DataType::Float64, true));
+        stats_inspect_array(&mut stats, &values, None, None).unwrap();
+        let types::Stats::Numeric(n) = &stats else {
+            panic!("expected Numeric stats");
+        };
+        assert_eq!((n.min, n.max, n.nan_count), (f64::MAX, f64::MIN, 1));
+    }
+
+    #[test]
+    fn list_of_struct_field_ignores_null_structs() {
+        use arrow::array::{Float64Array, ListArray};
+        use arrow::buffer::{NullBuffer, OffsetBuffer};
+
+        // readings: [{x: 1}, null], [{x: 9}], where the null struct holds x = 100
+        let x: ArrayRef = Arc::new(Float64Array::from(vec![1.0, 100.0, 9.0]));
+        let fields: arrow::datatypes::Fields =
+            vec![Field::new("x", DataType::Float64, true)].into();
+        let structs: ArrayRef = Arc::new(
+            StructArray::try_new(
+                fields.clone(),
+                vec![x],
+                Some(NullBuffer::from(vec![true, false, true])),
+            )
+            .unwrap(),
+        );
+        let item = Arc::new(Field::new("item", DataType::Struct(fields), true));
+        let readings: ArrayRef = Arc::new(
+            ListArray::try_new(item, OffsetBuffer::from_lengths([2, 1]), structs, None).unwrap(),
+        );
+        let schema = create_schema(vec![Field::new(
+            "readings",
+            readings.data_type().clone(),
+            false,
+        )]);
+        let batch = RecordBatch::try_new(schema.clone(), vec![readings]).unwrap();
+
+        let mut cstats = ontology_model_stats_from_schema(&schema);
+        ontology_model_stats_inspect_record_batch(&mut cstats, &batch, None, None).unwrap();
+
+        let Some(types::Stats::ListNumeric(n)) = cstats.cols.get("readings.x") else {
+            panic!("expected ListNumeric stats for readings.x");
+        };
+        assert_eq!(n.min, 1.0);
+        assert_eq!(n.max, 9.0);
+        assert_eq!(n.null_count, 1);
     }
 }

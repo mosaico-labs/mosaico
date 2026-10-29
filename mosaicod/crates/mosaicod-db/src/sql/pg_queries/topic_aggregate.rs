@@ -119,9 +119,14 @@ const TOTAL_COUNT: &str = "chunk_t.row_count";
 
 /// Mean of the valid values of the topic, weighting the chunk means by their
 /// valid values: `μ = Σ nᵢ·meanᵢ / N`.
+/// The result is NULL if a chunk with valid values has NULL mean (moments discarded
+/// as not finite at ingestion), and so are VAR and STD, computed around it.
 fn mean_aggr_expr() -> String {
     let n = valid_count_expr(StatsKind::Numeric);
-    format!("(SUM({n} * __stats__.mean_value) / NULLIF(SUM({n}), 0))")
+    format!(
+        "(CASE WHEN BOOL_AND({n} = 0 OR __stats__.mean_value IS NOT NULL)
+          THEN SUM({n} * __stats__.mean_value) / NULLIF(SUM({n}), 0) END)"
+    )
 }
 
 /// Sample variance (n - 1) of the valid values of the topic, merging the chunk
@@ -181,7 +186,7 @@ fn aggregate_expr(aggr: query::Aggregator, kind: StatsKind) -> Option<String> {
             max_value_expr(kind),
             min_value_expr(kind)
         )),
-        (query::Aggregator::CountSample, _) => {
+        (query::Aggregator::CountValid, _) => {
             Some(format!("SUM({})::BIGINT", valid_count_expr(kind)))
         }
         (query::Aggregator::Count, _) => Some(format!("SUM({TOTAL_COUNT})::BIGINT")),

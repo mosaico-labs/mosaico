@@ -46,7 +46,7 @@ enum Aggregator {
     AGGREGATOR_UNSPECIFIED = 0;
     AGGREGATOR_MAX = 1;
     AGGREGATOR_MIN = 2;
-    AGGREGATOR_COUNT_SAMPLE = 3; // valid samples (neither null nor nan)
+    AGGREGATOR_COUNT_VALID = 3; // valid samples (neither null nor nan)
     AGGREGATOR_RANGE = 4;
     AGGREGATOR_FIRST = 5;
     AGGREGATOR_LAST = 6;

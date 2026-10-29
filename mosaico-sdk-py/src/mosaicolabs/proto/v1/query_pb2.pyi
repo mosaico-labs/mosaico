@@ -5,7 +5,7 @@ from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
 
 AGGREGATOR_COUNT: Aggregator
-AGGREGATOR_COUNT_SAMPLE: Aggregator
+AGGREGATOR_COUNT_VALID: Aggregator
 AGGREGATOR_FIRST: Aggregator
 AGGREGATOR_LAST: Aggregator
 AGGREGATOR_MAX: Aggregator

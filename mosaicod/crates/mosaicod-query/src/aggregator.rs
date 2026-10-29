@@ -31,7 +31,7 @@ pub enum AggregatorError {
 pub enum Aggregator {
     Max,
     Min,
-    CountSample,
+    CountValid,
     Range,
     First,
     Last,
@@ -52,7 +52,7 @@ impl Aggregator {
     pub fn requires_numeric_operand(&self) -> bool {
         matches!(
             self,
-            Self::CountSample
+            Self::CountValid
                 | Self::Count
                 | Self::Range
                 | Self::Std
@@ -102,7 +102,7 @@ impl Aggregator {
                     | Op::Between(_)
                     | Op::Outside(_)
             ),
-            Self::CountSample
+            Self::CountValid
             | Self::Count
             | Self::Mean
             | Self::Rate

@@ -285,7 +285,7 @@ pub async fn topic_ids_from_aggregated_filters(
         let stats = match stats_by_field.get(&field_str) {
             Some(stats) => *stats,
             None => {
-                let stats = field_stats(exec, field).await?;
+                let stats = field_stats_kind(exec, field).await?;
                 stats_by_field.insert(field_str.clone(), stats);
                 stats
             }
@@ -329,7 +329,7 @@ pub async fn topic_ids_from_aggregated_filters(
 
 /// Returns the kind of the stats stored for `field` and whether they are computed on
 /// the elements of a list column, `None` if the field has no stats.
-async fn field_stats(
+async fn field_stats_kind(
     exec: &mut impl AsExec,
     field: &query::OntologyField,
 ) -> Result<Option<(super::StatsKind, bool)>, Error> {
