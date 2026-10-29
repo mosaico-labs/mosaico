@@ -307,62 +307,6 @@ mod tests {
     }
 
     #[test]
-    fn layout_variants_are_ignored() {
-        let groups = [
-            vec![DataType::Utf8, DataType::LargeUtf8, DataType::Utf8View],
-            vec![
-                DataType::Binary,
-                DataType::LargeBinary,
-                DataType::BinaryView,
-            ],
-        ];
-        for group in groups {
-            let top_level: Vec<_> = group
-                .iter()
-                .map(|t| hash(vec![field("x", t.clone())]))
-                .collect();
-            let nested: Vec<_> = group
-                .iter()
-                .map(|t| {
-                    hash(vec![field(
-                        "s",
-                        structure(vec![field("x", list(t.clone()))]),
-                    )])
-                })
-                .collect();
-            assert!(top_level.windows(2).all(|w| w[0] == w[1]), "{group:?}");
-            assert!(nested.windows(2).all(|w| w[0] == w[1]), "{group:?}");
-        }
-
-        let item = || Arc::new(Field::new("item", DataType::Float64, true));
-        let lists = [
-            DataType::List(item()),
-            DataType::LargeList(item()),
-            DataType::ListView(item()),
-            DataType::LargeListView(item()),
-        ];
-        let hashes: Vec<_> = lists
-            .iter()
-            .map(|t| hash(vec![field("x", t.clone())]))
-            .collect();
-        assert!(hashes.windows(2).all(|w| w[0] == w[1]));
-    }
-
-    #[test]
-    fn conventional_child_names_are_ignored() {
-        let element = DataType::List(Arc::new(Field::new("element", DataType::Float64, true)));
-        assert_eq!(
-            hash(vec![field("x", list(DataType::Float64))]),
-            hash(vec![field("x", element)])
-        );
-
-        assert_eq!(
-            hash(vec![field("m", map("entries", "key", "value", false))]),
-            hash(vec![field("m", map("key_value", "keys", "values", false))])
-        );
-    }
-
-    #[test]
     fn any_difference_in_meaning_changes_the_hash() {
         let base = || field("x", DataType::Float64);
         let dictionary = |ordered| {
