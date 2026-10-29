@@ -6,32 +6,68 @@
       {
         "ordinal": 0,
         "name": "topic_notification_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "topic_notification_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "topic_notification_uuid",
-        "type_info": "Uuid"
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "topic_notification_uuid"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "topic_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "topic_id"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "notification_type",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "notification_type"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "msg",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "msg"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "creation_unix_tstamp",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_notification_t",
+            "name": "creation_unix_tstamp"
+          }
+        }
       }
     ],
     "parameters": {

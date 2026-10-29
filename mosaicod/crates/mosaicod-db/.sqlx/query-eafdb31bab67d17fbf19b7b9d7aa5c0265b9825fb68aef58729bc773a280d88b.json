@@ -1,0 +1,185 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE topic_t\n            SET user_metadata = $1\n            WHERE locator_name = $2\n            RETURNING *\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "topic_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "topic_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "topic_uuid",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "topic_uuid"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "sequence_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "sequence_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "session_id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "session_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "locator_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "locator_name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "user_metadata",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "user_metadata"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "path_in_store",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "path_in_store"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "serialization_format",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "serialization_format"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "ontology_tag",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "ontology_tag"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "creation_unix_tstamp",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "creation_unix_tstamp"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "completion_unix_tstamp",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "completion_unix_tstamp"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "start_index_timestamp",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "start_index_timestamp"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "end_index_timestamp",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "end_index_timestamp"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "optimization_end_unix_tstamp",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "topic_t",
+            "name": "optimization_end_unix_tstamp"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "eafdb31bab67d17fbf19b7b9d7aa5c0265b9825fb68aef58729bc773a280d88b"
+}
