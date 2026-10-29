@@ -5,12 +5,12 @@ on:
     types: [opened, edited, reopened, synchronize]
 
 permissions:
-  pull-requests: read
+  pull-requests: write # required by `wip` to keep the check pending
 
 jobs:
   validate-title:
     name: "Validate PR title"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - id: lint
         uses: amannn/action-semantic-pull-request@v6
@@ -33,12 +33,15 @@ jobs:
             sdk-.+
             docs
           requireScope: false
+          # `[WIP] <title>` skips the validation and keeps the check pending, for drafts
+          wip: true
           subjectPattern: ^(?![A-Z]).+(?<!\.)$
           subjectPatternError: |
             The description "{subject}" in PR title "{title}" must start with a lowercase letter
             and must not end with a period.
 
       - name: Require scope for component changes
+        if: ${{ !startsWith(github.event.pull_request.title, '[WIP]') }}
         env:
           TYPE: ${{ steps.lint.outputs.type }}
           SCOPE: ${{ steps.lint.outputs.scope }}
