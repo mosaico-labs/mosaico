@@ -778,6 +778,7 @@ You can optimize remote server performance by overriding the `__serialization_fo
 | **Default** | `"default"` | **Standard Table**: Fixed-width data with a constant number of fields. |
 | **Ragged** | `"ragged"` | **Variable Length**: Best for lists, sequences, or point clouds. |
 | **Image** | `"image"` | **Blobs**: Raw or compressed images requiring specialized codec handling. |
+| **ImageSequence** | `"image_sequence"` | **Image Sequences**: Encoded images (PNG, TIFF) with their capture time, as in [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence]. Requires `capture_timestamp_ns` and `format` fields, which the server compresses and keeps statistics on; the image data is compressed too, which shrinks TIFFs and leaves PNGs nearly unchanged. |
 
 If not explicitly set, the system defaults to `Default` format.
 

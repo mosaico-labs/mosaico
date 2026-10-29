@@ -17,4 +17,6 @@ description: API Reference for Sensors Models
 ::: mosaicolabs.models.sensors.CompressedImage
 ::: mosaicolabs.models.sensors.StatefulDecodingSession
 ::: mosaicolabs.models.sensors.ImageFormat
+::: mosaicolabs.models.sensors.ImageSequence
+::: mosaicolabs.models.sensors.ImageSequenceFormat
 ::: mosaicolabs.models.sensors.CameraInfo
