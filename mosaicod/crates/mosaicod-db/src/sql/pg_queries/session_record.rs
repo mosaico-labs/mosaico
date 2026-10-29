@@ -53,7 +53,7 @@ pub async fn session_find_by_id(
         rowlock2str(row_locking)
     );
 
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    let res = sqlx::query_as::<_, schema::SessionRecord>(sqlx::AssertSqlSafe(query))
         .bind(id)
         .fetch_one(exe.as_exec())
         .await?;
@@ -74,7 +74,7 @@ pub async fn session_find_by_uuid(
         rowlock2str(row_locking)
     );
 
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    let res = sqlx::query_as::<_, schema::SessionRecord>(sqlx::AssertSqlSafe(query))
         .bind(uuid.as_ref())
         .fetch_one(exe.as_exec())
         .await?;

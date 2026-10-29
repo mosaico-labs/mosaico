@@ -462,7 +462,7 @@ pub async fn topic_from_query_filter(
     // the same text is built for operands of different types (e.g. `3` and `3.5`).
     // A cached statement keeps the parameter types of its first execution, so an
     // operand of another type would be silently misread (an integer decoded as a float).
-    let mut r = sqlx::query(&query).persistent(false);
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query)).persistent(false);
 
     for v in qr.values.into_iter() {
         match v {
