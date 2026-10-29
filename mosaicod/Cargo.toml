@@ -85,7 +85,7 @@ regex = { version = "1.12.4", default-features = false, features = ["perf", "uni
 # Protobuf schema codegen (mosaicod-proto)
 prost = "0.14"
 prost-build = "0.14"
-protox = "0.9"
+protox = "0.10"
 
 # Used for testing
 filetime = { version = "0.2.27", default-features = false }
