@@ -1,16 +1,26 @@
-import sys
-from typing import Optional
+from collections.abc import Iterable
+from functools import partial
+from typing import Optional, TextIO
 
 import typer
+from rich.console import Console
 from rich.table import Table
 
+from mosaicolabs_cli.output import (
+    OutputRenderer,
+    Record,
+    render_csv,
+    render_json_collection,
+    render_jsonl,
+    resolve_output,
+)
+from mosaicolabs_cli.output_format import OutputFormat
 from mosaicolabs_cli.utils.config import (
-    OutputFormat,
     console,
     error_console,
     get_config_path,
     load_config,
-    serialize_to_toml,
+    write_config,
 )
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -126,10 +136,7 @@ def add_profile(
     }
 
     try:
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}"
@@ -186,8 +193,7 @@ def remove_profile(
             auto_promoted_profile = first_remaining_name
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
@@ -206,10 +212,52 @@ def remove_profile(
         raise typer.Exit(code=1)
 
 
+def _render_table(records: Iterable[Record], stream: TextIO) -> None:
+    table = Table(
+        title="Mosaico Connection Profiles",
+        title_style="bold magenta",
+        header_style="bold cyan",
+        box=None,
+        padding=(0, 2),
+    )
+
+    table.add_column("Profile Name", style="bold white", width=15)
+    table.add_column("Host", style="green", width=35)
+    table.add_column("Port", style="green", width=10)
+    table.add_column("Default", justify="center", width=10)
+
+    for record in records:
+        default_marker = "[bold green]✓[/bold green]" if record["default"] else ""
+        table.add_row(
+            record["name"], record["host"], str(record["port"]), default_marker
+        )
+    console = Console(file=stream)
+    if table.row_count:
+        console.print(table)
+    else:
+        console.print(
+            "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
+        )
+
+
+_renderer = OutputRenderer[Iterable[Record]](
+    {
+        OutputFormat.TABLE: _render_table,
+        OutputFormat.CSV: partial(
+            render_csv, fields=("name", "host", "port", "default")
+        ),
+        OutputFormat.JSON: partial(render_json_collection, collection="profiles"),
+        OutputFormat.JSONL: render_jsonl,
+    }
+)
+
+
 @app.command(name="ls")
 def list_profiles(
     output: Optional[OutputFormat] = typer.Option(
-        None, "--output", help="Force output format. If omitted, default to table."
+        None,
+        "--output",
+        help="Force output format. Defaults to table on a terminal, CSV when piped.",
     ),
 ):
     """
@@ -218,52 +266,14 @@ def list_profiles(
     config_path = get_config_path()
     config_data = load_config(config_path)
 
-    if not config_data:
-        console.print(
-            "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
-        )
-        return
-
-    if not output:
-        output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
-
-    if output == OutputFormat.TABLE:
-        table = Table(
-            title="Mosaico Connection Profiles",
-            title_style="bold magenta",
-            header_style="bold cyan",
-            box=None,
-            padding=(0, 2),
-        )
-
-        table.add_column("Profile Name", style="bold white", width=15)
-        table.add_column("Host", style="green", width=35)
-        table.add_column("Port", style="green", width=10)
-        table.add_column("Default", justify="center", width=10)
-
-        for name, content in config_data.items():
-            if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(
-                    content, name=name, is_default=content.get("default", False)
-                )
-                default_marker = "[bold green]✓[/bold green]" if p.is_default else ""
-                table.add_row(p.name, p.host, str(p.port), default_marker)
-
-        console.print(table)
-
-    elif output == OutputFormat.CSV:
-        for name, content in config_data.items():
-            if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(
-                    content, name=name, is_default=content.get("default", False)
-                )
-                console.print(p.to_csv())
-
-    else:
-        error_console.print(
-            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'. Use 'table' or 'csv'."
-        )
-        raise typer.Exit(code=1)
+    records = (
+        MosaicoProfile.from_dict(
+            content, name=name, is_default=content.get("default", False)
+        ).to_public_dict()
+        for name, content in config_data.items()
+        if isinstance(content, dict)
+    )
+    _renderer.render(records, resolve_output(output))
 
 
 @app.command(name="default")
@@ -299,8 +309,7 @@ def set_default_profile(
                 profile_content["default"] = False
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
         console.print(
             f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
         )
