@@ -11,7 +11,10 @@ The row groups are decoded a batch at a time, not as a whole as the `pyarrow` da
 does: this bounds the memory used, and a row group of high-resolution images can hold more than
 the 2 GiB `pyarrow` can decode at once within a nested column (the image struct).
 
-The timeseries (every data column except `timestamp` and the images) are rearranged into a single
+The position of the frames (`index`, `frame_index` and `episode_index`) is not read: it is
+rebuilt when the episodes are exported (see `LeRobotFeature.is_timeserie`).
+
+The timeseries (every other data column except `timestamp` and the images) are rearranged into a single
 struct, without copying them: the Mosaico server rejects field names containing `.`, so dotted
 column names are nested (`observation.state` becomes the field `state` of the struct `observation`).
 
@@ -262,24 +265,25 @@ class LeRobotReader:
         self._image_column_names: List[str] = [
             feature.key
             for feature in meta.features
-            if feature.is_image
+            if feature.is_image()
             and (column_names is None or feature.key in column_names)
         ]
         # The order of the columns is the order of the timeseries struct fields
         self._timeseries_column_names: List[str] = [
             feature.key
             for feature in meta.features
-            if feature.is_timeserie
+            if feature.is_timeserie()
             and (column_names is None or feature.key in column_names)
         ]
 
-        # `task_index` is pushed as the `task` it refers to (see `_task_indexes_to_tasks`)
+        # TODO: this can probably be simplified using just passing
+        # the meta.features that are timeseries
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
-            [
-                (_TASK_FIELD if name == _TASK_INDEX_COLUMN else schema.field(name))
-                for name in self._timeseries_column_names
-            ]
+            [schema.field(name) for name in self._timeseries_column_names]
         )
+
+        # Adding `task` field to timeseries schema
+        self._timeseries_schema = self._timeseries_schema.append(_TASK_FIELD)
 
     def _iter_episode_batches(
         self,
@@ -396,7 +400,8 @@ class LeRobotReader:
     @property
     def timeseries_struct(self) -> pa.StructType:
         """
-        The struct of the timeseries: every data column except `timestamp` and the images, with
+        The struct of the timeseries: every data column except `timestamp`, the images and the
+        position of the frames (see `LeRobotFeature.is_timeserie`), with
         dotted names nested. It is the ontology schema of the timeseries topic (e.g. for
         `make_unmodeled_ontology_class`).
         """
