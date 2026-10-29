@@ -4298,10 +4298,14 @@ async fn test_ontology_aggregator_mean_multiple_chunks(pool: sqlx::Pool<db::Data
         .unwrap();
 
     // the chunk means are weighted by their valid values
-    let res =
-        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(3.25))
-            .await
-            .unwrap();
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Mean,
+        filter::eq(3.25),
+    )
+    .await
+    .unwrap();
     assert_eq!(res, vec![format!("{seq}/topic_a")]);
 
     let res =
