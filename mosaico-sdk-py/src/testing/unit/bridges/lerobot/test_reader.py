@@ -33,6 +33,7 @@ from .config import (
     image_value,
     state_value,
     timestamp_ns_value,
+    timestamp_value,
 )
 
 MAX_BATCH_SIZE_BYTES = 64 * 1024 * 1024
@@ -337,6 +338,17 @@ def test_iter_episode_batches_reads_every_column_by_default(reader):
     batches = list(reader._iter_episode_batches(2))
 
     assert batches[0].schema.names == DATA_SCHEMA.names
+
+
+@pytest.mark.parametrize("episode_index", range(len(EPISODE_LENGTHS)))
+def test_read_episode_timestamps_reads_the_whole_episode(reader, episode_index):
+    timestamp = reader.read_episode_timestamps(episode_index)
+
+    assert timestamp.type == pa.float64()
+    assert timestamp.to_pylist() == [
+        timestamp_value(frame_index)
+        for frame_index in range(len(episode_frames(episode_index)))
+    ]
 
 
 def test_fit_batch_keeps_a_batch_within_max_size_whole(reader, int64_batch):

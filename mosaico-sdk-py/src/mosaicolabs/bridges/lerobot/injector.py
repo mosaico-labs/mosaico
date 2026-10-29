@@ -29,7 +29,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from rich.live import Live
 
@@ -54,6 +54,7 @@ from .lerobot_message import LeRobotMessage
 from .loader import LeRobotEpisodeLoader, LeRobotLoader
 from .metadata import LeRobotSchemaMetadata
 from .ui_lerobot import LeRobotProgressManager
+from .validation import validate_episode
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -234,6 +235,25 @@ class LeRobotInjector:
             f"episodes {failed_episodes}"
         )
 
+    def _validate_episodes(self, lerobot_loader: LeRobotLoader) -> Set[int]:
+        """
+        Checks every episode before any upload (see `validate_episode`) and logs the problems
+        found. An episode with any problem is skipped.
+
+        Returns:
+            Set[int]: The indexes of the episodes with at least one problem.
+        """
+        invalid_episodes: Set[int] = set()
+
+        for episode_loader in lerobot_loader:
+            episode_index = episode_loader.episode_index
+            issues = validate_episode(episode_loader._reader, episode_index)
+            if issues:
+                logger.warning(f"Episode {episode_index} skipped: {'; '.join(issues)}")
+                invalid_episodes.add(episode_index)
+
+        return invalid_episodes
+
     def _dry_run_report(self):
         """
         Resolves the dataset columns against the current configuration and prints a report of
@@ -241,7 +261,8 @@ class LeRobotInjector:
 
         Reports, per column: acceptance status (or rejection reason), the Mosaico topic it would
         be pushed to, and its message count over every episode. Also reports the sequences the
-        episodes would be ingested as.
+        episodes would be ingested as, and the episodes that would be skipped (see
+        `_validate_episodes`).
         """
         from rich.table import Table
 
@@ -284,6 +305,8 @@ class LeRobotInjector:
 
         self._console.print(table)
 
+        invalid_episodes = self._validate_episodes(lerobot_loader)
+
         if sequence_names:
             self._console.print(
                 f"Episodes would be ingested as the sequences '{sequence_names[0]}' "
@@ -298,6 +321,7 @@ class LeRobotInjector:
             f"[bold]{len(lerobot_loader.topics)}[/bold] column(s) would be ingested in "
             f"[bold]{len(msco_topics)}[/bold] topic(s) per sequence, "
             f"[bold]{len(lerobot_loader.rejected_topics)}[/bold] rejected. "
+            f"[bold]{len(invalid_episodes)}[/bold] episode(s) would be skipped. "
             "No connection to the Mosaico server was made."
         )
 
@@ -457,8 +481,9 @@ class LeRobotInjector:
         Main execution entry point for the injection pipeline.
 
         Connects to the Mosaico server, opens the dataset and uploads every episode as its own
-        sequence (see `_upload_episode`), with a single progress UI for the whole dataset. A
-        failed episode does not stop the ingestion: each one is logged with its error, then a
+        sequence (see `_upload_episode`), with a single progress UI for the whole dataset. Every
+        episode is checked first (see `_validate_episodes`): one with a problem is skipped and
+        counted as failed, without creating its sequence. A failed episode does not stop the ingestion: each one is logged with its error, then a
         summary is logged once every episode is processed (see `_report_failed_episodes`).
 
         If `dry_run` is set, delegates to `_dry_run_report()` and returns without connecting to
@@ -497,6 +522,9 @@ class LeRobotInjector:
 
                 lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
 
+                # Every episode is checked before the first upload
+                invalid_episodes = self._validate_episodes(lerobot_loader)
+
                 # Setup Progress UI: a single UI for every episode of the dataset
                 ui = LeRobotProgressManager(lerobot_loader, lerobot_loader.n_episodes)
                 ui.setup()
@@ -507,8 +535,16 @@ class LeRobotInjector:
                 with Live(ui.progress, console=self._console):
                     # Each episode is ingested as its own sequence
                     for episode_loader in lerobot_loader:
-                        if not self._upload_episode(mclient, episode_loader, ui):
-                            failed_episodes.append(episode_loader.episode_index)
+                        if episode_loader.episode_index in invalid_episodes:
+                            # Counted as failed, for the progress bars to account for it
+                            ui.start_episode(
+                                episode_loader.episode_index, episode_loader.n_rows
+                            )
+                            ui.finish_episode(succeeded=False)
+                        elif self._upload_episode(mclient, episode_loader, ui):
+                            continue
+
+                        failed_episodes.append(episode_loader.episode_index)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
