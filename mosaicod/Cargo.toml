@@ -76,6 +76,7 @@ url = { version = "2.5.8", default-features = false }
 uuid = { version = "1.23.2", default-features = false, features = ["v4"] }
 ulid = { version = "3.0.0", default-features = false, features = ["std"] }
 crc32fast = { version = "1.5.0", default-features = false }
+sha2 = { version = "0.10.9", default-features = false }
 iso8601 = { version = "0.6.3", default-features = false }
 semver = { version = "1.0.28", default-features = false }
 tracing = { version = "0.1.44", default-features = false }
