@@ -458,7 +458,7 @@ pub async fn topic_from_query_filter(
     trace!("query values: {:?}", qr.values);
     trace!("generated SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query));
 
     for v in qr.values.into_iter() {
         match v {
