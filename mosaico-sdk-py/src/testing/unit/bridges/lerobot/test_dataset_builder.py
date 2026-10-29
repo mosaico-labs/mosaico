@@ -1,5 +1,7 @@
 from dataclasses import replace
 
+import pytest
+
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.metadata.dataset_builder import LeRobotDatasetBuilder
 
@@ -31,24 +33,26 @@ def test_builder_renumbers_the_episodes(lerobot_dataset):
     assert builder.info.splits == {"train": "0:2"}
 
 
-def test_builder_drops_an_incompatible_episode(lerobot_dataset):
+def test_builder_rejects_an_incompatible_episode(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     builder = LeRobotDatasetBuilder()
     builder.add_episode("a", meta.info, meta.episodes_map[0])
 
     other_robot = replace(meta.info, robot_type="other_robot")
 
-    assert builder.add_episode("b", other_robot, meta.episodes_map[1]) is None
+    with pytest.raises(ValueError, match="robot type"):
+        builder.add_episode("b", other_robot, meta.episodes_map[1])
     assert len(builder.episodes) == 1
     assert builder.episode_index_by_sequence == {"a": 0}
 
 
-def test_builder_drops_a_sequence_added_twice(lerobot_dataset):
+def test_builder_rejects_a_sequence_added_twice(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     builder = LeRobotDatasetBuilder()
     builder.add_episode("a", meta.info, meta.episodes_map[0])
 
-    assert builder.add_episode("a", meta.info, meta.episodes_map[1]) is None
+    with pytest.raises(ValueError, match="already been added"):
+        builder.add_episode("a", meta.info, meta.episodes_map[1])
     assert len(builder.episodes) == 1
     assert builder.episode_index_by_sequence == {"a": 0}
 

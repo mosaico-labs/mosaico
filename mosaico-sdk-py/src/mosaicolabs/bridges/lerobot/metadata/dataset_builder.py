@@ -21,7 +21,7 @@ class LeRobotDatasetBuilder:
     `add_episode`).
 
     The first episode sets the reference `info`: every next episode must be compatible with it
-    (see `LeRobotInfo.is_compatible`), or it is dropped with a warning. Each accepted episode is
+    (see `LeRobotInfo.check_compatible`), or `add_episode` raises. Each accepted episode is
     renumbered after the previous ones, and `info` is kept consistent with them (totals and
     `splits`). The new index of each episode is kept by the name of its sequence
     (`episode_index_by_sequence`). The dataset is written as a single data file and a single
@@ -79,32 +79,27 @@ class LeRobotDatasetBuilder:
 
     def add_episode(
         self, sequence_name: str, info: LeRobotInfo, episode: LeRobotEpisode
-    ) -> Optional[LeRobotEpisode]:
+    ) -> None:
         """
-        Adds the episode of a sequence to the dataset, after the previous ones.
+        Adds the episode of a sequence to the dataset, after the previous ones, renumbered.
 
-        The episode is dropped, with a warning, if its sequence was already added, or if its
-        `info` is not compatible with the one of the first episode (see
-        `LeRobotInfo.is_compatible`). The video features are dropped before the comparison.
+        The video features are dropped from `info` before comparing it with the one of the
+        first episode (see `LeRobotInfo.check_compatible`).
 
         Args:
             sequence_name (str): The name of the sequence holding the episode.
             info (LeRobotInfo): The `info` of the source dataset of the episode.
             episode (LeRobotEpisode): The episode, as in its source dataset.
 
-        Returns:
-            Optional[LeRobotEpisode]: The episode, renumbered in the dataset, or `None` if it
-                was dropped.
+        Raises:
+            ValueError: If the sequence was already added, or its `info` is not compatible with
+                the one of the first episode. The dataset is left unchanged.
         """
         if sequence_name in self._episode_index_by_sequence:
-            logger.warning(
-                f"Episode of sequence '{sequence_name}' dropped: the sequence has already "
-                "been added."
-            )
-            return None
+            raise ValueError(f"Sequence '{sequence_name}' has already been added.")
 
-        video_features = [f.key for f in info.features if f.is_video]
-        info = replace(info, features=[f for f in info.features if not f.is_video])
+        video_features = [f.key for f in info.features if f.is_video()]
+        info = replace(info, features=[f for f in info.features if not f.is_video()])
 
         if self._info is None:
             if video_features:
@@ -114,11 +109,7 @@ class LeRobotDatasetBuilder:
                 )
             self._info = info
         else:
-            try:
-                self._info.check_compatible(info)
-            except ValueError as e:
-                logger.warning(f"Episode of sequence '{sequence_name}' dropped: {e}")
-                return None
+            self._info.check_compatible(info)
 
         start = self._episodes[-1].dataset_to_index if self._episodes else 0
         episode = replace(
@@ -135,4 +126,3 @@ class LeRobotDatasetBuilder:
 
         self._episodes.append(episode)
         self._episode_index_by_sequence[sequence_name] = episode.episode_index
-        return episode

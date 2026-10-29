@@ -24,8 +24,9 @@ from .config import (
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     EPISODES_PATH,
-    INDEX_COLUMN_NAMES,
+    POSITION_COLUMN_NAMES,
     STATE_COLUMN_NAME,
+    TASK_INDEX_COLUMN_NAME,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
     action_value,
@@ -286,7 +287,7 @@ def test_reader_timeseries_struct_nests_the_dotted_columns(reader):
         [
             pa.field("action", VECTOR_TYPE),
             pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
-            *[pa.field(name, pa.int64()) for name in INDEX_COLUMN_NAMES],
+            pa.field(TASK_INDEX_COLUMN_NAME, pa.int64()),
         ]
     )
 
@@ -375,10 +376,9 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
     assert batch.column("observation").to_pylist() == [
         {"state": state_value(i)} for i in frames
     ]
-    assert batch.column("frame_index").to_pylist() == list(range(length))
-    assert batch.column("episode_index").to_pylist() == [episode_index] * length
-    assert batch.column("index").to_pylist() == list(frames)
     assert batch.column("task_index").to_pylist() == [0] * length
+    # The position of the frames is not ingested: it is rebuilt on export
+    assert not set(POSITION_COLUMN_NAMES) & set(batch.schema.names)
 
 
 def test_timeseries_batches_are_messages_of_the_timeseries_topic(reader):

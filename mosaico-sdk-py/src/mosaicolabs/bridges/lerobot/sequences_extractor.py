@@ -1,16 +1,16 @@
 """
 LeRobot Dataset Extraction Tool.
 
-`LeRobotSequenceExtractor` exports the Mosaico sequences ingested by the LeRobot bridge (one per
-episode, see `LeRobotInjector`) back to a LeRobot v3.0 dataset folder.
+`LeRobotSequencesExtractor` exports the Mosaico sequences ingested by the LeRobot bridge (one
+per episode, see `LeRobotInjector`) back to a LeRobot v3.0 dataset folder.
 
-This first version writes the `meta/` folder only: the episodes are read from the `_lerobot_`
-metadata of the sequences (see `LeRobotSchemaMetadata`), merged by a `LeRobotDatasetBuilder`,
-and written by `LeRobotDatasetMeta.dump`. The data files and `meta/stats.json` are not written
-yet.
+The episodes are read from the `_lerobot_` metadata of the sequences and merged by a
+`MosaicoToLeRobotLoader`. Their data is then streamed from the sequences and written to the data
+files by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`. The videos and
+`meta/stats.json` are not written yet.
 
 Typical usage as a script:
-    $ python -m mosaicolabs.bridges.lerobot.sequence_extractor \\
+    $ python -m mosaicolabs.bridges.lerobot.sequences_extractor \\
         pusht_episode_000000 pusht_episode_000001 --lerobot_path ./exports/pusht
 
 Typical usage as a library:
@@ -18,7 +18,7 @@ Typical usage as a library:
         saving_path=Path("exports/pusht"),
         sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
     )
-    meta = LeRobotSequenceExtractor(config).run()
+    meta = LeRobotSequencesExtractor(config).run()
 """
 
 import argparse
@@ -26,41 +26,17 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import List, Optional
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .metadata import LeRobotDatasetMeta, LeRobotEpisode, LeRobotInfo
-from .metadata.dataset_builder import LeRobotDatasetBuilder
-from .schema_metadata import LeRobotSchemaMetadata
-
-if TYPE_CHECKING:
-    from mosaicolabs.handlers import SequenceHandler
+from .metadata import LeRobotDatasetMeta
+from .mosaico_loader import MosaicoToLeRobotLoader
+from .writer import LeRobotWriter
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
-
-
-def _unpack_sequence(sequence: "SequenceHandler") -> Tuple[LeRobotInfo, LeRobotEpisode]:
-    """
-    Reads the `_lerobot_` metadata of a sequence (see `LeRobotSchemaMetadata.restore`): its
-    `info` and its episode, as in their source dataset.
-
-    Raises:
-        ValueError: If the `_lerobot_` metadata is missing or malformed.
-    """
-    try:
-        block = LeRobotSchemaMetadata.restore(sequence.user_metadata)
-        info = LeRobotInfo.from_dict(block["info"])
-        episode = LeRobotEpisode.from_dict(block["episode"])
-    except (AttributeError, KeyError, TypeError, ValueError) as e:
-        raise ValueError(
-            f"Sequence '{sequence.name}' has missing or malformed "
-            f"'{LeRobotSchemaMetadata.KEY}' metadata: {e!r}"
-        ) from e
-
-    return info, episode
 
 
 # --- Configuration ---
@@ -115,28 +91,28 @@ class LeRobotExtractorConfig:
 # --- Main Extractor Class ---
 
 
-class LeRobotSequenceExtractor:
+class LeRobotSequencesExtractor:
     """
     Exports Mosaico sequences ingested by the LeRobot bridge to a LeRobot v3.0 dataset folder.
 
-    Each sequence is an episode: its `info` and episode are read from its `_lerobot_` metadata
-    and merged with the previous ones by a `LeRobotDatasetBuilder`. A sequence that does not
-    exist, has no valid `_lerobot_` metadata or cannot be merged is dropped with a warning. Only
-    the `meta/` folder is written for now (see `LeRobotDatasetMeta.dump`).
+    Each sequence is an episode, read from its `_lerobot_` metadata and merged with the previous
+    ones by a `MosaicoToLeRobotLoader`: a sequence that does not exist, has no valid `_lerobot_`
+    metadata or cannot be merged is dropped with a warning. The data of the episodes is written
+    by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`.
 
     Example:
         ```python
         from pathlib import Path
-        from mosaicolabs.bridges.lerobot.sequence_extractor import (
+        from mosaicolabs.bridges.lerobot.sequences_extractor import (
             LeRobotExtractorConfig,
-            LeRobotSequenceExtractor,
+            LeRobotSequencesExtractor,
         )
 
         config = LeRobotExtractorConfig(
             saving_path=Path("exports/pusht"),
             sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
         )
-        meta = LeRobotSequenceExtractor(config).run()
+        meta = LeRobotSequencesExtractor(config).run()
         ```
     """
 
@@ -157,17 +133,17 @@ class LeRobotSequenceExtractor:
     def run(self) -> LeRobotDatasetMeta:
         """
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
-        and writes its `meta/` folder under `saving_path`.
+        and writes the dataset under `saving_path` (see `_write_dataset`).
 
-        An existing `saving_path` is checked before connecting, and replaced only once the
-        metadata is built, so that a failed extraction leaves it untouched.
+        An existing `saving_path` is checked before connecting: a failed resolution of the sequences leaves it untouched.
 
         Returns:
             LeRobotDatasetMeta: The metadata written under `saving_path`.
 
         Raises:
             FileExistsError: If `saving_path` exists and `overwrite` is False.
-            ValueError: If no sequence can be exported.
+            ValueError: If no sequence can be exported, or an episode cannot be written (see
+                `LeRobotWriter.write_episode`).
         """
         saving_path = self._cfg.saving_path
         if saving_path.exists() and not self._cfg.overwrite:
@@ -184,65 +160,58 @@ class LeRobotSequenceExtractor:
             enable_tls=self._cfg.enable_tls,
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
-            meta = self._build_metadata(mclient)
+            with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
+                meta = LeRobotDatasetMeta.from_data(
+                    saving_path, loader.info, loader.episodes
+                )
 
-        if saving_path.exists():
-            shutil.rmtree(saving_path)
-        meta.dump()
+                if saving_path.exists():
+                    shutil.rmtree(saving_path)
+                try:
+                    self._write_dataset(loader, meta)
+                except Exception:
+                    # Interruptions included: the files written so far are left as they are
+                    logger.error(
+                        f"The LeRobot dataset in '{saving_path}' is incomplete: the "
+                        "extraction stopped before writing all of it."
+                    )
+                    raise
 
         logger.info(
-            f"LeRobot metadata of {meta.n_episodes} episode(s) written to '{saving_path}'."
+            f"LeRobot dataset of {meta.n_episodes} episode(s) written to '{saving_path}'."
         )
         return meta
 
-    def _build_metadata(self, mclient: MosaicoClient) -> LeRobotDatasetMeta:
+    @staticmethod
+    def _write_dataset(
+        loader: MosaicoToLeRobotLoader, meta: LeRobotDatasetMeta
+    ) -> None:
         """
-        Builds the metadata of the dataset from the `_lerobot_` metadata of the sequences, in
-        the order of `sequence_names`.
-
-        Args:
-            mclient (MosaicoClient): The connected Mosaico client.
-
-        Returns:
-            LeRobotDatasetMeta: The metadata of the dataset, rooted at `saving_path`, with no
-                `stats`.
+        Writes the dataset under the `root` of `meta`: the data of the episodes, streamed from
+        their sequences (see `LeRobotWriter`), then the `meta/` folder (see
+        `LeRobotDatasetMeta.dump`).
 
         Raises:
-            ValueError: If no sequence can be exported.
+            ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
         """
-        builder = LeRobotDatasetBuilder()
-        for sequence_name in self._cfg.sequence_names:
-            sequence = mclient.sequence_handler(sequence_name)
-            if sequence is None:
-                logger.warning(
-                    f"Episode of sequence '{sequence_name}' dropped: the sequence does "
-                    "not exist."
+        with LeRobotWriter(meta) as writer:
+            for streamer in loader:
+                logger.info(
+                    f"Writing episode {streamer.episode_metadata.episode_index} (sequence "
+                    f"'{streamer.sequence_name}')..."
                 )
-                continue
+                writer.write_episode(streamer)
 
-            try:
-                info, episode = _unpack_sequence(sequence)
-            except ValueError as e:
-                logger.warning(f"Episode of sequence '{sequence_name}' dropped: {e}")
-                continue
-
-            builder.add_episode(sequence_name, info, episode)
-
-        if builder.info is None:
-            raise ValueError("No episode to export.")
-
-        return LeRobotDatasetMeta.from_data(
-            self._cfg.saving_path, builder.info, builder.episodes
-        )
+        meta.dump()
 
 
 # --- CLI Entry Point ---
 
 
-def lerobot_sequence_extractor(argv: Optional[List[str]] = None):
+def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
     """
     Command-line entry point.
-    Parses arguments, sets up configuration, and initiates the sequence extractor.
+    Parses arguments, sets up configuration, and initiates the sequences extractor.
 
     Args:
         argv (Optional[List[str]]): The command-line arguments (`sys.argv[1:]` if `None`).
@@ -250,7 +219,7 @@ def lerobot_sequence_extractor(argv: Optional[List[str]] = None):
     parser = argparse.ArgumentParser(
         description=(
             "Extracts sequences ingested by the LeRobot bridge from Mosaico into a LeRobot "
-            "v3.0 dataset (the `meta/` folder only, for now)"
+            "v3.0 dataset"
         )
     )
 
@@ -317,7 +286,7 @@ def lerobot_sequence_extractor(argv: Optional[List[str]] = None):
     )
 
     # --- Execution ---
-    extractor = LeRobotSequenceExtractor(config)
+    extractor = LeRobotSequencesExtractor(config)
     try:
         extractor.run()
     except KeyboardInterrupt:
@@ -329,4 +298,4 @@ def lerobot_sequence_extractor(argv: Optional[List[str]] = None):
 
 
 if __name__ == "__main__":
-    lerobot_sequence_extractor()
+    lerobot_sequences_extractor()
