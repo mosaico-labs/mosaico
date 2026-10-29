@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 const DOMAIN: &str = "mosaico.schema.v1";
+const STRUCT: u8 = 25;
 
 /// SHA-256 of a schema's canonical encoding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -13,13 +14,7 @@ pub struct SchemaHash([u8; 32]);
 
 impl SchemaHash {
     pub fn new(schema: &Schema) -> Self {
-        let Schema { fields, metadata } = schema;
-
-        let mut encoder = Encoder::default();
-        encoder.str(DOMAIN);
-        encoder.metadata(metadata);
-        encoder.fields(fields);
-        Self(encoder.hasher.finalize().into())
+        Self(Sha256::digest(encode(schema)).into())
     }
 
     pub fn as_bytes(&self) -> &[u8; 32] {
@@ -33,22 +28,32 @@ impl fmt::Display for SchemaHash {
     }
 }
 
+fn encode(schema: &Schema) -> Vec<u8> {
+    let Schema { fields, metadata } = schema;
+
+    let mut encoder = Encoder::default();
+    encoder.str(DOMAIN);
+    encoder.metadata(metadata);
+    encoder.fields(fields);
+    encoder.bytes
+}
+
 #[derive(Default)]
 struct Encoder {
-    hasher: Sha256,
+    bytes: Vec<u8>,
 }
 
 impl Encoder {
     fn u8(&mut self, value: u8) {
-        self.hasher.update([value]);
+        self.bytes.push(value);
     }
 
     fn i8(&mut self, value: i8) {
-        self.hasher.update(value.to_le_bytes());
+        self.bytes.extend(value.to_le_bytes());
     }
 
     fn i32(&mut self, value: i32) {
-        self.hasher.update(value.to_le_bytes());
+        self.bytes.extend(value.to_le_bytes());
     }
 
     fn bool(&mut self, value: bool) {
@@ -56,12 +61,12 @@ impl Encoder {
     }
 
     fn count(&mut self, count: usize) {
-        self.hasher.update((count as u64).to_le_bytes());
+        self.bytes.extend((count as u64).to_le_bytes());
     }
 
     fn str(&mut self, value: &str) {
         self.count(value.len());
-        self.hasher.update(value.as_bytes());
+        self.bytes.extend(value.as_bytes());
     }
 
     fn option<T>(&mut self, value: Option<T>, encode: impl FnOnce(&mut Self, T)) {
@@ -117,121 +122,104 @@ impl Encoder {
             return self.unnamed_field(entries);
         };
         self.field_properties(entries);
-        self.u8(data_type_tag(entries.data_type()));
+        self.u8(STRUCT);
         self.count(children.len());
         for child in children {
             self.unnamed_field(child);
         }
     }
 
+    fn decimal(&mut self, tag: u8, precision: u8, scale: i8) {
+        self.u8(tag);
+        self.u8(precision);
+        self.i8(scale);
+    }
+
     fn data_type(&mut self, data_type: &DataType) {
-        self.u8(data_type_tag(data_type));
         match data_type {
-            DataType::Null
-            | DataType::Boolean
-            | DataType::Int8
-            | DataType::Int16
-            | DataType::Int32
-            | DataType::Int64
-            | DataType::UInt8
-            | DataType::UInt16
-            | DataType::UInt32
-            | DataType::UInt64
-            | DataType::Float16
-            | DataType::Float32
-            | DataType::Float64
-            | DataType::Date32
-            | DataType::Date64
-            | DataType::Binary
-            | DataType::LargeBinary
-            | DataType::BinaryView
-            | DataType::Utf8
-            | DataType::LargeUtf8
-            | DataType::Utf8View => {}
+            DataType::Null => self.u8(0),
+            DataType::Boolean => self.u8(1),
+            DataType::Int8 => self.u8(2),
+            DataType::Int16 => self.u8(3),
+            DataType::Int32 => self.u8(4),
+            DataType::Int64 => self.u8(5),
+            DataType::UInt8 => self.u8(6),
+            DataType::UInt16 => self.u8(7),
+            DataType::UInt32 => self.u8(8),
+            DataType::UInt64 => self.u8(9),
+            DataType::Float16 => self.u8(10),
+            DataType::Float32 => self.u8(11),
+            DataType::Float64 => self.u8(12),
             DataType::Timestamp(unit, tz) => {
+                self.u8(13);
                 self.u8(time_unit_tag(unit));
                 self.option(tz.as_deref(), Self::str);
             }
-            DataType::Time32(unit) | DataType::Time64(unit) | DataType::Duration(unit) => {
+            DataType::Date32 => self.u8(14),
+            DataType::Date64 => self.u8(15),
+            DataType::Time32(unit) => {
+                self.u8(16);
                 self.u8(time_unit_tag(unit));
             }
-            DataType::Interval(unit) => self.u8(interval_unit_tag(unit)),
-            DataType::FixedSizeBinary(size) => self.i32(*size),
+            DataType::Time64(unit) => {
+                self.u8(17);
+                self.u8(time_unit_tag(unit));
+            }
+            DataType::Duration(unit) => {
+                self.u8(18);
+                self.u8(time_unit_tag(unit));
+            }
+            DataType::Interval(unit) => {
+                self.u8(19);
+                self.u8(interval_unit_tag(unit));
+            }
+            DataType::Binary | DataType::LargeBinary | DataType::BinaryView => self.u8(20),
+            DataType::FixedSizeBinary(size) => {
+                self.u8(21);
+                self.i32(*size);
+            }
+            DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => self.u8(22),
             DataType::List(child)
             | DataType::ListView(child)
             | DataType::LargeList(child)
-            | DataType::LargeListView(child) => self.unnamed_field(child),
+            | DataType::LargeListView(child) => {
+                self.u8(23);
+                self.unnamed_field(child);
+            }
             DataType::FixedSizeList(child, size) => {
+                self.u8(24);
                 self.unnamed_field(child);
                 self.i32(*size);
             }
-            DataType::Struct(fields) => self.fields(fields),
+            DataType::Struct(fields) => {
+                self.u8(STRUCT);
+                self.fields(fields);
+            }
             DataType::Union(fields, mode) => {
+                self.u8(26);
                 self.union_fields(fields);
                 self.u8(union_mode_tag(mode));
             }
             DataType::Dictionary(key, value) => {
+                self.u8(27);
                 self.data_type(key);
                 self.data_type(value);
             }
-            DataType::Decimal32(precision, scale)
-            | DataType::Decimal64(precision, scale)
-            | DataType::Decimal128(precision, scale)
-            | DataType::Decimal256(precision, scale) => {
-                self.u8(*precision);
-                self.i8(*scale);
-            }
+            DataType::Decimal32(precision, scale) => self.decimal(28, *precision, *scale),
+            DataType::Decimal64(precision, scale) => self.decimal(29, *precision, *scale),
+            DataType::Decimal128(precision, scale) => self.decimal(30, *precision, *scale),
+            DataType::Decimal256(precision, scale) => self.decimal(31, *precision, *scale),
             DataType::Map(entries, keys_sorted) => {
+                self.u8(32);
                 self.map_entries(entries);
                 self.bool(*keys_sorted);
             }
             DataType::RunEndEncoded(run_ends, values) => {
+                self.u8(33);
                 self.unnamed_field(run_ends);
                 self.unnamed_field(values);
             }
         }
-    }
-}
-
-fn data_type_tag(data_type: &DataType) -> u8 {
-    match data_type {
-        DataType::Null => 0,
-        DataType::Boolean => 1,
-        DataType::Int8 => 2,
-        DataType::Int16 => 3,
-        DataType::Int32 => 4,
-        DataType::Int64 => 5,
-        DataType::UInt8 => 6,
-        DataType::UInt16 => 7,
-        DataType::UInt32 => 8,
-        DataType::UInt64 => 9,
-        DataType::Float16 => 10,
-        DataType::Float32 => 11,
-        DataType::Float64 => 12,
-        DataType::Timestamp(..) => 13,
-        DataType::Date32 => 14,
-        DataType::Date64 => 15,
-        DataType::Time32(_) => 16,
-        DataType::Time64(_) => 17,
-        DataType::Duration(_) => 18,
-        DataType::Interval(_) => 19,
-        DataType::Binary | DataType::LargeBinary | DataType::BinaryView => 20,
-        DataType::FixedSizeBinary(_) => 21,
-        DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => 22,
-        DataType::List(_)
-        | DataType::ListView(_)
-        | DataType::LargeList(_)
-        | DataType::LargeListView(_) => 23,
-        DataType::FixedSizeList(..) => 24,
-        DataType::Struct(_) => 25,
-        DataType::Union(..) => 26,
-        DataType::Dictionary(..) => 27,
-        DataType::Decimal32(..) => 28,
-        DataType::Decimal64(..) => 29,
-        DataType::Decimal128(..) => 30,
-        DataType::Decimal256(..) => 31,
-        DataType::Map(..) => 32,
-        DataType::RunEndEncoded(..) => 33,
     }
 }
 
@@ -593,86 +581,138 @@ mod tests {
         );
     }
 
+    fn type_bytes(data_type: &DataType) -> Vec<u8> {
+        let mut encoder = Encoder::default();
+        encoder.data_type(data_type);
+        encoder.bytes
+    }
+
+    fn count(n: u64) -> Vec<u8> {
+        n.to_le_bytes().to_vec()
+    }
+
+    /// A field without metadata whose type is a single tag byte.
+    fn simple_field(name: Option<&str>, nullable: bool, tag: u8) -> Vec<u8> {
+        let name = name
+            .map(|name| [count(name.len() as u64), name.as_bytes().to_vec()].concat())
+            .unwrap_or_default();
+        [name, vec![u8::from(nullable), 0], count(0), vec![tag]].concat()
+    }
+
     #[test]
-    fn tags() {
+    fn type_encoding() {
         let item = || Arc::new(Field::new("item", DataType::Int32, true));
-        let data_types: Vec<(DataType, u8)> = vec![
-            (DataType::Null, 0),
-            (DataType::Boolean, 1),
-            (DataType::Int8, 2),
-            (DataType::Int16, 3),
-            (DataType::Int32, 4),
-            (DataType::Int64, 5),
-            (DataType::UInt8, 6),
-            (DataType::UInt16, 7),
-            (DataType::UInt32, 8),
-            (DataType::UInt64, 9),
-            (DataType::Float16, 10),
-            (DataType::Float32, 11),
-            (DataType::Float64, 12),
-            (DataType::Timestamp(TimeUnit::Second, None), 13),
-            (DataType::Date32, 14),
-            (DataType::Date64, 15),
-            (DataType::Time32(TimeUnit::Second), 16),
-            (DataType::Time64(TimeUnit::Nanosecond), 17),
-            (DataType::Duration(TimeUnit::Second), 18),
-            (DataType::Interval(IntervalUnit::YearMonth), 19),
-            (DataType::Binary, 20),
-            (DataType::LargeBinary, 20),
-            (DataType::BinaryView, 20),
-            (DataType::FixedSizeBinary(4), 21),
-            (DataType::Utf8, 22),
-            (DataType::LargeUtf8, 22),
-            (DataType::Utf8View, 22),
-            (DataType::List(item()), 23),
-            (DataType::ListView(item()), 23),
-            (DataType::LargeList(item()), 23),
-            (DataType::LargeListView(item()), 23),
-            (DataType::FixedSizeList(item(), 2), 24),
-            (DataType::Struct(Fields::empty()), 25),
-            (union([0, 1], UnionMode::Sparse), 26),
+        let item_bytes = simple_field(None, true, 4);
+        let union_bytes = |mode: u8| {
+            [
+                vec![26],
+                count(2),
+                vec![0],
+                simple_field(Some("a"), false, 4),
+                vec![1],
+                simple_field(Some("b"), false, 22),
+                vec![mode],
+            ]
+            .concat()
+        };
+
+        let data_types: Vec<(DataType, Vec<u8>)> = vec![
+            (DataType::Null, vec![0]),
+            (DataType::Boolean, vec![1]),
+            (DataType::Int8, vec![2]),
+            (DataType::Int16, vec![3]),
+            (DataType::Int32, vec![4]),
+            (DataType::Int64, vec![5]),
+            (DataType::UInt8, vec![6]),
+            (DataType::UInt16, vec![7]),
+            (DataType::UInt32, vec![8]),
+            (DataType::UInt64, vec![9]),
+            (DataType::Float16, vec![10]),
+            (DataType::Float32, vec![11]),
+            (DataType::Float64, vec![12]),
+            (DataType::Timestamp(TimeUnit::Second, None), vec![13, 0, 0]),
+            (
+                DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into())),
+                [vec![13, 2, 1], count(3), b"UTC".to_vec()].concat(),
+            ),
+            (DataType::Date32, vec![14]),
+            (DataType::Date64, vec![15]),
+            (DataType::Time32(TimeUnit::Second), vec![16, 0]),
+            (DataType::Time64(TimeUnit::Nanosecond), vec![17, 3]),
+            (DataType::Duration(TimeUnit::Millisecond), vec![18, 1]),
+            (DataType::Interval(IntervalUnit::YearMonth), vec![19, 0]),
+            (DataType::Interval(IntervalUnit::DayTime), vec![19, 1]),
+            (DataType::Interval(IntervalUnit::MonthDayNano), vec![19, 2]),
+            (DataType::Binary, vec![20]),
+            (DataType::LargeBinary, vec![20]),
+            (DataType::BinaryView, vec![20]),
+            (DataType::FixedSizeBinary(4), vec![21, 4, 0, 0, 0]),
+            (DataType::Utf8, vec![22]),
+            (DataType::LargeUtf8, vec![22]),
+            (DataType::Utf8View, vec![22]),
+            (
+                DataType::List(item()),
+                [vec![23], item_bytes.clone()].concat(),
+            ),
+            (
+                DataType::ListView(item()),
+                [vec![23], item_bytes.clone()].concat(),
+            ),
+            (
+                DataType::LargeList(item()),
+                [vec![23], item_bytes.clone()].concat(),
+            ),
+            (
+                DataType::LargeListView(item()),
+                [vec![23], item_bytes.clone()].concat(),
+            ),
+            (
+                DataType::FixedSizeList(item(), 2),
+                [vec![24], item_bytes.clone(), vec![2, 0, 0, 0]].concat(),
+            ),
+            (
+                structure(vec![field("a", DataType::Int32)]),
+                [vec![25], count(1), simple_field(Some("a"), false, 4)].concat(),
+            ),
+            (union([0, 1], UnionMode::Sparse), union_bytes(0)),
+            (union([0, 1], UnionMode::Dense), union_bytes(1)),
             (
                 DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8)),
-                27,
+                vec![27, 2, 22],
             ),
-            (DataType::Decimal32(9, 2), 28),
-            (DataType::Decimal64(18, 2), 29),
-            (DataType::Decimal128(38, 2), 30),
-            (DataType::Decimal256(76, 2), 31),
-            (map("entries", "key", "value", false), 32),
+            (DataType::Decimal32(9, 2), vec![28, 9, 2]),
+            (DataType::Decimal64(18, 2), vec![29, 18, 2]),
+            (DataType::Decimal128(10, -2), vec![30, 10, 0xfe]),
+            (DataType::Decimal256(76, 2), vec![31, 76, 2]),
+            (
+                map("entries", "key", "value", false),
+                [
+                    vec![32, 0, 0],
+                    count(0),
+                    vec![25],
+                    count(2),
+                    simple_field(None, false, 22),
+                    simple_field(None, true, 12),
+                    vec![0],
+                ]
+                .concat(),
+            ),
             (
                 DataType::RunEndEncoded(
                     Arc::new(Field::new("run_ends", DataType::Int32, false)),
                     Arc::new(Field::new("values", DataType::Utf8, true)),
                 ),
-                33,
+                [
+                    vec![33],
+                    simple_field(None, false, 4),
+                    simple_field(None, true, 22),
+                ]
+                .concat(),
             ),
         ];
-        for (data_type, tag) in data_types {
-            assert_eq!(data_type_tag(&data_type), tag, "{data_type}");
+        for (data_type, bytes) in data_types {
+            assert_eq!(type_bytes(&data_type), bytes, "{data_type}");
         }
-
-        let time_units = [
-            (TimeUnit::Second, 0),
-            (TimeUnit::Millisecond, 1),
-            (TimeUnit::Microsecond, 2),
-            (TimeUnit::Nanosecond, 3),
-        ];
-        for (unit, tag) in time_units {
-            assert_eq!(time_unit_tag(&unit), tag, "{unit:?}");
-        }
-
-        let interval_units = [
-            (IntervalUnit::YearMonth, 0),
-            (IntervalUnit::DayTime, 1),
-            (IntervalUnit::MonthDayNano, 2),
-        ];
-        for (unit, tag) in interval_units {
-            assert_eq!(interval_unit_tag(&unit), tag, "{unit:?}");
-        }
-
-        assert_eq!(union_mode_tag(&UnionMode::Sparse), 0);
-        assert_eq!(union_mode_tag(&UnionMode::Dense), 1);
     }
 
     /// `Field`'s properties are private, so the encoder can't destructure it. If this fails, an
