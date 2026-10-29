@@ -14,7 +14,13 @@ pub struct SchemaHash([u8; 32]);
 
 impl SchemaHash {
     pub fn new(schema: &Schema) -> Self {
-        Self(Sha256::digest(encode(schema)).into())
+        let Schema { fields, metadata } = schema;
+
+        let mut encoder = Encoder::default();
+        encoder.str(DOMAIN);
+        encoder.metadata(metadata);
+        encoder.fields(fields);
+        Self(Sha256::digest(encoder.bytes).into())
     }
 
     pub fn as_bytes(&self) -> &[u8; 32] {
@@ -26,16 +32,6 @@ impl fmt::Display for SchemaHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.iter().try_for_each(|b| write!(f, "{b:02x}"))
     }
-}
-
-fn encode(schema: &Schema) -> Vec<u8> {
-    let Schema { fields, metadata } = schema;
-
-    let mut encoder = Encoder::default();
-    encoder.str(DOMAIN);
-    encoder.metadata(metadata);
-    encoder.fields(fields);
-    encoder.bytes
 }
 
 #[derive(Default)]
