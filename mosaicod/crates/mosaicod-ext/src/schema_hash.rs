@@ -1,3 +1,28 @@
+//! A hash that tells ontology schema versions apart.
+//!
+//! [`SchemaHash`] is the SHA-256 of a canonical encoding of an Arrow [`Schema`]. Any difference in
+//! meaning changes it, and so does field order: schema metadata, and each field's name,
+//! nullability, `dict_is_ordered`, metadata and type, with the parameters that change what a type
+//! means (widths, units, time zones, precision and scale, fixed sizes).
+//!
+//! Layouts don't change it:
+//! - `Utf8`/`LargeUtf8`/`Utf8View`, `Binary`/`LargeBinary`/`BinaryView` and the four list types
+//!   are encoded alike. mosaicod reads stored schemas through DataFusion, which returns a top-level
+//!   `Utf8` or `LargeUtf8` as `Utf8View`, so a hash that kept layouts wouldn't match after a read.
+//! - The children of lists, maps and run-end encoded arrays are encoded without their names, which
+//!   vary by producer (`item`, `element`).
+//!
+//! Everything else keeps its own encoding, dictionary and run-end encoding and the decimal widths
+//! included.
+//!
+//! The hash must stay the same across processes, toolchains and Arrow upgrades. That rules out the
+//! IPC bytes, which Arrow doesn't promise to keep across releases, and [`std::hash::Hash`], which
+//! for `DataType` depends on the order of its variants. Arrow additions can't slip in silently: the
+//! matches on Arrow's enums have no wildcard arm, `Schema` is destructured without `..`, and a test
+//! pins `Field`'s properties.
+//!
+//! Changing the encoding changes every stored hash, so do it on purpose, by bumping `DOMAIN`.
+
 use arrow::datatypes::{
     DataType, Field, Fields, IntervalUnit, Schema, TimeUnit, UnionFields, UnionMode,
 };
