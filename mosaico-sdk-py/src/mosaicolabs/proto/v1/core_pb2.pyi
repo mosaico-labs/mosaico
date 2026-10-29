@@ -6,6 +6,7 @@ from typing import ClassVar as _ClassVar
 DESCRIPTOR: _descriptor.FileDescriptor
 FORMAT_DEFAULT: Format
 FORMAT_IMAGE: Format
+FORMAT_IMAGE_SEQUENCE: Format
 FORMAT_RAGGED: Format
 FORMAT_UNSPECIFIED: Format
 

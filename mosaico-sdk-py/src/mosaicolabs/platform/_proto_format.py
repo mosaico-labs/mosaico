@@ -10,6 +10,7 @@ _TO_PROTO = {
     SerializationFormat.Default: core_pb2.Format.FORMAT_DEFAULT,
     SerializationFormat.Ragged: core_pb2.Format.FORMAT_RAGGED,
     SerializationFormat.Image: core_pb2.Format.FORMAT_IMAGE,
+    SerializationFormat.ImageSequence: core_pb2.Format.FORMAT_IMAGE_SEQUENCE,
 }
 
 _FROM_PROTO = {value: key for key, value in _TO_PROTO.items()}

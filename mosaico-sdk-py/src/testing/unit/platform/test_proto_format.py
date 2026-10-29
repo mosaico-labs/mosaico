@@ -16,6 +16,7 @@ def test_roundtrip(fmt):
         (SerializationFormat.Default, 1),
         (SerializationFormat.Ragged, 2),
         (SerializationFormat.Image, 3),
+        (SerializationFormat.ImageSequence, 4),
     ],
 )
 def test_wire_value(fmt, wire_value):

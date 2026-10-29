@@ -33,3 +33,15 @@ class SerializationFormat(Enum):
     (the image content) along with associated metadata (width, height, format), 
     often requiring specialized compression/decompression handling.
     """
+
+    ImageSequence = "image_sequence"
+    """
+    Represents a sequence of PNG or TIFF images, each with its capture time,
+    as modeled by [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence].
+
+    The server compresses `capture_timestamp_ns`, `format` and `data`. It
+    also keeps statistics on `capture_timestamp_ns` and `format`, which makes
+    queries filtering on them faster.
+    Compression makes TIFFs smaller, while PNGs, already compressed, stay
+    about the same size.
+    """
