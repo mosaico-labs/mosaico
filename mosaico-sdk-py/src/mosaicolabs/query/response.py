@@ -181,11 +181,11 @@ class QueryResponseItemTopic:
                     .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
                 )
                 # Perform the server side query
-                qresponse = client.query(query=query)
+                query_response = client.query(query=query)
                 # Inspect the response
-                if qresponse is not None:
+                if query_response is not None:
                     # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
 
                         print(
@@ -285,7 +285,7 @@ class QueryResponseItemTopic:
                 .with_expression(IMU.Q.acceleration.x.gt(5.0))
             )
             # Perform the server side query
-            qresponse1 = client.query(query=query1)
+            query_response1 = client.query(query=query1)
 
             query2 = Query(
                 QuerySequence()
@@ -295,16 +295,16 @@ class QueryResponseItemTopic:
                 .with_expression(Temperature.Q.value.gt(130.0))
             )
             # Perform the server side query
-            qresponse2 = client.query(query=query2)
+            query_response2 = client.query(query=query2)
 
             # Inspect the response
-            if qresponse1 is not None and qresponse2 is not None:
+            if query_response1 is not None and query_response2 is not None:
 
                 # Extracting "front_imu" topic from first sequence
-                imu_topic = next(topic_it for item in qresponse1 for topic_it in item.topics if topic_it.name == "front_imu")
+                imu_topic = next(topic_it for item in query_response1 for topic_it in item.topics if topic_it.name == "front_imu")
 
                 # Intersect two disjoint queries
-                for item2 in qresponse2:
+                for item2 in query_response2:
                     print(f"Intersecting topic {imu_topic.name} with all topics from {item2.sequence.name} sequence")
 
                     # Set clustering_dt_ns for each queried type or leave it empty to
@@ -439,12 +439,12 @@ class QueryResponseItem:
                 QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
             )
             # Perform the server side query
-            qresponse = client.query(query=query)
+            query_response = client.query(query=query)
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -531,12 +531,12 @@ class QueryResponseItem:
                 .with_expression(Temperature.Q.value.eq(500.0)),
             )
             # Perform the server side query
-            qresponse = client.query(query=query)
+            query_response = client.query(query=query)
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     # Override locally the clustering_dt_ns for all the topics belonging to the sequence
                     intersected_clusters = item.intersect(override_clustering_dt_ns=2000)
 
@@ -616,26 +616,26 @@ class QueryResponse:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter IMU data by a specific acquisition second
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.timestamp_ns.lt(1770282868))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
             # Filter primitive Floating64 telemetry by frame identifier
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Floating64.Q.frame_id.eq("robot_base"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

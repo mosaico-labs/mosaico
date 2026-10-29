@@ -72,14 +72,14 @@ class _LaserScanBase(BaseModel):
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find scans with a wide field of view and a long maximum range
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.range_max.gt(30.0))
                     .with_expression(LaserScan.Q.angle_max.geq(3.14)),
                 )
 
                 # Inspect the response
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -114,12 +114,12 @@ class _LaserScanBase(BaseModel):
             from mosaicolabs.model.futures import LaserScan
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.angle_min.geq(-3.14))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -154,12 +154,12 @@ class _LaserScanBase(BaseModel):
             from mosaicolabs.model.futures import LaserScan
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.angle_max.geq(3.14))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -196,12 +196,12 @@ class _LaserScanBase(BaseModel):
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find high-resolution scans (small angular step)
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.angle_increment.lt(0.01))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -235,12 +235,12 @@ class _LaserScanBase(BaseModel):
             from mosaicolabs.model.futures import LaserScan
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.time_increment.lt(0.0001))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -273,12 +273,12 @@ class _LaserScanBase(BaseModel):
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find sequences recorded at 10 Hz (scan_time ≈ 0.1 s)
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.scan_time.between([0.09, 0.11]))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -314,12 +314,12 @@ class _LaserScanBase(BaseModel):
             from mosaicolabs.model.futures import LaserScan
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.range_min.leq(0.1))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -356,12 +356,12 @@ class _LaserScanBase(BaseModel):
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find long-range scanner sessions
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.range_max.gt(30.0))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -431,13 +431,13 @@ class LaserScan(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find long-range, wide-FOV scans
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(LaserScan.Q.range_max.gt(30.0))
                     .with_expression(LaserScan.Q.angle_max.geq(3.14)),
             )
 
-            if qresponse is not None:
-                for item in qresponse:
+            if query_response is not None:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -482,12 +482,12 @@ class LaserScan(
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find scans with at least one beam returning within 1 meter
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.ranges.any().leq(1.0))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -530,12 +530,12 @@ class LaserScan(
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find scans with at least one high-intensity beam return
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(LaserScan.Q.intensities.any().gt(200.0))
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -603,13 +603,13 @@ class MultiEchoLaserScan(
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find long-range, wide-FOV multi-echo scans
-                qresponse = client.query(
+                query_response = client.query(
                     QueryOntologyCatalog(MultiEchoLaserScan.Q.range_max.gt(30.0))
                         .with_expression(MultiEchoLaserScan.Q.angle_max.geq(3.14)),
                 )
 
-                if qresponse is not None:
-                    for item in qresponse:
+                if query_response is not None:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 

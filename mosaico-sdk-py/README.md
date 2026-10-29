@@ -100,12 +100,12 @@ from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
 
 with MosaicoClient.connect(host="localhost", port=6726) as client:
     # Find every sequence where the IMU registered a hard vertical impact
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog().with_expression(IMU.Q.acceleration.z.gt(15.0))
     )
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```

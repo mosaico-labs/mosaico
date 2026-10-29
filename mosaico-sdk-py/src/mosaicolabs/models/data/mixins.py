@@ -49,12 +49,12 @@ class HeaderMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the measure lasts at least 10 seconds
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
+            query_response = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -92,12 +92,12 @@ class HeaderMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the measure lasts at least 10 seconds
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
+            query_response = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -166,14 +166,14 @@ class CovarianceMixin(BaseModel):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter IMU data by a specific acquisition second
             # `FROM_CALIBRATED_PROCEDURE` is some enum value defined by the user
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.acceleration.covariance_type.eq(FROM_CALIBRATED_PROCEDURE))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -207,14 +207,14 @@ class CovarianceMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for measurements with at least one high-uncertainty covariance term
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Vector3d.Q.covariance.any().gt(0.1))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -324,27 +324,27 @@ class VarianceMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter Pressure data by a specific variance value
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pressure.Q.variance.lt(0.76))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
             # Filter Pressure data by a specific variance type
             # `FROM_CALIBRATED_PROCEDURE` is some enum value defined by the user
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pressure.Q.variance_type.eq(FROM_CALIBRATED_PROCEDURE))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -378,14 +378,14 @@ class VarianceMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter Pressure data by a specific acquisition second
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pressure.Q.variance.lt(0.76))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

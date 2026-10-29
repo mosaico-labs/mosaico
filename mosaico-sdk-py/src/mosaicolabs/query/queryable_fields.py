@@ -26,7 +26,7 @@ Example:
     with MosaicoClient.connect("localhost", 6726) as client:
         # Equivalent to `SomeResolvedClass.Q.temperature.celsius.lt(22.0)`,
         # but requires no resolved class - only the known tag and field path.
-        qresponse = client.query(
+        query_response = client.query(
             QueryOntologyCatalog().with_expression(
                 QueryableNumeric("SomeResolvedClass.temperature.celsius").lt(22.0)
             )

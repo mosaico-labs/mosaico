@@ -482,16 +482,16 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
                 with MosaicoClient.connect("localhost", 6726) as client:
                     # Filter for a specific data value (using constructor)
-                    qresponse = client.query(
+                    query_response = client.query(
                         QueryTopic(
                             Topic.with_ontology_tag(IMU.ontology_tag()),
                         )
                     )
 
                     # Inspect the response
-                    if qresponse is not None:
+                    if query_response is not None:
                         # Results are automatically grouped by Sequence for easier data management
-                        for item in qresponse:
+                        for item in query_response:
                             print(f"Sequence: {item.sequence.name}")
                             print(f"Topics: {[topic.name for topic in item.topics]}")
                 ```

@@ -31,14 +31,14 @@ class Magnetometer(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for magnetic field values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Magnetometer.Q.magnetic_field.x.between(-100, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -73,14 +73,14 @@ class Magnetometer(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for magnetic field values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Magnetometer.Q.magnetic_field.x.between(-100, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
             

@@ -162,16 +162,16 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on image parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.width.between(1500, 2000))
                 .with_expression(Image.Q.height.between(1500, 2000))
                 .with_expression(Image.Q.format.eq("png")),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -211,14 +211,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on format
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.format.eq(ImageFormat.PNG))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -241,14 +241,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on width
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.width.between(0, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -271,14 +271,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on height
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.height.between(0, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -303,14 +303,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on stride
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.stride.between(0, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -335,14 +335,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on encoding
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.encoding.eq("bgr8"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -368,14 +368,14 @@ class Image(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on is_bigendian
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Image.Q.is_bigendian.eq(True))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -912,14 +912,14 @@ class CompressedImage(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for image data based on image parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CompressedImage.Q.format.eq("jpeg"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

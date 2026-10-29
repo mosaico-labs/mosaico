@@ -43,16 +43,16 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on range parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.range.between(0.0, 10.0))
                 .with_expression(Range.Q.radiation_type.eq(0))
                 .with_expression(Range.Q.max_range.between(70.0, 90.0)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -85,14 +85,14 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on radiation type
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.radiation_type.eq(0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -117,14 +117,14 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on field of view
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.field_of_view.between(0.0, 1.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -150,14 +150,14 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on minimum range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.min_range.between(0.0, 10.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -183,14 +183,14 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on maximum range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.max_range.between(0.0, 10.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -213,14 +213,14 @@ class Range(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for range data based on range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Range.Q.range.between(0.0, 10.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

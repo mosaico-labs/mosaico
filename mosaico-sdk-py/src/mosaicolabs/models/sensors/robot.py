@@ -59,14 +59,14 @@ class RobotJoint(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for robots that report a specific joint name
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotJoint.Q.names.any().eq("shoulder_pan_joint"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -106,14 +106,14 @@ class RobotJoint(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for robots with at least one joint beyond a position limit
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotJoint.Q.positions.any().gt(3.14))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -153,14 +153,14 @@ class RobotJoint(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for robots with at least one fast-moving joint
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotJoint.Q.velocities.any().gt(2.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -200,14 +200,14 @@ class RobotJoint(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for robots with at least one joint under high load
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotJoint.Q.efforts.any().gt(50.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

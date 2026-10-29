@@ -52,15 +52,15 @@ class Velocity(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter Velocities with linear X-component AND angular Z-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Velocity.Q.linear.x.gt(5.0))
                     .with_expression(Velocity.Q.angular.z.lt(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -95,14 +95,14 @@ class Velocity(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find velocities where the linear X component exceeds 25 m/s
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Velocity.Q.linear.x.gt(25.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -137,14 +137,14 @@ class Velocity(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find velocities where the angular X component exceeds 2 rad//s
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Velocity.Q.angular.x.gt(2.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -208,14 +208,14 @@ class Acceleration(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter Accelerations with linear X-component AND angular Z-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Acceleration.Q.linear.x.gt(5.0))
                     .with_expression(Acceleration.Q.angular.z.lt(10))
             )
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -250,14 +250,14 @@ class Acceleration(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find accelerations where the linear X component exceeds 5 m/s^2
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Acceleration.Q.linear.x.gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -292,14 +292,14 @@ class Acceleration(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find accelerations where the angular X component exceeds 1 rad/s^2
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Acceleration.Q.angular.x.gt(1.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -369,15 +369,15 @@ class MotionState(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter MotionStates with position X-component AND angular velocity Z-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MotionState.Q.pose.position.x.gt(123456.9))
                     .with_expression(MotionState.Q.velocity.angular.z.lt(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -416,14 +416,14 @@ class MotionState(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter snapshots where the object is beyond a specific X-coordinate
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MotionState.Q.pose.position.x.gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -461,14 +461,14 @@ class MotionState(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find states where linear velocity in X exceeds 2.5 m/s
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MotionState.Q.velocity.linear.x.gt(2.5))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -499,14 +499,14 @@ class MotionState(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find states where target_frame_id is some link
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MotionState.Q.target_frame_id.eq("moving_base"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
             
@@ -538,14 +538,14 @@ class MotionState(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find states where centripetal acceleration exceeds 5 m/s^2
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MotionState.Q.acceleration.linear.y.gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

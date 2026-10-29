@@ -40,7 +40,7 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryTopic()
                 .with_name_match("/sensors/imu#") # (1)!
                 .with_user_metadata("update_rate_hz", gt=100) # (2)!
@@ -48,9 +48,9 @@ class Topic:
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -73,16 +73,16 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryTopic()
                 .with_user_metadata("update_rate_hz", gt=100) # (1)!
                 .with_user_metadata("interface.type", eq="canbus")
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -107,14 +107,14 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryTopic().with_name("/front/imu"),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -137,14 +137,14 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QuerySequence().with_name_match("test_winter_#")
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -166,14 +166,14 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific topic creation time
-            qresponse = client.query(
+            query_response = client.query(
                 QueryTopic().with_created_timestamp(time_start=Time.from_float(1765432100)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -198,14 +198,14 @@ class Topic:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryTopic().with_ontology_tag(IMU.ontology_tag()),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

@@ -43,7 +43,7 @@ class Sequence:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QuerySequence()
                 .with_name_match("*test_winter_*") # (1)!
                 .with_user_metadata("project", eq="Apollo") # (2)!
@@ -51,9 +51,9 @@ class Sequence:
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -78,16 +78,16 @@ class Sequence:
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
-            qresponse = client.query(
+            query_response = client.query(
                 QuerySequence()
                 .with_user_metadata("project", eq="Apollo") # (1)!
                 .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -112,14 +112,14 @@ class Sequence:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Filter for a specific sequence creation time
-                qresponse = client.query(
+                query_response = client.query(
                     QuerySequence().with_created_timestamp(time_start=Time.from_float(1765432100)),
                 )
 
                 # Inspect the response
-                if qresponse is not None:
+                if query_response is not None:
                     # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
             ```
@@ -142,14 +142,14 @@ class Sequence:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Filter for a specific data value (using constructor)
-                qresponse = client.query(
+                query_response = client.query(
                     QuerySequence().with_name_match("test_winter_2025_01_*"),
                 )
 
                 # Inspect the response
-                if qresponse is not None:
+                if query_response is not None:
                     # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
             ```
@@ -223,14 +223,14 @@ class Sequence:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Filter for a specific data value (using constructor)
-                qresponse = client.query(
+                query_response = client.query(
                     QueryTopic().with_name("/sensors/camera/front/image_raw")
                 )
 
                 # Inspect the response
-                if qresponse is not None:
+                if query_response is not None:
                     # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
+                    for item in query_response:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
             ```

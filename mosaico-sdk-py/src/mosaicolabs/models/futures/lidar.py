@@ -54,11 +54,11 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one Lidar topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(Lidar.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(Lidar.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
@@ -91,14 +91,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar values on X within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.x.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -139,14 +139,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar values on Y within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.y.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -187,14 +187,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar values on Z within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.z.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -236,14 +236,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points with at least one strong return
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.intensity.any().gt(200.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -288,14 +288,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points with high surface reflectivity
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.reflectivity.any().geq(200))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -341,14 +341,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points fired by a specific beam
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.beam_id.any().eq(0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -393,14 +393,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points within 50 meters of the sensor
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.range.all().leq(50.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -446,14 +446,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points captured under strong ambient IR light
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.near_ir.any().gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -495,14 +495,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points within a specific azimuth range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.azimuth.all().between([-1.57, 1.57]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -544,14 +544,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points within a specific elevation range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.elevation.all().between([-0.26, 0.26]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -597,14 +597,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points with at least one low-confidence flag
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.confidence.any().lt(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -649,14 +649,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points with a specific return classification
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.return_type.any().eq(1))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -702,14 +702,14 @@ class Lidar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Lidar points acquired within the first 10ms of the sweep
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Lidar.Q.point_timestamp.all().leq(0.01))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

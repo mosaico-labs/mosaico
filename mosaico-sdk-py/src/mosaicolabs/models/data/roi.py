@@ -29,15 +29,15 @@ class ROI(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter ROIs with offset X-component AND offset Y-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ROI.Q.offset.x.gt(5.0))
                     .with_expression(ROI.Q.offset.y.lt(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -71,15 +71,15 @@ class ROI(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for ROIs starting between the 10th and 350th pixel vertically
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ROI.Q.offset.x.gt(100))
                     .with_expression(ROI.Q.offset.y.between(10, 350))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -108,14 +108,14 @@ class ROI(Serializable):
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for ROIs with height beyond 100 pixels
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ROI.Q.height.gt(100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -144,14 +144,14 @@ class ROI(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for ROIs with width below (or equal to) 250 pixels
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ROI.Q.width.leq(250))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -184,14 +184,14 @@ class ROI(Serializable):
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for explicitly non-rectified ROIs (not None)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ROI.Q.do_rectify.eq(False))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

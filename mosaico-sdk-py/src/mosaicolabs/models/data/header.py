@@ -32,15 +32,15 @@ class Header(Serializable):
 
     with MosaicoClient.connect("localhost", 6726) as client:
         # Filter Header with time seconds-component AND time nanoseconds-component
-        qresponse = client.query(
+        query_response = client.query(
             QueryOntologyCatalog(Header.Q.timestamp.seconds.lt(20.0))
                 .with_expression(Header.Q.timestamp.nanoseconds.gt(100000))
         )
 
         # Inspect the response
-        if qresponse is not None:
+        if query_response is not None:
             # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
+            for item in query_response:
                 print(f"Sequence: {item.sequence.name}")
                 print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -77,14 +77,14 @@ class Header(Serializable):
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find headers where the timestamp exceeds 5 seconds
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Header.Q.timestamp.seconds.gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -120,14 +120,14 @@ class Header(Serializable):
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find headers where reference system is base_link
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Header.Q.frame_id.eq("base_link"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -163,14 +163,14 @@ class Header(Serializable):
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find headers where the sample counters exceeds 300-th sample
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Header.Q.sample_counter.gt(300.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

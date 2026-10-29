@@ -163,15 +163,15 @@ class Time(_TemporalBase, Serializable):
 
     with MosaicoClient.connect("localhost", 6726) as client:
         # Filter Time with time seconds-component AND time nanoseconds-component
-        qresponse = client.query(
+        query_response = client.query(
             QueryOntologyCatalog(Time.Q.seconds.lt(20.0))
                 .with_expression(Time.Q.nanoseconds.gt(100000))
         )
 
         # Inspect the response
-        if qresponse is not None:
+        if query_response is not None:
             # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
+            for item in query_response:
                 print(f"Sequence: {item.sequence.name}")
                 print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -251,14 +251,14 @@ class Duration(_TemporalBase, Serializable):
 
     with MosaicoClient.connect("localhost", 6726) as client:
         # Filter Duration with seconds-component AND nanoseconds-component
-        qresponse = client.query(
+        query_response = client.query(
             QueryOntologyCatalog(Duration.Q.seconds.lt(20.0))
                 .with_expression(Duration.Q.nanoseconds.gt(100000))
         )
 
         # Inspect the response
-        if qresponse is not None:
-            for item in qresponse:
+        if query_response is not None:
+            for item in query_response:
                 print(f"Sequence: {item.sequence.name}")
                 print(f"Topics: {[topic.name for topic in item.topics]}")
     ```

@@ -38,15 +38,15 @@ class IMU(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find high-acceleration events (e.g., impacts) on the X-axis
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.acceleration.x.gt(15.0))
                 .with_expression(IMU.Q.angular_velocity.z.gt(1.0)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -81,14 +81,14 @@ class IMU(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for high-impact events
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.acceleration.z.gt(19.6))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -123,14 +123,14 @@ class IMU(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for high-turns events
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.angular_velocity.z.gt(1.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -167,14 +167,14 @@ class IMU(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for orientation component values
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(IMU.Q.orientation.z.gt(0.707))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

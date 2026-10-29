@@ -169,11 +169,11 @@ class RGBDCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one RGBDCamera topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(RGBDCamera.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(RGBDCamera.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
@@ -228,11 +228,11 @@ class ToFCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one ToF camera topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(ToFCamera.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(ToFCamera.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
@@ -269,14 +269,14 @@ class ToFCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for ToF frames with at least one high-noise pixel
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ToFCamera.Q.noise.any().gt(0.5))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -321,14 +321,14 @@ class ToFCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for ToF frames with bright greyscale pixels
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ToFCamera.Q.grayscale.any().gt(200.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -390,11 +390,11 @@ class StereoCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one stereo camera topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(StereoCamera.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(StereoCamera.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
     ```
@@ -428,14 +428,14 @@ class StereoCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Stereo frames with bright pixels
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(StereoCamera.Q.luma.any().gt(200))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -478,14 +478,14 @@ class StereoCamera(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Stereo frames with high-confidence disparity estimates
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(StereoCamera.Q.cost.all().leq(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

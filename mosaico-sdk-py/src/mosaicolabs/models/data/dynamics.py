@@ -50,15 +50,15 @@ class ForceTorque(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter ForceTorques with force X-component AND torque Z-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(ForceTorque.Q.force.x.gt(5.0))
                     .with_expression(ForceTorque.Q.torque.z.lt(10))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -91,12 +91,12 @@ class ForceTorque(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the linear X-force exceeds 50N 
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.force.x.gt(50.0)))
+            query_response = client.query(QueryOntologyCatalog(ForceTorque.Q.force.x.gt(50.0)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -129,12 +129,12 @@ class ForceTorque(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the linear Y-torque is small
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.torque.y.lt(0.02)))
+            query_response = client.query(QueryOntologyCatalog(ForceTorque.Q.torque.y.lt(0.02)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -223,14 +223,14 @@ class Inertia(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for bodies with a specific Ixx moment of inertia (index 0)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Inertia.Q.inertia[0].between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

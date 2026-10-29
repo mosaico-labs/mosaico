@@ -62,11 +62,11 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one Radar topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(Radar.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(Radar.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
@@ -99,14 +99,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar values on X within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.x.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -147,14 +147,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar values on Y within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.y.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -195,14 +195,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar values on Z within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.z.all().between([-1.0, 1.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -245,14 +245,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections within 100 meters of the sensor
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.range.all().leq(100.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -296,14 +296,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections within a specific azimuth range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.azimuth.all().between([-1.57, 1.57]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -346,14 +346,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections within a specific elevation range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.elevation.all().between([-0.26, 0.26]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -398,14 +398,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections with a large radar cross section
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.rcs.any().gt(10.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -450,14 +450,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections with a low signal-to-noise ratio
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.snr.all().lt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -502,14 +502,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections moving away from the sensor
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.doppler_velocity.any().gt(0.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -553,14 +553,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections moving fast along X
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.vx.any().gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -603,14 +603,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections moving fast along Y
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.vy.any().gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -655,14 +655,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections that are stationary in the world frame
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.vx_comp.all().between([-0.5, 0.5]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -705,14 +705,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections that are stationary in the world frame
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.vy_comp.all().between([-0.5, 0.5]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -756,14 +756,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections that are accelerating hard along X
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.ax.any().gt(3.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -806,14 +806,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections that are accelerating hard along Y
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.ay.any().gt(3.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -858,14 +858,14 @@ class Radar(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for Radar detections with a high radial speed
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Radar.Q.radial_speed.any().gt(10.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

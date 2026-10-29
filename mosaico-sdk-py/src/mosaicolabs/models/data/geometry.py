@@ -61,12 +61,12 @@ class _Vector2dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector2d.Q.x.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector2d.Q.x.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -79,12 +79,12 @@ class _Vector2dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Point2d.Q.x.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Point2d.Q.x.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -114,12 +114,12 @@ class _Vector2dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector2d.Q.y.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector2d.Q.y.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -132,12 +132,12 @@ class _Vector2dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Point2d.Q.y.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Point2d.Q.y.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -204,12 +204,12 @@ class _Vector3dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector3d.Q.x.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector3d.Q.x.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -222,12 +222,12 @@ class _Vector3dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Point3d.Q.x.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Point3d.Q.x.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -257,12 +257,12 @@ class _Vector3dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector3d.Q.y.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector3d.Q.y.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -275,12 +275,12 @@ class _Vector3dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Point3d.Q.y.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Point3d.Q.y.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -310,12 +310,12 @@ class _Vector3dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector3d.Q.z.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector3d.Q.z.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -328,12 +328,12 @@ class _Vector3dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Point3d.Q.z.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Point3d.Q.z.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -400,12 +400,12 @@ class _Vector4dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector4d.Q.x.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector4d.Q.x.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -418,12 +418,12 @@ class _Vector4dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.x.leq(0.4)))
+            query_response = client.query(QueryOntologyCatalog(Quaternion.Q.x.leq(0.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -453,12 +453,12 @@ class _Vector4dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector4d.Q.y.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector4d.Q.y.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -471,12 +471,12 @@ class _Vector4dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.y.leq(0.4)))
+            query_response = client.query(QueryOntologyCatalog(Quaternion.Q.y.leq(0.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -506,12 +506,12 @@ class _Vector4dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector4d.Q.z.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector4d.Q.z.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -524,12 +524,12 @@ class _Vector4dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.z.leq(0.4)))
+            query_response = client.query(QueryOntologyCatalog(Quaternion.Q.z.leq(0.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -560,12 +560,12 @@ class _Vector4dStruct(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Vector4d.Q.w.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Vector4d.Q.w.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -578,12 +578,12 @@ class _Vector4dStruct(BaseModel):
                         print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
-            qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.w.leq(0.707)))
+            query_response = client.query(QueryOntologyCatalog(Quaternion.Q.w.leq(0.707)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -644,15 +644,15 @@ class Vector2d(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Vector2d.Q.y.leq(123.4))
                 .with_expression(Vector2d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -701,15 +701,15 @@ class Vector3d(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Vector3d.Q.y.leq(123.4))
                 .with_expression(Vector3d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -759,15 +759,15 @@ class Vector4d(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Vector4d.Q.y.leq(123.4))
                 .with_expression(Vector4d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -816,15 +816,15 @@ class Point2d(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Point2d.Q.y.leq(123.4))
                 .with_expression(Point2d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -874,15 +874,15 @@ class Point3d(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Point3d.Q.y.leq(123.4))
                 .with_expression(Point3d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -933,15 +933,15 @@ class Quaternion(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Quaternion.Q.w.leq(0.707))
                 .with_expression(Quaternion.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -995,16 +995,16 @@ class Transform(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Transform.Q.translation.x.gt(5.0))
                 .with_expression(Transform.Q.rotation.w.lt(0.707))
                 .with_expression(Transform.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1037,15 +1037,15 @@ class Transform(
         
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find transforms where the linear X-translation exceeds 5 meters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Transform.Q.translation.x.gt(5.0))
                 .with_expression(Transform.Q.translation.z.lt(150.3))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1079,15 +1079,15 @@ class Transform(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for specific orientation states
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Transform.Q.rotation.w.geq(0.707))
                 .with_expression(Transform.Q.rotation.z.lt(0.4))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1117,14 +1117,14 @@ class Transform(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for specific target frame id
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Transform.Q.target_frame_id.eq("camera_link"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1170,15 +1170,15 @@ class Pose(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter Poses with position X-component AND orientation W-component
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pose.Q.position.x.gt(5.0))
                 .with_expression(Pose.Q.orientation.w.lt(0.707))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1212,14 +1212,14 @@ class Pose(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find poses where the linear X-position exceeds 5 meters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pose.Q.position.x.gt(123450.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1255,14 +1255,14 @@ class Pose(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for specific orientation states
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Pose.Q.orientation.w.geq(0.707))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1303,14 +1303,14 @@ class RobotPath(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotPath.Q.header.frame_id.eq("base_link"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1343,14 +1343,14 @@ class RobotPath(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for paths with at least one waypoint beyond a specific X-coordinate
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(RobotPath.Q.poses.any().position.x.gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1410,14 +1410,14 @@ class Polygon(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for polygons with at least one vertex beyond a specific X-coordinate
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Polygon.Q.points.any().x.gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

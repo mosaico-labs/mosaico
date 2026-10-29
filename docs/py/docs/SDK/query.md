@@ -23,7 +23,7 @@ from mosaicolabs import QueryOntologyCatalog, QuerySequence, QueryTopic, IMU, Mo
 # Establish a connection to the Mosaico Data Platform
 with MosaicoClient.connect("localhost", 6726) as client:
     # Perform a unified server-side query across multiple domains:
-    qresponse = client.query(
+    query_response = client.query(
         # Filter Sequence-level metadata
         QuerySequence()
         # Use convenience method for fuzzy name matching
@@ -42,8 +42,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
     # The server returns a QueryResponse grouped by Sequence
     # for structured data management
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             # 'item.sequence' contains the name for the matched sequence
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
@@ -225,20 +225,20 @@ from mosaicolabs import MosaicoClient, QueryOntologyCatalog, QuerySequence, Quer
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Sequences following the "test-query-sequence-<digit>" convention
-    qresponse = client.query(QuerySequence().with_name_match("test-query-sequence-#"))
+    query_response = client.query(QuerySequence().with_name_match("test-query-sequence-#"))
 
     # Metadata VALUE matching: firmware versions like "1.2.0" or "3.2.0", but not "2.1.0"
-    qresponse = client.query(
+    query_response = client.query(
         QueryTopic().with_user_metadata("firmware_version", match="?.2.0")
     )
 
     # Metadata VALUE matching: vendor names starting with 'g' or 's'
-    qresponse = client.query(
+    query_response = client.query(
         QueryTopic().with_user_metadata("vendor", match="[gs]*")
     )
 
     # Ontology VALUE matching: string payloads containing an "[ERR]"-style tag
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))
     )
 ```
@@ -266,22 +266,22 @@ from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Match any key ending in ".type", one level deep (e.g. interface.type)
-    qresponse = client.query(
+    query_response = client.query(
         QueryTopic().with_user_metadata("*.type", match="UART*")
     )
 
     # Match "baudrate" nested at ANY depth under "interface"
-    qresponse = client.query(
+    query_response = client.query(
         QueryTopic().with_user_metadata("interface.**.baudrate", geq=1000)
     )
 
     # Match "country" nested exactly one level deep (e.g. location.country)
-    qresponse = client.query(
+    query_response = client.query(
         QuerySequence().with_user_metadata("*.country", match="IT")
     )
 
     # Match "overall_quality_score" nested at ANY depth under "quality_metrics"
-    qresponse = client.query(
+    query_response = client.query(
         QuerySequence().with_user_metadata(
             "quality_metrics.**.overall_quality_score", geq=0.9
         )
@@ -308,7 +308,7 @@ from mosaicolabs import MosaicoClient, QuerySequence
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Search for sequences by project name and creation date
-    qresponse = client.query(
+    query_response = client.query(
         QuerySequence()
         .with_name_match("test_drive")
         .with_user_metadata("project", eq="Apollo")
@@ -316,7 +316,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 
     # Inspect the response
-    for item in qresponse:
+    for item in query_response:
         print(f"Sequence: {item.sequence.name}")
         print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
@@ -335,7 +335,7 @@ from mosaicolabs import MosaicoClient, Image, QueryTopic
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Query for all 'image' topics created in a specific timeframe, matching some metadata (key, value) pair
-    qresponse = client.query(
+    query_response = client.query(
         QueryTopic()
         .with_ontology_tag(Image.ontology_tag())
         .with_created_timestamp(time_start=1700000000_000000000)
@@ -343,9 +343,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 
     # Inspect the response
-    if qresponse is not None:
+    if query_response is not None:
         # Results are automatically grouped by Sequence for easier data management
-        for item in qresponse:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
@@ -364,7 +364,7 @@ from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU, Pose, Pre
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Chain multiple sensor filters together
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog()
         .with_expression(GPS.Q.status.satellites.geq(8))
         .with_expression(Temperature.Q.value.between([273.15, 373.15]))
@@ -372,14 +372,14 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 
     # Inspect the response
-    if qresponse is not None:
+    if query_response is not None:
         # Results are automatically grouped by Sequence for easier data management
-        for item in qresponse:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
 
     # A different filter on the same layer — same response shape as above
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog()
         .with_expression(IMU.Q.acceleration.x.lt(-4.0))
         .with_expression(IMU.Q.acceleration.y.gt(5.0))
@@ -404,12 +404,12 @@ qbuilder = (
     .with_name_match("test_drive")
 )
 # Execute the query
-qresponse = client.query(qbuilder)
+query_response = client.query(qbuilder)
 
 # Inspect the response
-if qresponse is not None:
+if query_response is not None:
     # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
+    for item in query_response:
         print(f"Sequence: {item.sequence.name}")
         print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -419,7 +419,7 @@ qbuilder = (
     .with_ontology_tag(RobotJoint.ontology_tag())
     .with_created_timestamp(time_start=t1, time_end=t2)
 )
-qresponse = client.query(qbuilder)
+query_response = client.query(qbuilder)
 ```
 
 * **Best For**: Standard system-level fields like Names and Timestamps.
@@ -433,16 +433,16 @@ This provides full access to every supported operator (`.gt()`, `.lt()`, `.betwe
 from mosaicolabs import QueryOntologyCatalog, IMU
 
 # Build a filter with deep time-series data discovery and measurement time windowing
-qresponse = client.query(
+query_response = client.query(
     QueryOntologyCatalog()
     .with_expression(IMU.Q.acceleration.x.gt(5.0))
     .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
 )
 
 # Inspect the response
-if qresponse is not None:
+if query_response is not None:
     # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
+    for item in query_response:
         print(f"Sequence: {item.sequence.name}")
         print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
@@ -523,12 +523,12 @@ List fields **can't be compared directly**. The proxy requires narrowing the lis
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog, RobotJoint
 
 with MosaicoClient.connect("localhost", 6726) as client:
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog(RobotJoint.Q.names.any().eq("shoulder_pan_joint"))
     )
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
@@ -573,15 +573,15 @@ An aggregator returns the same queryable field, so it's followed by the usual co
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
 
 with MosaicoClient.connect("localhost", 6726) as client:
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog(
             IMU.Q.acceleration.x.max().lt(15.0),   # Every sample below 15 m/s²
             IMU.Q.acceleration.z.range().lt(0.5),  # Vertical acceleration nearly constant
         )
     )
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
@@ -623,7 +623,7 @@ from mosaicolabs.query.queryable_fields import QueryableNumeric
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Using the .Q proxy - requires the IMU class
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(9.8))
     )
 
@@ -631,7 +631,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # `IMU.ontology_tag()` is used here purely for illustration: for a modeled
     # ontology you already have the class, so `.Q` is simpler. The point is
     # that the two produce the *same* query.
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog().with_expression(
             QueryableNumeric(f"{IMU.ontology_tag()}.acceleration.x").gt(9.8)
         )
@@ -646,7 +646,7 @@ from mosaicolabs.query.queryable_fields import QueryableNumeric, QueryableString
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Numeric filter on an unmodeled gyroscope reading - no GyroRaw class required
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog().with_expression(
             QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
         )
@@ -654,7 +654,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
     # String filter on an unrelated unmodeled ontology, e.g. a translated
     # diagnostic-log message type tagged "DiagnosticLog" with a "level" field
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog().with_expression(
             QueryableString("DiagnosticLog.level").eq("ERROR")
         )
@@ -750,11 +750,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QuerySequence().with_name_match("robot-1"),
         QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
     )
-    qresponse = client.query(query=query)
+    query_response = client.query(query=query)
 
-    if qresponse is not None:
+    if query_response is not None:
         imu_topic = next(
-            t for item in qresponse for t in item.topics if t.name == "front_imu"
+            t for item in query_response for t in item.topics if t.name == "front_imu"
         )
 
         # A tight gap keeps distinct impact events apart
@@ -845,10 +845,10 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QuerySequence().with_name_match("test_drive"),
         QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
     )
-    qresponse = client.query(query=query)
+    query_response = client.query(query=query)
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             print(f"Sequence: {item.sequence.name}")
 
             # Each topic's matching windows are reported independently,
@@ -884,10 +884,10 @@ with MosaicoClient.connect("localhost", 6726) as client:
         .with_expression(IMU.Q.acceleration.x.lt(-5.0))
         .with_expression(GPS.Q.velocity.x.lt(1.0)),
     )
-    qresponse = client.query(query=query)
+    query_response = client.query(query=query)
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             # A single list of windows where BOTH conditions held simultaneously
             correlated_clusters = item.intersect(
                 clustering_map={IMU.ontology_tag(): int(1e8), GPS.ontology_tag(): int(5e8)},

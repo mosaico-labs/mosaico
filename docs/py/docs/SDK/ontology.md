@@ -731,7 +731,7 @@ from mosaicolabs import MosaicoClient, IMU, GPS, QueryOntologyCatalog
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # orchestrate a query filtering by physical thresholds AND metadata
-    qresponse = client.query(
+    query_response = client.query(
         QueryOntologyCatalog()
         .with_expression(IMU.Q.acceleration.z.gt(15.0))
         .with_expression(GPS.Q.status.service.eq(2))

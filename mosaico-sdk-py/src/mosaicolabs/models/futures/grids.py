@@ -34,14 +34,14 @@ class GridCells(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cell grid width field values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GridCells.Q.cell_width.between(100, 200))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -73,14 +73,14 @@ class GridCells(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cell width within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GridCells.Q.cell_width.between([100, 200]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -112,14 +112,14 @@ class GridCells(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cell width within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GridCells.Q.cell_height.between([100, 200]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -159,14 +159,14 @@ class GridCells(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for grids with at least one cell beyond a specific X-coordinate
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GridCells.Q.cells.any().x.gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -209,15 +209,15 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter MapMetadatas with width AND height
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.width.gt(100))
                 .with_expression(MapMetadata.Q.height.lt(200))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -252,14 +252,14 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for map_load_time in nanoseconds within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.map_load_time.between([100000, 200000]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -292,14 +292,14 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for resolution within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.resolution.between([100000, 200000]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -332,14 +332,14 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for width within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -372,14 +372,14 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for height within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.height.between([10, 20]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -418,14 +418,14 @@ class MapMetadata(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter map metadata where the object is beyond a specific X-coordinate
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(MapMetadata.Q.origin.position.x.gt(500.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -464,14 +464,14 @@ class OccupancyGrid(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for grid width field values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(OccupancyGrid.Q.info.width.between(-100, 100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -515,14 +515,14 @@ class OccupancyGrid(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for time seconds within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(OccupancyGrid.Q.info.map_load_time.between([100000, 200000]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -564,14 +564,14 @@ class OccupancyGrid(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for occupancy grids with at least one fully occupied cell
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(OccupancyGrid.Q.data.any().eq(100))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

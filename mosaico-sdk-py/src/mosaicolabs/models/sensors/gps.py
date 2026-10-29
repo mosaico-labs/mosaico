@@ -36,15 +36,15 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for high-quality fixes (low HDOP)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.hdop.lt(2.0))
                 .with_expression(GPSStatus.Q.satellites.geq(6)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -75,14 +75,14 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for valid fixes
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.status.gt(0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -115,14 +115,14 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for specific service ID
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.service.eq(1))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -155,14 +155,14 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for fixes with at least 6 satellites
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.satellites.geq(6))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -195,14 +195,14 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for excellent horizontal precision
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.hdop.lt(1.5))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -235,14 +235,14 @@ class GPSStatus(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for good vertical precision
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPSStatus.Q.vdop.lt(2.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -283,15 +283,15 @@ class GPS(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find data collected above 1000m altitude
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPS.Q.position.z.gt(1000.0))
                 .with_expression(GPS.Q.status.satellites.geq(6)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -324,14 +324,14 @@ class GPS(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific latitude range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPS.Q.position.x.between([45.0, 46.0]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -367,14 +367,14 @@ class GPS(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for high vertical velocity
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPS.Q.velocity.z.gt(5.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -411,14 +411,14 @@ class GPS(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for high-precision fixes with at least 8 satellites
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(GPS.Q.status.satellites.geq(8))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -458,14 +458,14 @@ class NMEASentence(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for NMEA sentences containing "GPGGA"
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(NMEASentence.Q.sentence.match("GPGGA"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

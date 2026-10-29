@@ -31,12 +31,12 @@ class Integer8(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer8.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Integer8.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -69,12 +69,12 @@ class Integer8(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer8.Q.data.gt(-10)))
+            query_response = client.query(QueryOntologyCatalog(Integer8.Q.data.gt(-10)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -106,12 +106,12 @@ class Integer16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer16.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Integer16.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -143,12 +143,12 @@ class Integer16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer16.Q.data.gt(-10)))
+            query_response = client.query(QueryOntologyCatalog(Integer16.Q.data.gt(-10)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -180,12 +180,12 @@ class Integer32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer32.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Integer32.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -217,12 +217,12 @@ class Integer32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer32.Q.data.gt(-10)))
+            query_response = client.query(QueryOntologyCatalog(Integer32.Q.data.gt(-10)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -254,12 +254,12 @@ class Integer64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer64.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Integer64.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -291,12 +291,12 @@ class Integer64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Integer64.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Integer64.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -331,12 +331,12 @@ class Unsigned8(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned8.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned8.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -368,12 +368,12 @@ class Unsigned8(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned8.Q.data.leq(253)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned8.Q.data.leq(253)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -422,12 +422,12 @@ class Unsigned16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned16.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned16.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -459,12 +459,12 @@ class Unsigned16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned16.Q.data.eq(2)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned16.Q.data.eq(2)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -513,12 +513,12 @@ class Unsigned32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned32.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned32.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -550,12 +550,12 @@ class Unsigned32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned32.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned32.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -604,12 +604,12 @@ class Unsigned64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned64.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned64.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -641,12 +641,12 @@ class Unsigned64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Unsigned64.Q.data.gt(123)))
+            query_response = client.query(QueryOntologyCatalog(Unsigned64.Q.data.gt(123)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -692,12 +692,12 @@ class Floating16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating16.Q.data.gt(123.45)))
+            query_response = client.query(QueryOntologyCatalog(Floating16.Q.data.gt(123.45)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -729,12 +729,12 @@ class Floating16(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating16.Q.data.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Floating16.Q.data.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -766,12 +766,12 @@ class Floating32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating32.Q.data.gt(123.45)))
+            query_response = client.query(QueryOntologyCatalog(Floating32.Q.data.gt(123.45)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -803,12 +803,12 @@ class Floating32(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating32.Q.data.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Floating32.Q.data.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -840,12 +840,12 @@ class Floating64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating64.Q.data.gt(123.45)))
+            query_response = client.query(QueryOntologyCatalog(Floating64.Q.data.gt(123.45)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -877,12 +877,12 @@ class Floating64(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Floating64.Q.data.leq(123.4)))
+            query_response = client.query(QueryOntologyCatalog(Floating64.Q.data.leq(123.4)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -914,12 +914,12 @@ class Boolean(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Boolean.Q.data.eq(True)))
+            query_response = client.query(QueryOntologyCatalog(Boolean.Q.data.eq(True)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -951,12 +951,12 @@ class Boolean(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(Boolean.Q.data.eq(True)))
+            query_response = client.query(QueryOntologyCatalog(Boolean.Q.data.eq(True)))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -988,12 +988,12 @@ class String(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(String.Q.data.eq("hello")))
+            query_response = client.query(QueryOntologyCatalog(String.Q.data.eq("hello")))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -1025,12 +1025,12 @@ class String(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for strings containing a specific log pattern
-            qresponse = client.query(QueryOntologyCatalog(String.Q.data.match("*[ERR]*")))
+            query_response = client.query(QueryOntologyCatalog(String.Q.data.match("*[ERR]*")))
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

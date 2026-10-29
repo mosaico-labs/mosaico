@@ -45,14 +45,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.height.between(1080, 2160))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -77,14 +77,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.height.between(1080, 2160))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -109,14 +109,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.width.between(1920, 3840))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -141,14 +141,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.distortion_model.eq("plumb_bob"))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -180,14 +180,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cameras with a strong radial distortion coefficient
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.distortion_parameters.any().gt(0.1))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -230,14 +230,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cameras with a specific focal length fx (K[0,0], index 0)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.intrinsic_parameters[0].between(500.0, 700.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -280,14 +280,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for cameras with a near-identity rectification matrix
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.rectification_parameters.all().between(-1.0, 1.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -330,14 +330,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for stereo cameras with a non-zero baseline term Tx (P[0,3], index 3)
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.projection_parameters[3].lt(0.0))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -372,14 +372,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.binning.x.eq(2))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
@@ -408,14 +408,14 @@ class CameraInfo(Serializable, HeaderMixin):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for camera data based on camera parameters
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(CameraInfo.Q.roi.offset.x.eq(2))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```

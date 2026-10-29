@@ -34,11 +34,11 @@ class Joy(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Fetch all sequences that contain at least one Joy topic
-            qresponse = client.query(QueryTopic().with_ontology_tag(Joy.ontology_tag()))
+            query_response = client.query(QueryTopic().with_ontology_tag(Joy.ontology_tag()))
 
-            if qresponse is not None:
+            if query_response is not None:
 
-                for item in qresponse.items:
+                for item in query_response.items:
                     print(f"Sequence: {item.name}")
                     print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
@@ -70,14 +70,14 @@ class Joy(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for joystick samples with at least one axis pushed to the extreme
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Joy.Q.axes.any().gt(0.9))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -117,14 +117,14 @@ class Joy(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for joystick samples with at least one button pressed
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Joy.Q.buttons.any().eq(1))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

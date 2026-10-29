@@ -38,15 +38,15 @@ class Temperature(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for temperature values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]))
                 .with_expression(Temperature.Q.timestamp_ns.between(1700000000, 1800000000)),
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
@@ -79,14 +79,14 @@ class Temperature(
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for temperature values within a specific range
-            qresponse = client.query(
+            query_response = client.query(
                 QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]))
             )
 
             # Inspect the response
-            if qresponse is not None:
+            if query_response is not None:
                 # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
+                for item in query_response:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 

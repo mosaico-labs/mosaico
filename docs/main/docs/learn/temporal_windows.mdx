@@ -59,10 +59,10 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QuerySequence().with_name_match("test_drive"),
         QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
     )
-    qresponse = client.query(query=query)
+    query_response = client.query(query=query)
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             for topic in item.topics:
                 for cluster in topic.clusterize(clustering_dt_ns=int(1e8)):  # 100ms
                     print(f"{topic.name}: {cluster}")
@@ -103,10 +103,10 @@ with MosaicoClient.connect("localhost", 6726) as client:
         .with_expression(Pressure.Q.value.lt(1.0))
         .with_expression(Temperature.Q.value.eq(500.0)),
     )
-    qresponse = client.query(query=query)
+    query_response = client.query(query=query)
 
-    if qresponse is not None:
-        for item in qresponse:
+    if query_response is not None:
+        for item in query_response:
             intersected_clusters = item.intersect(override_clustering_dt_ns=2000)
             print(f"{item.sequence.name}: {[str(c) for c in intersected_clusters]}")
 ```
