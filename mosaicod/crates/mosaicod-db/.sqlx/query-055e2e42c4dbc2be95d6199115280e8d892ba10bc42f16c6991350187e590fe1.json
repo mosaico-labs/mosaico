@@ -6,57 +6,123 @@
       {
         "ordinal": 0,
         "name": "column_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "column_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "chunk_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "chunk_id"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "min_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "min_value"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "max_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "max_value"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "nan_count",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "nan_count"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "null_count",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "null_count"
+          }
+        }
       },
       {
         "ordinal": 6,
         "name": "first_sample_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "first_sample_value"
+          }
+        }
       },
       {
         "ordinal": 7,
         "name": "last_sample_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "last_sample_value"
+          }
+        }
       },
       {
         "ordinal": 8,
         "name": "mean_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "mean_value"
+          }
+        }
       },
       {
         "ordinal": 9,
         "name": "m2_value",
-        "type_info": "Float8"
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "m2_value"
+          }
+        }
       },
       {
         "ordinal": 10,
         "name": "is_list",
-        "type_info": "Bool"
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "column_chunk_numeric_t",
+            "name": "is_list"
+          }
+        }
       }
     ],
     "parameters": {
