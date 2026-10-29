@@ -1,5 +1,5 @@
 use arrow::datatypes::{
-    DataType, Field, Fields, IntervalUnit, Schema, SchemaRef, TimeUnit, UnionFields, UnionMode,
+    DataType, Field, Fields, IntervalUnit, Schema, TimeUnit, UnionFields, UnionMode,
 };
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -12,8 +12,8 @@ const DOMAIN: &str = "mosaico.schema.v1";
 pub struct SchemaHash([u8; 32]);
 
 impl SchemaHash {
-    pub fn new(schema: &SchemaRef) -> Self {
-        let Schema { fields, metadata } = schema.as_ref();
+    pub fn new(schema: &Schema) -> Self {
+        let Schema { fields, metadata } = schema;
 
         let mut encoder = Encoder::default();
         encoder.str(DOMAIN);
@@ -55,12 +55,12 @@ impl Encoder {
         self.u8(u8::from(value));
     }
 
-    fn len(&mut self, len: usize) {
-        self.hasher.update((len as u64).to_le_bytes());
+    fn count(&mut self, count: usize) {
+        self.hasher.update((count as u64).to_le_bytes());
     }
 
     fn str(&mut self, value: &str) {
-        self.len(value.len());
+        self.count(value.len());
         self.hasher.update(value.as_bytes());
     }
 
@@ -74,7 +74,7 @@ impl Encoder {
     fn metadata(&mut self, metadata: &HashMap<String, String>) {
         let mut pairs: Vec<_> = metadata.iter().collect();
         pairs.sort_unstable();
-        self.len(pairs.len());
+        self.count(pairs.len());
         for (key, value) in pairs {
             self.str(key);
             self.str(value);
@@ -82,7 +82,7 @@ impl Encoder {
     }
 
     fn fields(&mut self, fields: &Fields) {
-        self.len(fields.len());
+        self.count(fields.len());
         for field in fields {
             self.field(field);
         }
@@ -105,7 +105,7 @@ impl Encoder {
     }
 
     fn union_fields(&mut self, fields: &UnionFields) {
-        self.len(fields.len());
+        self.count(fields.len());
         for (type_id, field) in fields.iter() {
             self.i8(type_id);
             self.field(field);
@@ -118,7 +118,7 @@ impl Encoder {
         };
         self.field_properties(entries);
         self.u8(data_type_tag(entries.data_type()));
-        self.len(children.len());
+        self.count(children.len());
         for child in children {
             self.unnamed_field(child);
         }
@@ -266,7 +266,7 @@ mod tests {
     use std::sync::Arc;
 
     fn hash(fields: Vec<Field>) -> SchemaHash {
-        SchemaHash::new(&Arc::new(Schema::new(fields)))
+        SchemaHash::new(&Schema::new(fields))
     }
 
     fn hash_with_metadata(fields: Vec<Field>, metadata: &[(&str, &str)]) -> SchemaHash {
@@ -274,7 +274,7 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
-        SchemaHash::new(&Arc::new(Schema::new_with_metadata(fields, metadata)))
+        SchemaHash::new(&Schema::new_with_metadata(fields, metadata))
     }
 
     fn field(name: &str, data_type: DataType) -> Field {
@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn golden() {
-        let schema = Arc::new(Schema::new_with_metadata(
+        let schema = Schema::new_with_metadata(
             vec![
                 Field::new("timestamp_ns", DataType::Int64, false),
                 Field::new(
@@ -584,7 +584,7 @@ mod tests {
                 Field::new("gains", map("entries", "key", "value", false), true),
             ],
             HashMap::from([("source".into(), "test".into())]),
-        ));
+        );
 
         // If this changes, every stored hash changes with it: bump `DOMAIN` on purpose instead.
         assert_eq!(
