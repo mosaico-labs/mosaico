@@ -14,7 +14,7 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "chore(py)"
+      prefix: "chore(sdk-py)"
 
   - package-ecosystem: "uv"
     directory: "/docs/py"
