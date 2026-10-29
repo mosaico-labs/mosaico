@@ -32,7 +32,7 @@ jobs:
 
       - name: Cache Cross Binary
         id: cache-cross
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cross
           key: ${{ runner.os }}-cross-v1
