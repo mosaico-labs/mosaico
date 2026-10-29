@@ -17,6 +17,7 @@ from mosaicolabs import (
     ForceTorque,
     GPSStatus,
     Image,
+    ImageSequence,
     Integer8,
     Integer16,
     Integer32,
@@ -33,6 +34,7 @@ from mosaicolabs import (
     Range,
     RobotJoint,
     Serializable,
+    SerializationFormat,
     String,
     Temperature,
     Transform,
@@ -812,6 +814,37 @@ def test_compressed_image_struct():
     )
 
     assert pyarrow_struct == CompressedImage.__msco_pyarrow_struct__
+
+
+def test_image_sequence_struct():
+    # The `image_sequence` server format refers to these columns by name.
+    pyarrow_struct = pa.struct(
+        [
+            pa.field(
+                "format",
+                pa.string(),
+                nullable=False,
+                metadata={"description": "The image encoding ('png' or 'tiff')."},
+            ),
+            pa.field(
+                "capture_timestamp_ns",
+                pa.int64(),
+                nullable=False,
+                metadata={
+                    "description": "Capture time, in nanoseconds since the Unix epoch."
+                },
+            ),
+            pa.field(
+                "data",
+                pa.binary(),
+                nullable=False,
+                metadata={"description": "The encoded image."},
+            ),
+        ]
+    )
+
+    assert pyarrow_struct == ImageSequence.__msco_pyarrow_struct__
+    assert ImageSequence.__serialization_format__ == SerializationFormat.ImageSequence
 
 
 def test_gps_struct():

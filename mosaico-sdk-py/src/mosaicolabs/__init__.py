@@ -118,6 +118,8 @@ from .models.sensors import (
     GPSStatus as GPSStatus,
     Image as Image,
     ImageFormat as ImageFormat,
+    ImageSequence as ImageSequence,
+    ImageSequenceFormat as ImageSequenceFormat,
     Joy as Joy,
     Magnetometer as Magnetometer,
     NMEASentence as NMEASentence,
@@ -186,6 +188,8 @@ __all__ = [
     "RobotJoint",
     "Pressure",
     "Temperature",
+    "ImageSequence",
+    "ImageSequenceFormat",
     "Range",
     # Base Types
     "Boolean",

@@ -6,6 +6,10 @@ from .image import (
     ImageFormat as ImageFormat,
     StatefulDecodingSession as StatefulDecodingSession,
 )
+from .image_sequence import (
+    ImageSequence as ImageSequence,
+    ImageSequenceFormat as ImageSequenceFormat,
+)
 from .imu import IMU as IMU
 from .joy import Joy as Joy
 from .magnetometer import Magnetometer as Magnetometer
