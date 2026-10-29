@@ -28,8 +28,6 @@ from mosaicolabs_cli.utils.bridge import (
     run_injector,
 )
 
-app = typer.Typer(no_args_is_help=True)
-
 # Name-valued mirrors of the rosbags enums, so typer can list them as choices
 RosDistro = Enum("RosDistro", {s.name: s.name for s in Stores}, type=str)
 RosStoragePlugin = Enum(
@@ -37,7 +35,6 @@ RosStoragePlugin = Enum(
 )
 
 
-@app.command(name="inject")
 def inject(
     ctx: typer.Context,
     bag_path: InputFileArg,
@@ -89,7 +86,6 @@ def inject(
     run_injector(RosbagInjector(config))
 
 
-@app.command(name="extract")
 def extract(
     ctx: typer.Context,
     sequence_name: SequenceNameArg,

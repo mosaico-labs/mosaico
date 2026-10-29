@@ -2,7 +2,14 @@ from typing import Optional
 
 import typer
 
-from mosaicolabs_cli.commands import extension, mcap, profile, ros, sequence, topic
+from mosaicolabs_cli.commands import (
+    extension,
+    extract,
+    inject,
+    profile,
+    sequence,
+    topic,
+)
 from mosaicolabs_cli.commands.extension import MosaicoRouter
 from mosaicolabs_cli.utils.env import MosaicoEnv
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -51,8 +58,14 @@ def main_callback(
 app.add_typer(profile.app, name="profile", help="Manage connection profiles.")
 app.add_typer(sequence.app, name="sequence", help="Manage and list sequences.")
 app.add_typer(topic.app, name="topic", help="Manage and list topics.")
-app.add_typer(ros.app, name="ros", help="Inject and extract ROS bags.")
-app.add_typer(mcap.app, name="mcap", help="Inject and extract MCAP files.")
+app.add_typer(
+    inject.app, name="inject", help="Inject ROS bags and MCAP files into Mosaico."
+)
+app.add_typer(
+    extract.app,
+    name="extract",
+    help="Extract sequences from Mosaico as ROS bags or MCAP files.",
+)
 app.add_typer(
     extension.app,
     name="extension",

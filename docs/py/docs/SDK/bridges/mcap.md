@@ -319,21 +319,21 @@ A topic whose `_mcap_` block is missing one of the schema or channel fields, or 
 * **`topic_metadata`**: merged underneath the auto-computed `_mcap_` block (see above).
 
 !!! note "CLI-only sequence metadata"
-    When injecting from the command line (`mosaico mcap inject`), an additional `mcap_injection` key (the MCAP file name) is automatically merged into `metadata` for traceability. This only happens in the CLI entry points, not when constructing `MCAPInjectionConfig` directly in Python.
+    When injecting from the command line (`mosaico inject mcap`), an additional `mcap_injection` key (the MCAP file name) is automatically merged into `metadata` for traceability. This only happens in the CLI entry points, not when constructing `MCAPInjectionConfig` directly in Python.
 
 !!! tip "Querying these keys"
     `_mcap_` and its nested fields (e.g. `_mcap_.schema_name`, `_mcap_.channel_name`) are ordinary metadata as far as the query engine is concerned: they're queryable through [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] and [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] `with_user_metadata()` exactly like any other metadata field, including [glob patterns for nested keys](../query.md#using-glob-pattern-for-metadata-keys) (e.g. `QueryTopic().with_user_metadata("_mcap_.schema_name", eq="foxglove.CompressedVideo")`). See the [Query Workflow](../query.md) guide for the full API.
 
 #### CLI Usage
 
-MCAP files can be injected from the terminal with the `mosaico` CLI (installed with `pip install "mosaicolabs[cli]"`), which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico mcap inject --help`.
+MCAP files can be injected from the terminal with the `mosaico` CLI (installed with `pip install "mosaicolabs[cli]"`), which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico inject mcap --help`.
 
 ```bash
 # Basic Usage
-mosaico mcap inject ./data.mcap --name "Test_Run_01"
+mosaico inject mcap ./data.mcap --name "Test_Run_01"
 
 # Advanced Usage: Filtering channels and adding metadata
-mosaico mcap inject ./data.mcap \
+mosaico inject mcap ./data.mcap \
   --name "Test_Run_01" \
   --channels "/camera/front/*" --channels /gps/fix \
   --metadata ./metadata.json
@@ -341,14 +341,14 @@ mosaico mcap inject ./data.mcap \
 # Advanced Usage: Per-topic metadata and appending to an existing sequence
 # (e.g. a second file of a multi-part recording, or reprocessed results
 # to merge into an already ingested sequence)
-mosaico mcap inject ./estimation_results.mcap \
+mosaico inject mcap ./estimation_results.mcap \
   --name "Test_Run_01" \
   --topic-metadata '{"/estimation/pose": {"algorithm": "ekf_v2"}}' \
   --update-if-exists
 
 # Dry Run: report accepted and rejected channels, without connecting to the server
 # (no connection profile needed)
-mosaico mcap inject ./data.mcap --name "Test_Run_01" --dry-run
+mosaico inject mcap ./data.mcap --name "Test_Run_01" --dry-run
 ```
 
 !!! note "Development script"
@@ -389,7 +389,7 @@ MCAPSequenceExtractor(config).run()  # prints a report; nothing is written or de
 ```
 
 ```bash
-mosaico mcap extract on_track_experiment --mcap-path ./exports --dry-run
+mosaico extract mcap on_track_experiment --mcap-path ./exports --dry-run
 ```
 
 #### Practical Example: Programmatic Usage
@@ -419,14 +419,14 @@ extractor.run()  # writes ./exports/on_track_experiment/on_track_experiment.mcap
 
 #### CLI Usage
 
-Sequences can be extracted from the terminal with `mosaico mcap extract`, which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico mcap extract --help`.
+Sequences can be extracted from the terminal with `mosaico extract mcap`, which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico extract mcap --help`.
 
 ```bash
 # Basic Usage
-mosaico mcap extract on_track_experiment --mcap-path ./exports
+mosaico extract mcap on_track_experiment --mcap-path ./exports
 
 # Advanced Usage: Filtering topics and overwriting a previous export
-mosaico mcap extract on_track_experiment \
+mosaico extract mcap on_track_experiment \
   --mcap-path ./exports \
   --topics "/cam/*" --topics "!/cam/debug*" \
   --overwrite

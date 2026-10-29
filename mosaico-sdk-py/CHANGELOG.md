@@ -5,7 +5,7 @@
 
 ### Features
 
-- Added the **`mosaico ros`** and **`mosaico mcap`** command groups to the official CLI, each with an **`inject`** and an **`extract`** command, taking their connection settings from the active profile (`inject --dry-run` needs none). ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
+- Added the **`mosaico inject`** and **`mosaico extract`** command groups to the official CLI, each with a **`ros`** and an **`mcap`** command (e.g. `mosaico inject ros`, `mosaico extract mcap`), taking their connection settings from the active profile (`inject --dry-run` needs none). ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
 - Added the **`mosaicolabs.ros_sequence_extractor`** and **`mosaicolabs.mcap_sequence_extractor`** command-line scripts, the extraction counterparts of the `mosaicolabs.ros_injector` / `mosaicolabs.mcap_injector` development scripts. ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
 - The documentation now uses the `mosaico` CLI in its command-line examples; the `mosaicolabs.*` scripts are documented as development tools.
 

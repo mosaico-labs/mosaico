@@ -26,10 +26,7 @@ from mosaicolabs_cli.utils.bridge import (
     run_injector,
 )
 
-app = typer.Typer(no_args_is_help=True)
 
-
-@app.command(name="inject")
 def inject(
     ctx: typer.Context,
     mcap_path: InputFileArg,
@@ -78,7 +75,6 @@ def inject(
     run_injector(MCAPInjector(config))
 
 
-@app.command(name="extract")
 def extract(
     ctx: typer.Context,
     sequence_name: SequenceNameArg,

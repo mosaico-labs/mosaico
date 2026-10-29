@@ -257,7 +257,7 @@ Sequence and topic metadata are populated from a mix of auto-computed and user-s
 * **`topic_metadata`**: merged underneath the auto-computed `_ros_` block (see above).
 
 !!! note "CLI-only sequence metadata"
-    When injecting from the command line (`mosaico ros inject`), an additional `rosbag_injection` key (the bag's filename) is automatically merged into `metadata` for traceability. This only happens in the CLI entry points — not when constructing `ROSInjectionConfig` directly in Python.
+    When injecting from the command line (`mosaico inject ros`), an additional `rosbag_injection` key (the bag's filename) is automatically merged into `metadata` for traceability. This only happens in the CLI entry points — not when constructing `ROSInjectionConfig` directly in Python.
 
 !!! tip "Querying these keys"
     `_ros_` and its nested fields (e.g. `_ros_.msgtype`, `_ros_.enums.<NAME>`) are ordinary metadata as far as the query engine is concerned — they're queryable through [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] and [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] `with_user_metadata()` exactly like any other metadata field, including [glob patterns for nested keys](../query.md#using-glob-pattern-for-metadata-keys) (e.g. `QueryTopic().with_user_metadata("_ros_.msgtype", eq="sensor_msgs/msg/Imu")`). See the [Query Workflow](../query.md) guide for the full API.
@@ -393,14 +393,14 @@ Follow the steps described [here](#extending-the-bridge-custom-adapters) with th
 
 #### CLI Usage
 
-Bags can be injected from the terminal with the `mosaico` CLI (installed with `pip install "mosaicolabs[cli]"`), which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico ros inject --help`.
+Bags can be injected from the terminal with the `mosaico` CLI (installed with `pip install "mosaicolabs[cli]"`), which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico inject ros --help`.
 
 ```bash
 # Basic Usage
-mosaico ros inject ./data.mcap --name "Test_Run_01"
+mosaico inject ros ./data.mcap --name "Test_Run_01"
 
 # Advanced Usage: Filtering topics and adding metadata
-mosaico ros inject ./data.db3 \
+mosaico inject ros ./data.db3 \
   --name "Test_Run_01" \
   --topics "/camera/front/*" --topics /gps/fix \
   --metadata ./metadata.json \
@@ -409,7 +409,7 @@ mosaico ros inject ./data.db3 \
 # Advanced Usage: Per-topic metadata and appending to an existing sequence
 # (e.g. a second bag of a multi-part recording, or reprocessed results
 # to merge into an already-ingested sequence)
-mosaico ros inject ./estimation_results.mcap \
+mosaico inject ros ./estimation_results.mcap \
   --name "Test_Run_01" \
   --topic-metadata '{"/estimation/pose": {"algorithm": "ekf_v2"}}' \
   --update-if-exists
@@ -452,7 +452,7 @@ ROSSequenceExtractor(config).run()  # prints a report; nothing is written or del
 ```
 
 ```bash
-mosaico ros extract on_track_experiment --rosbag-path ./exports --dry-run
+mosaico extract ros on_track_experiment --rosbag-path ./exports --dry-run
 ```
 
 #### Practical Example: Programmatic Usage
@@ -486,14 +486,14 @@ extractor.run()
 
 #### CLI Usage
 
-Sequences can be extracted from the terminal with `mosaico ros extract`, which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico ros extract --help`.
+Sequences can be extracted from the terminal with `mosaico extract ros`, which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico extract ros --help`.
 
 ```bash
 # Basic Usage
-mosaico ros extract on_track_experiment --rosbag-path ./exports
+mosaico extract ros on_track_experiment --rosbag-path ./exports
 
 # Advanced Usage: Filtering topics and targeting a specific ROS distro/format
-mosaico ros extract on_track_experiment \
+mosaico extract ros on_track_experiment \
   --rosbag-path ./exports \
   --topics "/cam/*" --topics "!/cam/debug*" \
   --ros-distro ROS2_HUMBLE \

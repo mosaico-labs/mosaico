@@ -72,26 +72,27 @@ def fake(monkeypatch):
 
 
 BRIDGES = ["ros", "mcap"]
+ACTIONS = ["inject", "extract"]
 
 
 class TestHelp:
     def test_groups_listed_in_main_help(self):
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
+        for action in ACTIONS:
+            assert action in result.output
+
+    @pytest.mark.parametrize("action", ACTIONS)
+    def test_group_help_lists_formats(self, action):
+        result = runner.invoke(app, [action, "--help"])
+        assert result.exit_code == 0
         for bridge in BRIDGES:
             assert bridge in result.output
 
     @pytest.mark.parametrize("bridge", BRIDGES)
-    def test_group_help_lists_commands(self, bridge):
-        result = runner.invoke(app, [bridge, "--help"])
-        assert result.exit_code == 0
-        assert "inject" in result.output
-        assert "extract" in result.output
-
-    @pytest.mark.parametrize("bridge", BRIDGES)
-    @pytest.mark.parametrize("command", ["inject", "extract"])
+    @pytest.mark.parametrize("command", ACTIONS)
     def test_command_help(self, no_profile_env, bridge, command):
-        result = runner.invoke(app, [bridge, command, "--help"])
+        result = runner.invoke(app, [command, bridge, "--help"])
         assert result.exit_code == 0
         assert "Usage" in result.output
 
@@ -99,7 +100,7 @@ class TestHelp:
 class TestRequiresProfile:
     @pytest.mark.parametrize("bridge", BRIDGES)
     def test_extract_without_profile_exits(self, no_profile_env, fake, bridge):
-        result = runner.invoke(app, [bridge, "extract", "my_seq"])
+        result = runner.invoke(app, ["extract", bridge, "my_seq"])
         assert result.exit_code == 1
         assert fake.configs == []
 
@@ -107,7 +108,7 @@ class TestRequiresProfile:
     def test_inject_without_profile_exits(
         self, no_profile_env, fake, input_file, bridge
     ):
-        result = runner.invoke(app, [bridge, "inject", str(input_file), "-n", "seq"])
+        result = runner.invoke(app, ["inject", bridge, str(input_file), "-n", "seq"])
         assert result.exit_code == 1
         assert fake.configs == []
 
@@ -117,7 +118,7 @@ class TestRequiresProfile:
     ):
         fake.outcome = InjectionStatus.DRY_RUN
         result = runner.invoke(
-            app, [bridge, "inject", str(input_file), "-n", "seq", "--dry-run"]
+            app, ["inject", bridge, str(input_file), "-n", "seq", "--dry-run"]
         )
         assert result.exit_code == 0, result.output
         (cfg,) = fake.configs
@@ -128,7 +129,7 @@ class TestRequiresProfile:
 class TestRosInject:
     def test_defaults(self, profile_env, fake, input_file):
         fake.outcome = InjectionStatus.COMPLETED
-        result = runner.invoke(app, ["ros", "inject", str(input_file), "-n", "seq"])
+        result = runner.invoke(app, ["inject", "ros", str(input_file), "-n", "seq"])
         assert result.exit_code == 0, result.output
 
         (cfg,) = fake.configs
@@ -153,8 +154,8 @@ class TestRosInject:
         result = runner.invoke(
             app,
             [
-                "ros",
                 "inject",
+                "ros",
                 str(input_file),
                 "--name",
                 "seq",
@@ -189,14 +190,14 @@ class TestRosInject:
     def test_invalid_metadata(self, profile_env, fake, input_file):
         result = runner.invoke(
             app,
-            ["ros", "inject", str(input_file), "-n", "seq", "--metadata", "{nope"],
+            ["inject", "ros", str(input_file), "-n", "seq", "--metadata", "{nope"],
         )
         assert result.exit_code == 2
         assert fake.configs == []
 
     def test_missing_file(self, profile_env, fake, tmp_path):
         result = runner.invoke(
-            app, ["ros", "inject", str(tmp_path / "missing.bag"), "-n", "seq"]
+            app, ["inject", "ros", str(tmp_path / "missing.bag"), "-n", "seq"]
         )
         assert result.exit_code == 2
         assert fake.configs == []
@@ -213,13 +214,13 @@ class TestRosInject:
         self, profile_env, fake, input_file, outcome, exit_code
     ):
         fake.outcome = outcome
-        result = runner.invoke(app, ["ros", "inject", str(input_file), "-n", "seq"])
+        result = runner.invoke(app, ["inject", "ros", str(input_file), "-n", "seq"])
         assert result.exit_code == exit_code
 
 
 class TestRosExtract:
     def test_defaults(self, profile_env, fake):
-        result = runner.invoke(app, ["ros", "extract", "my_seq"])
+        result = runner.invoke(app, ["extract", "ros", "my_seq"])
         assert result.exit_code == 0, result.output
 
         (cfg,) = fake.configs
@@ -242,8 +243,8 @@ class TestRosExtract:
         result = runner.invoke(
             app,
             [
-                "ros",
                 "extract",
+                "ros",
                 "my_seq",
                 "--rosbag-path",
                 str(tmp_path),
@@ -280,7 +281,7 @@ class TestRosExtract:
 
     def test_invalid_distro(self, profile_env, fake):
         result = runner.invoke(
-            app, ["ros", "extract", "my_seq", "--ros-distro", "NOPE"]
+            app, ["extract", "ros", "my_seq", "--ros-distro", "NOPE"]
         )
         assert result.exit_code != 0
         assert fake.configs == []
@@ -292,8 +293,8 @@ class TestMcapInject:
         result = runner.invoke(
             app,
             [
-                "mcap",
                 "inject",
+                "mcap",
                 str(input_file),
                 "-n",
                 "seq",
@@ -322,8 +323,8 @@ class TestMcapExtract:
         result = runner.invoke(
             app,
             [
-                "mcap",
                 "extract",
+                "mcap",
                 "my_seq",
                 "--mcap_path",
                 str(tmp_path),
@@ -348,6 +349,6 @@ class TestMcapExtract:
     )
     def test_expected_errors_exit_cleanly(self, profile_env, fake, error):
         fake.outcome = error
-        result = runner.invoke(app, ["mcap", "extract", "my_seq"])
+        result = runner.invoke(app, ["extract", "mcap", "my_seq"])
         assert result.exit_code == 1
         assert str(error) in result.output

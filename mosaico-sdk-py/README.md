@@ -116,12 +116,12 @@ Install the `mosaico` CLI with `pip install "mosaicolabs[cli]"`, set up a connec
 
 ```bash
 # Inject a ROS bag (MCAP, db3 or legacy .bag) or an MCAP file into a new sequence
-mosaico ros inject path/to/your/data.mcap --name my_test_run
-mosaico mcap inject path/to/your/data.mcap --name my_test_run
+mosaico inject ros path/to/your/data.mcap --name my_test_run
+mosaico inject mcap path/to/your/data.mcap --name my_test_run
 
 # Extract a sequence back to a ROS bag or an MCAP file
-mosaico ros extract my_test_run --rosbag-path ./exports
-mosaico mcap extract my_test_run --mcap-path ./exports
+mosaico extract ros my_test_run --rosbag-path ./exports
+mosaico extract mcap my_test_run --mcap-path ./exports
 ```
 
 ### Interactive Examples
