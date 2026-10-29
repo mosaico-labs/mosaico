@@ -41,7 +41,7 @@ jobs:
     env:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
