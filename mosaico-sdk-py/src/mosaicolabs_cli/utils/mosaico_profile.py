@@ -75,11 +75,17 @@ class MosaicoProfile:
         else:
             tls = bool(profile_dict.get("tls", False))
 
+        profile_port = int(profile_dict.get("port", DEFAULT_MOSAICO_PORT))
+
         if env_host:
-            resolved_host, resolved_port = cls._normalize_host_port(env_host)
+            # A port embedded in the env URL wins; otherwise keep the profile's port.
+            resolved_host, embedded_port = cls._split_host_port(env_host)
+            resolved_port = (
+                embedded_port if embedded_port is not None else profile_port
+            )
         else:
             resolved_host = profile_dict.get("host", "")
-            resolved_port = int(profile_dict.get("port", DEFAULT_MOSAICO_PORT))
+            resolved_port = profile_port
 
         return cls(
             host=resolved_host,
@@ -136,7 +142,27 @@ class MosaicoProfile:
         return self.cert_path if self.cert_path else None
 
     @staticmethod
-    def _normalize_host_port(host: str, port: Optional[int] = None) -> tuple[str, int]:
+    def _split_host_port(host: str) -> tuple[str, Optional[int]]:
+        """
+        Strip protocol prefix and split off the embedded port, if any.
+
+        Raises:
+            ValueError: If the embedded port is not a valid integer.
+        """
+        h = host.strip().rstrip("/")
+        h = h.replace("http://", "").replace("https://", "")
+
+        if ":" in h:
+            host_part, port_str = h.rsplit(":", 1)
+            if not port_str.isdigit():
+                raise ValueError(f"Malformed input host '{h}'")
+            return host_part, int(port_str)
+        return h, None
+
+    @classmethod
+    def _normalize_host_port(
+        cls, host: str, port: Optional[int] = None
+    ) -> tuple[str, int]:
         """
         Strip protocol prefix and extract embedded port if present.
 
@@ -148,16 +174,7 @@ class MosaicoProfile:
             ValueError: If port is specified both as argument and embedded in host,
                 or if embedded port is not a valid integer.
         """
-        h = host.strip().rstrip("/")
-        h = h.replace("http://", "").replace("https://", "")
-
-        embedded_port: Optional[int] = None
-        if ":" in h:
-            host_part, port_str = h.rsplit(":", 1)
-            if not port_str.isdigit():
-                raise ValueError(f"Malformed input host '{h}'")
-            embedded_port = int(port_str)
-            h = host_part
+        h, embedded_port = cls._split_host_port(host)
 
         if embedded_port is not None and port is not None:
             raise ValueError(

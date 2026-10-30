@@ -1,0 +1,24 @@
+{
+  "1": { "sequences": ["race_1", "race_2"] },
+  "2": { "sequences": ["race_1", "race_2"] },
+  "3": { "sequences": ["indoor_forward_3_davis_with_gt"] },
+  "4": { "topics": [["indoor_forward_3_davis_with_gt", "/dvs/events"]] },
+  "5": {
+    "topics": [
+      ["race_1", "/camera/imu"],
+      ["race_2", "/camera/imu"],
+      ["indoor_forward_3_davis_with_gt", "/dvs/imu"]
+    ]
+  },
+  "6": { "sequences": ["race_1"] },
+  "7": {
+    "windows_ns": [
+      [1654544063509694815, 1654544063634737015],
+      [1654544068796144962, 1654544068946194887],
+      [1654544074122455835, 1654544074277506351]
+    ]
+  },
+  "8": { "sequences": ["indoor_forward_3_davis_with_gt"] },
+  "9": { "sequences": ["race_2"] },
+  "10": { "sequences": ["race_1"] }
+}

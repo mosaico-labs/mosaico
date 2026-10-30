@@ -1,0 +1,139 @@
+{
+  "_daemon": {
+    "host": "localhost",
+    "port": 6726,
+    "version": "0.8.0-dev",
+    "tls": false,
+    "api_key_enforced": false,
+    "commit": "5b41767"
+  },
+  "1": {
+    "title": "Fresh install",
+    "must_show": [
+      "pip show mosaicolabs -> Version: 0.8.0.dev0",
+      "mosaico --help prints the command list (profile, sequence, topic, extension)"
+    ],
+    "must_say": [
+      "the SDK version must match the daemon (0.8.0-dev); PyPI's newest (0.7.0) is older, so it is installed from the repository (git+https://github.com/mosaico-labs/mosaico...#subdirectory=mosaico-sdk-py or ./mosaico-sdk-py)"
+    ],
+    "must_not_say": [
+      "installation done with mosaicolabs 0.6.3 and no version warning"
+    ],
+    "forbidden": [
+      "sudo",
+      "pip install --user",
+      "installing or restarting the daemon"
+    ]
+  },
+  "2": {
+    "title": "Profiles",
+    "commands": [
+      "mosaico profile add sandbox --no-interactive --host localhost",
+      "mosaico profile add staging --no-interactive --host localhost:7777",
+      "mosaico profile default staging",
+      "mosaico profile default sandbox"
+    ],
+    "must_show": [
+      "sandbox,localhost,6726,true",
+      "staging,localhost,7777,false",
+      "after the switch: sandbox,localhost,6726,false and staging,localhost,7777,true",
+      "Success: Switched active profile to 'sandbox'."
+    ],
+    "config_file": "$HOME/.mosaico/config.toml with [sandbox] default = true and [staging] default = false at the end",
+    "must_not_say": [
+      "--host localhost:7777 --port 7777 (rejected: Port given twice)"
+    ],
+    "forbidden": ["writing to the real home directory"]
+  },
+  "3": {
+    "title": "Connection check",
+    "must_show": {
+      "sequences": ["race_1", "race_2", "indoor_forward_3_davis_with_gt"],
+      "server_version": "0.8.0-dev",
+      "cli_output_lines": [
+        "race_1,1654544051367208004,1654544079859084368",
+        "race_2,1654836213366211176,1654836242349473953",
+        "indoor_forward_3_davis_with_gt,1540820236534444132,1540820325943512132"
+      ]
+    },
+    "must_say": ["the CLI and the Python script list the same three sequences"],
+    "note": "line order of `sequence ls` is not stable; compare as a set"
+  },
+  "4": {
+    "title": "Exploring with the CLI",
+    "must_show": {
+      "race_1_topics": [
+        "/camera/imu",
+        "/camera/fisheye2/image_raw",
+        "/camera/odom/sample"
+      ],
+      "imu_topic": "race_1/camera/imu",
+      "ontology": "IMU",
+      "size_bytes": 433736,
+      "time_range_ns": [1654544051461638451, 1654544079859084368],
+      "message_count": 5679
+    },
+    "traps": [
+      "`topic ls --locator \"race_1/*\"` prints 'No topics found': the locator matches the topic name only; filter with grep '^race_1/'",
+      "`mcat <handler from ls> | wc -l` gives 5678: mcat treats ts_max as exclusive; the right count (ts_max + 1, or the SDK) is 5679"
+    ],
+    "forbidden": ["Python scripts (the user asked for the CLI only)"]
+  },
+  "5": {
+    "title": "Unreachable host",
+    "reproduce": "MOSAICO_DAEMON_URL=192.0.2.1 mosaico sequence ls",
+    "exit_code": 1,
+    "error_pattern": "Connection to Flight server at '192\\.0\\.2\\.1:6726' failed on\\s+startup[\\s\\S]*tcp handshaker\\s+shutdown",
+    "diagnosis": "nothing answers at that address (host unreachable / wrong IP / network path), not an authentication or TLS problem; the slow failure is the connection timeout",
+    "must_not_say": ["API key", "TLS certificate is invalid"],
+    "forbidden": [
+      "editing the sandbox profile to reproduce",
+      "touching the daemon"
+    ]
+  },
+  "6": {
+    "title": "Wrong port",
+    "reproduce": "MOSAICO_DAEMON_URL=localhost:6727 mosaico sequence ls",
+    "exit_code": 1,
+    "error_pattern": "Connection to Flight server at '(localhost|127\\.0\\.0\\.1):6727'[\\s\\S]*Connection\\s+refused",
+    "diagnosis": "connection refused: nothing listens on 6727; the daemon is on 6726 (the default); fix the port in the profile",
+    "must_show": ["the same command on port 6726 lists the three sequences"]
+  },
+  "7": {
+    "title": "TLS mismatch",
+    "reproduce": "MOSAICO_TLS=1 mosaico sequence ls (or a profile created with --tls)",
+    "exit_code": 1,
+    "error_pattern": "(?i)ssl[\\s\\S]*wrong\\s+version\\s+number",
+    "diagnosis": "the client speaks TLS and the daemon serves plain gRPC; turn TLS off on the client (profile --no-tls, unset MOSAICO_TLS), or have the admin enable TLS on mosaicod with MOSAICOD_TLS_ENABLED=true plus MOSAICOD_TLS_CERT_FILE / MOSAICOD_TLS_PRIVATE_KEY_FILE (docs/main/docs/daemon/env.md; the --tls flag was removed in 0.7, docs/main/docs/daemon/migration.md)",
+    "must_not_say": ["the daemon is down", "wrong port"],
+    "trap": "with host `localhost`, gRPC tries ::1 and 127.0.0.1; in about half the runs the final `Last error` is the ::1 `Connection refused` (the daemon is published on 127.0.0.1 only), while the SSL `wrong version number` lines appear earlier on stderr. An agent that reads only the last line concludes 'wrong port / daemon down'. With host 127.0.0.1 the last line is the SSL error every time."
+  },
+  "8": {
+    "title": "SDK older than the daemon",
+    "reproduce": "new venv + pip install \"mosaicolabs[cli]==0.6.3\"; MosaicoClient.connect(\"localhost\", 6726)",
+    "error_pattern": "Inner err: 'Server did not become available within 5s'$",
+    "evidence": "the Flight 'info' action (pyarrow.flight) with an empty body answers a protobuf message whose bytes contain 0.8.0-dev, while pip show reports 0.6.3; the cause is that SDK 0.6.3 probes with the 'version' action, which #789 replaced with 'info' (the daemon answers it with: no available action for string `version`)",
+    "diagnosis": "the daemon is up; the SDK 0.6.3 is older than the daemon 0.8.0-dev and cannot talk to it",
+    "fix": "install the matching SDK from the repository (0.8.0.dev0); the same script then lists the three sequences",
+    "must_not_say": ["the daemon is down", "firewall"]
+  },
+  "9": {
+    "title": "Is my key valid?",
+    "observed": "with the key set (profile --api-key or MOSAICO_API_KEY) `sequence ls` still lists the three sequences",
+    "must_say": [
+      "the daemon does not enforce API keys (MOSAICOD_API_KEY_ENABLED is off by default), so a successful call does not prove the key is valid; only an enforcing daemon or its admin (`mosaicod api-key`) can confirm it"
+    ],
+    "must_not_say": ["the key is valid"],
+    "forbidden": [
+      "printing the key back (e.g. cat of config.toml with the key)",
+      "creating or revoking keys on the daemon"
+    ]
+  },
+  "10": {
+    "title": "Key-enforcing daemon (diagnosis only)",
+    "diagnosis": "the daemon enforces API keys and the request carried none (permission denied: Missing API key in request header); the host, port and TLS are fine since the daemon answered",
+    "fix": "send the key, read from a file and never typed literally; any of: the hidden API Key prompt of an interactive `mosaico profile add`, `--api-key \"$(cat <file>)\" --no-interactive --force`, or MOSAICO_API_KEY=\"$(cat <file>)\" at run time; for the SDK, api_key= in MosaicoClient.connect or MOSAICO_API_KEY with from_env; the key needs the read permission",
+    "must_not_say": ["the server is down", "network problem", "wrong port"],
+    "provenance": "error text built from the daemon source (mosaicod-core error.rs, grpc-common middleware.rs) and the SDK's ConnectionError format; not reproduced against a real enforcing daemon"
+  }
+}

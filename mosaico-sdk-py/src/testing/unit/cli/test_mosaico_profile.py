@@ -229,6 +229,58 @@ class TestResolve:
         assert profile.api_key == "envkey"
         assert profile.tls is True
 
+    def test_env_host_without_port_keeps_default_profile_port(
+        self, monkeypatch, tmp_path
+    ):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(
+            '[dev]\nhost = "cfg.com"\nport = "8080"\ndefault = true\n'
+        )
+        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("MOSAICO_DAEMON_URL", "env.com")
+
+        profile = MosaicoProfile.resolve()
+        assert profile.host == "env.com"
+        assert profile.port == 8080
+
+    def test_env_host_without_port_keeps_named_profile_port(
+        self, monkeypatch, tmp_path
+    ):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(
+            '[dev]\nhost = "dev.local"\nport = "6276"\ndefault = true\n\n'
+            '[staging]\nhost = "staging.remote"\nport = "8080"\ndefault = false\n'
+        )
+        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("MOSAICO_DAEMON_URL", "env.com")
+
+        profile = MosaicoProfile.resolve(profile_name="staging")
+        assert profile.host == "env.com"
+        assert profile.port == 8080
+
+    def test_env_host_without_port_and_no_profile_uses_default_port(
+        self, monkeypatch, tmp_path
+    ):
+        config_path = tmp_path / "config.toml"
+        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("MOSAICO_DAEMON_URL", "env.com")
+
+        profile = MosaicoProfile.resolve()
+        assert profile.host == "env.com"
+        assert profile.port == 6726
+
+    def test_env_host_without_port_and_profile_without_port_uses_default_port(
+        self, monkeypatch, tmp_path
+    ):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text('[dev]\nhost = "cfg.com"\ndefault = true\n')
+        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
+        monkeypatch.setenv("MOSAICO_DAEMON_URL", "env.com")
+
+        profile = MosaicoProfile.resolve()
+        assert profile.host == "env.com"
+        assert profile.port == 6726
+
 
 class TestRepr:
     def test_repr_hides_api_key(self):
