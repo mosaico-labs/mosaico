@@ -21,3 +21,8 @@ parquet = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
 fastrand = { workspace = true, optional = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+arrow-schema = { workspace = true, features = ["serde"] }
+serde_json = { workspace = true }
