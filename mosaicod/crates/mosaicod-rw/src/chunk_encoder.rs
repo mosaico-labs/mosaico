@@ -19,7 +19,7 @@ pub struct ChunkMetadata {
 /// process based on the specified format.
 ///
 /// During the writing process, it also collects statistics about the data being serialized, which can be
-/// accessed via the [`ChunkBlockEncoder::statistics`] method.
+/// accessed via the [`InMemoryChunkEncoder::statistics`] method.
 pub struct InMemoryChunkEncoder {
     pub format: types::Format,
     writer: Writer,
@@ -48,7 +48,7 @@ impl InMemoryChunkEncoder {
     /// Writes the provided [`RecordBatch`].
     ///
     /// The [`RecordBatch`] is serialized according to the writer's format, and the internal statistics
-    /// are updated based on the data in the batch. The method returns an error if the serialization fails
+    /// are updated based on the data in the batch. The method returns an error if the serialization fails.
     pub fn write(&mut self, batch: &RecordBatch) -> Result<(), Error> {
         match &mut self.writer {
             Writer::Parquet(writer) => {

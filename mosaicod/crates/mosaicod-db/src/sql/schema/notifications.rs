@@ -9,11 +9,11 @@ pub struct SequenceNotificationRecord {
     pub sequence_id: i32,
     pub(crate) sequence_notification_uuid: uuid::Uuid,
     /// Field containing the string representation of
-    /// the underlying [`NotificationType`], this filed is stored as a raw String
+    /// the underlying [`NotificationType`](types::NotificationType), this field is stored as a raw String
     /// since the sqlx driver cannot interact directly with enums.
     pub(crate) notification_type: String,
     pub msg: Option<String>,
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 }
 
@@ -63,11 +63,11 @@ pub struct TopicNotificationRecord {
     pub topic_id: i32,
     pub(crate) topic_notification_uuid: uuid::Uuid,
     /// Field containing the string representation of
-    /// the underlying [`NotificationType`], this filed is stored as a raw String
+    /// the underlying [`NotificationType`](types::NotificationType), this field is stored as a raw String
     /// since the sqlx driver cannot interact directly with enums.
     pub(crate) notification_type: String,
     pub msg: Option<String>,
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 }
 

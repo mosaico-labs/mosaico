@@ -78,7 +78,7 @@ message TopicFilter {
 
 // Ontology
 message OntologyPredicate {
-    // "<ontology_tag>.<path>", e.g. "imu.acceleration.x", "joint.positions[?]"
+    // `<ontology_tag>.<path>`, e.g. "imu.acceleration.x", "joint.positions[?]"
     string field = 1;
     optional Aggregator aggregator = 2;
     Condition condition = 3;

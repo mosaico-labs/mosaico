@@ -4,17 +4,17 @@
 //! # Overview
 //!
 //! [`StoreOptimizer::run`] loops forever (or once, if `time_interval` is zero), sleeping for
-//! `time_interval` between runs unless a shutdown is requested. Each iteration ([`StoreOptimizer::optimize`]):
+//! `time_interval` between runs unless a shutdown is requested. Each iteration (`StoreOptimizer::optimize`):
 //!
-//! 1. Reclaims topics whose optimization lease is older than [`MAX_LEASE_NS`] (a previous run
+//! 1. Reclaims topics whose optimization lease is older than `MAX_LEASE_NS` (a previous run
 //!    likely crashed or was killed mid-optimization) and re-scans the database for topics that
 //!    need optimizing, queuing them in the `topic_optimization` table.
 //! 2. Acquires and processes queued topics one at a time. Acquiring a topic
-//!    ([`StoreOptimizer::acquire_next_topic`]) leases it (so concurrent optimizer instances don't
+//!    (`StoreOptimizer::acquire_next_topic`) leases it (so concurrent optimizer instances don't
 //!    race on the same topic) and allocates a fresh [`types::TopicPathInStore`] that the rewritten
 //!    data will be written to, leaving the topic's current files untouched until the new ones are
 //!    ready.
-//! 3. A topic is optimized ([`StoreOptimizer::optimize_topic`]) by reading all of its existing
+//! 3. A topic is optimized (`StoreOptimizer::optimize_topic`) by reading all of its existing
 //!    Parquet chunks through DataFusion, sorting the rows chronologically, and re-encoding the
 //!    stream into new chunks. Chunks are flushed once they reach roughly `max_file_size` bytes,
 //!    with the DataFusion batch size tuned so the underlying encoder fills each output file
@@ -85,7 +85,7 @@ pub struct StoreOptimizer {
 }
 
 impl StoreOptimizer {
-    /// Creates a new optimizer routine with default [`time_interval`].
+    /// Creates a new optimizer routine with default `time_interval`.
     pub fn new(db: db::Database, store: store::StoreRef) -> Self {
         Self {
             db,
@@ -136,7 +136,7 @@ impl StoreOptimizer {
         Ok(max_avg_row_size as u32)
     }
 
-    /// Flushes the buffer on disk composing the path with [`path_in_store`] and [`data_file`].
+    /// Flushes the buffer on disk composing the path with `path_in_store` and `data_file`.
     async fn flush_chunk(
         &self,
         buffer: Vec<u8>,
@@ -507,7 +507,7 @@ impl StoreOptimizer {
         Ok(())
     }
 
-    /// Starts the optimization routine every [`time_interval`].
+    /// Starts the optimization routine every `time_interval`.
     ///
     /// Before entering its loop, this registers the process in the instance registry (see
     /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.

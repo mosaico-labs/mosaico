@@ -8,7 +8,7 @@ use tracing::{trace, warn};
 
 /// Registers a new instance, seeding its heartbeat to `now_unix_tstamp_secs`.
 ///
-/// [`one_shot`] should be `true` for a routine that performs a single run and exits rather than
+/// `one_shot` should be `true` for a routine that performs a single run and exits rather than
 /// looping until shut down (e.g. `mosaicod cleanup` with the default `--time-interval 0`).
 pub async fn instance_registry_create(
     exe: &mut impl AsExec,

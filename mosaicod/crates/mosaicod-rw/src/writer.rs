@@ -30,7 +30,7 @@ impl ParquetWriter {
 
 pub enum Writer {
     /// Parquet file format <https://parquet.apache.org/docs/file-format/>
-    /// (cabba) TODO: evaluate `AsyncArrowWriter`
+    /// (cabba) TODO: evaluate `AsyncArrowWriter`.
     Parquet(ParquetWriter),
 }
 

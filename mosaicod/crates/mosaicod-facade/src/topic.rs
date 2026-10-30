@@ -14,7 +14,7 @@ use std::path;
 use std::sync::Arc;
 use tracing::{trace, warn};
 
-/// Define topic metadata type containing JSON user metadata
+/// Define topic metadata type containing JSON user metadata.
 pub type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
 pub type TopicInfo = types::TopicInfo<marshal::JsonMetadataBlob>;
@@ -30,7 +30,7 @@ pub(super) mod internal {
     use mosaicod_core::error::PublicError;
     use mosaicod_core::types::TopicTimeWindowInfo;
 
-    /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
+    /// Creates [`TopicMetadata`] associated to the given `topic_record`.
     pub async fn metadata(
         exe: &mut impl db::AsExec,
         topic_record: &db::TopicRecord,
@@ -60,7 +60,7 @@ pub(super) mod internal {
     /// Private method to tell the topic status (just created, uploading data, finalized).
     ///
     /// Note: please use this function instead of [`status`] if you need to call it internally
-    /// (from another function in this module that already has an active transaction)
+    /// (from another function in this module that already has an active transaction).
     pub async fn status(topic_record: &db::TopicRecord) -> Result<Status> {
         if topic_record.path_in_store().is_none() {
             debug_assert!(topic_record.completion_timestamp().is_none());
@@ -140,7 +140,7 @@ pub(super) mod internal {
         })
     }
 
-    /// Creates [`TopicInfo`] associated to the given [`topic_record`].
+    /// Creates [`TopicInfo`] associated to the given `topic_record`.
     pub async fn info(
         exe: &mut impl db::AsExec,
         ts_engine: &query::TimeseriesEngineRef,
@@ -257,10 +257,10 @@ pub enum Status {
 
 /// Creates a new database entry for this topic.
 ///
-/// If a record with the same name already exists an error [`Error::TopicAlreadyExists`] is returned.
+/// If a record with the same name already exists, an error is returned.
 ///
 /// Additional checks about the scope of the topic are performed. If the topic locator is
-/// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
+/// not a child of the related sequence locator, an unauthorized error is returned.
 ///
 /// Returns the UUID of the newly created topic.
 pub async fn try_create(
@@ -319,7 +319,7 @@ pub async fn try_create(
     Ok(record.uuid())
 }
 
-/// Creates [`TopicInfo`] associated to the given topic [`locator`].
+/// Creates [`TopicInfo`] associated to the given topic `locator`.
 pub async fn info(
     context: &Context,
     locator: &types::TopicLocator,
@@ -341,7 +341,7 @@ pub async fn info(
     .await
 }
 
-/// Returns the arrow schema of the topic identified by [`locator`].
+/// Returns the arrow schema of the topic identified by `locator`.
 pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<SchemaRef> {
     let mut cx = context.db.connection();
     let topic_record = db::topic_find_by_locator(&mut cx, locator)
@@ -357,7 +357,7 @@ pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<
 ///
 /// # Errors
 ///
-/// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
+/// Returns an error if serialization or writing fails.
 async fn metadata_write_to_store(
     context: &Context,
     path: &path::Path,
@@ -520,7 +520,7 @@ pub async fn delete(
     Ok(())
 }
 
-/// Add a notification to the sequence
+/// Add a notification to the sequence.
 pub async fn notify(
     context: &Context,
     locator: &types::TopicLocator,
@@ -541,7 +541,7 @@ pub async fn notify(
     Ok(notification_record.into_notification(locator.clone()))
 }
 
-/// Returns a list of all notifications for the topic
+/// Returns a list of all notifications for the topic.
 pub async fn notification_list(
     context: &Context,
     locator: &types::TopicLocator,
@@ -554,7 +554,7 @@ pub async fn notification_list(
         .collect())
 }
 
-/// Deletes all the notifications associated with the sequence
+/// Deletes all the notifications associated with the sequence.
 pub async fn notification_purge(context: &Context, locator: &types::TopicLocator) -> Result<()> {
     let mut cx = context.db.connection();
     db::topic_notifications_purge(&mut cx, locator).await?;
@@ -612,7 +612,7 @@ pub struct HandleWriter {
     /// The underlying writer handling the actual data operations.
     writer: rw::ChunkWriter<Arc<store::Store>>,
 
-    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process
+    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process.
     context: Context,
 }
 

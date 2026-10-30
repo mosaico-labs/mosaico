@@ -3,7 +3,7 @@
 //!
 //! The central component is the [`Database`] struct, which holds the connection pool and
 //! methods for interacting with the database. Error handling is unified through the
-//! [`DatabaseError`] enum.
+//! [`Error`] enum.
 
 use sqlx::Pool;
 use tracing::debug;
@@ -14,7 +14,7 @@ use super::Error;
 /// The concrete database type used throughout this module.
 pub type DatabaseType = sqlx::Postgres;
 
-/// If the record has this id is not registered in the database
+/// If the record has this id is not registered in the database.
 pub const UNREGISTERED: i32 = -1;
 
 /// This enum is used to tell whether a SELECT should acquire a shared or exclusive lock on the rows returned by the query.
@@ -39,8 +39,8 @@ pub trait AsExec {
 /// A wrapper struct for a database **Transaction**.
 ///
 /// This structure provides control over the transaction lifecycle—allowing
-/// for atomic operations that can either be permanently saved [`commit`]
-/// or discarded [`rollback`]
+/// for atomic operations that can either be permanently saved
+/// ([`Tx::commit`]) or discarded ([`Tx::rollback`]).
 pub struct Tx<'a> {
     inner: sqlx::Transaction<'a, DatabaseType>,
 }
@@ -80,16 +80,16 @@ impl<'a> AsExec for Cx<'a> {
 
 /// Configuration structure for initializing the [`Database`].
 pub struct Config {
-    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
+    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`).
     pub db_url: Url,
 
-    /// Database user
+    /// Database user.
     pub user: String,
 
-    /// Database password
+    /// Database password.
     pub password: String,
 
-    /// Maximum number of connections established with the DMBS
+    /// Maximum number of connections established with the DMBS.
     pub max_connections: u32,
 }
 

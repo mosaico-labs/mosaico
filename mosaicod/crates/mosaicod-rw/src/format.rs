@@ -28,7 +28,7 @@ use std::sync::Arc;
 ///
 /// This follows the Strategy pattern to adhere to the Open/Closed Principle:
 /// - Open for extension: New formats can be added by implementing this trait
-/// - Closed for modification: Existing code doesn't need to change when adding formats
+/// - Closed for modification: Existing code doesn't need to change when adding formats.
 pub trait FormatProperties: AsExtension + Send + Sync {
     /// Returns a human-readable name for this format strategy.
     fn name(&self) -> &'static str;
@@ -105,7 +105,7 @@ impl ParquetFormatProperties for DefaultFormatProperties {
 /// Uses ZSTD level 5 compression with optimized timestamp column handling:
 /// - Timestamp column is uncompressed for fast range queries
 /// - Bloom filters enabled on timestamp for efficient filtering
-/// - Page-level statistics on timestamp for predicate pushdown
+/// - Page-level statistics on timestamp for predicate pushdown.
 pub struct RaggedFormatProperties;
 
 impl RaggedFormatProperties {
@@ -150,7 +150,7 @@ impl ParquetFormatProperties for RaggedFormatProperties {
 /// Uses ZSTD level 5 compression with optimized timestamp column handling:
 /// - Timestamp column is uncompressed for fast range queries
 /// - Bloom filters enabled on timestamp for efficient filtering
-/// - Page-level statistics on timestamp for predicate pushdown
+/// - Page-level statistics on timestamp for predicate pushdown.
 pub struct ImageFormatProperties;
 
 impl ImageFormatProperties {

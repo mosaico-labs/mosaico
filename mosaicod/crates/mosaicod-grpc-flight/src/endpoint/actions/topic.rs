@@ -249,7 +249,7 @@ async fn spawn_cluster_stream(
     Ok(ReceiverStream::new(rx))
 }
 
-/// Converts a [`Cluster`] into an [`arrow_flight::Result`] payload.
+/// Converts a [`Cluster`](ext::arrow_filter::Cluster) into an [`arrow_flight::Result`] payload.
 ///
 /// `F` is a one-shot closure that selects the correct [`ActionResponse`] variant
 /// for the operation being performed, either a clusterize or an intersect result.

@@ -1,7 +1,7 @@
 //! Entry point for the mosaicod gRPC server.
 //!
-//! This crate wires together the Arrow Flight service ([`mosaicod-grpc-flight`])
-//! and the event broker service ([`mosaicod-grpc-broker`]) into a single runnable
+//! This crate wires together the Arrow Flight service ([`mosaicod_grpc_flight`])
+//! and the event broker service (`mosaicod-grpc-broker`) into a single runnable
 //! server process. It owns the [`Server`] struct that binds both services to their
 //! configured addresses and coordinates graceful shutdown through a shared
 //! [`ShutdownNotifier`](mosaicod_grpc_common::ShutdownNotifier).

@@ -11,7 +11,7 @@ use tower::{Layer, Service};
 
 const MOSAICO_API_KEY_TOKEN: &str = "mosaico-api-key-token";
 
-/// Context used to pass auth data
+/// Context used to pass auth data.
 #[derive(Clone)]
 pub struct AuthContext {
     permissions: types::auth::Permissions,

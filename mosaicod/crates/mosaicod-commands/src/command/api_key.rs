@@ -11,7 +11,7 @@ use tracing::error;
 
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
-    /// Create a new API key with custom parameters
+    /// Create a new API key with custom parameters.
     #[clap(group(
     ArgGroup::new("expiration")
         .required(false)
@@ -23,7 +23,7 @@ pub enum ApiKey {
         #[arg(short, long, required = true)]
         permissions: String,
 
-        /// Define a description for the key
+        /// Define a description for the key.
         #[arg(short, long)]
         description: Option<String>,
 
@@ -36,7 +36,7 @@ pub enum ApiKey {
         expires_at: Option<String>,
     },
 
-    /// Revoke a key
+    /// Revoke a key.
     Revoke {
         /// Fingerprints of the keys to revoke.
         /// The fingerprint is the last 8 digits of the API key.
@@ -44,17 +44,17 @@ pub enum ApiKey {
         fingerprints: Vec<String>,
     },
 
-    /// Return the status of a key
+    /// Return the status of a key.
     Status {
         /// Fingerprint of the key. The fingerprint are the last 8 digits of
         /// the API key.
         fingerprint: String,
     },
 
-    /// List all keys
+    /// List all keys.
     List,
 
-    /// Purge keys
+    /// Purge keys.
     Purge {
         /// If no option is provided, all expired keys are removed.
         /// With --all  or -A, all keys are removed.

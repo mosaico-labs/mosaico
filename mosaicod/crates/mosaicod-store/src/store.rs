@@ -118,7 +118,7 @@ fn is_valid_secret_key(secret_key: &str) -> bool {
 pub struct Builder {
     /// The base URL of the storage service.
     ///
-    /// To configure the store to use local filesystem use `file:///`
+    /// To configure the store to use local filesystem use `file:///`.
     pub endpoint: url::Url,
 
     /// The name of the specific bucket to access.
@@ -151,20 +151,20 @@ impl Builder {
         }
     }
 
-    /// Configure credentials to access the object store
+    /// Configure credentials to access the object store.
     pub fn with_credentials(mut self, key: String, secret: String) -> Self {
         self.access_key = Some(key);
         self.secret_key = Some(secret);
         self
     }
 
-    /// Configure the region of the object store
+    /// Configure the region of the object store.
     pub fn with_region(mut self, region: String) -> Self {
         self.region = Some(region);
         self
     }
 
-    /// Create a new store backend
+    /// Create a new store backend.
     pub fn build(self) -> Result<Store, Error> {
         if !is_valid_bucket_name(&self.bucket) {
             return Err(Error::InvalidBucket(self.bucket));
@@ -251,7 +251,7 @@ pub struct Store {
 pub type StoreRef = Arc<Store>;
 
 impl Store {
-    /// Create a new store configured to work with the local filesystem
+    /// Create a new store configured to work with the local filesystem.
     pub fn try_from_filesystem(path: impl AsRef<std::path::Path>) -> Result<Self, Error> {
         // Create the directory structure if not existing
         std::fs::create_dir_all(&path).map_err(|e| {
@@ -276,7 +276,7 @@ impl Store {
         })
     }
 
-    /// Create a new store configured to work with an s3-compatible system
+    /// Create a new store configured to work with an s3-compatible system.
     pub fn try_from_s3_store(
         endpoint: url::Url,
         bucket: String,
@@ -432,7 +432,7 @@ impl Store {
         Ok(self.driver.delete(&to_object_path(&path)).await?)
     }
 
-    /// Deletes recursively all objects under a given path
+    /// Deletes recursively all objects under a given path.
     pub async fn delete_recursive(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
         self.driver
             .list(Some(&to_object_path(&path)))
@@ -549,7 +549,7 @@ mod test {
 
     /// Checks that filesystem store works, writing and reading data to `/tmp`` directory
     ///
-    /// To avoid to delete system files the test directories are created in `/tmp` and are not removed automatically
+    /// To avoid to delete system files the test directories are created in `/tmp` and are not removed automatically.
     #[tokio::test]
     async fn test_filesystem_store() {
         let bucket = types::DateTime::now().fmt_to_ms();
@@ -649,7 +649,7 @@ mod test {
         assert!(res.is_ok());
     }
 
-    /// Checks that the region is ignored by the filesystem store
+    /// Checks that the region is ignored by the filesystem store.
     #[tokio::test]
     async fn test_filesystem_store_with_region() {
         let bucket = types::DateTime::now().fmt_to_ms();
@@ -670,7 +670,7 @@ mod test {
     }
 
     /// Checks that custom region names are accepted, since S3-compatible
-    /// services (e.g. MinIO, Ceph) allow them
+    /// services (e.g. MinIO, Ceph) allow them.
     #[test]
     fn test_remote_store_custom_region() {
         let bucket = "my-bucket".to_owned();

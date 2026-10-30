@@ -14,15 +14,15 @@ use tracing::{debug, error, info, warn};
 /// Mosaico server.
 /// Handles incoming requests and manages the database and store.
 pub struct Server {
-    /// Shutdown notifier used to signal server shutdown
+    /// Shutdown notifier used to signal server shutdown.
     pub shutdown: grpc_common::ShutdownNotifier,
 
     pub options: Options,
 
-    /// Store engine
+    /// Store engine.
     store: store::StoreRef,
 
-    /// Database handler
+    /// Database handler.
     db: db::Database,
 }
 
@@ -36,16 +36,16 @@ pub struct TlsConfig {
 pub struct Options {
     pub host: IpAddr,
 
-    /// Default port
+    /// Default port.
     pub port: u16,
 
-    /// If this option is `Some` the server will try to enable TLS
+    /// If this option is `Some` the server will try to enable TLS.
     tls: Option<TlsConfig>,
 
-    /// If this option is true the server will require API keys for every operation
+    /// If this option is true the server will require API keys for every operation.
     enable_api_key_management: bool,
 
-    /// Enable gzip encoding in gRPC
+    /// Enable gzip encoding in gRPC.
     gzip: bool,
 }
 
@@ -60,7 +60,7 @@ impl Options {
         }
     }
 
-    /// Enable TLS
+    /// Enable TLS.
     pub fn tls(&mut self, tls: TlsConfig) {
         self.tls = Some(tls);
     }
@@ -70,7 +70,7 @@ impl Options {
         self.gzip = enable;
     }
 
-    /// Enable API key management
+    /// Enable API key management.
     pub fn enable_api_key_management(&mut self) {
         self.enable_api_key_management = true;
     }

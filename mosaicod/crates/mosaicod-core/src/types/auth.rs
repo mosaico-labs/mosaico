@@ -64,7 +64,7 @@ fn compute_fingerprint(payload: &TokenPayload) -> TokenFingerprint {
 }
 
 /// Perform all checks required to cast a payload string to
-/// the [`Payload`] fixed size array
+/// the [`TokenPayload`] fixed size array.
 fn cast_payload(payload: &str) -> Result<TokenPayload, ApiKeyError> {
     let payload_size_ok = payload.chars().count() == Token::PAYLOAD_LENGTH;
 
@@ -80,7 +80,7 @@ fn cast_payload(payload: &str) -> Result<TokenPayload, ApiKeyError> {
 }
 
 /// Perform all checks required to cast fingerprint string to
-/// the [`Fingerprint`] fixed size array
+/// the [`TokenFingerprint`] fixed size array.
 fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, ApiKeyError> {
     let fingerprint_size_ok = fingerprint.chars().count() == Token::FINGERPRINT_LENGTH;
 
@@ -96,22 +96,22 @@ fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, ApiKeyError> 
 }
 
 impl Token {
-    /// Header included in the token
+    /// Header included in the token.
     pub const HEADER: &str = "msco";
 
-    /// Number of characters used to generate the token payload
+    /// Number of characters used to generate the token payload.
     const PAYLOAD_LENGTH: usize = 32;
 
     /// Number of characters used to store the fingerprint.
     ///
     /// The fingerprint is set to 8 characters since is also used as general
-    /// token identifier to perform actions like: list, revoke, etc
+    /// token identifier to perform actions like: list, revoke, etc.
     const FINGERPRINT_LENGTH: usize = 8;
 
-    /// Character used to separate header, payload and checksum in the token
+    /// Character used to separate header, payload and checksum in the token.
     const SEPARATOR: &str = "_";
 
-    /// Generates a new random token
+    /// Generates a new random token.
     pub fn new() -> Self {
         // Use of `.unwrap()` since we are creating a string of known size with alphanumeric chars
         let payload: TokenPayload = crate::random::alphanumeric(Token::PAYLOAD_LENGTH)
@@ -211,7 +211,7 @@ impl Default for Token {
 /// another.
 /// - **Read**: grants only read access to data
 /// - **Write**: grants only write access to data
-/// - **Delete**: grants only delete access to data
+/// - **Delete**: grants only delete access to data.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Permission {
@@ -222,7 +222,7 @@ pub enum Permission {
 
 /// A set of granted [`Permission`]s, stored as an independent bitmask.
 ///
-/// A valid set always grants at least one capability
+/// A valid set always grants at least one capability.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Permissions(u8);
 
@@ -315,21 +315,21 @@ impl TryFrom<u8> for Permissions {
 /// * an API Key like `msco:0938n8b37r378brf`
 /// * the associated permissions (like: read, write, ..)
 /// * a description to keep track of the purpose of the key
-/// * an optional expire date
+/// * an optional expire date.
 #[derive(Clone)]
 pub struct ApiKey {
     pub key: Token,
 
-    /// Permissions associated with the scope
+    /// Permissions associated with the scope.
     pub permission: Permissions,
 
-    /// Description to keep track of the purpose of the key
+    /// Description to keep track of the purpose of the key.
     pub description: String,
 
-    /// Creation timestamp
+    /// Creation timestamp.
     pub created_at: Timestamp,
 
-    /// Expiration timestamp
+    /// Expiration timestamp.
     pub expires_at: Option<Timestamp>,
 }
 
@@ -367,12 +367,12 @@ impl ApiKey {
         }
     }
 
-    /// Get the token associated with this API key
+    /// Get the token associated with this API key.
     pub fn token(&self) -> &Token {
         &self.key
     }
 
-    /// Check if the API key is expired
+    /// Check if the API key is expired.
     pub fn is_expired(&self) -> bool {
         if let Some(ts) = self.expires_at {
             return ts <= Timestamp::now();

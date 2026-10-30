@@ -1,6 +1,6 @@
 use rand::{RngExt, distr::Alphabetic, distr::Alphanumeric};
 
-/// Generates a random string containing alphabetic chars of a given `length`
+/// Generates a random string containing alphabetic chars of a given `length`.
 pub fn alphabetic(length: usize) -> String {
     assert!(length > 0);
 
@@ -10,7 +10,7 @@ pub fn alphabetic(length: usize) -> String {
         .collect()
 }
 
-/// Generates a random string containing alphanumeric chars, of a given `length`
+/// Generates a random string containing alphanumeric chars, of a given `length`.
 pub fn alphanumeric(length: usize) -> String {
     assert!(length > 0);
 

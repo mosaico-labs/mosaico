@@ -17,7 +17,7 @@ use tracing::{debug, trace};
 pub struct Query {}
 
 impl Query {
-    /// Perform a query in the system
+    /// Perform a query in the system.
     pub async fn query(
         filter: query::Filter,
         ts_gw: query::TimeseriesEngineRef,
@@ -231,10 +231,10 @@ impl Query {
     }
 }
 
-/// A map holding pairs of (topic_id, topic_record) for easy lookup
+/// A map holding pairs of (topic_id, topic_record) for easy lookup.
 type TopicMap = HashMap<i32, db::TopicRecord>;
 
-/// Pre-fetch all topics needed for chunks to avoid `N+1` queries
+/// Pre-fetch all topics needed for chunks to avoid `N+1` queries.
 async fn pre_fetch_topics(
     cx: &mut db::Cx<'_>,
     chunks: &[db::ChunkRecord],

@@ -126,7 +126,7 @@ pub async fn session_finalize(
     Ok(())
 }
 
-/// Send an action to delete the current session
+/// Send an action to delete the current session.
 pub async fn session_delete(
     client: &mut Client,
     session_locator: &types::SessionLocator,

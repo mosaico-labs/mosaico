@@ -64,9 +64,9 @@ pub struct ColumnChunkTextualRecord {
     pub column_id: i32,
     pub chunk_id: i32,
 
-    /// Min value (in lexycographic sense) in the chunk
+    /// Min value (in lexycographic sense) in the chunk.
     pub min_value: String,
-    /// Max value (in lexycographic sense) in the chunk
+    /// Max value (in lexycographic sense) in the chunk.
     pub max_value: String,
 
     pub has_null: bool,
@@ -96,9 +96,9 @@ pub struct ColumnChunkNumericRecord {
     pub column_id: i32,
     pub chunk_id: i32,
 
-    /// Min value (in lexycographic sense) in the chunk
+    /// Min value (in lexycographic sense) in the chunk.
     pub min_value: f64,
-    /// Max value (in lexycographic sense) in the chunk
+    /// Max value (in lexycographic sense) in the chunk.
     pub max_value: f64,
 
     pub has_null: bool,

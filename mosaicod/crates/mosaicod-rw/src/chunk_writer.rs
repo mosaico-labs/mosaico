@@ -23,13 +23,13 @@ pub struct ChunkWriter<W> {
     /// can work on a single schema.
     schema: SchemaRef,
 
-    /// Target of the write operation for this writer
+    /// Target of the write operation for this writer.
     write_target: W,
 
-    /// Number of chunks serialized
+    /// Number of chunks serialized.
     pub chunk_count: usize,
 
-    /// Callback used to format file path when new data needs to be serialized
+    /// Callback used to format file path when new data needs to be serialized.
     path_provider: Box<dyn Fn(usize) -> std::path::PathBuf + Send>,
 }
 
@@ -91,7 +91,7 @@ impl<W> ChunkWriter<W> {
         })
     }
 
-    /// Finalize the writing process of a single chunk
+    /// Finalize the writing process of a single chunk.
     async fn store<A>(&mut self, buffer: Vec<u8>) -> Result<std::path::PathBuf, Error>
     where
         A: traits::AsyncWriteToPath,
