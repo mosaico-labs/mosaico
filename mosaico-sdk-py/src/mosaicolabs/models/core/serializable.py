@@ -42,6 +42,9 @@ from .types import BASE_MAPPING, REMAPPED_PYARROW_TYPES
 _SCHEMA_REGISTRY: Dict[str, Type["Serializable"]] = {}
 SCHEMA_ID_LEN = 10  # 40 bits
 
+# Field metadata key reporting a field's ontology or enum (e.g. "Vector3d", "ImageFormat").
+MOSAICO_TYPE_KEY = b"mosaico.type"
+
 
 def _canonicalize_arrow_type(schema_struct: pa.StructType) -> pa.StructType:
     """
@@ -347,9 +350,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
             if field_info.description:
                 metadata = {b"description": field_info.description.encode("utf-8")}
 
-            pa_fields.append(
-                pa.field(field_name, pa_type, nullable=nullable, metadata=metadata)
-            )
+            field = pa.field(field_name, pa_type, nullable=nullable, metadata=metadata)
+            pa_fields.append(cls._resolve_mosaico_type(annotation, field))
         return pa.struct(pa_fields)
 
     @classmethod
@@ -440,6 +442,52 @@ class Serializable(BaseModel, _QueryProxyMixin):
                 )
 
         return base_pa
+
+    @classmethod
+    def _resolve_mosaico_type(cls, base_type: Any, field: pa.Field) -> pa.Field:
+        """
+        Reports a field's ontology or enum in its `mosaico.type` metadata.
+
+        Only what Arrow loses is reported: an ontology's tag and an enum's class name.
+        mosaicod derives every other type from the Arrow type. A list's element is a
+        field of its own, so it's reported the same way, and the list is rebuilt
+        around it.
+
+        Args:
+            base_type (Any): The field's type hint.
+            field (pa.Field): The field, with the Arrow type `_resolve_type` resolved.
+
+        Returns:
+            pa.Field: The field, with its own entry and its list elements' entries.
+        """
+        origin = get_origin(base_type)
+        args = get_args(base_type)
+
+        # Unwrap the hint to find the ontology or enum inside, e.g. `Optional[Header]`.
+        if origin is Annotated:
+            return cls._resolve_mosaico_type(args[0], field)
+
+        if origin is Union:
+            non_none = [a for a in args if a is not type(None)]
+            return cls._resolve_mosaico_type(non_none[0], field)
+
+        if origin is list and isinstance(
+            field.type, (pa.ListType, pa.FixedSizeListType)
+        ):
+            item = cls._resolve_mosaico_type(args[0], field.type.value_field)
+            list_size = getattr(field.type, "list_size", -1)
+            return field.with_type(pa.list_(item, list_size))
+
+        if isinstance(base_type, type) and issubclass(base_type, Serializable):
+            name = base_type.__ontology_tag__
+        elif isinstance(base_type, type) and issubclass(base_type, Enum):
+            name = base_type.__name__
+        else:
+            return field
+
+        return field.with_metadata(
+            {**(field.metadata or {}), MOSAICO_TYPE_KEY: name.encode()}
+        )
 
     # --- Public Registry APIs ---
 
