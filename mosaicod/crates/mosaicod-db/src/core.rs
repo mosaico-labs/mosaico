@@ -3,7 +3,7 @@
 //!
 //! The central component is the [`Database`] struct, which holds the connection pool and
 //! methods for interacting with the database. Error handling is unified through the
-//! [`DatabaseError`] enum.
+//! [`Error`] enum.
 
 use sqlx::Pool;
 use tracing::debug;
@@ -39,8 +39,8 @@ pub trait AsExec {
 /// A wrapper struct for a database **Transaction**.
 ///
 /// This structure provides control over the transaction lifecycle—allowing
-/// for atomic operations that can either be permanently saved [`commit`]
-/// or discarded [`rollback`].
+/// for atomic operations that can either be permanently saved
+/// ([`Tx::commit`]) or discarded ([`Tx::rollback`]).
 pub struct Tx<'a> {
     inner: sqlx::Transaction<'a, DatabaseType>,
 }

@@ -175,7 +175,7 @@ pub async fn notification_purge(context: &Context, locator: &types::SequenceLoca
     Ok(())
 }
 
-/// Retrieves info regarding the given sequence and its topics [`locator`].
+/// Retrieves info regarding the given sequence and its topics, given its `locator`.
 pub async fn info(
     context: &Context,
     locator: &types::SequenceLocator,

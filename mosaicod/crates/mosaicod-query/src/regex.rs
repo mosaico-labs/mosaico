@@ -27,7 +27,7 @@ pub enum Error {
 /// the pattern must match the entire input string.
 ///
 /// Returns [`Error::EmptyPattern`] for an empty input and
-/// [`Error::PatternTooLong`] when the pattern exceeds [`MAX_REGEX_PATTERN_LENGTH`].
+/// [`Error::PatternTooLong`] when the pattern exceeds `MAX_REGEX_PATTERN_LENGTH`.
 pub fn wildcard_to_posix_regex(pattern: &str) -> Result<Regex, Error> {
     if pattern.is_empty() {
         return Err(Error::EmptyPattern);

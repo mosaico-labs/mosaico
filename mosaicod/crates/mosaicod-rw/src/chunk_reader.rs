@@ -4,7 +4,7 @@ use mosaicod_core::types;
 use parquet::arrow::arrow_reader::{ParquetRecordBatchReader, ParquetRecordBatchReaderBuilder};
 
 pub enum Reader {
-    /// Parquet file format https://parquet.apache.org/docs/file-format/.
+    /// Parquet file format: <https://parquet.apache.org/docs/file-format/>.
     Parquet {
         reader: ParquetRecordBatchReader,
         schema: SchemaRef,

@@ -19,7 +19,7 @@ pub async fn acquire_transaction_lock(exe: &mut Tx<'_>, lock_id: i64) -> Result<
 
 /// Creates a new cleanup log entry, leaving end timestamp column empty.
 ///
-/// [`instance_id`] identifies the instance (see `instance_registry_t`) performing this run, if
+/// `instance_id` identifies the instance (see `instance_registry_t`) performing this run, if
 /// it registered itself.
 pub async fn cleanup_log_create(
     exe: &mut impl AsExec,
@@ -49,7 +49,7 @@ pub async fn cleanup_log_create(
 
 /// Retrieves cleanup log history.
 ///
-/// [`limit`] sets the number of rows to retrieve.
+/// `limit` sets the number of rows to retrieve.
 ///
 /// Returns an empty vector if no cleanup operation has been started yet.
 /// First item in the vector is the most recent log.

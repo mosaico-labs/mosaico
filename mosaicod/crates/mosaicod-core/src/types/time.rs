@@ -96,10 +96,11 @@ impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
     }
 }
 
-/// Represents a closed interval of time, with [`start`] included and [`end`] excluded.
+/// Represents a half-open interval of time, with [`start`](Self::start) included and
+/// [`end`](Self::end) excluded.
 ///
-/// This struct defines a range $[start, end]$. A timestamp is considered
-/// contained within this range if $start \le t \l end$.
+/// This struct defines a range `[start, end)`. A timestamp `t` is considered
+/// contained within this range if `start <= t < end`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TimestampRange {
     pub start: Timestamp,

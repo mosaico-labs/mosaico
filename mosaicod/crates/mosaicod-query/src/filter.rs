@@ -98,7 +98,7 @@ pub enum AggregatorError {
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
-/// to coexist in dynamic containers like [`Metadata`].
+/// to coexist in dynamic containers like metadata.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Integer(Integer),
@@ -263,11 +263,11 @@ where
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IndexSpecifier {
-    /// Access the element at a specific position: [0], [42].
+    /// Access the element at a specific position: `[0]`, `[42]`.
     At(usize),
-    /// At least one element must satisfy the predicate: [?].
+    /// At least one element must satisfy the predicate: `[?]`.
     Any,
-    /// Every element must satisfy the predicate: [!].
+    /// Every element must satisfy the predicate: `[!]`.
     All,
 }
 
@@ -284,24 +284,27 @@ impl std::fmt::Display for IndexSpecifier {
 /// The position and specifier of the list field within an [`OntologyFieldPath`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListAccess {
-    /// Index into [`OntologyFieldPath::segments`] of the list field.
+    /// Index into `OntologyFieldPath::segments` of the list field.
     pub segment_index: usize,
     pub specifier: IndexSpecifier,
 }
 
 /// The structured representation of an ontology field path after parsing.
 ///
-/// At most one segment may carry a list specifier ([?], [!], [N]).
+/// At most one segment may carry a list specifier (`[?]`, `[!]`, `[N]`).
 /// After the list field, only plain struct navigation is allowed.
 ///
 /// Examples:
-/// - "x"                     segments: ["x"],                      list_access: None
-/// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
-/// - "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
-/// - "acceleration.x"        segments: ["acceleration","x"],       list_access: None
-/// - "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
-/// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
-/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }.
+///
+/// ```text
+/// "x"                     segments: ["x"],                      list_access: None
+/// "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
+/// "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
+/// "acceleration.x"        segments: ["acceleration","x"],       list_access: None
+/// "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
+/// "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
+/// "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyFieldPath {
     /// All field name segments in order, without specifiers.

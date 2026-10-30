@@ -195,7 +195,7 @@ pub fn is_textual(data_type: &DataType) -> bool {
     )
 }
 
-/// Converts an arrow [`Array`] to a text type array (Utf8).
+/// Converts an arrow [`Array`](arrow::array::Array) to a text type array (Utf8).
 pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_textual(array.data_type()) {
         Ok(arrow_cast::cast(
@@ -209,7 +209,7 @@ pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, Error> {
     }
 }
 
-/// Converts an arrow [`Array`] to a numberic type array (f64).
+/// Converts an arrow [`Array`](arrow::array::Array) to a numeric type array (f64).
 pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_numeric(array.data_type()) {
         Ok(arrow_cast::cast(

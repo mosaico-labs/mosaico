@@ -5,10 +5,10 @@
 //! - `do_get` / `do_put` — streaming reads and writes for topic data.
 //! - `get_flight_info` / `list_flights` — metadata and discovery.
 //! - `do_action` — dispatches named actions (sequence, topic, session,
-//!   query, API-key management) defined in [`endpoint::actions`].
+//!   query, API-key management) defined in `endpoint::actions`.
 //!
-//! The [`start`] function builds the Tonic server with the auth middleware from
-//! [`mosaicod-grpc-common`] and optional TLS and gzip compression.
+//! The server itself, with the auth middleware from [`mosaicod_grpc_common`] and optional
+//! TLS and gzip compression, is built by the `mosaicod-grpc` crate.
 
 pub mod endpoint;
 

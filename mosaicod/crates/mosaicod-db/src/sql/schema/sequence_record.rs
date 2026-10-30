@@ -39,7 +39,7 @@ impl SequenceRecord {
 
     /// Returns the resource locator for this sequence.
     ///
-    /// Because a [`SequenceRecord`] should only be created using [`SequenceRecord::new`], that requires a [`types::SequenceLocator`],
+    /// Because the locator stored in the database always comes from a valid [`types::SequenceLocator`],
     /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
     /// changed it manually directly inside the database.
     pub fn locator(&self) -> types::SequenceLocator {

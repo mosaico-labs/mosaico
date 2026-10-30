@@ -100,7 +100,7 @@ pub async fn sequence_notification_create(
     Ok(res)
 }
 
-/// Find all reports associated to the sequence with the given [`locator`].
+/// Find all reports associated to the sequence with the given `locator`.
 pub async fn sequence_notifications_find_by_locator(
     exe: &mut impl AsExec,
     sequence_locator: &types::SequenceLocator,

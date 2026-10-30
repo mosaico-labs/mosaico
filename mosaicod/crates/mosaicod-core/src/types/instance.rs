@@ -5,7 +5,7 @@ use thiserror::Error;
 pub const INSTANCE_HEARTBEAT_INTERVAL_SECS: u32 = 30;
 
 /// After this many seconds without a heartbeat, an instance's registry row is permanently
-/// deleted. Much larger than [`INSTANCE_STALE_THRESHOLD_SECS`] so a "stale" instance can still
+/// deleted. Much larger than `INSTANCE_STALE_THRESHOLD_SECS` (in `mosaicod-db`) so a "stale" instance can still
 /// be inspected for a while before its row disappears.
 pub const INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS: u32 = 7 * 86400;
 

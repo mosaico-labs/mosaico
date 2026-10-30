@@ -64,7 +64,7 @@ fn compute_fingerprint(payload: &TokenPayload) -> TokenFingerprint {
 }
 
 /// Perform all checks required to cast a payload string to
-/// the [`Payload`] fixed size array.
+/// the [`TokenPayload`] fixed size array.
 fn cast_payload(payload: &str) -> Result<TokenPayload, ApiKeyError> {
     let payload_size_ok = payload.chars().count() == Token::PAYLOAD_LENGTH;
 
@@ -80,7 +80,7 @@ fn cast_payload(payload: &str) -> Result<TokenPayload, ApiKeyError> {
 }
 
 /// Perform all checks required to cast fingerprint string to
-/// the [`Fingerprint`] fixed size array.
+/// the [`TokenFingerprint`] fixed size array.
 fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, ApiKeyError> {
     let fingerprint_size_ok = fingerprint.chars().count() == Token::FINGERPRINT_LENGTH;
 

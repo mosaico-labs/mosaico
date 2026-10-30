@@ -1,6 +1,6 @@
 use mosaicod_core::types;
 
-/// To inspect inner fields this type needs to be converted in a [`types::AuthorizationPolicy`].
+/// To inspect inner fields this type needs to be converted in a [`types::ApiKey`].
 pub struct ApiKeyRecord {
     /// Unique identifier of the authorization policy used as primary key.
     ///

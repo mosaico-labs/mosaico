@@ -42,7 +42,7 @@ pub struct Cleanup {
 }
 
 impl Cleanup {
-    /// Creates a new cleanup routine with default [`time_interval`] and [`retention_duration`].
+    /// Creates a new cleanup routine with default `time_interval` and `retention_duration`.
     pub fn new(db: db::Database, store: store::StoreRef) -> Self {
         Self {
             db,

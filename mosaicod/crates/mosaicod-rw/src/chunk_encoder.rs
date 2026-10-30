@@ -19,7 +19,7 @@ pub struct ChunkMetadata {
 /// process based on the specified format.
 ///
 /// During the writing process, it also collects statistics about the data being serialized, which can be
-/// accessed via the [`ChunkBlockEncoder::statistics`] method.
+/// accessed via the [`InMemoryChunkEncoder::statistics`] method.
 pub struct InMemoryChunkEncoder {
     pub format: types::Format,
     writer: Writer,

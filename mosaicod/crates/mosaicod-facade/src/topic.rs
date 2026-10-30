@@ -30,7 +30,7 @@ pub(super) mod internal {
     use mosaicod_core::error::PublicError;
     use mosaicod_core::types::TopicTimeWindowInfo;
 
-    /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
+    /// Creates [`TopicMetadata`] associated to the given `topic_record`.
     pub async fn metadata(
         exe: &mut impl db::AsExec,
         topic_record: &db::TopicRecord,
@@ -140,7 +140,7 @@ pub(super) mod internal {
         })
     }
 
-    /// Creates [`TopicInfo`] associated to the given [`topic_record`].
+    /// Creates [`TopicInfo`] associated to the given `topic_record`.
     pub async fn info(
         exe: &mut impl db::AsExec,
         ts_engine: &query::TimeseriesEngineRef,
@@ -257,10 +257,10 @@ pub enum Status {
 
 /// Creates a new database entry for this topic.
 ///
-/// If a record with the same name already exists an error [`Error::TopicAlreadyExists`] is returned.
+/// If a record with the same name already exists, an error is returned.
 ///
 /// Additional checks about the scope of the topic are performed. If the topic locator is
-/// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
+/// not a child of the related sequence locator, an unauthorized error is returned.
 ///
 /// Returns the UUID of the newly created topic.
 pub async fn try_create(
@@ -319,7 +319,7 @@ pub async fn try_create(
     Ok(record.uuid())
 }
 
-/// Creates [`TopicInfo`] associated to the given topic [`locator`].
+/// Creates [`TopicInfo`] associated to the given topic `locator`.
 pub async fn info(
     context: &Context,
     locator: &types::TopicLocator,
@@ -341,7 +341,7 @@ pub async fn info(
     .await
 }
 
-/// Returns the arrow schema of the topic identified by [`locator`].
+/// Returns the arrow schema of the topic identified by `locator`.
 pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<SchemaRef> {
     let mut cx = context.db.connection();
     let topic_record = db::topic_find_by_locator(&mut cx, locator)
@@ -357,7 +357,7 @@ pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<
 ///
 /// # Errors
 ///
-/// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
+/// Returns an error if serialization or writing fails.
 async fn metadata_write_to_store(
     context: &Context,
     path: &path::Path,
