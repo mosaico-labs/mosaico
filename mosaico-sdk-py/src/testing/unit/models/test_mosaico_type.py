@@ -24,13 +24,6 @@ def item(field: pa.Field) -> pa.Field:
     return field.type.value_field
 
 
-def test_ontology_reports_its_tag():
-    class Test_ontology_entry(Serializable):
-        pose: Pose
-
-    assert entry(Test_ontology_entry.__msco_pyarrow_struct__.field("pose")) == b"Pose"
-
-
 def test_enum_reports_its_class_name():
     class Test_enum_entry(Serializable):
         color: Color
@@ -49,26 +42,6 @@ def test_optional_and_annotated_are_unwrapped():
     assert entry(item(struct.field("poses"))) == b"Pose"
 
 
-def test_list_reports_on_its_element():
-    class Test_list_entry(Serializable):
-        poses: list[Pose]
-        fixed_poses: MosaicoType.list_(Pose, list_size=3)
-        colors: list[Color]
-
-    struct = Test_list_entry.__msco_pyarrow_struct__
-    for name, element in [
-        ("poses", b"Pose"),
-        ("fixed_poses", b"Pose"),
-        ("colors", b"Color"),
-    ]:
-        field = struct.field(name)
-        assert entry(field) is None, name
-        assert entry(item(field)) == element, name
-        # The element is rebuilt, so check it kept its name and nullability.
-        assert (item(field).name, item(field).nullable) == ("item", True), name
-    assert struct.field("fixed_poses").type.list_size == 3
-
-
 def test_nested_lists_report_on_the_innermost_element():
     class Test_nested_list_entry(Serializable):
         matrix: MosaicoType.matrix(Pose, rows=2, cols=3)
@@ -77,6 +50,9 @@ def test_nested_lists_report_on_the_innermost_element():
     inner = item(outer)
     assert (entry(outer), entry(inner), entry(item(inner))) == (None, None, b"Pose")
     assert (outer.type.list_size, inner.type.list_size) == (2, 3)
+    # The elements are rebuilt, so check they kept their name and nullability.
+    for element in (inner, item(inner)):
+        assert (element.name, element.nullable) == ("item", True)
 
 
 def test_other_fields_report_nothing():
