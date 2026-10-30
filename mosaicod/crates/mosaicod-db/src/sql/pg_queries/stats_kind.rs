@@ -1,5 +1,7 @@
 use mosaicod_query as query;
 
+/// Whether a field's stats are numeric or textual. Each kind has its own table, so the
+/// queries use it to know which one to read.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) enum StatsKind {
     Numeric,

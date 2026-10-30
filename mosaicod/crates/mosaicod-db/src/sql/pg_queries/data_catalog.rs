@@ -263,14 +263,14 @@ pub async fn topic_ids_from_aggregated_filters(
         Vec::new()
     };
 
-    // The stats table of a field is usually inferred from the operand type (e.g. a text
-    // operand for MAX means a textual field), but some aggregators always take a numeric
-    // operand whatever the field type: e.g. COUNT on a text column is compared with a number,
-    // so its stats must be read from the textual table. For these aggregators the actual
-    // kind of the field is looked up in the db. The same lookup tells whether the field is
-    // a list, to reject the aggregators not defined on lists.
+    // Before building the query, some predicates need to know how their field is stored,
+    // which only the db can tell:
+    // - aggregators that always take a numeric operand (e.g. COUNT_VALID) can't infer from
+    //   the operand whether the field is numeric or textual, and so which stats table to read;
+    // - aggregators not defined on lists (e.g. MEAN) must be rejected if the field is a list.
+    // The loop collects this information for every predicate that needs it. Each field is
+    // looked up at most once, even if several predicates aggregate it.
     let mut field_kinds = HashMap::new();
-    // Several predicates can aggregate the same field, its stats are looked up once
     let mut stats_by_field = HashMap::new();
     for predicate in &filter.group {
         let Some(aggr) = predicate.aggregator() else {

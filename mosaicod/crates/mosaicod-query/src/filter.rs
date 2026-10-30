@@ -567,7 +567,7 @@ pub enum Op<T> {
 }
 
 impl<T> Op<T> {
-    /// A representative operand of the operation, the one whose type the field is
+    /// The representative operand of the operation, the one whose type the field is
     /// compared with: the lower bound of a range, the first item of `In`.
     /// `None` for `Ex` and `Nex` (no operand) and for an empty `In`.
     pub fn operand(&self) -> Option<&T> {
