@@ -26,7 +26,8 @@ from .config import (
     EPISODES_PATH,
     POSITION_COLUMN_NAMES,
     STATE_COLUMN_NAME,
-    TASK_INDEX_COLUMN_NAME,
+    TASK,
+    TASK_COLUMN_NAME,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
     action_value,
@@ -261,13 +262,16 @@ def test_reader_episodes(lerobot_dataset, with_meta):
         (
             [STATE_COLUMN_NAME, CAMERA_COLUMN_NAMES[1]],
             [CAMERA_COLUMN_NAMES[1]],
-            [STATE_COLUMN_NAME],
+            [
+                STATE_COLUMN_NAME,
+            ],
         ),
-        # The timestamp is the time of the messages, not a timeseries
         (
             ["unknown", TIMESTAMP_COLUMN_NAME, ACTION_COLUMN_NAME],
             [],
-            [ACTION_COLUMN_NAME],
+            [
+                ACTION_COLUMN_NAME,
+            ],
         ),
     ],
 )
@@ -287,7 +291,7 @@ def test_reader_timeseries_struct_nests_the_dotted_columns(reader):
         [
             pa.field("action", VECTOR_TYPE),
             pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
-            pa.field(TASK_INDEX_COLUMN_NAME, pa.int64()),
+            pa.field(TASK_COLUMN_NAME, pa.string()),
         ]
     )
 
@@ -298,7 +302,9 @@ def test_reader_timeseries_struct_holds_the_selected_columns_only(lerobot_datase
     )
 
     assert reader.timeseries_struct == pa.struct(
-        [pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)]))]
+        [
+            pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
+        ]
     )
 
 
@@ -376,7 +382,7 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
     assert batch.column("observation").to_pylist() == [
         {"state": state_value(i)} for i in frames
     ]
-    assert batch.column("task_index").to_pylist() == [0] * length
+    assert batch.column("task").to_pylist() == [TASK] * length
     # The position of the frames is not ingested: it is rebuilt on export
     assert not set(POSITION_COLUMN_NAMES) & set(batch.schema.names)
 

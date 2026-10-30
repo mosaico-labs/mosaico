@@ -107,7 +107,6 @@ class LeRobotFeature:
             and not self.is_index()
             and not self.is_frame_index()
             and not self.is_episode_index()
-            and not self.is_task_index()
         )
 
     def is_scalar(self) -> bool:

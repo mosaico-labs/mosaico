@@ -143,6 +143,12 @@ class MosaicoToLeRobotLoader(BaseLoader):
         self._ensure_resolved()
         return self._builder.episode_index_by_sequence
 
+    @property
+    def tasks(self):
+        """All the tasks of each accepted sequence."""
+        self._ensure_resolved()
+        return self._builder.tasks
+
     def _resolve_sequence_handlers(self) -> List[SequenceHandler]:
         """
         Lazily resolves the sequences: their handlers, the episodes of the exported dataset and

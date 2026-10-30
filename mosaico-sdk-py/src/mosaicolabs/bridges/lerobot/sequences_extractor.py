@@ -162,7 +162,7 @@ class LeRobotSequencesExtractor:
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
                 meta = LeRobotDatasetMeta.from_data(
-                    saving_path, loader.info, loader.episodes
+                    saving_path, loader.info, loader.episodes, loader.tasks
                 )
 
                 if saving_path.exists():

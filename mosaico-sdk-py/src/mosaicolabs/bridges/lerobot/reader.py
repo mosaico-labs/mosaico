@@ -97,7 +97,15 @@ def _timeseries_fields_to_msco_schema(fields: List[pa.Field]) -> pa.Schema:
             ]
         )
 
-    return pa.schema(list(to_struct(tree)))
+    schema = pa.schema(list(to_struct(tree)))
+
+    # Remove `task_index` field and add `task` field to Mosaico timeseries schema
+    task_index_field_index = schema.get_field_index(_TASK_INDEX_COLUMN)
+    if task_index_field_index != _NOT_FOUND:
+        schema = schema.remove(task_index_field_index)
+        schema = schema.append(_TASK_FIELD)
+
+    return schema
 
 
 def _adapt_timeseries_rb_to_schema(
@@ -281,9 +289,6 @@ class LeRobotReader:
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
             [schema.field(name) for name in self._timeseries_column_names]
         )
-
-        # Adding `task` field to timeseries schema
-        self._timeseries_schema = self._timeseries_schema.append(_TASK_FIELD)
 
     def _iter_episode_batches(
         self,

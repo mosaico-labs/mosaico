@@ -67,6 +67,7 @@ TIMESTAMP_COLUMN_NAME = "timestamp"
 POSITION_COLUMN_NAMES = ["frame_index", "episode_index", "index"]
 """The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
 TASK_INDEX_COLUMN_NAME = "task_index"
+TASK_COLUMN_NAME = "task"
 INDEX_COLUMN_NAMES = [*POSITION_COLUMN_NAMES, TASK_INDEX_COLUMN_NAME]
 
 TIMESERIES_COLUMN_NAMES = [
