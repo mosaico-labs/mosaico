@@ -323,6 +323,24 @@ pub async fn server_info(client: &mut Client) -> Result<(), tonic::Status> {
     Ok(())
 }
 
+/// Calls `list_flights` with the given raw `Criteria.expression`, usually a serialized
+/// `ListFlightsCmd`, and collects the returned flight infos.
+pub async fn list_flights(
+    client: &mut Client,
+    expression: Vec<u8>,
+) -> Result<Vec<FlightInfo>, tonic::Status> {
+    let criteria = arrow_flight::Criteria {
+        expression: expression.into(),
+    };
+
+    client
+        .list_flights(criteria)
+        .await?
+        .into_inner()
+        .try_collect()
+        .await
+}
+
 /// Returns flight info data for a sequence or a topic in the given interval.
 pub async fn get_flight_info(
     client: &mut Client,

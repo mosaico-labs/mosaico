@@ -121,16 +121,14 @@ pub async fn try_create(
     Ok(record.uuid())
 }
 
-/// Returns a list of all available sequences.
-///
-/// This is primarily used for catalog discovery operations.
-pub async fn all(context: &Context) -> Result<Vec<types::SequenceLocator>> {
+/// Returns the page of sequences requested by `cmd`, each with the cursor
+/// pointing just past it.
+pub async fn page(
+    context: &Context,
+    cmd: &types::flight::ListFlightsCmd,
+) -> Result<Vec<types::SequenceListEntry>> {
     let mut cx = context.db.connection();
-    Ok(db::sequence_find_all(&mut cx)
-        .await?
-        .into_iter()
-        .map(|seq_record| seq_record.locator())
-        .collect())
+    Ok(db::sequence_find_page(&mut cx, &cmd.start, cmd.limit).await?)
 }
 
 /// Add a notification to the sequence

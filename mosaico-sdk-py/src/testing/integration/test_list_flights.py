@@ -1,4 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.enum import SequenceOrder
 
 from .config import (
     QUERY_SEQUENCES_MOCKUP,
@@ -28,3 +29,20 @@ def test_list_sequences(
 
     assert len(slist) == len(expected_sequences_list)
     assert all([sname in expected_sequences_list for sname in slist])
+
+
+def test_iter_sequences(
+    mosaico_client: MosaicoClient,
+    inject_mockup_sequences,
+    inject_synthetic_sequence,
+):
+    """Iterating page by page returns every sequence once, in both orders."""
+    all_by_created_at = mosaico_client.list_sequences()
+
+    by_created_at = mosaico_client.iter_sequences(
+        page_size=2, order_by=SequenceOrder.CreatedAt
+    )
+    by_name = mosaico_client.iter_sequences(page_size=1, order_by=SequenceOrder.Name)
+
+    assert list(by_created_at) == all_by_created_at
+    assert list(by_name) == sorted(all_by_created_at)
