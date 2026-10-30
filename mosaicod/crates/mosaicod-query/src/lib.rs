@@ -3,6 +3,9 @@
 mod filter;
 pub use filter::*;
 
+mod aggregator;
+pub use aggregator::*;
+
 mod placeholder;
 pub use placeholder::*;
 

@@ -1,7 +1,7 @@
 #![allow(unused_crate_dependencies)]
 use arrow::array::{
-    BooleanArray, BooleanBuilder, Int64Array, Int64Builder, ListBuilder, RecordBatch, StringArray,
-    StringBuilder,
+    BooleanArray, BooleanBuilder, Float64Array, Int64Array, Int64Builder, ListBuilder, RecordBatch,
+    StringArray, StringBuilder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
@@ -279,17 +279,37 @@ fn int_batch(ts_start: i64, values: &[i64]) -> RecordBatch {
 }
 
 fn nullable_int_batch(ts_start: i64, values: Vec<Option<i64>>) -> RecordBatch {
+    let n = values.len();
+    let timestamps: Vec<i64> = (0..n as i64).map(|i| ts_start + i * 5).collect();
+    nullable_int_batch_at(timestamps, values)
+}
+
+fn nullable_int_batch_at(timestamps: Vec<i64>, values: Vec<Option<i64>>) -> RecordBatch {
     let schema = Arc::new(Schema::new(vec![
         Field::new("timestamp_ns", DataType::Int64, false),
         Field::new("value", DataType::Int64, true),
     ]));
-    let n = values.len();
-    let timestamps: Vec<i64> = (0..n as i64).map(|i| ts_start + i * 5).collect();
     RecordBatch::try_new(
         schema,
         vec![
             Arc::new(Int64Array::from(timestamps)),
             Arc::new(Int64Array::from(values)),
+        ],
+    )
+    .unwrap()
+}
+
+fn nullable_float_batch(ts_start: i64, values: Vec<Option<f64>>) -> RecordBatch {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new("value", DataType::Float64, true),
+    ]));
+    let timestamps: Vec<i64> = (0..values.len() as i64).map(|i| ts_start + i * 5).collect();
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(timestamps)),
+            Arc::new(Float64Array::from(values)),
         ],
     )
     .unwrap()
@@ -549,8 +569,6 @@ async fn test_ontology_not_exist_returns_chunks_with_nulls(pool: sqlx::Pool<db::
         .await;
 
     let seq = "seq_nex";
-    // topic_nonull: "value" column with no nulls -> has_null=FALSE
-    // topic_withnull: "value" column with some nulls -> has_null=TRUE
     setup_topics(
         &mut client,
         seq,
@@ -577,11 +595,11 @@ async fn test_ontology_not_exist_returns_chunks_with_nulls(pool: sqlx::Pool<db::
 
     assert!(
         !locators.contains(&format!("{seq}/topic_nonull")),
-        "topic_nonull should be excluded (has_null=FALSE, column definitely has non-null values)"
+        "topic_nonull should be excluded (null_count = 0, column definitely has non-null values)"
     );
     assert!(
         locators.contains(&format!("{seq}/topic_withnull")),
-        "topic_withnull should be included (has_null=TRUE)"
+        "topic_withnull should be included (null_count > 0)"
     );
 
     server.shutdown().await;
@@ -3516,6 +3534,811 @@ async fn test_ontology_range_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_count_aggregator(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_count";
+    // topic_a: 6 valid values
+    // topic_b: 3 samples, one null -> 2 valid values
+    // topic_c: text field with 4 valid values
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6])),
+            (
+                "topic_b",
+                nullable_int_batch(20_000, vec![Some(1), None, Some(3)]),
+            ),
+            ("topic_c", string_batch(30_000, &["a", "b", "c", "d"])),
+        ],
+    )
+    .await;
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::CountValid,
+        filter::eq(6),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // nulls are not counted
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::CountValid,
+        filter::lt(3),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // text fields are counted from the textual stats
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.name",
+        Aggregator::CountValid,
+        filter::eq(4),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_c")]);
+
+    let mut res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::CountValid,
+        filter::is_in([2, 6]),
+    )
+    .await
+    .unwrap();
+    res.sort();
+    assert_eq!(
+        res,
+        vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")]
+    );
+
+    // the total count includes the nulls: topic_b has 3 samples
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Count, filter::eq(3))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.name", Aggregator::Count, filter::eq(4))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_c")]);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_count_aggregator_nan(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_count_nan";
+    // topic_a: [1, nan, 3, nan] -> 2 valid values, 4 samples
+    // topic_b: [1, null, nan] -> 1 valid value, 3 samples
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            (
+                "topic_a",
+                nullable_float_batch(
+                    10_000,
+                    vec![Some(1.0), Some(f64::NAN), Some(3.0), Some(f64::NAN)],
+                ),
+            ),
+            (
+                "topic_b",
+                nullable_float_batch(20_000, vec![Some(1.0), None, Some(f64::NAN)]),
+            ),
+        ],
+    )
+    .await;
+
+    // nan and nulls are not counted as samples
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::CountValid,
+        filter::eq(2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::CountValid,
+        filter::eq(1),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // the total count includes nan and nulls
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Count, filter::eq(4))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Count, filter::eq(3))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_list_field(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_aggr_list";
+    // list_test: 2 rows, elements [1, 2] and [3]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![(
+            "topic_a",
+            int_list_batch(10_000, &[1, 2], &[vec![1, 2], vec![3]]),
+        )],
+    )
+    .await;
+
+    // computed on the elements of the lists
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.list_test",
+        Aggregator::Max,
+        filter::eq(3),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.list_test",
+        Aggregator::Min,
+        filter::eq(1),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // 3 - 1
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.list_test",
+        Aggregator::Range,
+        filter::eq(2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // computed on the rows
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.list_test",
+        Aggregator::Count,
+        filter::eq(2),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // 2 rows 5 ns apart -> (2 - 1) / 5e-9 = 2e8 Hz
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.list_test",
+        Aggregator::Rate,
+        filter::between([1.9e8, 2.1e8]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    for aggr in [
+        Aggregator::CountValid,
+        Aggregator::Mean,
+        Aggregator::Var,
+        Aggregator::Std,
+        Aggregator::First,
+        Aggregator::Last,
+    ] {
+        let err = query_topics_by_aggregator(&mut client, "mock.list_test", aggr, filter::gt(0))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.code(),
+            Code::InvalidArgument,
+            "{aggr:?} is not supported on list fields"
+        );
+    }
+
+    // the scalar fields of the same topic are not affected
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(1.5))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_list_of_structs(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_aggr_struct_list";
+    // readings.x: 3 rows, elements [1, 4], [7] and [2, 3, 9], with y = 10 * x
+    setup_topics(
+        &mut client,
+        seq,
+        vec![(
+            "topic_a",
+            struct_list_batch(
+                10_000,
+                &[
+                    vec![(1.0, 10.0), (4.0, 40.0)],
+                    vec![(7.0, 70.0)],
+                    vec![(2.0, 20.0), (3.0, 30.0), (9.0, 90.0)],
+                ],
+            ),
+        )],
+    )
+    .await;
+    let topic = vec![format!("{seq}/topic_a")];
+
+    for (aggr, cond) in [
+        (Aggregator::Max, filter::eq(9)),
+        (Aggregator::Min, filter::eq(1)),
+        (Aggregator::Range, filter::eq(8)), // eq = 9 -1
+    ] {
+        let res = query_topics_by_aggregator(&mut client, "mock.readings.x", aggr, cond)
+            .await
+            .unwrap();
+        assert_eq!(res, topic, "{aggr:?} on the elements");
+    }
+
+    // computed on the rows: 3 rows
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.readings.x",
+        Aggregator::Count,
+        filter::eq(3),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, topic);
+
+    // 3 rows 5 ns apart -> (3 - 1) / 10e-9 = 2e8 Hz
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.readings.x",
+        Aggregator::Rate,
+        filter::between([1.9e8, 2.1e8]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, topic);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.readings.y",
+        Aggregator::Max,
+        filter::eq(90),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, topic);
+
+    for aggr in [
+        Aggregator::CountValid,
+        Aggregator::Mean,
+        Aggregator::Var,
+        Aggregator::Std,
+        Aggregator::First,
+        Aggregator::Last,
+    ] {
+        let err = query_topics_by_aggregator(&mut client, "mock.readings.x", aggr, filter::gt(0))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.code(),
+            Code::InvalidArgument,
+            "{aggr:?} is not supported on lists of structs"
+        );
+    }
+
+    // an index specifier is rejected, even with an aggregator supported on lists
+    let err = query_topics_by_aggregator(
+        &mut client,
+        "mock.readings[?].x",
+        Aggregator::Max,
+        filter::gt(0),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.code(), Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_mean(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_mean";
+    // topic_a: [1, 2, 3, 4, 5, 6] -> mean 3.5
+    // topic_b: [1, null, 5] -> mean 3 (the valid values are 2)
+    // topic_c: text field, the mean is not defined
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6])),
+            (
+                "topic_b",
+                nullable_int_batch(20_000, vec![Some(1), None, Some(5)]),
+            ),
+            ("topic_c", string_batch(30_000, &["a", "b"])),
+        ],
+    )
+    .await;
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(3.5))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // nulls are not part of the mean
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(3))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::gt(3))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // the mean is not defined on text
+    let err = query_topics_by_aggregator(&mut client, "mock.name", Aggregator::Mean, filter::gt(1))
+        .await
+        .unwrap_err();
+    assert_eq!(
+        err.code(),
+        Code::InvalidArgument,
+        "mean is not defined on text"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_var_std(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_var_std";
+    // topic_a: [1, 2, 3, 4, 5, 6] -> var 3.5, std ~1.87
+    // topic_b: [1, null, 5] -> var 8, std ~2.83 (the valid values are 2)
+    // topic_c: text field, var and std are not defined
+    // topic_d: [null, null] -> no valid values, var and std are not defined
+    // topic_e: [7] -> a single valid value, var and std are not defined
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6])),
+            (
+                "topic_b",
+                nullable_int_batch(20_000, vec![Some(1), None, Some(5)]),
+            ),
+            ("topic_c", string_batch(30_000, &["a", "b"])),
+            ("topic_d", nullable_int_batch(40_000, vec![None, None])),
+            ("topic_e", int_batch(50_000, &[7])),
+        ],
+    )
+    .await;
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Var, filter::eq(3.5))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // nulls are not part of the variance
+    let res = query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Var, filter::eq(8))
+        .await
+        .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    let res = query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Std, filter::lt(2))
+        .await
+        .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res = query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Std, filter::gt(2))
+        .await
+        .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // topic_d and topic_e never match, their var and std are NULL
+    for aggr in [Aggregator::Var, Aggregator::Std] {
+        let mut res = query_topics_by_aggregator(&mut client, "mock.value", aggr, filter::ge(0))
+            .await
+            .unwrap();
+        res.sort();
+        assert_eq!(
+            res,
+            vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")],
+            "{aggr:?} is not defined with less than two valid values"
+        );
+    }
+
+    for aggr in [Aggregator::Var, Aggregator::Std] {
+        let err = query_topics_by_aggregator(&mut client, "mock.name", aggr, filter::gt(1))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.code(),
+            Code::InvalidArgument,
+            "{aggr:?} is not defined on text"
+        );
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_first_last(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_first_last";
+    // topic_a: [1, 2, 3, 4, 5, 6] -> first 1, last 6
+    // topic_b: [null, 2, 5] -> first null, last 5
+    // topic_c: text field ["apple", "kiwi"] -> first "apple", last "kiwi"
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6])),
+            (
+                "topic_b",
+                nullable_int_batch(20_000, vec![None, Some(2), Some(5)]),
+            ),
+            ("topic_c", string_batch(30_000, &["apple", "kiwi"])),
+        ],
+    )
+    .await;
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::First, filter::eq(1))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    // the first value of topic_b is null, so it never matches
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::First, filter::ge(0))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let mut res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Last, filter::ge(5))
+            .await
+            .unwrap();
+    res.sort();
+    assert_eq!(
+        res,
+        vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")]
+    );
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Last, filter::lt(6.0))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // text fields
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.name",
+        Aggregator::First,
+        filter::eq("apple"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_c")]);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.name",
+        Aggregator::Last,
+        filter::matches("ki*"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_c")]);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.name",
+        Aggregator::Last,
+        filter::matches("ap*"),
+    )
+    .await
+    .unwrap();
+    assert!(res.is_empty(), "the last value of topic_c is \"kiwi\"");
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_rate(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_rate";
+    // topic_a: 6 samples 5 ns apart -> (6 - 1) / 25e-9 = 2e8 Hz
+    // topic_b: 3 samples 10 ns apart, two null -> (3 - 1) / 20e-9 = 1e8 Hz
+    // topic_c: a single sample -> rate is not defined
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6])),
+            (
+                "topic_b",
+                nullable_int_batch_at(vec![20_000, 20_010, 20_020], vec![None, Some(2), None]),
+            ),
+            ("topic_c", int_batch(30_000, &[7])),
+        ],
+    )
+    .await;
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Rate,
+        filter::gt(1.5e8),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Rate,
+        filter::between([0.9e8, 1.1e8]),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // topic_c never matches, its rate is NULL
+    let mut res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Rate, filter::ge(0))
+            .await
+            .unwrap();
+    res.sort();
+    assert_eq!(
+        res,
+        vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")]
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_multiple_chunks(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_multi_chunk";
+    let topic_name = format!("{seq}/topic_a");
+    actions::sequence_create(&mut client, seq, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, seq).await.unwrap();
+    let uuid = actions::topic_create(&mut client, &session_uuid, &topic_name, "")
+        .await
+        .unwrap();
+    // one chunk per batch: [1, 2, 3] and [4, 5, 6]
+    actions::do_put(
+        &mut client,
+        &uuid,
+        &topic_name,
+        vec![int_batch(10_000, &[1, 2, 3]), int_batch(20_000, &[4, 5, 6])],
+        false,
+    )
+    .await
+    .unwrap();
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    // the aggregators are computed over the whole topic
+    let matching = [
+        (Aggregator::Max, filter::eq(6)),
+        (Aggregator::Min, filter::eq(1)),
+        (Aggregator::Range, filter::eq(5)),
+        (Aggregator::CountValid, filter::eq(6)),
+        (Aggregator::Count, filter::eq(6)),
+        (Aggregator::Mean, filter::eq(3.5)),
+        (Aggregator::Var, filter::eq(3.5)),
+        (Aggregator::First, filter::eq(1)),
+        (Aggregator::Last, filter::eq(6)),
+        (Aggregator::Rate, filter::between([4.99e5, 5.0e5])),
+    ];
+    for (aggr, cond) in matching {
+        let res = query_topics_by_aggregator(&mut client, "mock.value", aggr, cond)
+            .await
+            .unwrap();
+        assert_eq!(res, vec![topic_name.clone()], "{aggr:?} over two chunks");
+    }
+
+    // the values of a single chunk never match
+    let single_chunk = [
+        (Aggregator::Max, filter::eq(3)),
+        (Aggregator::Min, filter::eq(4)),
+        (Aggregator::Range, filter::eq(2)),
+        (Aggregator::Count, filter::eq(3)),
+        (Aggregator::Mean, filter::eq(2)),
+        (Aggregator::First, filter::eq(4)),
+        (Aggregator::Last, filter::eq(3)),
+    ];
+    for (aggr, cond) in single_chunk {
+        let res = query_topics_by_aggregator(&mut client, "mock.value", aggr, cond)
+            .await
+            .unwrap();
+        assert!(res.is_empty(), "{aggr:?} must not use a single chunk");
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_aggregator_mean_multiple_chunks(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_mean_multi_chunk";
+    // topic_a: [1] and [4, 4, 4] -> weighted mean 13 / 4 = 3.25 (the mean of the chunk means is 2.5)
+    // topic_b: [null, nan] and [2, 4] -> 3, the chunk without valid values is skipped
+    // topic_c: [1, 2] and [inf] -> NULL, the moments of the second chunk are not finite
+    // topic_d: [null] and [nan] -> NULL, no valid values at all
+    let topics = [
+        (
+            "topic_a",
+            vec![int_batch(10_000, &[1]), int_batch(20_000, &[4, 4, 4])],
+        ),
+        (
+            "topic_b",
+            vec![
+                nullable_float_batch(10_000, vec![None, Some(f64::NAN)]),
+                nullable_float_batch(20_000, vec![Some(2.0), Some(4.0)]),
+            ],
+        ),
+        (
+            "topic_c",
+            vec![
+                nullable_float_batch(10_000, vec![Some(1.0), Some(2.0)]),
+                nullable_float_batch(20_000, vec![Some(f64::INFINITY)]),
+            ],
+        ),
+        (
+            "topic_d",
+            vec![
+                nullable_float_batch(10_000, vec![None]),
+                nullable_float_batch(20_000, vec![Some(f64::NAN)]),
+            ],
+        ),
+    ];
+    actions::sequence_create(&mut client, seq, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, seq).await.unwrap();
+    for (suffix, batches) in topics {
+        let topic_name = format!("{seq}/{suffix}");
+        let uuid = actions::topic_create(&mut client, &session_uuid, &topic_name, "")
+            .await
+            .unwrap();
+        actions::do_put(&mut client, &uuid, &topic_name, batches, false)
+            .await
+            .unwrap();
+    }
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    // the chunk means are weighted by their valid values
+    let res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Mean,
+        filter::eq(3.25),
+    )
+    .await
+    .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_a")]);
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(2.5))
+            .await
+            .unwrap();
+    assert!(res.is_empty(), "the chunk means must not be averaged");
+
+    let res =
+        query_topics_by_aggregator(&mut client, "mock.value", Aggregator::Mean, filter::eq(3))
+            .await
+            .unwrap();
+    assert_eq!(res, vec![format!("{seq}/topic_b")]);
+
+    // topic_c and topic_d never match, their mean is NULL
+    let mut res = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Mean,
+        filter::gt(f64::MIN),
+    )
+    .await
+    .unwrap();
+    res.sort();
+    assert_eq!(
+        res,
+        vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")]
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_ontology_aggregator_rejects_unsupported_predicates(
     pool: sqlx::Pool<db::DatabaseType>,
 ) {
@@ -3549,6 +4372,21 @@ async fn test_ontology_aggregator_rejects_unsupported_predicates(
             "aggregators are not supported on list field `{field}`"
         );
     }
+
+    // An aggregate can't be compared with an array operand
+    let err = query_topics_by_aggregator(
+        &mut client,
+        "mock.value",
+        Aggregator::Max,
+        filter::eq(vec![1_i64, 2]),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(
+        err.code(),
+        Code::InvalidArgument,
+        "aggregators are not supported with array operands"
+    );
 
     server.shutdown().await;
 }
