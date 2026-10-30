@@ -75,3 +75,9 @@ jobs:
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.examples --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.ros_injector --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.ros_sequence_extractor --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.mcap_sequence_extractor --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico inject ros --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico extract ros --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico inject mcap --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico extract mcap --help

@@ -319,36 +319,40 @@ A topic whose `_mcap_` block is missing one of the schema or channel fields, or 
 * **`topic_metadata`**: merged underneath the auto-computed `_mcap_` block (see above).
 
 !!! note "CLI-only sequence metadata"
-    When using the `mosaicolabs.mcap_injector` CLI, an additional `mcap_injection` key (the MCAP file name) is automatically merged into `metadata` for traceability. This only happens in the CLI entry point, not when constructing `MCAPInjectionConfig` directly in Python.
+    When injecting from the command line (`mosaico inject mcap`), an additional `mcap_injection` key (the MCAP file name) is automatically merged into `metadata` for traceability. This only happens in the CLI entry points, not when constructing `MCAPInjectionConfig` directly in Python.
 
 !!! tip "Querying these keys"
     `_mcap_` and its nested fields (e.g. `_mcap_.schema_name`, `_mcap_.channel_name`) are ordinary metadata as far as the query engine is concerned: they're queryable through [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] and [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] `with_user_metadata()` exactly like any other metadata field, including [glob patterns for nested keys](../query.md#using-glob-pattern-for-metadata-keys) (e.g. `QueryTopic().with_user_metadata("_mcap_.schema_name", eq="foxglove.CompressedVideo")`). See the [Query Workflow](../query.md) guide for the full API.
 
 #### CLI Usage
 
-The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaicolabs.mcap_injector -h`
+MCAP files can be injected from the terminal with the `mosaico` CLI (installed with `pip install "mosaicolabs[cli]"`), which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico inject mcap --help`.
 
 ```bash
 # Basic Usage
-mosaicolabs.mcap_injector ./data.mcap --name "Test_Run_01"
+mosaico inject mcap ./data.mcap --name "Test_Run_01"
 
 # Advanced Usage: Filtering channels and adding metadata
-mosaicolabs.mcap_injector ./data.mcap \
+mosaico inject mcap ./data.mcap \
   --name "Test_Run_01" \
-  --channels "/camera/front/*" /gps/fix \
+  --channels "/camera/front/*" --channels /gps/fix \
   --metadata ./metadata.json
 
 # Advanced Usage: Per-topic metadata and appending to an existing sequence
 # (e.g. a second file of a multi-part recording, or reprocessed results
 # to merge into an already ingested sequence)
-mosaicolabs.mcap_injector ./estimation_results.mcap \
+mosaico inject mcap ./estimation_results.mcap \
   --name "Test_Run_01" \
   --topic-metadata '{"/estimation/pose": {"algorithm": "ekf_v2"}}' \
   --update-if-exists
 
 # Dry Run: report accepted and rejected channels, without connecting to the server
-mosaicolabs.mcap_injector ./data.mcap --name "Test_Run_01" --dry-run
+# (no connection profile needed)
+mosaico inject mcap ./data.mcap --name "Test_Run_01" --dry-run
 ```
+
+!!! note "Development script"
+    The SDK also installs the `mosaicolabs.mcap_injector` script, mainly meant for development. It takes the same options, except that the connection is given with explicit flags (`--host`, `--port`, `--api-key`, `--tls-cert`) instead of a profile, and `--channels` takes several patterns after a single flag. Run `mosaicolabs.mcap_injector -h` for details.
 
 ### The Extractor (`MCAPSequenceExtractor`)
 
@@ -385,7 +389,7 @@ MCAPSequenceExtractor(config).run()  # prints a report; nothing is written or de
 ```
 
 ```bash
-python -m mosaicolabs.bridges.mcap.sequence_extractor on_track_experiment --mcap_path ./exports --dry-run
+mosaico extract mcap on_track_experiment --mcap-path ./exports --dry-run
 ```
 
 #### Practical Example: Programmatic Usage
@@ -415,18 +419,21 @@ extractor.run()  # writes ./exports/on_track_experiment/on_track_experiment.mcap
 
 #### CLI Usage
 
-The extractor can be run as a module. The full list of options can be retrieved by running `python -m mosaicolabs.bridges.mcap.sequence_extractor -h`.
+Sequences can be extracted from the terminal with `mosaico extract mcap`, which reaches the server through the active [connection profile](https://docs.mosaico.dev/cli/profiles). The full list of options can be retrieved by running `mosaico extract mcap --help`.
 
 ```bash
 # Basic Usage
-python -m mosaicolabs.bridges.mcap.sequence_extractor on_track_experiment --mcap_path ./exports
+mosaico extract mcap on_track_experiment --mcap-path ./exports
 
 # Advanced Usage: Filtering topics and overwriting a previous export
-python -m mosaicolabs.bridges.mcap.sequence_extractor on_track_experiment \
-  --mcap_path ./exports \
-  --topics "/cam/*" "!/cam/debug*" \
+mosaico extract mcap on_track_experiment \
+  --mcap-path ./exports \
+  --topics "/cam/*" --topics "!/cam/debug*" \
   --overwrite
 ```
+
+!!! note "Development script"
+    The SDK also installs the `mosaicolabs.mcap_sequence_extractor` script, mainly meant for development. It takes the same options, except that the connection is given with explicit flags (`--host`, `--port`, `--mosaico_api_key`, `--tls_cert_path`, `--enable_tls`) instead of a profile, and `--topics` takes several patterns after a single flag. Run `mosaicolabs.mcap_sequence_extractor -h` for details.
 
 ### No Message Definitions Required
 
