@@ -72,7 +72,7 @@ def test_msg_count(mcap_file):
 
 @pytest.mark.parametrize(
     ("mcap_file", "encoding"),
-    zip(MCAP_FILES_TO_TEST, ENCODING_TO_TEST),
+    list(zip(MCAP_FILES_TO_TEST, ENCODING_TO_TEST)),
     indirect=["mcap_file"],
 )
 def test_channel_types(mcap_file, encoding):
