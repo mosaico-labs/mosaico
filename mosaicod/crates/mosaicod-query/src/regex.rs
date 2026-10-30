@@ -1,4 +1,4 @@
-//! Globbing to Regex conversion methods
+//! Globbing to Regex conversion methods.
 
 use regex::Regex;
 
@@ -93,7 +93,7 @@ pub fn wildcard_to_posix_regex(pattern: &str) -> Result<Regex, Error> {
 mod tests {
     use super::*;
 
-    /// Helper macro to assert successful conversions
+    /// Helper macro to assert successful conversions.
     macro_rules! assert_translation {
         ($pattern:expr, $expected:expr) => {
             assert_eq!(

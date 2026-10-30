@@ -25,7 +25,7 @@ impl Uuid {
         !(self.0.is_nil() || self.0.is_max())
     }
 
-    /// Return a non hyphened string
+    /// Return a non hyphened string.
     pub fn non_hyphened_string(&self) -> String {
         self.0.simple().to_string()
     }

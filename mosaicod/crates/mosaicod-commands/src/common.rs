@@ -1,4 +1,4 @@
-//! Common functions shared between multiple commands
+//! Common functions shared between multiple commands.
 
 use mosaicod_config::{self as config, params};
 use mosaicod_core::{self as core, error::PublicResult as Result};
@@ -7,7 +7,7 @@ use mosaicod_store as store;
 use std::sync::Arc;
 use std::sync::OnceLock;
 
-/// Stores startup time
+/// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
 
 pub fn pin_startup_time() {

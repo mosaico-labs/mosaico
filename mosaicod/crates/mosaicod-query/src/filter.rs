@@ -26,13 +26,13 @@
 use mosaicod_core::types;
 use std::{collections::HashMap, collections::hash_map::Entry};
 
-/// Floating point value type alias
+/// Floating point value type alias.
 pub type Float = f64;
-/// Integer value type alias
+/// Integer value type alias.
 pub type Integer = i64;
-/// Timestam type alias
+/// Timestamp type alias.
 pub type Timestamp = types::Timestamp;
-/// Text type alias
+/// Text type alias.
 pub type Text = String;
 
 #[derive(Debug, thiserror::Error)]
@@ -41,7 +41,7 @@ pub enum OpError {
     #[error("wrong type")]
     WrongType,
 
-    /// Unsupported operation
+    /// Unsupported operation.
     #[error("unsupported operation")]
     UnsupportedOperation,
 
@@ -72,27 +72,27 @@ pub enum OpError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum AggregatorError {
-    /// Unsupported aggregator
+    /// Unsupported aggregator.
     #[error("unsupported aggregator")]
     UnsupportedAggregator,
 
-    /// Unsupported operation
+    /// Unsupported operation.
     #[error("unsupported operation for the given aggregator")]
     UnsupportedOperation,
 
-    /// Aggregators can not be applied to list fields
+    /// Aggregators can not be applied to list fields.
     #[error("aggregators are not supported on list fields")]
     UnsupportedListField,
 
-    /// The aggregator can not be computed on the field value type
+    /// The aggregator can not be computed on the field value type.
     #[error("unsupported value type for the given aggregator")]
     UnsupportedValueType,
 
-    /// The predicate has no aggregator
+    /// The predicate has no aggregator.
     #[error("missing aggregator")]
     MissingAggregator,
 
-    /// The predicate has an aggregator where only plain predicates are allowed
+    /// The predicate has an aggregator where only plain predicates are allowed.
     #[error("unexpected aggregator")]
     UnexpectedAggregator,
 }
@@ -301,7 +301,7 @@ pub struct ListAccess {
 /// - "acceleration.x"        segments: ["acceleration","x"],       list_access: None
 /// - "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
 /// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
-/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
+/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyFieldPath {
     /// All field name segments in order, without specifiers.
@@ -478,8 +478,7 @@ impl<T> OntologyPredicateGroup<T> {
         Self { group }
     }
 
-    /// Exports filter data as several predicate groups grouped by ontology tag
-    /// So if the
+    /// Splits the predicates into several groups, one per ontology tag.
     pub fn split_by_ontology_tag(self) -> Vec<OntologyPredicateGroup<T>> {
         let mut map: HashMap<String, OntologyPredicateGroup<T>> = HashMap::new();
         for predicate in self.group {
@@ -548,7 +547,7 @@ impl OntologyFilter {
             .map(|e| e.ontology_field().ontology_tag())
     }
 
-    /// Exports filter data as a unique predicate group
+    /// Exports filter data as a unique predicate group.
     pub fn into_ontology_predicate_group(self) -> OntologyPredicateGroup<Value> {
         OntologyPredicateGroup::new(self.ontology)
     }
@@ -565,30 +564,30 @@ impl OntologyFilter {
 /// Represents the logical operator to apply to a field for filtering.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op<T> {
-    /// Equal
+    /// Equal.
     Eq(T),
-    /// Not equal
+    /// Not equal.
     Neq(T),
-    /// Less than or equal
+    /// Less than or equal.
     Leq(T),
-    /// Greater then or equal
+    /// Greater than or equal.
     Geq(T),
-    /// Lower then
+    /// Less than.
     Lt(T),
-    /// Greater then
+    /// Greater than.
     Gt(T),
-    /// Exists
+    /// Exists.
     Ex,
-    /// Not exists
+    /// Not exists.
     Nex,
-    /// In between a two value range [a, b] with a <= b
+    /// In between a two value range [a, b] with a <= b.
     Between(Range<T>),
-    /// Found in a set
+    /// Found in a set.
     In(Vec<T>),
-    /// Matches a certain expression
+    /// Matches a certain expression.
     Match(T),
     /// Outside a two value range [a, b], the strict complement of `Between`:
-    /// v < a or v > b, with a <= b
+    /// v < a or v > b, with a <= b.
     Outside(Range<T>),
 }
 
@@ -684,7 +683,7 @@ impl Aggregator {
     }
 
     /// Returns true if the aggregator can be computed on fields holding values
-    /// of the same type of the `op` operands
+    /// of the same type of the `op` operands.
     pub fn is_supported_value(&self, op: &Op<Value>) -> bool {
         let value = match op {
             Op::Eq(v)
@@ -711,7 +710,7 @@ impl Aggregator {
         }
     }
 
-    /// Checks that the aggregator can be applied to `field` with `op`
+    /// Checks that the aggregator can be applied to `field` with `op`.
     pub fn validate(&self, field: &OntologyField, op: &Op<Value>) -> Result<(), AggregatorError> {
         if !self.is_supported_aggregator(op) {
             return Err(AggregatorError::UnsupportedOperation);
@@ -742,7 +741,7 @@ pub struct Filter {
 }
 
 impl Filter {
-    /// Returns true if there are no filters applied
+    /// Returns true if there are no filters applied.
     pub fn is_empty(&self) -> bool {
         self.sequence.is_none() && self.topic.is_none() && self.ontology.is_none()
     }

@@ -18,10 +18,10 @@ pub struct SequenceRecord {
     pub(crate) locator_name: String,
 
     /// This metadata field is only for database query access and
-    /// should not be exposed
+    /// should not be exposed.
     pub(crate) user_metadata: Option<serde_json::Value>,
 
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 
     /// Path inside Object store where to find backup files and other sequence info.

@@ -1,12 +1,14 @@
 use tokio_util::sync::CancellationToken;
 
-/// To stop the server use the following command on
-/// `ShutdownNotifier`
+/// Signals the server and its background tasks to shut down.
+///
+/// Call [`ShutdownNotifier::shutdown`] to request the shutdown, and
+/// [`ShutdownNotifier::wait_for_shutdown`] to wait for it.
 #[derive(Clone, Default, Debug)]
 pub struct ShutdownNotifier(CancellationToken);
 
 impl ShutdownNotifier {
-    // Notifies the server to be shutdown
+    /// Notifies the server to shut down.
     pub fn shutdown(&self) {
         self.0.cancel();
     }

@@ -107,7 +107,7 @@ pub async fn topic_find_path_in_store(
     Ok(found)
 }
 
-/// Return all topics
+/// Return all topics.
 pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
     Ok(

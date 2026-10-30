@@ -115,7 +115,7 @@ pub async fn do_action(
     }
 }
 
-/// Return true if the requested action matches the permissions, false otherwise
+/// Return true if the requested action matches the permissions, false otherwise.
 fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
     match action {
         ActionRequest::SequenceCreate(_) => perm.can_write(),

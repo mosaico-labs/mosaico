@@ -13,7 +13,7 @@ pub struct SequenceNotificationRecord {
     /// since the sqlx driver cannot interact directly with enums.
     pub(crate) notification_type: String,
     pub msg: Option<String>,
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 }
 
@@ -67,7 +67,7 @@ pub struct TopicNotificationRecord {
     /// since the sqlx driver cannot interact directly with enums.
     pub(crate) notification_type: String,
     pub msg: Option<String>,
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 }
 

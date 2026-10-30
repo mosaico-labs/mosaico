@@ -136,7 +136,7 @@ pub async fn session_delete(
     Ok(())
 }
 
-/// Find all topic associated with a session
+/// Find all topic associated with a session.
 pub async fn session_find_all_topics(
     exe: &mut impl AsExec,
     id: i32,

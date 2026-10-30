@@ -51,7 +51,7 @@ fn extract_schema_from_flight_data(data: &DecodedFlightData) -> grpc_common::Res
     Err(core::Error::missing_schema())?
 }
 
-/// Extract descriptor tag from flight decoded data
+/// Extract descriptor tag from flight decoded data.
 fn extract_command_from_flight_data(
     data: &DecodedFlightData,
 ) -> grpc_common::Result<types::flight::DoPutCmd> {

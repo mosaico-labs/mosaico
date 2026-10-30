@@ -139,12 +139,12 @@ fn is_valid_field_name(name: &str) -> bool {
     !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
-/// Return a arrow empty schema
+/// Return a arrow empty schema.
 pub fn empty_schema_ref() -> Arc<Schema> {
     Arc::new(Schema::empty())
 }
 
-/// Extract the schema from a parquet reader object
+/// Extract the schema from a parquet reader object.
 pub async fn schema_from_parquet_reader(
     reader: &mut ParquetObjectReader,
 ) -> Result<SchemaRef, Error> {
@@ -159,7 +159,7 @@ pub async fn schema_from_parquet_reader(
     Ok(Arc::new(schema))
 }
 
-/// Checks if the given Arrow [`DataType`] is considered numeric
+/// Checks if the given Arrow [`DataType`] is considered numeric.
 #[must_use]
 pub fn is_numeric(data_type: &DataType) -> bool {
     matches!(
@@ -179,7 +179,7 @@ pub fn is_numeric(data_type: &DataType) -> bool {
     )
 }
 
-/// Checks if the given Arrow [`DataType`] is considered text
+/// Checks if the given Arrow [`DataType`] is considered text.
 #[must_use]
 pub fn is_textual(data_type: &DataType) -> bool {
     matches!(
@@ -195,7 +195,7 @@ pub fn is_textual(data_type: &DataType) -> bool {
     )
 }
 
-/// Converts an arrow [`Array`] to a text type array (Utf8)
+/// Converts an arrow [`Array`] to a text type array (Utf8).
 pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_textual(array.data_type()) {
         Ok(arrow_cast::cast(
@@ -209,7 +209,7 @@ pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, Error> {
     }
 }
 
-/// Converts an arrow [`Array`] to a numberic type array (f64)
+/// Converts an arrow [`Array`] to a numberic type array (f64).
 pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_numeric(array.data_type()) {
         Ok(arrow_cast::cast(
@@ -649,7 +649,7 @@ pub mod testing {
         .unwrap()
     }
 
-    /// Returns a dummy batch containing a list of strings for each record
+    /// Returns a dummy batch containing a list of strings for each record.
     pub fn dummy_list_string_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(

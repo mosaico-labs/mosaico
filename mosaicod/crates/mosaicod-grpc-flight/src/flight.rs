@@ -22,7 +22,7 @@ pub struct Service {
     db: db::Database,
     ts_gw: query::TimeseriesEngineRef,
     api_key_management: bool,
-    /// Semaphore used to controll the maximum number of concurrent writers
+    /// Semaphore used to controll the maximum number of concurrent writers.
     concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
@@ -199,7 +199,7 @@ impl Service {
     }
 }
 
-/// Map impl methods to FlightService
+/// Map impl methods to FlightService.
 #[tonic::async_trait]
 impl FlightService for Service {
     type HandshakeStream = HandshakeStream;

@@ -16,10 +16,10 @@ pub struct SessionRecord {
     /// The unique UUID for the session.
     pub(crate) session_uuid: uuid::Uuid,
 
-    /// UNIX timestamp in milliseconds since the creation
+    /// UNIX timestamp in milliseconds since the creation.
     pub(crate) creation_unix_tstamp: i64,
 
-    /// UNIX timestamp in milliseconds since the completion
+    /// UNIX timestamp in milliseconds since the completion.
     pub(crate) completion_unix_tstamp: Option<i64>,
 }
 

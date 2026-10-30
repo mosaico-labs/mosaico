@@ -19,7 +19,7 @@ pub struct TopicRecord {
     /// Path inside Object store where to find data and backup files.
     pub(crate) path_in_store: Option<String>,
 
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
     pub(crate) completion_unix_tstamp: Option<i64>,
 

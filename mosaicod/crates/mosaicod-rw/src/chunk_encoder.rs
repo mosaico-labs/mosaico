@@ -48,7 +48,7 @@ impl InMemoryChunkEncoder {
     /// Writes the provided [`RecordBatch`].
     ///
     /// The [`RecordBatch`] is serialized according to the writer's format, and the internal statistics
-    /// are updated based on the data in the batch. The method returns an error if the serialization fails
+    /// are updated based on the data in the batch. The method returns an error if the serialization fails.
     pub fn write(&mut self, batch: &RecordBatch) -> Result<(), Error> {
         match &mut self.writer {
             Writer::Parquet(writer) => {

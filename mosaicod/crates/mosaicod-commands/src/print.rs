@@ -14,7 +14,7 @@ fn format_addr(is_loopback: bool, msg: String) {
     );
 }
 
-/// Enable or disable colors based on the log format
+/// Enable or disable colors based on the log format.
 pub fn set_colors(format: types::LogFormat) {
     if matches!(format, types::LogFormat::Plain) {
         colored::control::set_override(false);
@@ -81,7 +81,7 @@ pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
     }
 }
 
-/// Returns the name to display on the console for the current in use store
+/// Returns the name to display on the console for the current in use store.
 pub fn store_display_name(store: &store::StoreRef) -> String {
     match store.target() {
         store::Target::Filesystem(path) => {

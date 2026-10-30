@@ -54,7 +54,7 @@ impl core::error::PublicError for Error {
     }
 }
 
-/// Internal type used to map string to [`Error::Internal`]
+/// Internal type used to map string to [`Error::Internal`].
 #[derive(Debug)]
 struct StringError(String);
 

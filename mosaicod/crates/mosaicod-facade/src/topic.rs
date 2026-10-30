@@ -14,7 +14,7 @@ use std::path;
 use std::sync::Arc;
 use tracing::{trace, warn};
 
-/// Define topic metadata type containing JSON user metadata
+/// Define topic metadata type containing JSON user metadata.
 pub type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 pub type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
 pub type TopicInfo = types::TopicInfo<marshal::JsonMetadataBlob>;
@@ -60,7 +60,7 @@ pub(super) mod internal {
     /// Private method to tell the topic status (just created, uploading data, finalized).
     ///
     /// Note: please use this function instead of [`status`] if you need to call it internally
-    /// (from another function in this module that already has an active transaction)
+    /// (from another function in this module that already has an active transaction).
     pub async fn status(topic_record: &db::TopicRecord) -> Result<Status> {
         if topic_record.path_in_store().is_none() {
             debug_assert!(topic_record.completion_timestamp().is_none());
@@ -520,7 +520,7 @@ pub async fn delete(
     Ok(())
 }
 
-/// Add a notification to the sequence
+/// Add a notification to the sequence.
 pub async fn notify(
     context: &Context,
     locator: &types::TopicLocator,
@@ -541,7 +541,7 @@ pub async fn notify(
     Ok(notification_record.into_notification(locator.clone()))
 }
 
-/// Returns a list of all notifications for the topic
+/// Returns a list of all notifications for the topic.
 pub async fn notification_list(
     context: &Context,
     locator: &types::TopicLocator,
@@ -554,7 +554,7 @@ pub async fn notification_list(
         .collect())
 }
 
-/// Deletes all the notifications associated with the sequence
+/// Deletes all the notifications associated with the sequence.
 pub async fn notification_purge(context: &Context, locator: &types::TopicLocator) -> Result<()> {
     let mut cx = context.db.connection();
     db::topic_notifications_purge(&mut cx, locator).await?;
@@ -612,7 +612,7 @@ pub struct HandleWriter {
     /// The underlying writer handling the actual data operations.
     writer: rw::ChunkWriter<Arc<store::Store>>,
 
-    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process
+    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process.
     context: Context,
 }
 

@@ -1,4 +1,4 @@
-//! Sequence-related actions
+//! Sequence-related actions.
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
