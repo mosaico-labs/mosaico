@@ -111,8 +111,8 @@ Profile rules:
 - `MOSAICO_PROFILE` selects the profile, like `--profile`.
 - `MOSAICO_DAEMON_URL`, `MOSAICO_API_KEY`, `MOSAICO_TLS` and `MOSAICO_CERT_PATH` override single fields
   of the resolved profile, the quickest way to try a variation without editing it. Two quirks:
-  - `MOSAICO_DAEMON_URL` without a port means port 6726, not the profile's port, contrary to the
-    profiles page: always pass `host:port`.
+  - In 0.7.0, `MOSAICO_DAEMON_URL` without a port means port 6726, not the profile's port: always pass
+    `host:port`. On `main` the profile's port is kept (6726 only with no profile or no port in it).
   - `MOSAICO_TLS` is on only for `1`/`true`/`yes`, as the profiles page says; `mosaico --help` says "any
     value", but `on` leaves TLS off.
 - The subcommands of `sequence` and `topic` refuse to run, even `sequence ls --help`, until a host
