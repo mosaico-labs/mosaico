@@ -6,32 +6,68 @@
       {
         "ordinal": 0,
         "name": "fingerprint",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "fingerprint"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "payload",
-        "type_info": "Bytea"
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "payload"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "permissions",
-        "type_info": "Int2"
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "permissions"
+          }
+        }
       },
       {
         "ordinal": 3,
         "name": "description",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "description"
+          }
+        }
       },
       {
         "ordinal": 4,
         "name": "creation_unix_timestamp",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "creation_unix_timestamp"
+          }
+        }
       },
       {
         "ordinal": 5,
         "name": "expiration_unix_timestamp",
-        "type_info": "Int8"
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "api_key_t",
+            "name": "expiration_unix_timestamp"
+          }
+        }
       }
     ],
     "parameters": {

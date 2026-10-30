@@ -188,7 +188,7 @@ pub async fn chunks_from_filters(
     trace!("chunk SQL query values: {:?}", values);
     trace!("chunk SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query));
 
     for v in values {
         r = bind_value(r, v);
@@ -238,7 +238,7 @@ pub async fn topic_ids_from_aggregated_filters(
     trace!("aggregated topic SQL query values: {:?}", values);
     trace!("aggregated topic SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query));
     for v in values {
         r = bind_value(r, v);
     }

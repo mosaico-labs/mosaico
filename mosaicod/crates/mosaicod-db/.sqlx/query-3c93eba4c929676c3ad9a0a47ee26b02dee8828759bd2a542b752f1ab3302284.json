@@ -6,17 +6,35 @@
       {
         "ordinal": 0,
         "name": "column_id",
-        "type_info": "Int4"
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "column_t",
+            "name": "column_id"
+          }
+        }
       },
       {
         "ordinal": 1,
         "name": "column_name",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "column_t",
+            "name": "column_name"
+          }
+        }
       },
       {
         "ordinal": 2,
         "name": "ontology_tag",
-        "type_info": "Text"
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "column_t",
+            "name": "ontology_tag"
+          }
+        }
       }
     ],
     "parameters": {
