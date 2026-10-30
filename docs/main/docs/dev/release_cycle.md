@@ -21,6 +21,17 @@ The leading `0` marks the current phase, in which the API is not yet stable. The
 
 `mosaicod`, the SDK and the documentation are always released together and share the same version, security updates included: every `0.N.S` release contains `mosaicod`, the SDK and the documentation at that version.
 
+### Breaking changes
+
+What counts as a breaking change depends on the component:
+
+- SDK: a change to a public API. Adding a new public API is not a breaking change.
+- `mosaicod`: a change to the configuration files, the object store or the database.
+
+For now, changes to the internal communication protocol between `mosaicod` and the SDK are not considered breaking changes.
+
+Breaking changes are reported in the changelog of the component they affect.
+
 ## Release
 
 `mosaicod` and the SDK follow a weekly release cycle. Every week a new `0.N.0` release is tagged on `main`. If no changes landed on `main` since the previous release, that week's release is skipped. Every release is signed.
