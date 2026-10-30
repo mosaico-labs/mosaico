@@ -2,7 +2,7 @@
 
 # Fallback: root files (README.md, LICENSE, CONTRIBUTING.md, .gitignore)
 # and anything not listed below
-*                   @cabba @fdicorato
+*                           @cabba @fdicorato
 
 /mosaicod/                  @cabba
 /docker/                    @cabba
