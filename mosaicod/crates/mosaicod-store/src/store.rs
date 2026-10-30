@@ -124,9 +124,12 @@ pub struct Builder {
     /// The name of the specific bucket to access.
     pub bucket: String,
 
-    /// The region of the storage service.
+    /// The S3 region where the bucket is located (e.g. `eu-south-1`).
     ///
-    /// Only used by remote object stores, when `None` the client default is used.
+    /// Used to sign requests, so on AWS it must match the bucket's region.
+    /// S3-compatible stores usually ignore it, and it is not used for
+    /// `file://` endpoints. When `None`, the client default (`us-east-1`)
+    /// is used.
     pub region: Option<String>,
 
     /// The access key for the storage bucket
@@ -158,7 +161,7 @@ impl Builder {
         self
     }
 
-    /// Configure the region of the object store
+    /// Configure the S3 region of the bucket
     pub fn with_region(mut self, region: String) -> Self {
         self.region = Some(region);
         self
