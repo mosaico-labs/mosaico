@@ -75,3 +75,4 @@ jobs:
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.examples --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.ros_injector --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaicolabs.ulog_injector --help
