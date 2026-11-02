@@ -11,6 +11,7 @@ from collections import defaultdict
 from typing import List, Optional
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.flight as fl
 import pyarrow.ipc as pa_ipc
 
@@ -28,6 +29,21 @@ def _encode_messages(objs: list[Message]):
         for k, v in obj._encode().items():
             result[k].append(v)
     return dict(result)
+
+
+def _is_monotonic_increasing(arr: pa.Array) -> bool:
+    """Checks that an array is strictly increasing"""
+
+    # If there is less than 2 elements, it is increasing
+    if len(arr) < 2:
+        return True
+
+    # If contains null cannot be monotonically increasing
+    if arr.null_count:  # nulls would otherwise be silently skipped
+        return False
+
+    left, right = arr[:-1], arr[1:]
+    return pc.all(pc.less_equal(left, right)).as_py()
 
 
 class _TopicWriteState:
@@ -184,7 +200,8 @@ class _TopicWriteState:
         the records reach the server in the same order they were pushed.
 
         Args:
-            timestamp_ns (pa.Array): The `int64` timestamps of the records, one per row of `data`.
+            timestamp_ns (pa.Array): The `int64` timestamps in nanoseconds of the records,
+                one per row of `data`.
             data (pa.RecordBatch): The payload columns, matching the topic's ontology schema.
 
         Raises:
@@ -212,6 +229,10 @@ class _TopicWriteState:
             raise ValueError(
                 f"'timestamp_ns' has {len(timestamp_ns)} values, but the batch has "
                 f"{data.num_rows} rows."
+            )
+        if not _is_monotonic_increasing(timestamp_ns):
+            raise ValueError(
+                "Some values from 'timestamp_ns' are not monotonically increasing"
             )
 
         batch = pa.RecordBatch.from_arrays(
