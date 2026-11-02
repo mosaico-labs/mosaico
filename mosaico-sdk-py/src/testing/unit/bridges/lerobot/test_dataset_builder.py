@@ -57,6 +57,38 @@ def test_builder_rejects_a_sequence_added_twice(lerobot_dataset):
     assert builder.episode_index_by_sequence == {"a": 0}
 
 
+def test_builder_tasks_are_the_distinct_tasks_of_the_episodes(lerobot_dataset):
+    """In the order they first appear: their task index in the exported dataset."""
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+    assert builder.tasks == []
+
+    builder.add_episode(
+        "a", meta.info, replace(meta.episodes_map[0], tasks=["place", "pick"])
+    )
+    builder.add_episode(
+        "b", meta.info, replace(meta.episodes_map[1], tasks=["pick", "push"])
+    )
+
+    assert builder.tasks == ["place", "pick", "push"]
+    assert builder.info is not None
+    assert builder.info.total_tasks == len(builder.tasks)
+
+
+def test_builder_tasks_exclude_the_rejected_episodes(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+    builder.add_episode("a", meta.info, replace(meta.episodes_map[0], tasks=["pick"]))
+
+    other_robot = replace(meta.info, robot_type="other_robot")
+    with pytest.raises(ValueError, match="robot type"):
+        builder.add_episode(
+            "b", other_robot, replace(meta.episodes_map[1], tasks=["push"])
+        )
+
+    assert builder.tasks == ["pick"]
+
+
 def test_builder_ignores_the_video_features(lerobot_dataset_factory):
     """They are dropped: a dataset with video features merges with one without."""
     with_video = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_video=True))

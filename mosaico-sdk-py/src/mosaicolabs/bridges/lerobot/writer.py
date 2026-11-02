@@ -23,6 +23,7 @@ from .mosaico_loader import LeRobotEpisodeStreamer
 from .reader import (
     _NESTED_NAME_SEP,
     _NOT_FOUND,
+    _TASK_COLUMN,
     _TIMESERIES_MSCO_TOPIC_NAME,
 )
 
@@ -117,6 +118,39 @@ def _to_image_column(image: pa.RecordBatch, frame_index: pa.Array) -> pa.StructA
     )
 
 
+def _to_task_index_column(timeseries: pa.RecordBatch, tasks: List[str]) -> pa.Array:
+    """
+    Converts the `task` field of the timeseries topic (the task of each frame, ingested in
+    place of `task_index`) back into the `task_index` column:
+    the position of the task in `tasks`, as LeRobot reads it from `meta/tasks.parquet`.
+
+    Args:
+        timeseries (pa.RecordBatch): The rows of the timeseries topic.
+        tasks (List[str]): The tasks of the exported dataset, in task index order (see
+            `LeRobotDatasetMeta.tasks`).
+
+    Returns:
+        pa.Array: The `task_index` of the rows.
+
+    Raises:
+        ValueError: If the timeseries topic has no `task` field, or a frame has no task or a
+            task not in `tasks`.
+    """
+
+    task = _to_timeseries_column(timeseries, _TASK_COLUMN).cast(pa.string())
+
+    task_index = pc.index_in(task, value_set=pa.array(tasks, pa.string()))
+    # `index_in` gives a null for a task not in `tasks`, and for a null task
+    if task_index.null_count > 0:
+        unknown_tasks = pc.unique(pc.filter(task, pc.is_null(task_index)))
+        raise ValueError(
+            f"Frames hold tasks not defined in the exported dataset: "
+            f"{unknown_tasks.to_pylist()} (its tasks are those of its episodes in "
+            "'meta/episodes')."
+        )
+    return task_index
+
+
 class LeRobotWriter:
     """
     Writes the data of the episodes of an exported LeRobot dataset to its data parquet file.
@@ -190,9 +224,10 @@ class LeRobotWriter:
 
         Each column is built from its feature:
         - `timestamp`: from `timestamps_ns`, back into seconds;
-        - `episode_index`, `index`, `frame_index` and `task_index`: generated, as the episodes
-          are renumbered in the exported dataset (they are not stored in Mosaico, or with the
-          values of the source dataset);
+        - `episode_index`, `index` and `frame_index`: generated, as the episodes are
+          renumbered in the exported dataset (they are not stored in Mosaico);
+        - `task_index`: from the `task` field of the timeseries topic, as the position of the
+          task in the tasks of the exported dataset (see `_to_task_index_column`);
         - an image: from its own topic (see `_to_image_column`);
         - a timeseries: from the timeseries topic (see `_to_timeseries_column`).
 
@@ -211,8 +246,9 @@ class LeRobotWriter:
         Raises:
             ValueError: If the rows do not fall within the episode at `_current_index` (a slice
                 converted out of order, or an episode with more or fewer rows than its
-                `length`), a feature is not supported, or the field of a timeseries is missing
-                from the timeseries topic.
+                `length`), a feature is not supported, the field of a timeseries (or `task`)
+                is missing from the timeseries topic, or a frame has a task not defined in the
+                exported dataset.
             KeyError: If the topic of a feature is missing from `batches`.
             pa.ArrowInvalid: If a column cannot be cast to its type in `schema`.
         """
@@ -244,10 +280,9 @@ class LeRobotWriter:
             elif feature.is_frame_index():
                 column = frame_index
             elif feature.is_task_index():
-                # FIXME: the `task_index` stored in Mosaico refers to the tasks of the source
-                # dataset, which are not stored. Set to 0 until Mosaico stores the task of each
-                # frame (a `task` column), from which it will be rebuilt
-                column = pa.repeat(0, batch_rows)
+                column = _to_task_index_column(
+                    batches[_TIMESERIES_MSCO_TOPIC_NAME], self._meta.tasks
+                )
             elif feature.is_image():
                 msco_topic_name = _dotted_name_to_topic_name(feature.key)
                 column = _to_image_column(batches[msco_topic_name], frame_index)
@@ -296,6 +331,7 @@ class LeRobotWriter:
         Raises:
             ValueError: If the episode does not end at its `dataset_to_index`, or a slice
                 cannot be converted (see `_to_lerobot_rb`).
+            KeyError: If a topic of the episode is missing (see `_to_lerobot_rb`).
         """
         episode = streamer.episode_metadata
 

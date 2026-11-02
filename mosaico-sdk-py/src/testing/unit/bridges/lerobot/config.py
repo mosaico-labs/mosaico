@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from PIL import Image as PILImage
@@ -66,6 +67,7 @@ TIMESTAMP_COLUMN_NAME = "timestamp"
 POSITION_COLUMN_NAMES = ["frame_index", "episode_index", "index"]
 """The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
 TASK_INDEX_COLUMN_NAME = "task_index"
+TASK_COLUMN_NAME = "task"
 INDEX_COLUMN_NAMES = [*POSITION_COLUMN_NAMES, TASK_INDEX_COLUMN_NAME]
 
 TIMESERIES_COLUMN_NAMES = [
@@ -305,9 +307,8 @@ def make_lerobot_dataset(
             pa.Table.from_pylist(rows),
             root / EPISODES_PATH.format(chunk_index=0, file_index=file_index),
         )
-    _write_parquet(
-        pa.Table.from_pylist([{"task_index": 0, "task": TASK}]),
-        root / "meta" / "tasks.parquet",
+    pd.DataFrame({"task_index": [0]}, index=pd.Index([TASK], name="task")).to_parquet(
+        root / "meta" / "tasks.parquet"
     )
 
     _write_json(
