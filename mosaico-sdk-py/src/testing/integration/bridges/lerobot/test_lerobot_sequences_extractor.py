@@ -115,7 +115,7 @@ def test_extraction_recreates_the_dataset(extractor_config, lerobot_dataset):
         p.relative_to(saving_path) for p in (saving_path / "data").rglob("*.parquet")
     ) == [EXPORTED_DATA_FILE]
 
-    # `task_index` is 0 in the example dataset, as it is exported (see `LeRobotWriter`)
+    # `task_index` included: it is rebuilt from the `task` of each frame (see `LeRobotWriter`)
     exported = pq.read_table(saving_path / EXPORTED_DATA_FILE)
     assert exported.equals(_original_data(lerobot_dataset, exported.schema))
 
