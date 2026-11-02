@@ -1,6 +1,6 @@
 ---
 title: Rust
-sidebar_position: 12
+sidebar_position: 3
 description: "Status page for the Mosaico Rust SDK, currently in active design. Contact the team directly if you have a specific application or integration requirement that depends on a Rust client."
 ---
 

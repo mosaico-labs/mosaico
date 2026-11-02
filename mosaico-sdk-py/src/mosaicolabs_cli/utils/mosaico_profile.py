@@ -125,6 +125,17 @@ class MosaicoProfile:
     # Helpers
     # ------------------------------------------------------------------
 
+    def to_public_dict(self) -> Dict[str, Any]:
+        """Allowlisted CLI output; never expose credentials from to_dict()."""
+        return {
+            "name": self.name,
+            "host": self.host,
+            "port": self.port,
+            "default": self.is_default,
+            "tls": self.enable_tls,
+            "api_key_configured": bool(self.api_key),
+        }
+
     @property
     def enable_tls(self) -> bool:
         """Whether TLS should be enabled for this connection."""

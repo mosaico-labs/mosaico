@@ -2,7 +2,7 @@ from typing import Optional
 
 import typer
 
-from mosaicolabs_cli.commands import extension, profile, sequence, topic
+from mosaicolabs_cli.commands import doctor, extension, profile, sequence, topic
 from mosaicolabs_cli.commands.extension import MosaicoRouter
 from mosaicolabs_cli.utils.env import MosaicoEnv
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -51,6 +51,7 @@ def main_callback(
 app.add_typer(profile.app, name="profile", help="Manage connection profiles.")
 app.add_typer(sequence.app, name="sequence", help="Manage and list sequences.")
 app.add_typer(topic.app, name="topic", help="Manage and list topics.")
+app.command(name="doctor")(doctor.doctor)
 app.add_typer(
     extension.app,
     name="extension",

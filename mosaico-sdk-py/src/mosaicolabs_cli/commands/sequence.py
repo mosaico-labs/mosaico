@@ -1,12 +1,23 @@
 import sys
-from typing import List, Optional
+from collections.abc import Iterable
+from functools import partial
+from typing import List, Optional, TextIO
 
 import typer
+from rich.console import Console
 from rich.table import Table
 from typing_extensions import Annotated
 
+from mosaicolabs_cli.output import (
+    OutputRenderer,
+    Record,
+    render_csv,
+    render_json_collection,
+    render_jsonl,
+    resolve_output,
+)
+from mosaicolabs_cli.output_format import OutputFormat
 from mosaicolabs_cli.utils.config import (
-    OutputFormat,
     _flatten_metadata,
     console,
     error_console,
@@ -27,6 +38,48 @@ def _require_profile(ctx: typer.Context):
             "Set a default profile or specify one using --profile."
         )
         raise SystemExit(1)
+
+
+def _render_table(records: Iterable[Record], stream: TextIO) -> None:
+    table = Table(
+        title="Mosaico Sequence ls Results",
+        title_style="bold magenta",
+        header_style="bold cyan",
+        box=None,
+        padding=(1, 2),
+    )
+
+    table.add_column("Locator", style="bold white", width=25)
+    table.add_column("Created", style="green", width=25)
+    table.add_column("Min Timestamp", style="green", width=25)
+    table.add_column("Max Timestamp", style="green", width=25)
+    table.add_column("User Metadata", style="green", width=35)
+
+    for record in records:
+        table.add_row(
+            record["locator"],
+            record["created_timestamp"],
+            record["timestamp_ns_min"],
+            record["timestamp_ns_max"],
+            record["user_metadata"],
+        )
+    console = Console(file=stream)
+    if table.row_count:
+        console.print(table)
+    else:
+        console.print("No sequences found matching the criteria.")
+
+
+_renderer = OutputRenderer[Iterable[Record]](
+    {
+        OutputFormat.TABLE: _render_table,
+        OutputFormat.CSV: partial(
+            render_csv, fields=("locator", "timestamp_ns_min", "timestamp_ns_max")
+        ),
+        OutputFormat.JSON: partial(render_json_collection, collection="sequences"),
+        OutputFormat.JSONL: render_jsonl,
+    }
+)
 
 
 @app.command(name="ls")
@@ -66,8 +119,9 @@ def list_sequences(
     """
     List sequences.
     """
+    output = resolve_output(output)
     spinner = console.status("[bold cyan]Querying sequences...")
-    if sys.stdout.isatty():
+    if output == OutputFormat.TABLE and sys.stdout.isatty():
         spinner.start()
     profile: MosaicoProfile = ctx.obj
     from mosaicolabs import MosaicoClient, QuerySequence
@@ -100,57 +154,27 @@ def list_sequences(
 
             results = client.query(query)
 
-            if not results:
-                spinner.stop()
-                console.print("No sequences found matching the criteria.")
-                raise typer.Exit()
-
             limited_results = results[:limit] if limit else results
 
-            rows = []
+            records: list[Record] = []
             for item in limited_results:
                 handler = client.sequence_handler(item.sequence.name)
                 if handler is None:
                     continue
                 metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
-                rows.append(
-                    (
-                        item.sequence.name,
-                        str(handler.created_timestamp),
-                        str(handler._timestamp_ns_min),
-                        str(handler._timestamp_ns_max),
-                        metadata_str,
-                    )
+                records.append(
+                    {
+                        "locator": item.sequence.name,
+                        "created_timestamp": str(handler.created_timestamp),
+                        "timestamp_ns_min": str(handler._timestamp_ns_min),
+                        "timestamp_ns_max": str(handler._timestamp_ns_max),
+                        "user_metadata": metadata_str,
+                    }
                 )
     finally:
         spinner.stop()
 
-    if not output:
-        output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
-
-    if output == OutputFormat.TABLE:
-        table = Table(
-            title="Mosaico Sequence ls Results",
-            title_style="bold magenta",
-            header_style="bold cyan",
-            box=None,
-            padding=(1, 2),
-        )
-
-        table.add_column("Locator", style="bold white", width=25)
-        table.add_column("Created", style="green", width=25)
-        table.add_column("Min Timestamp", style="green", width=25)
-        table.add_column("Max Timestamp", style="green", width=25)
-        table.add_column("User Metadata", style="green", width=35)
-
-        for row in rows:
-            table.add_row(*row)
-
-        console.print(table)
-
-    else:
-        for name, created, ts_min, ts_max, _ in rows:
-            print(f"{name},{ts_min},{ts_max}")
+    _renderer.render(records, output)
 
 
 @app.command(name="stat")

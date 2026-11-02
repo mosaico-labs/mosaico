@@ -19,6 +19,7 @@ class TestAppEntrypoint:
         assert "profile" in result.output
         assert "sequence" in result.output
         assert "topic" in result.output
+        assert "doctor" in result.output
         assert "extension" in result.output
 
     def test_unknown_command(self, monkeypatch, tmp_path):
