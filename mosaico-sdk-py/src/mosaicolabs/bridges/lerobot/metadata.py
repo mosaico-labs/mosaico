@@ -207,7 +207,7 @@ class LeRobotFeature:
         return self.key == _TIMESTAMP_COLUMN_NAME
 
     @property
-    def is_timeserie(self) -> bool:
+    def is_timeseries(self) -> bool:
         """Whether the feature is a timeseries: neither an image, a video nor the timestamp."""
         return not self.is_image and not self.is_video and not self.is_timestamp
 
@@ -401,7 +401,7 @@ class LeRobotDatasetMeta:
         return [
             key
             for key, feature in self.features.items()
-            if feature.is_image or feature.is_timeserie
+            if feature.is_image or feature.is_timeseries
         ]
 
     def get_parquet_file(self, episode_index: int) -> Path:
