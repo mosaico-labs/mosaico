@@ -654,18 +654,15 @@ impl HandleWriter {
         }
 
         // Update completion timestamp
-        db::topic_update_completion_tstamp(
-            &mut tx,
-            self.topic_id,
-            types::Timestamp::now().as_i64(),
-        )
-        .await?;
+        let completed_at = types::Timestamp::now();
+        db::topic_update_completion_tstamp(&mut tx, self.topic_id, completed_at.as_i64()).await?;
 
         tx.commit().await?;
 
-        // 2. Update metadata in Store (read entirely from DB and save to Store).
+        // 2. Update metadata in Store.
         let mut cx = self.context.db.connection();
-        let metadata = internal::metadata(&mut cx, &topic_record).await?;
+        let mut metadata = internal::metadata(&mut cx, &topic_record).await?;
+        metadata.properties.completed_at = Some(completed_at);
 
         let path_in_store = topic_record
             .path_in_store()
