@@ -1,6 +1,8 @@
 # ======================================================================
 # 3. UNIT TESTS
 # ======================================================================
+import copy
+
 import pytest
 
 from mosaicolabs.bridges.ros.data_ontology import FrameTransform
@@ -965,37 +967,37 @@ class TestQueryRobotPath:
 
         with pytest.raises(
             TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
+            match="object is not subscriptable",
         ):
             RobotPath.Q.poses[0][0]
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'any' for path '{RobotPath.ontology_tag()}.poses\\[0\\]'",
         ):
             RobotPath.Q.poses[0].any()
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'all' for path '{RobotPath.ontology_tag()}.poses\\[0\\]'",
         ):
             RobotPath.Q.poses[0].all()
 
         with pytest.raises(
             TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
+            match="object is not subscriptable",
         ):
             RobotPath.Q.poses[0].position[0]
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'any' for path '{RobotPath.ontology_tag()}.poses\\[0\\].position'",
         ):
             RobotPath.Q.poses[0].position.any()
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'all' for path '{RobotPath.ontology_tag()}.poses\\[0\\].position'",
         ):
             RobotPath.Q.poses[0].position.all()
 
@@ -1083,37 +1085,37 @@ class TestFrameTransform:
 
         with pytest.raises(
             TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
+            match="object is not subscriptable",
         ):
             FrameTransform.Q.transforms[0][0]
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'any' for path '{FrameTransform.ontology_tag()}.transforms\\[0\\]'",
         ):
             FrameTransform.Q.transforms[0].any()
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'all' for path '{FrameTransform.ontology_tag()}.transforms\\[0\\]'",
         ):
             FrameTransform.Q.transforms[0].all()
 
         with pytest.raises(
             TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
+            match="object is not subscriptable",
         ):
             FrameTransform.Q.transforms[0].translation[0]
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'any' for path '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation'",
         ):
             FrameTransform.Q.transforms[0].translation.any()
 
         with pytest.raises(
-            TypeError,
-            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
+            AttributeError,
+            match=f"Invalid field 'all' for path '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation'",
         ):
             FrameTransform.Q.transforms[0].translation.all()
 
@@ -1226,3 +1228,27 @@ class TestCamera:
         assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[?]"
         assert expr.op == query_pb2.OPERATOR_EQ
         assert expr.value == 0
+
+
+class TestQueryProxyProtocols:
+    def test_list_is_not_iterable(self):
+        # Iterating via __getitem__ would never stop, since any index is valid
+        for proxy in (RobotJoint.Q.positions, RobotPath.Q.poses):
+            with pytest.raises(TypeError, match="cannot be iterated"):
+                iter(proxy)
+            with pytest.raises(TypeError):
+                0 in proxy
+
+    @pytest.mark.parametrize("copier", [copy.copy, copy.deepcopy])
+    def test_proxies_can_be_copied(self, copier):
+        assert copier(IMU.Q).acceleration.x.gt(0).key == "IMU.acceleration.x"
+        assert copier(RobotJoint.Q.positions).max().lt(1).key == "RobotJoint.positions"
+        assert copier(RobotPath.Q.poses).any().position.x.gt(0).key == (
+            "RobotPath.poses[?].position.x"
+        )
+        assert copier(RobotPath.Q.poses.position).z.max().lt(1).key == (
+            "RobotPath.poses.position.z"
+        )
+        assert copier(RobotPath.Q.poses.position.z).max().lt(1).key == (
+            "RobotPath.poses.position.z"
+        )
