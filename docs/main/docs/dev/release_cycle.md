@@ -44,18 +44,6 @@ Security fixes always land on `main`, so upstream is always up to date with ever
 
 Security updates for already published releases are released at the discretion of the development team. A security update to `0.N.S` is released as `0.N.(S+1)`: branch from the `v0.N.S` tag, apply the security patches, tag the result as `v0.N.(S+1)` and delete the branch.
 
-## Branches
-
-### `main`
-
-The only long-lived branch. All finished work lands here via pull request, for `mosaicod`, the SDK and the documentation. `main` must be in a releasable state at all times: every merged PR leaves it buildable, tested and ready to be tagged as a release.
-
-### `issue/<num>`
-
-Short-lived branches for a single feature or bug fix. Always branched from `main`, merged back via PR, then deleted.
-
-Documentation ships with the code it describes. Every issue that changes a behavior, an API or a configuration includes the matching documentation changes in the same branch, so code and documentation are merged and released together.
-
 ## Releases
 
 Weekly releases are identified by tags on `main`. Security updates releases are tagged on a temporary branch cut from the release tag, deleted once the new tag is created (see [Security updates](#security-updates)).

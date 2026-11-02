@@ -6,6 +6,18 @@ description: "Development environment setup and contribution procedures for the 
 
 This section outlines the standard procedures for contributing to the project. It covers local environment orchestration, database schema management, and the verification suite required to maintain code quality.
 
+## Branches
+
+### `main`
+
+The only long-lived branch. All finished work lands here via pull request, for `mosaicod`, the SDK and the documentation. `main` must be in a releasable state at all times: every merged PR leaves it buildable, tested and ready to be tagged as a release.
+
+### `issue/<num>`
+
+Short-lived branches for a single feature or bug fix. Always branched from `main`, merged back via PR, then deleted.
+
+Documentation ships with the code it describes. Every issue that changes a behavior, an API or a configuration includes the matching documentation changes in the same branch, so code and documentation are merged and released together.
+
 ## Developing the Daemon
 
 The development lifecycle relies on a containerized infrastructure that includes a preconfigured **PostgreSQL** instance and a **MinIO** object store.
@@ -29,8 +41,13 @@ cp env.devel .env
 This configuration exports the `MOSAICOD_DB_URL`, database credentials, storage backend variables, and the `DATABASE_URL` required for compile-time query verification by [sqlx](https://github.com/launchbadge/sqlx).
 
 ### Update sqlx Queries Cache
+If you modify SQL queries, you must refresh the offline metadata cache to allow the project to compile. This requires the sqlx command line tool, which can be installed with:
 
-If you modify SQL queries, you **must** refresh the offline metadata cache to allow the project to compile. Run the following command to update the cache:
+```bash
+cargo install sqlx-cli
+```
+
+Run the following command to update the cache:
 
 ```bash
 cd mosaicod/crates/mosaicod-db
