@@ -85,7 +85,7 @@ class MosaicoToLeRobotLoader(BaseLoader):
 
     On resolution (see `_ensure_resolved`), the episode of each sequence is read from its
     `_lerobot_` metadata and merged with the previous ones by a `LeRobotDatasetBuilder`. The
-    metadata of the exported dataset is exposed by `info`, `episodes` and
+    metadata of the exported dataset is exposed by `info`, `episodes`, `tasks` and
     `episode_index_by_sequence`.
 
     Its topics (in the `BaseLoader` sense) are the topics of the first accepted sequence. The
@@ -142,6 +142,15 @@ class MosaicoToLeRobotLoader(BaseLoader):
         """The `episode_index` of each accepted sequence in the exported dataset."""
         self._ensure_resolved()
         return self._builder.episode_index_by_sequence
+
+    @property
+    def tasks(self) -> List[str]:
+        """
+        The tasks of the exported dataset: the distinct tasks of the accepted episodes, in the
+        order they first appear, which is their task index order.
+        """
+        self._ensure_resolved()
+        return self._builder.tasks
 
     def _resolve_sequence_handlers(self) -> List[SequenceHandler]:
         """

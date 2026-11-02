@@ -70,6 +70,11 @@ class LeRobotDatasetBuilder:
         return list(self._episodes)
 
     @property
+    def tasks(self) -> List[str]:
+        """The distinct tasks of the accepted episodes, in the order they first appear."""
+        return list(dict.fromkeys(task for e in self._episodes for task in e.tasks))
+
+    @property
     def episode_index_by_sequence(self) -> Dict[str, int]:
         """
         The new `episode_index` of each accepted episode, keyed by the name of its sequence, in

@@ -135,7 +135,9 @@ class LeRobotSequencesExtractor:
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
         and writes the dataset under `saving_path` (see `_write_dataset`).
 
-        An existing `saving_path` is checked before connecting: a failed resolution of the sequences leaves it untouched.
+        An existing `saving_path` is checked before connecting, and removed only once the
+        sequences are resolved: a failed resolution leaves it untouched. A failure while
+        writing leaves the dataset incomplete, which is logged as an error.
 
         Returns:
             LeRobotDatasetMeta: The metadata written under `saving_path`.
@@ -144,6 +146,7 @@ class LeRobotSequencesExtractor:
             FileExistsError: If `saving_path` exists and `overwrite` is False.
             ValueError: If no sequence can be exported, or an episode cannot be written (see
                 `LeRobotWriter.write_episode`).
+            KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
         saving_path = self._cfg.saving_path
         if saving_path.exists() and not self._cfg.overwrite:
@@ -162,7 +165,7 @@ class LeRobotSequencesExtractor:
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
                 meta = LeRobotDatasetMeta.from_data(
-                    saving_path, loader.info, loader.episodes
+                    saving_path, loader.info, loader.episodes, loader.tasks
                 )
 
                 if saving_path.exists():
@@ -170,7 +173,8 @@ class LeRobotSequencesExtractor:
                 try:
                     self._write_dataset(loader, meta)
                 except Exception:
-                    # Interruptions included: the files written so far are left as they are
+                    # The files written so far are left as they are. An interruption
+                    # (`KeyboardInterrupt`) is not an `Exception`: it is not reported here
                     logger.error(
                         f"The LeRobot dataset in '{saving_path}' is incomplete: the "
                         "extraction stopped before writing all of it."
@@ -182,9 +186,8 @@ class LeRobotSequencesExtractor:
         )
         return meta
 
-    @staticmethod
     def _write_dataset(
-        loader: MosaicoToLeRobotLoader, meta: LeRobotDatasetMeta
+        self, loader: MosaicoToLeRobotLoader, meta: LeRobotDatasetMeta
     ) -> None:
         """
         Writes the dataset under the `root` of `meta`: the data of the episodes, streamed from
@@ -193,6 +196,7 @@ class LeRobotSequencesExtractor:
 
         Raises:
             ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
+            KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
         with LeRobotWriter(meta) as writer:
             for streamer in loader:

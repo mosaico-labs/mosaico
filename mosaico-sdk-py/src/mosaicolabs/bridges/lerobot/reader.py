@@ -7,16 +7,15 @@ The data parquet file holding an episode is found from its `meta/episodes` row (
 `LeRobotDatasetMeta.get_parquet_file`). Each file can hold several episodes, stored
 contiguously: the rows of the other episodes are filtered out on the `episode_index` column.
 
-The row groups are decoded a batch at a time, not as a whole as the `pyarrow` dataset scanner
-does: this bounds the memory used, and a row group of high-resolution images can hold more than
-the 2 GiB `pyarrow` can decode at once within a nested column (the image struct).
-
 The position of the frames (`index`, `frame_index` and `episode_index`) is not read: it is
-rebuilt when the episodes are exported (see `LeRobotFeature.is_timeserie`).
+rebuilt when the episodes are exported (see `LeRobotFeature.is_timeserie`). `task_index` is
+pushed as `task`, the task it refers to in `meta/tasks.parquet`, so that the sequences can be
+queried by task: `task_index` is rebuilt from it when the episodes are exported.
 
 The timeseries (every other data column except `timestamp` and the images) are rearranged into a single
-struct, without copying them: the Mosaico server rejects field names containing `.`, so dotted
-column names are nested (`observation.state` becomes the field `state` of the struct `observation`).
+struct, without copying them (but `task`, computed from `task_index`): the Mosaico server rejects
+field names containing `.`, so dotted column names are nested (`observation.state` becomes the
+field `state` of the struct `observation`).
 
 Each image column (an image embedded in the data files, as a struct of the image file content
 `bytes` and its file name `path`) is converted into the fields of the `CompressedImage` ontology,
@@ -53,6 +52,11 @@ READ_BUFFER_SIZE = 32 * 1024 * 1024
 """The size of the buffer the column chunks are read through, instead of being loaded whole."""
 
 _EPISODE_INDEX_COLUMN = "episode_index"
+_TASK_INDEX_COLUMN = "task_index"
+# Pushed as `task`, but selected and reported by its dataset name `task_index`:
+# https://github.com/mosaico-labs/mosaico/discussions/971
+_TASK_COLUMN = "task"
+_TASK_FIELD = pa.field(_TASK_COLUMN, pa.string())
 _NESTED_NAME_SEP = "."
 _NOT_FOUND = -1
 _TIMESERIES_MSCO_TOPIC_NAME = "/timeseries"
@@ -67,6 +71,9 @@ def _timeseries_fields_to_msco_schema(fields: List[pa.Field]) -> pa.Schema:
     nested into structs, at any depth: the fields `action`, `observation.state` and
     `observation.force` become the field `action` and the struct `observation` holding `state`
     and `force`. A struct takes the position of its first field.
+
+    The `task_index` field, if any, is replaced by the `task` field (`string`), placed last:
+    `task_index` is pushed as the task it refers to.
 
     Raises:
         ValueError: If a name is both a field and a struct (e.g. `observation` and `observation.state`).
@@ -92,7 +99,15 @@ def _timeseries_fields_to_msco_schema(fields: List[pa.Field]) -> pa.Schema:
             ]
         )
 
-    return pa.schema(list(to_struct(tree)))
+    schema = pa.schema(list(to_struct(tree)))
+
+    # Remove `task_index` field and add `task` field to Mosaico timeseries schema
+    task_index_field_index = schema.get_field_index(_TASK_INDEX_COLUMN)
+    if task_index_field_index != _NOT_FOUND:
+        schema = schema.remove(task_index_field_index)
+        schema = schema.append(_TASK_FIELD)
+
+    return schema
 
 
 def _adapt_timeseries_rb_to_schema(
@@ -120,6 +135,24 @@ def _adapt_timeseries_rb_to_schema(
     return pa.RecordBatch.from_arrays(
         [build(field, field.name) for field in schema], schema=schema
     )
+
+
+def _task_indexes_to_tasks(task_index: pa.Array, tasks: List[str]) -> pa.Array:
+    """
+    Converts LeRobot task indexes (int64) into the tasks they refer to (string, see
+    `LeRobotDatasetMeta.tasks`).
+
+    Raises:
+        ValueError: If a task index is not defined in `meta/tasks.parquet`.
+    """
+    # As LeRobot reads it: a task index is the row of the task in `meta/tasks.parquet`
+    try:
+        return pa.array(tasks, pa.string()).take(task_index)
+    except pa.ArrowIndexError as e:
+        raise ValueError(
+            f"The '{_TASK_INDEX_COLUMN}' column holds an index not defined in "
+            f"'meta/tasks.parquet' ({len(tasks)} tasks defined): {e}"
+        ) from e
 
 
 def _adapt_image_rb_to_schema(
@@ -245,7 +278,7 @@ class LeRobotReader:
             if feature.is_image()
             and (column_names is None or feature.key in column_names)
         ]
-        # The order of the columns is the order of the timeseries struct fields
+
         self._timeseries_column_names: List[str] = [
             feature.key
             for feature in meta.features
@@ -375,9 +408,9 @@ class LeRobotReader:
     def timeseries_struct(self) -> pa.StructType:
         """
         The struct of the timeseries: every data column except `timestamp`, the images and the
-        position of the frames (see `LeRobotFeature.is_timeserie`), with
-        dotted names nested. It is the ontology schema of the timeseries topic (e.g. for
-        `make_unmodeled_ontology_class`).
+        position of the frames (see `LeRobotFeature.is_timeserie`), with dotted names nested.
+        `task_index` becomes the last field `task` (`string`, the task it refers to). It is the
+        ontology schema of the timeseries topic (e.g. for `make_unmodeled_ontology_class`).
         """
         return pa.struct(self._timeseries_schema)
 
@@ -407,8 +440,8 @@ class LeRobotReader:
 
     @property
     def timeseries_column_names(self) -> List[str]:
-        """The names of the selected timeseries columns, in the order of the timeseries struct
-        fields."""
+        """The names of the selected timeseries columns, in the order of the features (see
+        `timeseries_struct`): `task_index`, if selected, is pushed as the field `task`."""
         return self._timeseries_column_names
 
     def get_msco_topic_name(self, column: str) -> Optional[str]:
@@ -452,7 +485,8 @@ class LeRobotReader:
         Raises:
             ValueError: If a timeseries column collides with the `timestamp_ns` envelope column,
                 the episode is not defined in `meta/episodes`, its number of rows in the data
-                files differs from its `length`, or a single row exceeds `max_batch_size_bytes`.
+                files differs from its `length`, a task index is not defined in
+                `meta/tasks.parquet`, or a single row exceeds `max_batch_size_bytes`.
         """
         # No timeseries topic to push: an empty struct is not a valid ontology
         if not self._timeseries_column_names:
@@ -470,8 +504,15 @@ class LeRobotReader:
 
         for batch in self._iter_episode_batches(episode_index, all_columns):
             timestamp_array = _to_timestamp_ns(batch.column(_TIMESTAMP_COLUMN_NAME))
+            batch = batch.select(self._timeseries_column_names)
+            # Only when `task_index` was selected through `column_names`
+            if batch.schema.get_field_index(_TASK_INDEX_COLUMN) != _NOT_FOUND:
+                task_array = _task_indexes_to_tasks(
+                    batch.column(_TASK_INDEX_COLUMN), self._meta.tasks
+                )
+                batch = batch.append_column(_TASK_FIELD, task_array)
             timeseries_rb = _adapt_timeseries_rb_to_schema(
-                batch.select(self._timeseries_column_names), self._timeseries_schema
+                batch, self._timeseries_schema
             )
 
             merged_rb = pa.RecordBatch.from_arrays(
