@@ -1,13 +1,13 @@
 use std::ops::Deref;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Sentinel value to represent the positive unbounded timestamp
+/// Sentinel value to represent the positive unbounded timestamp.
 const TIMESTAMP_UB_POS_SENTINEL: i64 = i64::MAX;
-/// Sentinel value to represent the negative unbounded timestamp
+/// Sentinel value to represent the negative unbounded timestamp.
 const TIMESTAMP_UB_NEG_SENTINEL: i64 = i64::MIN;
 
 /// Timestamp format used by mosaico, currently this timestamp represent nanoseconds
-/// units of time (stored as 64bit integer)
+/// units of time (stored as 64bit integer).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Timestamp(i64);
 
@@ -40,12 +40,12 @@ impl Timestamp {
         self.is_unbounded_pos() || self.is_unbounded_neg()
     }
 
-    /// Returns a positive unbounded timestamp value
+    /// Returns a positive unbounded timestamp value.
     pub fn unbounded_pos() -> Self {
         Self(TIMESTAMP_UB_POS_SENTINEL)
     }
 
-    /// Returns a negative unbounded timestamp value
+    /// Returns a negative unbounded timestamp value.
     pub fn unbounded_neg() -> Self {
         Self(TIMESTAMP_UB_NEG_SENTINEL)
     }
@@ -96,10 +96,11 @@ impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
     }
 }
 
-/// Represents a closed interval of time, with [`start`] included and [`end`] excluded.
+/// Represents a half-open interval of time, with [`start`](Self::start) included and
+/// [`end`](Self::end) excluded.
 ///
-/// This struct defines a range $[start, end]$. A timestamp is considered
-/// contained within this range if $start \le t \l end$.
+/// This struct defines a range `[start, end)`. A timestamp `t` is considered
+/// contained within this range if `start <= t < end`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct TimestampRange {
     pub start: Timestamp,
@@ -129,12 +130,12 @@ impl TimestampRange {
         }
     }
 
-    /// Returns true is both start and end are unbounded timestamps
+    /// Returns true is both start and end are unbounded timestamps.
     pub fn is_unbounded(&self) -> bool {
         self.start.is_unbounded() && self.end.is_unbounded()
     }
 
-    /// Check if the timestamp range is empty (i.e. start >= end)
+    /// Check if the timestamp range is empty (i.e. start >= end).
     pub fn is_empty(&self) -> bool {
         self.start >= self.end
     }
@@ -152,7 +153,7 @@ impl std::fmt::Debug for TimestampRange {
     }
 }
 
-/// `DateTime` format used by mosaico
+/// `DateTime` format used by mosaico.
 #[derive(Debug)]
 pub struct DateTime(chrono::DateTime<chrono::Utc>);
 

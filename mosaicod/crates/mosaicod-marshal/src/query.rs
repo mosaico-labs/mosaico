@@ -20,7 +20,7 @@ fn value(value: proto_query::Value) -> Result<query::Value, query::OpError> {
     })
 }
 
-/// Scalar extractor for fields that only accept text
+/// Scalar extractor for fields that only accept text.
 fn text(v: query::Value) -> Result<query::Text, query::OpError> {
     match v {
         query::Value::Text(v) => Ok(v),
@@ -28,7 +28,7 @@ fn text(v: query::Value) -> Result<query::Text, query::OpError> {
     }
 }
 
-/// Scalar extractor for timestamp fields
+/// Scalar extractor for timestamp fields.
 fn timestamp(v: query::Value) -> Result<query::Timestamp, query::OpError> {
     match v {
         query::Value::Integer(v) => Ok(v.into()),
@@ -36,7 +36,7 @@ fn timestamp(v: query::Value) -> Result<query::Timestamp, query::OpError> {
     }
 }
 
-/// Splits an array value into its scalar elements
+/// Splits an array value into its scalar elements.
 fn array_elements(v: query::Value) -> Result<Vec<query::Value>, query::OpError> {
     Ok(match v {
         query::Value::IntegerArray(a) => a.into_iter().map(query::Value::Integer).collect(),

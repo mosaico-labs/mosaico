@@ -27,7 +27,7 @@ use crate::types;
 pub trait PublicError: std::fmt::Debug {
     /// Returns the inner [`Error`] variant.
     ///
-    /// This is used internally to build the error string representation
+    /// This is used internally to build the error string representation.
     fn error(&self) -> Error;
 
     /// Returns an optional URL pointing to detailed documentation about the error.
@@ -53,13 +53,13 @@ impl std::fmt::Display for dyn PublicError + Send + Sync {
     }
 }
 
-/// Shorthand alias for a boxed public error
+/// Shorthand alias for a boxed public error.
 pub type BoxPublicError = Box<dyn PublicError + Send + Sync + 'static>;
 
-/// mosaicod custom public error result alias
+/// mosaicod custom public error result alias.
 pub type PublicResult<T> = std::result::Result<T, BoxPublicError>;
 
-/// Blanket implementation for auto-boxing
+/// Blanket implementation for auto-boxing.
 impl<E> From<E> for Box<dyn PublicError + Send + Sync>
 where
     E: PublicError + Send + Sync + 'static,
@@ -241,7 +241,7 @@ impl Error {
         Self(ErrorKind::MissingDescriptor)
     }
 
-    /// Used when a configuration variable is missing or is unable to read
+    /// Used when a configuration variable is missing or is unable to read.
     pub fn invalid_configuration(var_name: String, why: String) -> Self {
         Self(ErrorKind::InvalidConfiguration(format!(
             "{var_name}, {why}"

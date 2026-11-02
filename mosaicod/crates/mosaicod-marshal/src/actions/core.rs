@@ -46,10 +46,10 @@ pub enum ActionRequest {
     /// Creates a notification associated with a sequence.
     SequenceNotificationCreate(requests::NotificationCreate),
 
-    /// Get all notifications for a given sequence
+    /// Get all notifications for a given sequence.
     SequenceNotificationList(requests::ResourceLocator),
 
-    /// Deletes all notifications associated with a sequence
+    /// Deletes all notifications associated with a sequence.
     SequenceNotificationPurge(requests::ResourceLocator),
 
     /// Creates a new topic in the system without any data.
@@ -61,10 +61,10 @@ pub enum ActionRequest {
     /// Creates a notification associated with a topic.
     TopicNotificationCreate(requests::NotificationCreate),
 
-    /// Get all notifications for a given topic
+    /// Get all notifications for a given topic.
     TopicNotificationList(requests::ResourceLocator),
 
-    /// Deletes all notifications associated with a topic
+    /// Deletes all notifications associated with a topic.
     TopicNotificationPurge(requests::ResourceLocator),
 
     /// Filters a topic by ontology and timestamp range,
@@ -78,13 +78,13 @@ pub enum ActionRequest {
     /// Creates a new upload session for the given sequence.
     SessionCreate(requests::ResourceLocator),
 
-    /// Finalizes the upload session
+    /// Finalizes the upload session.
     SessionFinalize(requests::SessionUuid),
 
     /// Deletes the selected session.
     SessionDelete(requests::ResourceLocator),
 
-    /// Perform a query in the system
+    /// Perform a query in the system.
     Query(Box<requests::Query>),
 
     /// Returns server info: version and the server's configured limits (e.g.
@@ -119,7 +119,7 @@ impl std::fmt::Display for ActionRequest {
     }
 }
 
-/// Internal macro used to parse action requests
+/// Internal macro used to parse action requests.
 macro_rules! parse_action_req {
     ($variant:ident, $body:expr) => {
         Ok(ActionRequest::$variant(Message::decode($body)?))
@@ -173,7 +173,7 @@ pub enum ActionResponse {
     TopicFilterClusterize(responses::TopicFilterClusterize),
     TopicFilterIntersect(responses::TopicFilterClusterize),
 
-    /// Returns the response key associated with the session just created
+    /// Returns the response key associated with the session just created.
     SessionCreate(responses::SessionCreate),
     SessionFinalize(()),
     SessionDelete(()),

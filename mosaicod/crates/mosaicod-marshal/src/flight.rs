@@ -8,7 +8,7 @@ use prost::Message;
 // GET FLIGHT INFO CMD
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Convert a raw flight command into a [`types::flight::GetFlightInfoCmd`]
+/// Convert a raw flight command into a [`types::flight::GetFlightInfoCmd`].
 pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, super::Error> {
     let cmd = proto_flight::GetFlightInfoCmd::decode(v)
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
@@ -28,7 +28,7 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
 // GET SCHEMA CMD
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Convert a raw flight command into a [`types::flight::GetSchemaCmd`]
+/// Convert a raw flight command into a [`types::flight::GetSchemaCmd`].
 pub fn get_schema_cmd(v: &[u8]) -> Result<types::flight::GetSchemaCmd, super::Error> {
     let cmd = proto_flight::GetSchemaCmd::decode(v)
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;

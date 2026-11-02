@@ -30,7 +30,7 @@ pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
 ///
 /// FIXME:
 /// We need to use `http` and `https` instead of `grpc` and `grpc+tls` since tonic has an
-/// issue regarding this https://github.com/hyperium/tonic/issues/1496
+/// issue regarding this: <https://github.com/hyperium/tonic/issues/1496>.
 pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     if tls {
         return format!("https://{host}:{port}");

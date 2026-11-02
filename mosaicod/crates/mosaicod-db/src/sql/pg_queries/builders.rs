@@ -462,7 +462,7 @@ impl query::OntologyFieldFmt for ChunkQueryBuilder {
     }
 }
 
-/// Used to append restrict the query to only a set of topic
+/// Used to append restrict the query to only a set of topic.
 struct FilterChunksByTopicMapper {
     placeholder_counter: usize,
 }

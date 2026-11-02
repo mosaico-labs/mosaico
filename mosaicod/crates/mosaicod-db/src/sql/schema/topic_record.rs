@@ -19,7 +19,7 @@ pub struct TopicRecord {
     /// Path inside Object store where to find data and backup files.
     pub(crate) path_in_store: Option<String>,
 
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
     pub(crate) completion_unix_tstamp: Option<i64>,
 
@@ -37,7 +37,7 @@ impl TopicRecord {
 
     /// Returns the resource locator for this topic.
     ///
-    /// Because a [`TopicRecord`] should only be created using [`TopicRecord::new`], that requires a [`types::TopicLocator`],
+    /// Because the locator stored in the database always comes from a valid [`types::TopicLocator`],
     /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
     /// changed it manually directly inside the database.
     pub fn locator(&self) -> types::TopicLocator {
