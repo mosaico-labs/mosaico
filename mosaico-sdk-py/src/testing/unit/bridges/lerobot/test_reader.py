@@ -9,7 +9,7 @@ import pytest
 
 from mosaicolabs import CompressedImage
 from mosaicolabs.bridges.lerobot.helpers import _max_rows_within, _to_timestamp_ns
-from mosaicolabs.bridges.lerobot.lerobot_message import LeRobotMessage
+from mosaicolabs.bridges.lerobot.lerobot_batch import LeRobotBatch
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.reader import (
     LeRobotReader,
@@ -54,11 +54,14 @@ def reader(lerobot_dataset) -> LeRobotReader:
     return LeRobotReader(lerobot_dataset, MAX_BATCH_SIZE_BYTES)
 
 
-def _wire_batch(messages: List[LeRobotMessage]) -> pa.RecordBatch:
-    """Concatenates the batches `TopicWriter.push_batch` sends for `messages`: the
+def _wire_batch(batches: List[LeRobotBatch]) -> pa.RecordBatch:
+    """Concatenates the batches `TopicWriter.push_batch` sends for `batches`: the
     `timestamp_ns` column, then the payload columns."""
     return pa.concat_batches(
-        [msg.data.add_column(0, "timestamp_ns", msg.timestamp_ns) for msg in messages]
+        [
+            batch.data.add_column(0, "timestamp_ns", batch.timestamp_ns)
+            for batch in batches
+        ]
     )
 
 
@@ -381,16 +384,16 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
     assert batch.column("task_index").to_pylist() == [0] * length
 
 
-def test_timeseries_batches_are_messages_of_the_timeseries_topic(reader):
-    messages = list(reader.iter_timeseries_batches(0))
+def test_timeseries_batches_are_batches_of_the_timeseries_topic(reader):
+    batches = list(reader.iter_timeseries_batches(0))
 
-    for msg in messages:
-        assert msg.msco_topic_name == TIMESERIES_TOPIC_NAME
-        assert msg.column_names == TIMESERIES_COLUMN_NAMES
-        assert msg.msco_ontology is reader.timeseries_ontology
-        assert msg.timestamp_ns.type == pa.int64()
-        assert msg.data.schema == pa.schema(list(reader.timeseries_struct))
-        assert msg.n_rows == msg.data.num_rows == len(msg.timestamp_ns)
+    for batch in batches:
+        assert batch.msco_topic_name == TIMESERIES_TOPIC_NAME
+        assert batch.column_names == TIMESERIES_COLUMN_NAMES
+        assert batch.msco_ontology is reader.timeseries_ontology
+        assert batch.timestamp_ns.type == pa.int64()
+        assert batch.data.schema == pa.schema(list(reader.timeseries_struct))
+        assert batch.n_rows == batch.data.num_rows == len(batch.timestamp_ns)
 
 
 def test_timeseries_batches_without_timeseries_column_yield_nothing(lerobot_dataset):
@@ -426,16 +429,16 @@ def test_image_batches_hold_the_images_of_the_episode(
 
 
 @pytest.mark.parametrize("camera_column_name", CAMERA_COLUMN_NAMES)
-def test_image_batches_are_messages_of_the_camera_topic(reader, camera_column_name):
-    messages = list(reader.iter_image_by_name_batches(0, camera_column_name))
+def test_image_batches_are_batches_of_the_camera_topic(reader, camera_column_name):
+    batches = list(reader.iter_image_by_name_batches(0, camera_column_name))
 
-    for msg in messages:
-        assert msg.msco_topic_name == CAMERA_TOPIC_NAMES[camera_column_name]
-        assert msg.column_names == [camera_column_name]
-        assert msg.msco_ontology is CompressedImage
-        assert msg.timestamp_ns.type == pa.int64()
-        assert msg.data.schema == COMPRESSED_IMAGE_SCHEMA
-        assert msg.n_rows == msg.data.num_rows == len(msg.timestamp_ns)
+    for batch in batches:
+        assert batch.msco_topic_name == CAMERA_TOPIC_NAMES[camera_column_name]
+        assert batch.column_names == [camera_column_name]
+        assert batch.msco_ontology is CompressedImage
+        assert batch.timestamp_ns.type == pa.int64()
+        assert batch.data.schema == COMPRESSED_IMAGE_SCHEMA
+        assert batch.n_rows == batch.data.num_rows == len(batch.timestamp_ns)
 
 
 @pytest.mark.parametrize(
@@ -453,12 +456,12 @@ def test_image_batches_reject_a_column_not_selected_as_camera(
 
 
 def test_iter_image_batches_reads_every_camera_in_order(reader):
-    messages = list(reader.iter_image_batches(1))
+    batches = list(reader.iter_image_batches(1))
 
-    assert [msg.msco_topic_name for msg in messages] == list(
+    assert [batch.msco_topic_name for batch in batches] == list(
         CAMERA_TOPIC_NAMES.values()
     )
-    assert all(msg.n_rows == EPISODE_LENGTHS[1] for msg in messages)
+    assert all(batch.n_rows == EPISODE_LENGTHS[1] for batch in batches)
 
 
 def test_iter_image_batches_reads_the_selected_cameras_only(lerobot_dataset):
@@ -466,9 +469,9 @@ def test_iter_image_batches_reads_the_selected_cameras_only(lerobot_dataset):
         lerobot_dataset, MAX_BATCH_SIZE_BYTES, column_names=[CAMERA_COLUMN_NAMES[1]]
     )
 
-    messages = list(reader.iter_image_batches(0))
+    batches = list(reader.iter_image_batches(0))
 
-    assert [msg.column_names for msg in messages] == [[CAMERA_COLUMN_NAMES[1]]]
+    assert [batch.column_names for batch in batches] == [[CAMERA_COLUMN_NAMES[1]]]
 
 
 # --- LeRobotReader: errors while reading an episode ---

@@ -7,13 +7,13 @@ from mosaicolabs import Serializable
 
 
 @dataclass
-class LeRobotMessage:
+class LeRobotBatch:
     """
     A batch of rows of a LeRobot episode, ready to be pushed to its Mosaico topic with
     `TopicWriter.push_batch(timestamp_ns, data)`.
 
     It is yielded by the `LeRobotReader` batch iterators. When the rows of a topic cannot be read,
-    `LeRobotEpisodeLoader` yields a message with its topic, columns and ontology only: `timestamp_ns`,
+    `LeRobotEpisodeLoader` yields a batch with its topic, columns and ontology only: `timestamp_ns`,
     `data` and `n_rows` are then `None`.
     """
 
