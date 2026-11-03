@@ -244,7 +244,7 @@ class LeRobotReader:
         self._timeseries_column_names: List[str] = [
             key
             for key, feature in meta.features.items()
-            if feature.is_timeserie and (column_names is None or key in column_names)
+            if feature.is_timeseries and (column_names is None or key in column_names)
         ]
 
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
