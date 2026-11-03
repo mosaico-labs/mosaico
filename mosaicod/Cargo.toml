@@ -26,6 +26,7 @@ mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-grpc = { path = "crates/mosaicod-grpc" }
 mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
 mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
+mosaicod-hook = { path = "crates/mosaicod-hook" }
 mosaicod-instance-registry = { path = "crates/mosaicod-instance-registry" }
 mosaicod-os = { path = "crates/mosaicod-os" }
 mosaicod-proto = { path = "crates/mosaicod-proto" }
@@ -81,6 +82,7 @@ semver = { version = "1.0.28", default-features = false }
 tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "ansi", "tracing-log", "json", "env-filter"] }
 regex = { version = "1.12.4", default-features = false, features = ["perf", "unicode"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
 
 # Protobuf schema codegen (mosaicod-proto)
 prost = "0.14"

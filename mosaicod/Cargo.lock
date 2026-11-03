@@ -2761,6 +2761,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-hook"
+version = "0.8.0-dev"
+dependencies = [
+ "bytes",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-marshal",
+ "reqwest",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "mosaicod-instance-registry"
 version = "0.8.0-dev"
 dependencies = [
