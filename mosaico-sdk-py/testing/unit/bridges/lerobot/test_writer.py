@@ -104,7 +104,7 @@ def test_decode_stats_image_keeps_the_dtype_of_a_depth_map():
 
 
 def test_compute_stats_per_column():
-    """The std divides by n, the quantiles interpolate linearly."""
+    """The std divides by n, a quantile is the first value where the count reaches q * n."""
     values = np.array([[1, 10], [2, 20], [3, 30], [4, 40], [5, 50]])
 
     stats = _compute_stats(values)
@@ -114,11 +114,11 @@ def test_compute_stats_per_column():
         "max": [5, 50],
         "mean": [3, 30],
         "std": [np.sqrt(2), 10 * np.sqrt(2)],
-        "q01": [1.04, 10.4],
-        "q10": [1.4, 14],
+        "q01": [1, 10],
+        "q10": [1, 10],
         "q50": [3, 30],
-        "q90": [4.6, 46],
-        "q99": [4.96, 49.6],
+        "q90": [5, 50],
+        "q99": [5, 50],
     }
     assert set(stats) == set(expected)
     for name, value in expected.items():
@@ -218,7 +218,7 @@ def test_compute_episode_stats_skips_a_camera_without_images(lerobot_dataset):
 
 
 def test_check_episode_stats_warns_out_of_tolerance(lerobot_dataset, caplog):
-    """A wider tolerance for the quantiles (2% of max - min); the renumbered columns and the
+    """A wider tolerance for the quantiles (0.05% of max - min); the renumbered columns and the
     stats missing from the source are skipped."""
     episode = replace(
         LeRobotDatasetMeta.load(lerobot_dataset).episodes_map[0],
@@ -232,7 +232,7 @@ def test_check_episode_stats_warns_out_of_tolerance(lerobot_dataset, caplog):
             "min": np.array([0.0, 0.0]),
             "max": np.array([10.0, 10.0]),
             "mean": np.array([1.0, 2.1]),
-            "q50": np.array([1.1, 2.0]),
+            "q50": np.array([1.004, 2.0]),
             "count": np.array([5]),
         },
         "index": {
