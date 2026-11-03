@@ -11,10 +11,11 @@ This module reads the `meta/` folder of a LeRobot v3.0 dataset and exposes it as
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -177,6 +178,28 @@ class LeRobotDatasetMeta:
 
         episode = self.episodes_map.get(episode_index)
         return episode.length if episode is not None else 0
+
+    def set_episode_stats(
+        self, episode_index: int, stats: Dict[str, Dict[str, np.ndarray]]
+    ) -> None:
+        """
+        Replaces the stats of an episode, as lists (as `load` reads them): `dump` writes them
+        as the `stats/<feature>/<stat>` columns of its row.
+
+        Args:
+            episode_index (int): The episode index.
+            stats (Dict[str, Dict[str, np.ndarray]]): By feature, its stats.
+
+        Raises:
+            KeyError: If the episode is not defined in `episodes_map`.
+        """
+        self.episodes_map[episode_index] = replace(
+            self.episodes_map[episode_index],
+            stats={
+                feature: {name: value.tolist() for name, value in feature_stats.items()}
+                for feature, feature_stats in stats.items()
+            },
+        )
 
     @classmethod
     def load(cls, root: Path) -> "LeRobotDatasetMeta":

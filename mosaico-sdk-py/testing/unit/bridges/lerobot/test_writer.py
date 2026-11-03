@@ -1,5 +1,6 @@
 import io
 from collections import defaultdict
+from dataclasses import replace
 
 import numpy as np
 import pyarrow as pa
@@ -11,6 +12,8 @@ from PIL import Image as PILImage
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.writer import (
     LeRobotWriter,
+    _check_episode_stats,
+    _compute_stats,
     _decode_stats_image,
     _sample_indices,
     _to_task_index_column,
@@ -22,6 +25,7 @@ from .config import (
     IMAGE_HEIGHT,
     IMAGE_WIDTH,
     STATE_COLUMN_NAME,
+    TIMESTAMP_COLUMN_NAME,
 )
 
 TASKS = ["Pick up the cube", "Place the cube"]
@@ -75,7 +79,7 @@ def test_sample_indices_as_lerobot(length, num_samples):
 
 
 @pytest.mark.parametrize(
-    "size, shape", [((4, 4), (3, 4, 4)), ((640, 480), (3, 120, 160))]
+    "size, shape", [((4, 4), (16, 3)), ((640, 480), (120 * 160, 3))]
 )
 def test_decode_stats_image_downsamples_large_images(size, shape):
     buffer = io.BytesIO()
@@ -84,7 +88,7 @@ def test_decode_stats_image_downsamples_large_images(size, shape):
     image = _decode_stats_image(buffer.getvalue(), is_depth_map=False)
 
     assert image.shape == shape
-    assert image[:, 0, 0].tolist() == [10, 20, 30]
+    assert image[0].tolist() == [10, 20, 30]
 
 
 def test_decode_stats_image_keeps_the_dtype_of_a_depth_map():
@@ -95,16 +99,38 @@ def test_decode_stats_image_keeps_the_dtype_of_a_depth_map():
     image = _decode_stats_image(buffer.getvalue(), is_depth_map=True)
 
     assert image.dtype == np.uint16
-    assert image.shape == (1, 4, 4)
-    assert image[0, 0, 0] == 1000
+    assert image.shape == (16, 1)
+    assert image[0, 0] == 1000
+
+
+def test_compute_stats_per_column():
+    """The std divides by n, the quantiles interpolate linearly."""
+    values = np.array([[1, 10], [2, 20], [3, 30], [4, 40], [5, 50]])
+
+    stats = _compute_stats(values)
+
+    expected = {
+        "min": [1, 10],
+        "max": [5, 50],
+        "mean": [3, 30],
+        "std": [np.sqrt(2), 10 * np.sqrt(2)],
+        "q01": [1.04, 10.4],
+        "q10": [1.4, 14],
+        "q50": [3, 30],
+        "q90": [4.6, 46],
+        "q99": [4.96, 49.6],
+    }
+    assert set(stats) == set(expected)
+    for name, value in expected.items():
+        assert stats[name].dtype == np.float64
+        np.testing.assert_allclose(stats[name], value)
 
 
 @pytest.mark.parametrize("frames_without_image", [1, EPISODE_LENGTHS[0]])
-def test_collect_stats_rows_keeps_the_numeric_columns_and_the_sampled_images(
+def test_accumulate_stats_inputs_keeps_the_timeseries_and_the_sampled_images(
     lerobot_dataset, frames_without_image
 ):
-    """Slice by slice; a frame without an image is skipped. A camera without any image
-    still gets its key, with no images."""
+    """Slice by slice; a frame without an image is skipped."""
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     episode = meta.episodes_map[0]
     data_path = meta.root / meta.info.data_path.format(
@@ -120,22 +146,103 @@ def test_collect_stats_rows_keeps_the_numeric_columns_and_the_sampled_images(
         without_images,
     )
 
-    columns = defaultdict(list)
-    images = defaultdict(list)
+    inputs = defaultdict(list)
     writer = LeRobotWriter(meta)
     for batch in (rows.slice(0, 2), rows.slice(2)):
-        writer._collect_stats_rows(
-            batch.to_batches()[0], _sample_indices(EPISODE_LENGTHS[0]), columns, images
+        writer._accumulate_stats_inputs(
+            batch.to_batches()[0], _sample_indices(EPISODE_LENGTHS[0]), inputs
         )
 
-    assert (
-        pa.concat_arrays(columns[STATE_COLUMN_NAME])
-        == rows.column(STATE_COLUMN_NAME).combine_chunks()
+    np.testing.assert_array_equal(
+        np.concatenate(inputs[STATE_COLUMN_NAME]),
+        rows.column(STATE_COLUMN_NAME).to_pylist(),
     )
-    # Before any `images[...]`, which would add the key
-    assert set(images) == set(CAMERA_COLUMN_NAMES)
-    assert (
-        len(images[CAMERA_COLUMN_NAMES[0]]) == EPISODE_LENGTHS[0] - frames_without_image
+    assert np.concatenate(inputs[TIMESTAMP_COLUMN_NAME]).shape == (
+        EPISODE_LENGTHS[0],
+        1,
     )
-    assert len(images[CAMERA_COLUMN_NAMES[1]]) == EPISODE_LENGTHS[0]
-    assert images[CAMERA_COLUMN_NAMES[1]][0].shape == (3, IMAGE_HEIGHT, IMAGE_WIDTH)
+    assert (
+        len(inputs[CAMERA_COLUMN_NAMES[0]]) == EPISODE_LENGTHS[0] - frames_without_image
+    )
+    assert len(inputs[CAMERA_COLUMN_NAMES[1]]) == EPISODE_LENGTHS[0]
+    # Frame 0 of the second camera: every pixel is (0, 128, 0) (see `image_value`)
+    assert inputs[CAMERA_COLUMN_NAMES[1]][0].tolist() == [[0, 128, 0]] * (
+        IMAGE_HEIGHT * IMAGE_WIDTH
+    )
+
+
+@pytest.mark.parametrize(
+    "depth_info", [{"is_depth_map": True}, {"video.is_depth_map": True}]
+)
+def test_compute_episode_stats_as_lerobot(lerobot_dataset, depth_info):
+    """The slices joined; an image per channel, of shape (channels, 1, 1), divided by 255
+    but for a depth map; `count` is the length of the episode, for every feature."""
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    depth_key = CAMERA_COLUMN_NAMES[1]
+    features = [
+        replace(f, info=depth_info) if f.key == depth_key else f
+        for f in meta.info.features
+    ]
+    writer = LeRobotWriter(replace(meta, info=replace(meta.info, features=features)))
+    inputs = {
+        STATE_COLUMN_NAME: [
+            np.array([[1.0, 10.0], [2.0, 20.0]]),
+            np.array([[3.0, 30.0]]),
+        ],
+        # Two images of two pixels each, a row per pixel and a column per channel
+        CAMERA_COLUMN_NAMES[0]: [
+            np.array([[0, 51, 255]] * 2, np.uint8),
+            np.array([[255, 51, 0]] * 2, np.uint8),
+        ],
+        depth_key: [np.array([[1000], [3000]], np.uint16)],
+    }
+
+    stats = writer._compute_episode_stats(inputs, length=7)
+
+    assert stats[STATE_COLUMN_NAME]["min"].tolist() == [1, 10]
+    assert stats[STATE_COLUMN_NAME]["max"].tolist() == [3, 30]
+    rgb_stats = stats[CAMERA_COLUMN_NAMES[0]]
+    assert rgb_stats["min"].shape == (3, 1, 1)
+    np.testing.assert_allclose(rgb_stats["min"].ravel(), [0, 0.2, 0])
+    np.testing.assert_allclose(rgb_stats["max"].ravel(), [1, 0.2, 1])
+    assert stats[depth_key]["mean"].tolist() == [[[2000]]]
+    assert all(s["count"].tolist() == [7] for s in stats.values())
+
+
+def test_compute_episode_stats_skips_a_camera_without_images(lerobot_dataset):
+    writer = LeRobotWriter(LeRobotDatasetMeta.load(lerobot_dataset))
+
+    stats = writer._compute_episode_stats({CAMERA_COLUMN_NAMES[0]: []}, length=7)
+
+    assert stats == {}
+
+
+def test_check_episode_stats_warns_out_of_tolerance(lerobot_dataset, caplog):
+    """A wider tolerance for the quantiles (2% of max - min); the renumbered columns and the
+    stats missing from the source are skipped."""
+    episode = replace(
+        LeRobotDatasetMeta.load(lerobot_dataset).episodes_map[0],
+        stats={
+            STATE_COLUMN_NAME: {"mean": [1.0, 2.0], "q50": [1.0, 2.0], "count": [5]},
+            "index": {"mean": [0.0]},
+        },
+    )
+    stats = {
+        STATE_COLUMN_NAME: {
+            "min": np.array([0.0, 0.0]),
+            "max": np.array([10.0, 10.0]),
+            "mean": np.array([1.0, 2.1]),
+            "q50": np.array([1.1, 2.0]),
+            "count": np.array([5]),
+        },
+        "index": {
+            "min": np.array([5.0]),
+            "max": np.array([9.0]),
+            "mean": np.array([7.0]),
+        },
+    }
+
+    _check_episode_stats(episode, stats)
+
+    assert [r.levelname for r in caplog.records] == ["WARNING"]
+    assert f"the `mean` of `{STATE_COLUMN_NAME}`" in caplog.records[0].getMessage()
