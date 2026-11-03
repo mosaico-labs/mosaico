@@ -7,18 +7,22 @@ sequences, with the types LeRobot writes them with (see
 `LeRobotSchemaConverter.to_lerobot_pyarrow`).
 """
 
+import io
+from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import DefaultDict, Dict, List
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
+from PIL import Image as PILImage
 
 from ..helpers import _dotted_name_to_topic_name
 from ..protocols.lerobot import LeRobotSchemaConverter
 from .helpers import _from_timestamp_ns
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
+from .metadata.feature import _FRAME_INDEX_COLUMN
 from .mosaico_loader import LeRobotEpisodeStreamer
 from .reader import (
     _NESTED_NAME_SEP,
@@ -35,6 +39,53 @@ _IMAGE_FORMAT_FIELD = "format"
 
 _FRAME_INDEX_WIDTH = 6
 """The number of digits of the frame index in the name of an image (`frame-000012.png`)."""
+
+_NO_STATS_DTYPES = ("string", "language")
+"""The `dtype` of the features LeRobot computes no stats for."""
+
+
+def _sample_indices(length: int) -> pa.Array:
+    """
+    Returns the frames of an episode whose images go into the stats, as LeRobot picks them
+    (`sample_indices` in `lerobot/datasets/compute_stats.py`): evenly spaced, 100 of them (all
+    the frames of a shorter episode), up to 10,000 for a long one (`length ** 0.75`).
+
+    Args:
+        length (int): The number of frames of the episode.
+
+    Returns:
+        pa.Array: The `frame_index` of the sampled frames.
+    """
+    num_samples = max(min(100, length), min(int(length**0.75), 10_000))
+    return pa.array(np.round(np.linspace(0, length - 1, num_samples)).astype(np.int64))
+
+
+def _decode_stats_image(data: bytes, is_depth_map: bool) -> np.ndarray:
+    """
+    Decodes an image for the stats, as LeRobot does (`sample_images` in
+    `lerobot/datasets/compute_stats.py`): RGB `uint8`, or a depth map in its own dtype (e.g.
+    `uint16` or `float32`) and channel, channels first, and downsampled by striding to about
+    150 px on its longer side when that side is 300 px or more.
+
+    Args:
+        data (bytes): The content of the image file.
+        is_depth_map (bool): Whether the image is a depth map.
+
+    Returns:
+        np.ndarray: The image, of shape `(channels, height, width)`.
+    """
+    image = PILImage.open(io.BytesIO(data))
+    if not is_depth_map:
+        image = image.convert("RGB")
+    # A depth map has no channel axis: it gets one
+    image = np.atleast_3d(np.asarray(image)).transpose(2, 0, 1)
+
+    long_side = max(image.shape[1:])
+    if long_side < 300:
+        return image
+    step = long_side // 150
+    # A copy: a strided view would keep the whole decoded image in memory
+    return np.ascontiguousarray(image[:, ::step, ::step])
 
 
 def _to_timeseries_column(timeseries: pa.RecordBatch, key: str) -> pa.Array:
@@ -304,6 +355,54 @@ class LeRobotWriter:
 
         return lerobot_batch
 
+    def _collect_stats_rows(
+        self,
+        lerobot_rb: pa.RecordBatch,
+        sampled_frames: pa.Array,
+        columns: DefaultDict[str, List[pa.Array]],
+        images: DefaultDict[str, List[np.ndarray]],
+    ) -> None:
+        """
+        Keeps what the stats of an episode need from rows of the episode, as written to the
+        data file (see `_to_lerobot_rb`): the stats of `episode_index`, `index` and
+        `task_index` are then those of the exported dataset. Only these copies are kept,
+        never the slice, whose images can be very large.
+
+        The `string` and `language` features are skipped, as in LeRobot.
+
+        Args:
+            lerobot_rb (pa.RecordBatch): Rows of the episode, with the schema of the data file.
+            sampled_frames (pa.Array): The `frame_index` of the frames of the episode whose
+                images go into the stats (see `_sample_indices`).
+            columns (DefaultDict[str, List[pa.Array]]): By numeric feature, its column in each
+                slice so far: concatenated, the column of the episode.
+            images (DefaultDict[str, List[np.ndarray]]): By image feature, its sampled images
+                so far, decoded (see `_decode_stats_image`). A frame without an image (written
+                as null, see `_to_image_column`) is skipped.
+        """
+        is_sampled = pc.is_in(
+            lerobot_rb.column(_FRAME_INDEX_COLUMN), value_set=sampled_frames
+        )
+
+        for feature in self._features:
+            if feature.dtype in _NO_STATS_DTYPES:
+                continue
+
+            column = lerobot_rb.column(feature.key)
+            if feature.is_image():
+                # The flags of a depth map, as LeRobot reads them (`is_depth_map`)
+                info = feature.info or {}
+                is_depth_map = bool(
+                    info.get("is_depth_map") or info.get("video.is_depth_map")
+                )
+                sampled = pc.filter(column, pc.and_(is_sampled, pc.is_valid(column)))
+                images[feature.key].extend(
+                    _decode_stats_image(image["bytes"], is_depth_map)
+                    for image in sampled.to_pylist()
+                )
+            else:
+                columns[feature.key].append(column)
+
     # --- Public API --- #
 
     @property
@@ -337,9 +436,15 @@ class LeRobotWriter:
 
         file_writer = self._get_file_writer(episode)
 
+        sampled_frames = _sample_indices(episode.length)
+        stats_columns: DefaultDict[str, List[pa.Array]] = defaultdict(list)
+        stats_images: DefaultDict[str, List[np.ndarray]] = defaultdict(list)
         for ts, b in streamer:
             lerobot_rb = self._to_lerobot_rb(episode, ts, b)
             file_writer.write_batch(lerobot_rb)
+            self._collect_stats_rows(
+                lerobot_rb, sampled_frames, stats_columns, stats_images
+            )
 
         # The next episode starts where this one ends in the metadata
         if self._current_index != episode.dataset_to_index:
