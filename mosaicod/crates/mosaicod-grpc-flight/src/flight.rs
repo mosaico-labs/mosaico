@@ -10,6 +10,7 @@ use mosaicod_core as core;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common::{self as grpc_common, PublicErrorGrpcExt, ToStatusExt, middleware};
+use mosaicod_hook as hook;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
@@ -24,10 +25,16 @@ pub struct Service {
     api_key_management: bool,
     /// Semaphore used to controll the maximum number of concurrent writers.
     concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
+    /// Hands hook events to the worker that delivers them.
+    dispatcher: hook::Dispatcher,
 }
 
 impl Service {
-    pub fn try_new(store: store::StoreRef, db: db::Database) -> std::result::Result<Self, String> {
+    pub fn try_new(
+        store: store::StoreRef,
+        db: db::Database,
+        dispatcher: hook::Dispatcher,
+    ) -> std::result::Result<Self, String> {
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
                 store.clone(),
@@ -44,6 +51,7 @@ impl Service {
             concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 params::params().max_concurrent_writes.value.get(),
             )),
+            dispatcher,
         })
     }
 
@@ -176,6 +184,7 @@ impl Service {
         let ctx = endpoint::DoPutContext {
             inner: self.context(),
             concurrent_writes_semaphore: self.concurrent_writes_semaphore.clone(),
+            dispatcher: self.dispatcher.clone(),
         };
 
         endpoint::do_put(ctx, &mut decoder).await?;
@@ -192,7 +201,12 @@ impl Service {
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)?;
 
-        let stream = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
+        let ctx = endpoint::DoActionContext {
+            inner: self.context(),
+            dispatcher: self.dispatcher.clone(),
+        };
+
+        let stream = endpoint::do_action(&ctx, action, auth_ctx.permissions()).await?;
 
         // Create the stream from the flight result
         Ok(Response::new(Box::pin(stream)))
