@@ -9,7 +9,7 @@ homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
 license = "Apache-2.0"
 edition = "2024"
-rust-version = "1.92"
+rust-version = "1.94"
 
 [workspace.dependencies]
 # Internal crates
@@ -59,7 +59,7 @@ fastrand = { version = "2.4.1", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.228", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
 signal-hook = { version = "0.4.4", default-features = false, features = ["iterator"] }
-sqlx = { version = "0.8.6", default-features = false, features = [
+sqlx = { version = "0.9.0", default-features = false, features = [
     "postgres",
     "macros",
     "runtime-tokio",
