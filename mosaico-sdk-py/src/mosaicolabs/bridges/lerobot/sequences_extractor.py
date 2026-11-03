@@ -6,8 +6,9 @@ per episode, see `LeRobotInjector`) back to a LeRobot v3.0 dataset folder.
 
 The episodes are read from the `_lerobot_` metadata of the sequences and merged by a
 `MosaicoToLeRobotLoader`. Their data is then streamed from the sequences and written to the data
-files by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`. The videos and
-`meta/stats.json` are not written yet.
+files by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`, with
+`meta/stats.json` combined from the stats of the exported episodes. The videos are not written
+yet.
 
 Typical usage as a script:
     $ python -m mosaicolabs.bridges.lerobot.sequences_extractor \\
@@ -33,7 +34,7 @@ from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .metadata import LeRobotDatasetMeta
 from .mosaico_loader import MosaicoToLeRobotLoader
-from .writer import LeRobotWriter
+from .writer import LeRobotWriter, _aggregate_stats
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -171,7 +172,7 @@ class LeRobotSequencesExtractor:
                 if saving_path.exists():
                     shutil.rmtree(saving_path)
                 try:
-                    self._write_dataset(loader, meta)
+                    meta = self._write_dataset(loader, meta)
                 except Exception:
                     # The files written so far are left as they are. An interruption
                     # (`KeyboardInterrupt`) is not an `Exception`: it is not reported here
@@ -188,11 +189,15 @@ class LeRobotSequencesExtractor:
 
     def _write_dataset(
         self, loader: MosaicoToLeRobotLoader, meta: LeRobotDatasetMeta
-    ) -> None:
+    ) -> LeRobotDatasetMeta:
         """
         Writes the dataset under the `root` of `meta`: the data of the episodes, streamed from
         their sequences (see `LeRobotWriter`), then the `meta/` folder (see
-        `LeRobotDatasetMeta.dump`).
+        `LeRobotDatasetMeta.dump`), with the stats of the episodes combined into
+        `meta/stats.json` (see `_aggregate_stats`).
+
+        Returns:
+            LeRobotDatasetMeta: The metadata written, with its `stats`.
 
         Raises:
             ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
@@ -206,7 +211,15 @@ class LeRobotSequencesExtractor:
                 )
                 writer.write_episode(streamer)
 
+        meta = LeRobotDatasetMeta.from_data(
+            meta.root,
+            meta.info,
+            list(meta.episodes_map.values()),
+            meta.tasks,
+            stats=_aggregate_stats(meta),
+        )
         meta.dump()
+        return meta
 
 
 # --- CLI Entry Point ---

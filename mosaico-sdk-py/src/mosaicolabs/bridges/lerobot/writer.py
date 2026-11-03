@@ -144,6 +144,61 @@ def _compute_stats(values: np.ndarray) -> Dict[str, np.ndarray]:
     }
 
 
+def _aggregate_stats(meta: LeRobotDatasetMeta) -> Dict[str, Dict[str, List]]:
+    """
+    Combines the episode stats of `meta` (see `LeRobotDatasetMeta.set_episode_stats`) into
+    those of the dataset (`meta/stats.json`), as LeRobot does (`aggregate_stats` in
+    `lerobot/datasets/compute_stats.py`): min, max, mean, std and count are exact; a quantile
+    up to q50 is the lowest among the episodes, above q50 the highest. A feature is combined
+    over the episodes that have stats for it.
+    """
+    dataset_stats: Dict[str, Dict[str, List]] = {}
+    for feature in meta.features:
+        # The stats of the feature in each episode that has them
+        episodes_stats = [
+            episode.stats[feature.key]
+            for episode in meta.episodes_map.values()
+            if feature.key in episode.stats
+        ]
+        if not episodes_stats:
+            # A video, or a camera without any sampled image
+            continue
+
+        # Each stat stacked over the episodes, a row per episode
+        stacked = {
+            name: np.array([stats[name] for stats in episodes_stats])
+            for name in episodes_stats[0]
+        }
+        counts = stacked["count"][:, 0]
+        mean = np.average(stacked["mean"], axis=0, weights=counts)
+
+        # The variance of each episode around the dataset mean, weighted by its frames
+        deviations = stacked["mean"] - mean
+        variance = np.average(
+            stacked["std"] ** 2 + deviations**2, axis=0, weights=counts
+        )
+
+        aggregated = {
+            "min": stacked["min"].min(axis=0),
+            "max": stacked["max"].max(axis=0),
+            "mean": mean,
+            "std": np.sqrt(variance),
+            "count": stacked["count"].sum(axis=0),
+        }
+
+        # The quantiles of the episodes cannot be combined exactly: keep the widest range
+        for name, quantile in _STATS_QUANTILES.items():
+            if quantile <= 0.5:
+                aggregated[name] = stacked[name].min(axis=0)
+            else:
+                aggregated[name] = stacked[name].max(axis=0)
+
+        dataset_stats[feature.key] = {
+            name: value.tolist() for name, value in aggregated.items()
+        }
+    return dataset_stats
+
+
 def _check_episode_stats(
     episode: LeRobotEpisode, stats: Dict[str, Dict[str, np.ndarray]]
 ) -> None:
