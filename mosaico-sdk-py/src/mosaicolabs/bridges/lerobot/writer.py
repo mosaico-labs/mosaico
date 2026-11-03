@@ -61,10 +61,10 @@ _CHECK_ATOL = 1e-8
 """The absolute tolerance of the debug check of the stats but the quantiles, for the values
 near 0 (e.g. the std of a constant column)."""
 
-_CHECK_QUANTILE_ATOL_SHARE = 0.02
+_CHECK_QUANTILE_ATOL_SHARE = 0.0005
 """The absolute tolerance of the quantiles in the debug check of the stats, as a share of
-`max - min`: LeRobot estimates them from a histogram (up to 1.4% of the range apart on real
-data)."""
+`max - min`: LeRobot estimates them from a 5000-bin histogram, so up to one bin (0.02% of the
+range) apart."""
 
 _RENUMBERED_COLUMNS = (_INDEX_COLUMN, _EPISODE_INDEX_COLUMN, _TASK_INDEX_COLUMN)
 """The columns renumbered on export: their stats differ from the source ones."""
@@ -120,8 +120,9 @@ def _compute_stats(values: np.ndarray) -> Dict[str, np.ndarray]:
     """
     Computes the stats of a feature in an episode, per column of `values`, as LeRobot does
     (`get_feature_stats` in `lerobot/datasets/compute_stats.py`): min, max, mean, std (divided
-    by n) and the quantiles of `_STATS_QUANTILES`, in `float64`. The quantiles are exact
-    (linear interpolation), where LeRobot estimates them from a histogram.
+    by n) and the quantiles of `_STATS_QUANTILES`, in `float64`. The quantiles are exact, with
+    the rule LeRobot estimates from a histogram: the first value where the count reaches
+    `q * n` (`inverted_cdf`), without interpolating between two values.
 
     Args:
         values (np.ndarray): The values, of shape `(rows, columns)`, with at least one row:
@@ -131,7 +132,9 @@ def _compute_stats(values: np.ndarray) -> Dict[str, np.ndarray]:
         Dict[str, np.ndarray]: Each stat, of shape `(columns,)`.
     """
     values = values.astype(np.float64, copy=False)
-    quantiles = np.quantile(values, list(_STATS_QUANTILES.values()), axis=0)
+    quantiles = np.quantile(
+        values, list(_STATS_QUANTILES.values()), axis=0, method="inverted_cdf"
+    )
     return {
         "min": values.min(axis=0),
         "max": values.max(axis=0),
