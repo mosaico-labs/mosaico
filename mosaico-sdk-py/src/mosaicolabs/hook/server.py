@@ -46,7 +46,7 @@ class HookServer:
         @hook
         def on_event(e: Event):
             if isinstance(e, TopicUploaded):
-                print(f"{e.topic} uploaded")
+                print(f"{e.topic_name} uploaded to {e.sequence_name}")
 
         if __name__ == "__main__":
             hook.start(host="0.0.0.0", port=8080)

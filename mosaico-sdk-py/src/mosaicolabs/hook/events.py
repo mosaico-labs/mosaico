@@ -2,31 +2,11 @@
 The events mosaicod sends to hooks, parsed from the JSON body of its requests.
 """
 
-import datetime
-from typing import Annotated, Any
+from typing import Any
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict
+from pydantic import BaseModel, ConfigDict
 
-_EPOCH = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
-
-
-def _datetime_from_ns(value: Any) -> Any:
-    """
-    Converts Unix nanoseconds, as mosaicod sends them, to a UTC datetime exact to the
-    microsecond. A datetime passes through, so events can be built by hand, for
-    example to test a receiver.
-    """
-    if isinstance(value, datetime.datetime):
-        return value
-
-    # `bool` is a subclass of `int`, but never a valid timestamp.
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ValueError("must be an integer number of Unix nanoseconds")
-
-    return _EPOCH + datetime.timedelta(microseconds=value // 1_000)
-
-
-_UnixNanos = Annotated[datetime.datetime, BeforeValidator(_datetime_from_ns)]
+from mosaicolabs.helpers.helpers import unpack_topic_full_path
 
 
 class Event(BaseModel):
@@ -41,9 +21,9 @@ class Event(BaseModel):
         def on_event(e: Event):
             match e:
                 case TopicUploaded():
-                    print(f"{e.topic} uploaded")
+                    print(f"{e.topic_name} uploaded to {e.sequence_name}")
                 case SessionUploaded():
-                    print(f"{len(e.topics)} topics in {e.session}")
+                    print(f"{len(e.topics)} topics uploaded to {e.sequence_name}")
         ```
 
     Attributes:
@@ -60,20 +40,21 @@ class TopicUploaded(Event):
     A topic's upload finished, and its data can't change anymore.
 
     Attributes:
-        topic: The topic, as `sequence/topic`.
-        sequence: The topic's sequence.
-        session: The session the topic was uploaded in, as `sequence:session`.
+        sequence_name: The topic's sequence.
+        topic_name: The topic.
+        session_locator: The session the topic was uploaded in, as
+            `sequence_name:session_identifier`.
         ontology_tag: The ontology tag of the topic's data.
         user_metadata: The metadata given when the topic was created, if any.
-        created_at: When the topic was created.
+        created_timestamp: When the topic was created, in Unix nanoseconds.
     """
 
-    topic: str
-    sequence: str
-    session: str
+    sequence_name: str
+    topic_name: str
+    session_locator: str
     ontology_tag: str
     user_metadata: dict[str, Any] | None
-    created_at: _UnixNanos
+    created_timestamp: int
 
 
 class SessionUploaded(Event):
@@ -81,16 +62,16 @@ class SessionUploaded(Event):
     A session was finalized, and all its topics are uploaded.
 
     Attributes:
-        session: The session, as `sequence:session`.
-        sequence: The session's sequence.
-        topics: The session's topics, each as `sequence/topic`.
-        created_at: When the session was created.
+        sequence_name: The session's sequence.
+        session_locator: The session, as `sequence_name:session_identifier`.
+        topics: The names of the session's topics.
+        created_timestamp: When the session was created, in Unix nanoseconds.
     """
 
-    session: str
-    sequence: str
+    sequence_name: str
+    session_locator: str
     topics: list[str]
-    created_at: _UnixNanos
+    created_timestamp: int
 
 
 class _Envelope(BaseModel):
@@ -114,13 +95,45 @@ def _parse_event(body: bytes) -> Event | None:
         pydantic.ValidationError: If the body isn't a valid event. It's a `ValueError`.
     """
     envelope = _Envelope.model_validate_json(body)
+    data = envelope.data
 
+    # mosaicod's names on the left, the SDK's on the right.
     match envelope.type:
         case "topic_uploaded":
-            event_type = TopicUploaded
+            return TopicUploaded.model_validate(
+                {
+                    "id": envelope.id,
+                    "sequence_name": data.get("sequence"),
+                    "topic_name": _topic_name(data.get("topic")),
+                    "session_locator": data.get("session"),
+                    "ontology_tag": data.get("ontology_tag"),
+                    "user_metadata": data.get("user_metadata"),
+                    "created_timestamp": data.get("created_at"),
+                }
+            )
         case "session_uploaded":
-            event_type = SessionUploaded
+            topics = data.get("topics")
+            return SessionUploaded.model_validate(
+                {
+                    "id": envelope.id,
+                    "sequence_name": data.get("sequence"),
+                    "session_locator": data.get("session"),
+                    "topics": (
+                        [_topic_name(topic) for topic in topics]
+                        if isinstance(topics, list)
+                        else topics
+                    ),
+                    "created_timestamp": data.get("created_at"),
+                }
+            )
         case _:
             return None
 
-    return event_type.model_validate({**envelope.data, "id": envelope.id})
+
+def _topic_name(locator: Any) -> Any:
+    """
+    Turns mosaicod's `sequence/topic` into the topic's name, `/topic`, as the rest of
+    the SDK names topics. Anything else is returned as is, for validation to reject.
+    """
+    unpacked = unpack_topic_full_path(locator) if isinstance(locator, str) else None
+    return unpacked[1] if unpacked else locator
