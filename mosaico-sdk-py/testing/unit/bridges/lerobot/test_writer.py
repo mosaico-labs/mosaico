@@ -12,6 +12,7 @@ from PIL import Image as PILImage
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.writer import (
     LeRobotWriter,
+    _aggregate_stats,
     _check_episode_stats,
     _compute_stats,
     _decode_stats_image,
@@ -124,6 +125,50 @@ def test_compute_stats_per_column():
     for name, value in expected.items():
         assert stats[name].dtype == np.float64
         np.testing.assert_allclose(stats[name], value)
+
+
+def test_aggregate_stats_as_lerobot(lerobot_dataset):
+    """Min, max, mean, std and count are those of all the frames; quantiles are the envelope."""
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    rng = np.random.default_rng(0)
+    frames = {
+        i: rng.normal(i, i + 1, size=(n, 2))
+        for i, n in zip(meta.episode_indexes, EPISODE_LENGTHS)
+    }
+    for i, values in frames.items():
+        stats = {**_compute_stats(values), "count": np.array([len(values)])}
+        image = {
+            k: v.reshape(-1, 1, 1) if k != "count" else v for k, v in stats.items()
+        }
+        last = i == meta.episode_indexes[-1]
+        meta.set_episode_stats(
+            i,
+            {STATE_COLUMN_NAME: stats}
+            if last
+            else {STATE_COLUMN_NAME: stats, CAMERA_COLUMN_NAMES[0]: image},
+        )
+
+    stats = _aggregate_stats(meta)
+
+    for key, episodes, shape in [
+        (STATE_COLUMN_NAME, list(frames), (-1,)),
+        (
+            CAMERA_COLUMN_NAMES[0],
+            list(frames)[:-1],
+            (-1, 1, 1),
+        ),  # the last episode has no image
+    ]:
+        expected = _compute_stats(np.concatenate([frames[i] for i in episodes]))
+        for name in ("min", "max", "mean", "std"):
+            np.testing.assert_allclose(stats[key][name], expected[name].reshape(shape))
+        assert stats[key]["count"] == [sum(len(frames[i]) for i in episodes)]
+        stored = [meta.episodes_map[i].stats[key] for i in episodes]
+        np.testing.assert_allclose(
+            stats[key]["q10"], np.min([s["q10"] for s in stored], axis=0)
+        )
+        np.testing.assert_allclose(
+            stats[key]["q90"], np.max([s["q90"] for s in stored], axis=0)
+        )
 
 
 @pytest.mark.parametrize("frames_without_image", [1, EPISODE_LENGTHS[0]])
