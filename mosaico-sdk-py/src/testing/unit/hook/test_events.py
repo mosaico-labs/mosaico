@@ -1,12 +1,9 @@
-import datetime
 import json
 
 import pytest
 
 from mosaicolabs.hook import SessionUploaded, TopicUploaded
 from mosaicolabs.hook.events import _parse_event
-
-UTC = datetime.timezone.utc
 
 # The same bodies mosaicod's own tests pin, in `mosaicod-marshal/src/hook.rs`.
 TOPIC_UPLOADED = {
@@ -41,13 +38,20 @@ def parse(payload) -> object:
 def test_topic_uploaded():
     assert parse(TOPIC_UPLOADED) == TopicUploaded(
         id="0b6f2c1e-4f1a-4c8e-9a43-2d7e5b1f6a90",
-        topic="drive_042/front_camera",
-        sequence="drive_042",
-        session="drive_042:session",
+        sequence_name="drive_042",
+        topic_name="/front_camera",
+        session_locator="drive_042:session",
         ontology_tag="image",
         user_metadata={"driver": "Ada"},
-        created_at=datetime.datetime(1970, 1, 1, 0, 0, 0, 1, tzinfo=UTC),
+        created_timestamp=1_000,
     )
+
+
+def test_nested_topic_name():
+    payload = json.loads(json.dumps(TOPIC_UPLOADED))
+    payload["data"]["topic"] = "drive_042/sensors/front_camera"
+
+    assert parse(payload).topic_name == "/sensors/front_camera"
 
 
 def test_topic_uploaded_without_user_metadata():
@@ -60,20 +64,10 @@ def test_topic_uploaded_without_user_metadata():
 def test_session_uploaded():
     assert parse(SESSION_UPLOADED) == SessionUploaded(
         id="0b6f2c1e-4f1a-4c8e-9a43-2d7e5b1f6a90",
-        session="drive_042:session",
-        sequence="drive_042",
-        topics=["drive_042/front_camera", "drive_042/imu"],
-        created_at=datetime.datetime(1970, 1, 1, 0, 0, 0, 1, tzinfo=UTC),
-    )
-
-
-def test_created_at_is_exact_to_the_microsecond():
-    payload = json.loads(json.dumps(SESSION_UPLOADED))
-    # 2026-11-03 12:00:00.123456789 UTC
-    payload["data"]["created_at"] = 1_793_707_200_123_456_789
-
-    assert parse(payload).created_at == datetime.datetime(
-        2026, 11, 3, 12, 0, 0, 123_456, tzinfo=UTC
+        sequence_name="drive_042",
+        session_locator="drive_042:session",
+        topics=["/front_camera", "/imu"],
+        created_timestamp=1_000,
     )
 
 

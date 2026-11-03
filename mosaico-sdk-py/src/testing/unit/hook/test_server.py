@@ -69,9 +69,9 @@ def test_every_receiver_gets_every_event(hook):
         topic = received.get(timeout=TIMEOUT)
         session = received.get(timeout=TIMEOUT)
         assert isinstance(topic, TopicUploaded) and topic.id == "1"
-        assert topic.topic == "drive_042/front_camera"
+        assert topic.topic_name == "/front_camera"
         assert isinstance(session, SessionUploaded) and session.id == "2"
-        assert session.topics == ["drive_042/front_camera", "drive_042/imu"]
+        assert session.topics == ["/front_camera", "/imu"]
 
 
 def test_receivers_run_in_registration_order(hook):
