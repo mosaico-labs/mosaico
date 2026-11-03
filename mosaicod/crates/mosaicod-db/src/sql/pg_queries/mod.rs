@@ -39,3 +39,6 @@ pub use topic_optimization_record::*;
 
 mod instance_registry_record;
 pub use instance_registry_record::*;
+
+mod hook_record;
+pub use hook_record::*;
