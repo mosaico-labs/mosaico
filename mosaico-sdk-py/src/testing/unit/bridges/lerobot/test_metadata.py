@@ -4,6 +4,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Dict
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -17,6 +18,7 @@ from mosaicolabs.bridges.lerobot.schema_metadata import LeRobotSchemaMetadata
 
 from .config import (
     ACTION_COLUMN_NAME,
+    CAMERA_COLUMN_NAMES,
     DATA_PATH,
     DATA_SCHEMA,
     EPISODE_LENGTHS,
@@ -312,3 +314,22 @@ def test_dump_writes_the_tasks_as_lerobot_reads_them(lerobot_dataset, tmp_path):
     tasks = pd.read_parquet(tmp_path / "meta" / "tasks.parquet")
     assert list(tasks.index) == [TASK]
     assert tasks.loc[TASK, "task_index"] == 0
+
+
+def test_set_episode_stats_is_dumped(lerobot_dataset, tmp_path):
+    """The stats replace the source ones, as lists, and `dump` writes them."""
+    meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path)
+    stats = {
+        STATE_COLUMN_NAME: {"mean": np.array([1.0, 2.0]), "count": np.array([5])},
+        CAMERA_COLUMN_NAMES[0]: {"mean": np.full((3, 1, 1), 0.5)},
+    }
+
+    for episode_index in meta.episode_indexes:
+        meta.set_episode_stats(episode_index, stats)
+    meta.dump()
+
+    assert meta.episodes_map[0].stats == {
+        STATE_COLUMN_NAME: {"mean": [1.0, 2.0], "count": [5]},
+        CAMERA_COLUMN_NAMES[0]: {"mean": [[[0.5]], [[0.5]], [[0.5]]]},
+    }
+    assert LeRobotDatasetMeta.load(tmp_path) == meta

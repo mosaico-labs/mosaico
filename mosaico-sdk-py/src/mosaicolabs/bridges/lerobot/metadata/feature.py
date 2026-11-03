@@ -74,6 +74,14 @@ class LeRobotFeature:
         """Whether the feature is stored in separate video files."""
         return self.dtype == "video"
 
+    def is_depth_map(self) -> bool:
+        """
+        Whether the feature is flagged as a depth map in its `info`, as LeRobot reads it
+        (`is_depth_map` in `lerobot/configs/video.py`).
+        """
+        info = self.info or {}
+        return bool(info.get("is_depth_map") or info.get("video.is_depth_map"))
+
     def is_timestamp(self) -> bool:
         """Whether the feature is the `timestamp` column (seconds since the episode start)."""
         return self.key == _TIMESTAMP_COLUMN_NAME
