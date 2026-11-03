@@ -710,6 +710,26 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
         0
     );
 
+    // The `metadata.json` written to the store at finalization agrees with the database.
+    let topic_record =
+        db::topic_find_by_locator(&mut server.db.connection(), &topic_name.parse().unwrap())
+            .await
+            .unwrap();
+    let bytes = server
+        .store
+        .read_bytes(topic_record.path_in_store().unwrap().path_metadata())
+        .await
+        .unwrap();
+    let stored_metadata = marshal::JsonTopicMetadata::try_from(bytes).unwrap();
+    assert_eq!(
+        stored_metadata.properties.completed_at,
+        app_metadata
+            .metadata
+            .properties
+            .completed_at
+            .map(|ts| ts.as_i64())
+    );
+
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_bytes, 895);
     let ts_range: types::TimestampRange = app_metadata.data_info.timestamp_range;
