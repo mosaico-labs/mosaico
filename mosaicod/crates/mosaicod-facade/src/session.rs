@@ -55,8 +55,9 @@ pub async fn try_create(
 
 /// Finalizes the session, making it and all its associated data immutable.
 ///
-/// Once a session is finalized, no more topics can be added to it.
-pub async fn finalize(context: &Context, uuid: &types::Uuid) -> Result<()> {
+/// Once a session is finalized, no more topics can be added to it. Returns the session's
+/// metadata.
+pub async fn finalize(context: &Context, uuid: &types::Uuid) -> Result<types::SessionMetadata> {
     let mut tx = context.db.transaction().await?;
 
     // Getting this record with an exclusive lock prevents other concurrent session finalize on the
@@ -107,16 +108,17 @@ pub async fn finalize(context: &Context, uuid: &types::Uuid) -> Result<()> {
         }
     }
 
-    db::session_finalize(
-        &mut tx,
-        session_record.session_id,
-        types::Timestamp::now().as_i64(),
-    )
-    .await?;
+    let completed_at = types::Timestamp::now();
+    db::session_finalize(&mut tx, session_record.session_id, completed_at.as_i64()).await?;
 
     tx.commit().await?;
 
-    Ok(())
+    Ok(types::SessionMetadata {
+        locator: session_locator,
+        topics: topics.iter().map(|t| t.locator()).collect(),
+        created_at: session_record.creation_timestamp(),
+        completed_at: Some(completed_at),
+    })
 }
 
 /// Deletes the session from the database.

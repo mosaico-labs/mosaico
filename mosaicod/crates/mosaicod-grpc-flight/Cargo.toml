@@ -18,6 +18,7 @@ mosaicod-rw = { workspace = true }
 mosaicod-ext = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-facade = { workspace = true }
+mosaicod-hook = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-query = { workspace = true }
 tokio = { workspace = true }
