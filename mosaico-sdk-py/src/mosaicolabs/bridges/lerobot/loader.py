@@ -239,7 +239,7 @@ class LeRobotLoader(BaseLoader):
         Iterates over the episodes of the dataset, in episode index order.
 
         Each episode is ingested as its own sequence: the yielded `LeRobotEpisodeLoader` streams
-        the messages of that episode only.
+        the messages of that episode only in batches.
 
         Yields:
             LeRobotEpisodeLoader: One loader per episode.
@@ -254,7 +254,7 @@ class LeRobotEpisodeLoader:
     """
     A single episode of a LeRobot dataset, as yielded by iterating over a `LeRobotLoader`.
 
-    Iterating over it streams the messages of the episode, which is ingested as its own sequence.
+    Iterating over it streams the messages of the episode in batches, which is ingested as its own sequence.
     """
 
     def __init__(self, reader: LeRobotReader, episode_index: int):
