@@ -1,6 +1,18 @@
-FROM rust:1.92-slim-bookworm AS builder
+# Two images, built from the same sources:
+#
+# - `server` (the default target): mosaicod without the `video` feature, with no
+#   FFmpeg, to build or to run. Its store optimizer leaves image sequences to an
+#   optimizer built with `video`; its server reads back their videos, whole or
+#   as MPEG-DASH segments, but not their images.
+# - `optimizer`: mosaicod with the `video-static` feature, FFmpeg linked in, whose store
+#   optimizer turns image sequences into videos, and whose server reads back
+#   their images too. It is the same binary, with every subcommand: run it as
+#   `mosaicod store-optimizer`, or `mosaicod server`.
+#
+#   docker build -f docker/dockerfiles/Dockerfile.mosaicod .                      # server
+#   docker build -f docker/dockerfiles/Dockerfile.mosaicod --target optimizer .   # optimizer
 
-ARG GIT_HASH=undefined
+FROM rust:1.92-slim-bookworm AS toolchain
 
 WORKDIR /mosaicod
 
@@ -9,7 +21,28 @@ RUN apt-get update && \
   pkg-config \
   libpq-dev \
   build-essential \
-  ca-certificates 
+  ca-certificates
+
+# mosaicod-video needs FFmpeg's FFV1 encoder and decoder and its MP4
+# muxer and demuxer: built from source with only those, so that the libraries
+# depend on nothing but the C library. Its Rust bindings are generated from
+# the FFmpeg headers with libclang.
+FROM toolchain AS video-toolchain
+
+RUN apt-get update && \
+  apt-get install -y \
+  curl \
+  xz-utils \
+  nasm \
+  libclang-dev
+
+COPY scripts/install-ffmpeg /usr/local/bin/install-ffmpeg
+RUN install-ffmpeg /opt/ffmpeg
+ENV PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig
+
+FROM toolchain AS server-builder
+
+ARG GIT_HASH=undefined
 
 COPY mosaicod/Cargo.toml mosaicod/Cargo.lock ./
 COPY mosaicod/crates ./crates
@@ -22,10 +55,35 @@ COPY proto /proto
 
 RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 
-FROM gcr.io/distroless/cc-debian12
+FROM video-toolchain AS optimizer-builder
+
+ARG GIT_HASH=undefined
+
+COPY mosaicod/Cargo.toml mosaicod/Cargo.lock ./
+COPY mosaicod/crates ./crates
+COPY mosaicod/tests ./tests
+COPY mosaicod/bin ./bin
+COPY proto /proto
+
+# FFmpeg linked in statically: nothing of it to install in the runtime image.
+RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker --features video-static
+
+FROM gcr.io/distroless/cc-debian12 AS optimizer
 
 WORKDIR /mosaicod
 
-COPY --from=builder /mosaicod/target/docker/mosaicod /usr/local/bin/mosaicod
+COPY --from=optimizer-builder /mosaicod/target/docker/mosaicod /usr/local/bin/mosaicod
+# FFmpeg's license (LGPL 2.1 or later) and where its source is, for the FFmpeg
+# linked into mosaicod.
+COPY --from=optimizer-builder /opt/ffmpeg/share/licenses/ffmpeg/ /usr/share/licenses/ffmpeg/
+
+ENTRYPOINT ["mosaicod"]
+
+# The default target: the last stage.
+FROM gcr.io/distroless/cc-debian12 AS server
+
+WORKDIR /mosaicod
+
+COPY --from=server-builder /mosaicod/target/docker/mosaicod /usr/local/bin/mosaicod
 
 ENTRYPOINT ["mosaicod"]

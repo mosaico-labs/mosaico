@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM topic_optimization_t WHERE topic_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c3a4c5dcd87aa7b0d599d2e2f83eee3816e926e1480e7b27267a1265440ec4eb"
+}

@@ -9,6 +9,13 @@ license.workspace = true
 [lib]
 name = "mosaicod_task"
 
+[features]
+# The store optimizer turns image sequences into FFV1 videos, with FFmpeg (its FFV1 codec and MP4
+# format). Without it, image sequences are left to an optimizer built with it.
+video = ["dep:mosaicod-ext", "dep:mosaicod-image", "dep:mosaicod-video", "dep:tempfile"]
+# `video`, with FFmpeg linked statically.
+video-static = ["video", "mosaicod-video/ffmpeg-static"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
@@ -24,8 +31,13 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 datafusion = { workspace = true }
 futures = { workspace = true }
+mosaicod-ext = { workspace = true, optional = true }
+mosaicod-image = { workspace = true, optional = true }
+mosaicod-video = { workspace = true, features = ["ffmpeg"], optional = true }
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
+mosaicod-image = { workspace = true, features = ["testing"] }
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 sqlx = { workspace = true }

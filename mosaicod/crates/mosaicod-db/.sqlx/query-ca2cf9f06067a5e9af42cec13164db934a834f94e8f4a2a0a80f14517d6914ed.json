@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT topic_optimization_t.*\n           FROM topic_optimization_t\n           JOIN topic_t ON topic_t.topic_id = topic_optimization_t.topic_id\n           WHERE topic_optimization_t.start_unix_tstamp IS NULL\n             AND NOT (topic_t.serialization_format = ANY($1))\n           ORDER BY topic_optimization_t.topic_id ASC\n           LIMIT 1\n           FOR UPDATE OF topic_optimization_t SKIP LOCKED\n           ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "topic_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "opt_path_in_store",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "start_unix_tstamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ca2cf9f06067a5e9af42cec13164db934a834f94e8f4a2a0a80f14517d6914ed"
+}

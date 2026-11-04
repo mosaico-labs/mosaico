@@ -42,6 +42,79 @@ jobs:
           cargo clippy -- -D warnings
           RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items
 
+  # The `video` feature (image sequences turned into videos by the store optimizer) is off by
+  # default, and needs FFmpeg: checked and tested here as the optimizer image builds it, with
+  # FFmpeg built by `scripts/install-ffmpeg` and linked statically (`video-static`).
+  video:
+    name: "Backend: video feature"
+    runs-on: ubuntu-24.04
+    # The image sequence tests read back the videos the store optimizer writes, through a server:
+    # with a database, as `scripts/tests`.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: mosaico
+        ports:
+          - 6543:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mosaico"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PKG_CONFIG_PATH: /opt/ffmpeg/lib/pkgconfig
+      SQLX_OFFLINE: "true"
+      MOSAICOD_DB_URL: postgresql://localhost:6543/mosaico
+      MOSAICOD_DB_USER: postgres
+      MOSAICOD_DB_PASSWORD: password
+      MOSAICOD_STORE_ENDPOINT: file:///tmp
+      MOSAICOD_STORE_BUCKET: mosaico-auto-testing
+      DATABASE_URL: postgresql://postgres:password@localhost:6543/mosaico
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          workspaces: "mosaicod -> target"
+          key: video
+
+      - name: Install System Dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev build-essential curl xz-utils nasm pkg-config libclang-dev
+
+      - name: Cache FFmpeg
+        id: cache-ffmpeg
+        uses: actions/cache@v4
+        with:
+          path: /opt/ffmpeg
+          key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install-ffmpeg') }}
+
+      - name: Build FFmpeg
+        if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        run: sudo ./scripts/install-ffmpeg /opt/ffmpeg
+
+      - name: Lint
+        working-directory: mosaicod
+        run: |
+          cargo clippy --workspace --all-targets --features mosaicod/video-static,tests/video-static -- -D warnings
+          RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items --features mosaicod/video-static
+
+      - name: Tests
+        working-directory: mosaicod
+        run: |
+          cargo test -p mosaicod-image -p mosaicod-video --features mosaicod-video/ffmpeg-static
+          cargo test -p mosaicod-task --features video-static --lib store_optimizer
+          cargo test -p mosaicod-grpc-flight --features video,mosaicod-video/ffmpeg-static image_sequence
+          cargo test -p tests --features video-static --test image_sequence
+
   unit-tests:
     name: "Backend: unit tests"
     needs: [static-analysis]

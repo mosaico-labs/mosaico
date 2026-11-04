@@ -324,6 +324,7 @@ async fn test_do_get_nonexistent_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let ticket_payload = types::flight::TicketTopic {
         locator: fake_locator,
         timestamp_range: None,
+        image_sequence_view: types::flight::ImageSequenceView::Images,
     };
 
     let fake_ticket = Ticket {

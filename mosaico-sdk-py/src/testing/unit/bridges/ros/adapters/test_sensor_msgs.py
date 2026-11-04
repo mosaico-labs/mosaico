@@ -17,6 +17,7 @@ from mosaicolabs import (
     GPSStatus,
     Image,
     ImageFormat,
+    ImageSequenceRaw,
     Joy,
     Magnetometer,
     Message,
@@ -36,6 +37,7 @@ from mosaicolabs.bridges.ros.adapters import (
     BatteryStateAdapter,
     CameraInfoAdapter,
     CompressedImageAdapter,
+    DeprecatedImageAdapter,
     GPSAdapter,
     ImageAdapter,
     IMUAdapter,
@@ -70,6 +72,7 @@ from testing.unit.bridges.ros.adapters.helper import (
     assert_gps,
     assert_gps_status,
     assert_image,
+    assert_image_raw,
     assert_imu,
     assert_joy,
     assert_laserscan,
@@ -690,6 +693,22 @@ def image_w_header(image_raw, ms_header):
 
 
 @pytest.fixture
+def image_sequence_raw():
+    # 2x2 mono16, big-endian, rows padded with 2 bytes: stride = 2 × 2 + 2 = 6 bytes/row
+    return ImageSequenceRaw(
+        capture_timestamp_ns=100_000_000_200,
+        width=2,
+        height=2,
+        stride=6,
+        encoding="mono16",
+        is_bigendian=True,
+        data=bytes([1, 2, 3, 4, 0, 0, 5, 6, 7, 8, 0, 0]),
+        frame_id="base_link",
+        sample_counter=42,
+    )
+
+
+@pytest.fixture
 def image_rosmsg(ros_header):
     return ROSMessage(
         bag_timestamp_ns=100,
@@ -710,10 +729,40 @@ def image_rosmsg(ros_header):
 
 
 class TestImageAdapter:
-    def test_translate_image_sentence(self, image_rosmsg: ROSMessage):
+    def test_translate_image(self, image_rosmsg: ROSMessage):
         ms_msg = ImageAdapter.translate(image_rosmsg)
 
-        assert_image(ms_msg.get_data(Image), image_rosmsg.data_field)
+        image = ms_msg.get_data(ImageSequenceRaw)
+        assert_image_raw(image, image_rosmsg.data_field)
+        # Captured at the stamp of its header: 100 s and 200 ns.
+        assert image.capture_timestamp_ns == 100_000_000_200
+        assert image.frame_id == "base_link"
+        assert image.sample_counter is None
+        assert ms_msg.timestamp_ns == 100
+
+    def test_translate_keeps_the_ros1_seq(self, image_rosmsg: ROSMessage):
+        image_rosmsg.data_field["header"]["seq"] = 7
+        image = ImageAdapter.translate(image_rosmsg).get_data(ImageSequenceRaw)
+        assert image.sample_counter == 7
+
+    @pytest.mark.parametrize(
+        "header",
+        [
+            None,
+            {"frame_id": "", "stamp": {"sec": 0, "nanosec": 0}},
+            # A frame, but no stamp.
+            {"frame_id": "camera", "stamp": {"sec": 0, "nanosec": 0}},
+        ],
+    )
+    def test_translate_without_stamp_raises(self, image_rosmsg: ROSMessage, header):
+        if header is None:
+            image_rosmsg.data_field.pop("header")
+        else:
+            image_rosmsg.data_field["header"] = header
+        with pytest.raises(ValueError, match="no capture time"):
+            ImageAdapter.from_dict(image_rosmsg.data_field)
+        with pytest.raises(Exception, match="no capture time"):
+            ImageAdapter.translate(image_rosmsg)
 
     def test_translate_raise_missing_required_key(self, image_rosmsg: ROSMessage):
         data = image_rosmsg.data_field
@@ -722,39 +771,90 @@ class TestImageAdapter:
             ImageAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_raw, typestore, "sensor_msgs/msg/Image")
-        assert_image(image_raw, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_image_png(self, image_png: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_png, typestore, "sensor_msgs/msg/Image")
-        assert_image(image_png, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_image_message(self, image_w_header: Image, typestore: Typestore):
+    def test_to_ros_image(
+        self, image_sequence_raw: ImageSequenceRaw, typestore: Typestore
+    ):
         ros_msg = ImageAdapter.to_ros(
-            image_w_header, typestore, "sensor_msgs/msg/Image"
+            image_sequence_raw, typestore, "sensor_msgs/msg/Image"
         )
-        assert_image(image_w_header, asdict(ros_msg))
+        assert_image_raw(image_sequence_raw, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_default_type(self, image_raw: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_raw, typestore)
-        assert_image(image_raw, asdict(ros_msg))
+    def test_to_ros_default_type(
+        self, image_sequence_raw: ImageSequenceRaw, typestore: Typestore
+    ):
+        image_sequence_raw.frame_id = None
+        image_sequence_raw.sample_counter = None
+        ros_msg = ImageAdapter.to_ros(
+            Message(timestamp_ns=1, data=image_sequence_raw), typestore
+        )
+        assert_image_raw(image_sequence_raw, asdict(ros_msg))
 
-    def test_to_ros_invalid_rosmsg_type(self, image_raw: Image):
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_round_trip(self, image_rosmsg: ROSMessage, typestore: Typestore):
+        image = ImageAdapter.translate(image_rosmsg)
+        ros_msg = asdict(ImageAdapter.to_ros(image, typestore))
+
+        original = image_rosmsg.data_field
+        assert ros_msg["header"]["frame_id"] == original["header"]["frame_id"]
+        for key in ("sec", "nanosec"):
+            assert ros_msg["header"]["stamp"][key] == original["header"]["stamp"][key]
+        for key in ("height", "width", "encoding", "step"):
+            assert ros_msg[key] == original[key], key
+        assert ros_msg["is_bigendian"] == int(original["is_bigendian"])
+        assert np.array_equal(ros_msg["data"], original["data"])
+
+    def test_to_ros_invalid_rosmsg_type(self, image_sequence_raw: ImageSequenceRaw):
         with pytest.raises(
             TypeError,
             match=f"Adapter {ImageAdapter.__name__} does not support sensor_msgs/msg/Bogus",
         ):
             ImageAdapter.to_ros(
-                image_raw, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+                image_sequence_raw,
+                get_typestore(Stores.LATEST),
+                "sensor_msgs/msg/Bogus",
             )
 
-    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
-        with pytest.raises(TypeError):
-            ImageAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg, image_raw: Image):
+        for invalid in (invalid_ms_msg, image_raw):
+            with pytest.raises(TypeError):
+                ImageAdapter.to_ros(invalid, get_typestore(Stores.LATEST))
+
+
+class TestDeprecatedImageAdapter:
+    def test_image_topics_are_exported_by_it(self):
+        from mosaicolabs.bridges.ros import ROSBridge
+
+        assert (
+            ROSBridge.get_default_mosaico_adapter(Image.ontology_tag())
+            is DeprecatedImageAdapter
+        )
+        assert (
+            ROSBridge.get_default_mosaico_adapter(ImageSequenceRaw.ontology_tag())
+            is ImageAdapter
+        )
+        assert ROSBridge.get_default_adapter("sensor_msgs/msg/Image") is ImageAdapter
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):
+        ros_msg = DeprecatedImageAdapter.to_ros(
+            image_raw, typestore, "sensor_msgs/msg/Image"
+        )
+        assert_image(image_raw, asdict(ros_msg))
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_png(self, image_png: Image, typestore: Typestore):
+        ros_msg = DeprecatedImageAdapter.to_ros(
+            image_png, typestore, "sensor_msgs/msg/Image"
+        )
+        assert_image(image_png, asdict(ros_msg))
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_message(self, image_w_header: Image, typestore: Typestore):
+        ros_msg = DeprecatedImageAdapter.to_ros(
+            image_w_header, typestore, "sensor_msgs/msg/Image"
+        )
+        assert_image(image_w_header, asdict(ros_msg))
 
 
 ###############################################################################

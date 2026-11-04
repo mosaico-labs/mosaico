@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO topic_notification_t\n               (topic_notification_uuid, topic_id, notification_type, msg, creation_unix_tstamp)\n           VALUES ($1, $2, $3, $4, $5)\n           ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "78aff4c6978a5ac72bffce121468e929dd3cd52aee799476a90eaeccd0265d9f"
+}

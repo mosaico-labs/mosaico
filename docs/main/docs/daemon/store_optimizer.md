@@ -43,6 +43,27 @@ On completion, the routine logs how many topics were optimized successfully and 
 
 See the [CLI reference](cli.md#mosaicod-store-optimizer) for more examples.
 
+## Image sequences
+
+Topics of image sequences, of PNGs (`ImageSequence`) or of raw images (`ImageSequenceRaw`, e.g. from a ROS `sensor_msgs/Image`), are turned into lossless videos, which needs `mosaicod` built with the [`video` feature](install.md#the-video-feature): the `mosaicod-optimizer` image. A store optimizer without it, as in the `mosaicod` image, or whose FFmpeg lacks what it needs (an error in its log), optimizes every other topic and leaves image sequences in the queue, untouched, for one that can. The store optimizer can then run on a machine with FFmpeg, and the server on another.
+
+Every column of a topic but the images (timestamps, `frame_id` and `sample_counter` from the ROS header, the layout of raw images, any other) is kept next to the video, in its frame index, and read back with the images: raw images byte for byte, PNGs pixel for pixel.
+
+Raw images can be a video in these encodings: `mono8`, `mono16`, `8UC1`, `16UC1`, `16SC1`, `rgb8`, `bgr8`, `rgba8`, `bgra8`, `8UC3`, `8UC4`, `rgb16`, `bgr16`, `rgba16`, `bgra16`, `16UC3`, `16UC4`, and the Bayer ones of 8 and 16 bits. Floating point encodings, such as `32FC1` depth images, and YUV ones (`yuv422`, `uyvy`, `yuyv`) can't yet.
+
+When the images of a topic can't be turned into a video, the topic keeps them as they were uploaded, and the store optimizer writes why in an `error` notification on the topic, `store optimizer/<issue>: <details>`:
+
+| Issue | Meaning | Retried |
+| :--- | :--- | :--- |
+| `format_mismatch` | a PNG has no format, one that is not supported (only `png` is), or not that of the other images | no |
+| `undecodable` | a PNG is not valid, or can't be decoded; a raw image's bytes don't match its size and stride | no |
+| `unsupported` | the images can't be a video without losing data: of different sizes, a column of the ontology missing, raw images of an encoding a video can't hold yet, or with row padding other than zeros | no |
+| `failed` | something failed that may not last (the store, the network, the database, FFmpeg) | yes, on the next run, notified at every attempt |
+
+For example: `store optimizer/undecodable: image recorded at 1767225600000000000 ns: invalid png image: ...`.
+
+See [Image Sequences](retrieval.md#image-sequences) for reading them back: as uploaded, from the video (which needs a server built with the `video` feature too), or as the video itself, in segments of a second.
+
 ## Distributed Coordination
 
 As with the [cleanup routine](cleanup.md#distributed-coordination), you may run several `mosaicod store-optimizer` processes at once. Leasing a topic before rewriting it ensures two instances never optimize the same topic concurrently: an instance that picks up an already-leased topic simply skips it and moves on to the next one in the queue.

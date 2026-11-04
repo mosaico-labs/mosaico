@@ -59,6 +59,7 @@ where
             ErrorKind::UnsupportedOntologyType(_) => Code::InvalidArgument,
             ErrorKind::InvalidConfiguration(_) => Code::Unknown,
             ErrorKind::UnsupportedTime(_) => Code::InvalidArgument,
+            ErrorKind::UnsupportedRetrieval(_) => Code::FailedPrecondition,
             ErrorKind::InvalidFingerprint(_) => Code::InvalidArgument,
             ErrorKind::LocatorKindMismatch(_, _) => Code::InvalidArgument,
         }

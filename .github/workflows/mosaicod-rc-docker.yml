@@ -46,20 +46,28 @@ jobs:
         run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Build (${{ matrix.platform }})
+    name: Build ${{ matrix.image }} (${{ matrix.platform }})
     needs: check-version
     if: needs.check-version.outputs.is_rc == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+      # `mosaicod` is the server, with no FFmpeg; `mosaicod-optimizer` the store optimizer, built
+      # with the `video` feature and FFmpeg (see docker/dockerfiles/Dockerfile.mosaicod).
+        image: [mosaicod, mosaicod-optimizer]
+        platform: [linux/amd64, linux/arm64]
         include:
-          - runner: ubuntu-latest
-            platform: linux/amd64
+          - platform: linux/amd64
+            runner: ubuntu-latest
             platform_slug: amd64
-          - runner: ubuntu-24.04-arm
-            platform: linux/arm64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
             platform_slug: arm64
+          - image: mosaicod
+            target: server
+          - image: mosaicod-optimizer
+            target: optimizer
 
     steps:
       - name: Checkout repository
@@ -81,12 +89,13 @@ jobs:
         with:
           context: .
           file: docker/dockerfiles/Dockerfile.mosaicod
+          target: ${{ matrix.target }}
           platforms: ${{ matrix.platform }}
           build-args: |
             GIT_HASH=${{ github.sha }}
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.platform_slug }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.platform_slug }}
 
       - name: Export digest
         run: |
@@ -97,22 +106,25 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ matrix.platform_slug }}
+          name: digests-${{ matrix.image }}-${{ matrix.platform_slug }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
 
   merge:
-    name: Merge multi-arch manifest
+    name: Merge multi-arch manifest (${{ matrix.image }})
     needs: [check-version, build]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [mosaicod, mosaicod-optimizer]
 
     steps:
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: digests-${{ matrix.image }}-*
           merge-multiple: true
 
       - name: Log in to GitHub Container Registry
@@ -130,8 +142,9 @@ jobs:
           VERSION: ${{ needs.check-version.outputs.version }}
           SHORT_SHA: ${{ needs.check-version.outputs.short_sha }}
           OWNER: ${{ github.repository_owner }}
+          IMAGE_NAME: ${{ matrix.image }}
         run: |
-          IMAGE="ghcr.io/${OWNER}/mosaicod"
+          IMAGE="ghcr.io/${OWNER}/${IMAGE_NAME}"
           DIGESTS=$(printf "${IMAGE}@sha256:%s " $(ls /tmp/digests))
 
           docker buildx imagetools create \
@@ -142,14 +155,14 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect \
-            ghcr.io/${{ github.repository_owner }}/mosaicod:${{ needs.check-version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ needs.check-version.outputs.version }}
 
       - name: Job summary
         run: |
-          IMAGE="ghcr.io/${{ github.repository_owner }}/mosaicod"
+          IMAGE="ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}"
           VERSION="${{ needs.check-version.outputs.version }}"
           SHORT_SHA="${{ needs.check-version.outputs.short_sha }}"
-          echo "### RC Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "### RC Docker Image Published: \`${{ matrix.image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Tag | Image |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY

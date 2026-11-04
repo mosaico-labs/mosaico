@@ -1,0 +1,25 @@
+[package]
+name = "mosaicod-video"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_video"
+
+[features]
+# The encoder and the decoder: need FFmpeg, with its FFV1 codec and MP4 format.
+ffmpeg = ["dep:ffmpeg-the-third"]
+# FFmpeg linked statically, as `scripts/install-ffmpeg` builds it.
+ffmpeg-static = ["ffmpeg", "ffmpeg-the-third/static"]
+
+[dependencies]
+mosaicod-image = { workspace = true }
+ffmpeg-the-third = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+mosaicod-image = { workspace = true, features = ["testing"] }
+tempfile = { workspace = true }

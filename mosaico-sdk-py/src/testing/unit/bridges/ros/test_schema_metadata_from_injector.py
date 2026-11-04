@@ -36,6 +36,11 @@ class _FakeAdapter:
     def ontology_data_type():
         return "Null"
 
+    @staticmethod
+    def translate(ros_msg):
+        # The first message of a topic is translated before the topic is created.
+        return None
+
 
 class _FakeAdapterNoSchema(_FakeAdapter):
     @staticmethod

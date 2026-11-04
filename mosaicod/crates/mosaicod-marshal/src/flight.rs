@@ -21,7 +21,56 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
     Ok(types::flight::GetFlightInfoCmd {
         locator: cmd.locator,
         timestamp_range: ts_range,
+        image_sequence_view: image_sequence_view_from_proto(cmd.image_sequence)?,
     })
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// IMAGE SEQUENCE VIEW
+// ////////////////////////////////////////////////////////////////////////////
+
+fn image_sequence_view_from_proto(
+    request: Option<proto_flight::ImageSequenceRequest>,
+) -> Result<types::flight::ImageSequenceView, Error> {
+    use proto_flight::image_sequence_request::View;
+    use types::flight::{ImageSequenceView, VideoInterval};
+
+    Ok(match request.and_then(|r| r.view) {
+        None | Some(View::Images(_)) => ImageSequenceView::Images,
+        Some(View::Video(video)) => ImageSequenceView::Video {
+            interval: match video.interval {
+                None => None,
+                Some(i) if i.start_s < i.end_s => Some(VideoInterval {
+                    start_s: i.start_s,
+                    end_s: i.end_s,
+                }),
+                Some(i) => {
+                    return Err(Error::DeserializationError(format!(
+                        "video interval [{}, {}) s: its start must be before its end",
+                        i.start_s, i.end_s
+                    )));
+                }
+            },
+        },
+    })
+}
+
+fn image_sequence_view_to_proto(
+    view: types::flight::ImageSequenceView,
+) -> Option<proto_flight::ImageSequenceRequest> {
+    use proto_flight::image_sequence_request::View;
+    use types::flight::ImageSequenceView;
+
+    let view = match view {
+        ImageSequenceView::Images => return None,
+        ImageSequenceView::Video { interval } => View::Video(proto_flight::VideoView {
+            interval: interval.map(|i| proto_flight::VideoInterval {
+                start_s: i.start_s,
+                end_s: i.end_s,
+            }),
+        }),
+    };
+    Some(proto_flight::ImageSequenceRequest { view: Some(view) })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -330,6 +379,7 @@ pub fn ticket_topic_to_bytes(tt: types::flight::TicketTopic) -> Vec<u8> {
     proto_flight::TicketTopic {
         locator: tt.locator.to_string(),
         timestamp_range: tt.timestamp_range.map(super::timestamp_range_to_proto),
+        image_sequence: image_sequence_view_to_proto(tt.image_sequence_view),
     }
     .encode_to_vec()
 }
@@ -349,6 +399,7 @@ pub fn ticket_topic_from_bytes(v: &[u8]) -> Result<types::flight::TicketTopic, s
             .parse::<types::TopicLocator>()
             .map_err(|_| Error::DeserializationError(cmd.locator))?,
         timestamp_range,
+        image_sequence_view: image_sequence_view_from_proto(cmd.image_sequence)?,
     })
 }
 
@@ -370,6 +421,7 @@ mod tests {
                 start_ns: Some(100000),
                 end_ns: Some(110000),
             }),
+            image_sequence: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -391,6 +443,7 @@ mod tests {
                 start_ns: Some(100000),
                 end_ns: None,
             }),
+            image_sequence: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -412,6 +465,7 @@ mod tests {
                 start_ns: None,
                 end_ns: Some(110000),
             }),
+            image_sequence: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -427,6 +481,7 @@ mod tests {
         let cmd = super::proto_flight::GetFlightInfoCmd {
             locator: "test_sequence/topic".to_owned(),
             timestamp_range: None,
+            image_sequence: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -445,6 +500,7 @@ mod tests {
                 start_ns: None,
                 end_ns: None,
             }),
+            image_sequence: None,
         };
 
         let dest = super::get_flight_info_cmd(&cmd.encode_to_vec()).unwrap();
@@ -462,5 +518,38 @@ mod tests {
         let dest = super::get_schema_cmd(&cmd.encode_to_vec()).unwrap();
 
         assert_eq!(dest.locator, "test_sequence/topic/a");
+    }
+
+    /// The image sequence views of a ticket: none or an empty request asks for the images, a
+    /// video interval must start before its end.
+    #[test]
+    fn image_sequence_views_go_through_tickets() {
+        use super::proto_flight::{ImageSequenceRequest, VideoInterval, VideoView};
+        use super::types::flight::{self, ImageSequenceView};
+        use super::{image_sequence_view_from_proto as from, image_sequence_view_to_proto as to};
+        use mosaicod_proto::v1::flight::image_sequence_request::View;
+
+        assert_eq!(from(None).unwrap(), ImageSequenceView::Images);
+        let empty = ImageSequenceRequest { view: None };
+        assert_eq!(from(Some(empty)).unwrap(), ImageSequenceView::Images);
+
+        for interval in [
+            None,
+            Some(flight::VideoInterval {
+                start_s: 2,
+                end_s: 5,
+            }),
+        ] {
+            let view = ImageSequenceView::Video { interval };
+            assert_eq!(from(to(view)).unwrap(), view);
+        }
+
+        for (start_s, end_s) in [(0, 0), (3, 1)] {
+            let video = View::Video(VideoView {
+                interval: Some(VideoInterval { start_s, end_s }),
+            });
+            let request = ImageSequenceRequest { view: Some(video) };
+            assert!(from(Some(request)).is_err(), "[{start_s}, {end_s})");
+        }
     }
 }

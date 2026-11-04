@@ -29,6 +29,7 @@ from .sensor_msgs import (
     BatteryStateAdapter as BatteryStateAdapter,
     CameraInfoAdapter as CameraInfoAdapter,
     CompressedImageAdapter as CompressedImageAdapter,
+    DeprecatedImageAdapter as DeprecatedImageAdapter,
     GPSAdapter as GPSAdapter,
     ImageAdapter as ImageAdapter,
     IMUAdapter as IMUAdapter,

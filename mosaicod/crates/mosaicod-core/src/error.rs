@@ -141,6 +141,8 @@ pub enum ErrorKind {
     UnsupportedSchema(String),
     #[error("Unsupported time: {0}")]
     UnsupportedTime(String),
+    #[error("Unsupported retrieval: {0}")]
+    UnsupportedRetrieval(String),
     #[error("Internal error: {0}")]
     Internal(String),
     #[error("Invalid fingerprint `{0}`")]
@@ -270,6 +272,12 @@ impl Error {
 
     pub fn unsupported_time(msg: String) -> Self {
         Self(ErrorKind::UnsupportedTime(msg))
+    }
+
+    /// What was asked of a topic can't be retrieved (e.g. the video of an image sequence that is
+    /// not optimized yet).
+    pub fn unsupported_retrieval(msg: String) -> Self {
+        Self(ErrorKind::UnsupportedRetrieval(msg))
     }
 
     pub fn internal(details: Option<String>) -> Self {

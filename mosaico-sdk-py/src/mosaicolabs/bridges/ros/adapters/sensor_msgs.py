@@ -25,7 +25,15 @@ if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models.core import Message, Serializable
-from mosaicolabs.models.data import ROI, Point3d, Quaternion, Vector2d, Vector3d
+from mosaicolabs.models.data import (
+    ROI,
+    Header,
+    Point3d,
+    Quaternion,
+    Time,
+    Vector2d,
+    Vector3d,
+)
 from mosaicolabs.models.futures import (
     LaserScan,
     MultiEchoLaserScan,
@@ -38,6 +46,7 @@ from mosaicolabs.models.sensors import (
     GPSStatus,
     Image,
     ImageFormat,
+    ImageSequenceRaw,
     Joy,
     Magnetometer,
     NMEASentence,
@@ -47,7 +56,7 @@ from mosaicolabs.models.sensors import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..bridge import register_default_adapter
+from ..bridge import ROSBridge, register_default_adapter
 from ..data_ontology import BatteryState, PointCloud2, PointField, PointFieldDataType
 from ..ros_message import ROSMessage
 from .geometry_msgs import (
@@ -1034,9 +1043,182 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
 
 @register_default_adapter(is_default=True)
-class ImageAdapter(ROSAdapterBase[Image]):
+class ImageAdapter(ROSAdapterBase[ImageSequenceRaw]):
     """
-    Adapter for translating ROS Image messages to Mosaico `Image`.
+    Adapter for translating ROS Image messages to Mosaico `ImageSequenceRaw`, and back.
+
+    The image keeps its bytes, its layout, and its header: its stamp as its
+    capture time, its `frame_id`, and its `seq` (ROS 1) as its `sample_counter`.
+    An image whose stamp is zero is not translated.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/image",
+            msg_type="sensor_msgs/msg/Image",
+            data = {
+                "header": {"stamp": {"sec": 1, "nanosec": 0}, "frame_id": "camera"},
+                "data": [...],
+                "width": 1,
+                "height": 1,
+                "step": 3,
+                "encoding": "bgr8",
+                "is_bigendian": 0,
+            }
+        )
+        # Resolves to a Mosaico ImageSequenceRaw, captured at 1 s
+        mosaico_image = ImageAdapter.translate(ros_msg)
+        ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Image"
+
+    __mosaico_ontology_type__: Type[ImageSequenceRaw] = ImageSequenceRaw
+
+    _REQUIRED_KEYS = ("data", "width", "height", "step", "encoding")
+
+    @classmethod
+    def from_dict(
+        cls,
+        ros_data: dict,
+        **kwargs: Any,
+    ) -> ImageSequenceRaw:
+        """
+        Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data = {
+                "header": {"stamp": {"sec": 1, "nanosec": 0}, "frame_id": "camera"},
+                "data": [...],
+                "width": 1,
+                "height": 1,
+                "step": 3,
+                "encoding": "bgr8",
+            }
+            mosaico_image = ImageAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            ImageSequenceRaw: The constructed Mosaico ImageSequenceRaw object.
+
+        Raises:
+            ValueError: If a key is missing, or the image has no capture time:
+                its header has no stamp, or a stamp of zero.
+        """
+        _validate_msgdata(cls, ros_data)
+
+        ros_header = ros_data.get("header") or {}
+        stamp = ros_header.get("stamp") or {}
+        capture_timestamp_ns = stamp.get("sec", 0) * 1_000_000_000 + stamp.get(
+            "nanosec", 0
+        )
+        if capture_timestamp_ns == 0:
+            # FIXME: to be decided. A driver may not fill the stamp: the capture time is then
+            # unknown, and the time the image was recorded in the bag is not it.
+            raise ValueError("no capture time: the header of the image has no stamp")
+
+        data = ros_data["data"]
+        if not isinstance(data, (bytes, bytearray)):
+            data = np.asarray(data, dtype=np.uint8).tobytes()
+
+        return ImageSequenceRaw(
+            capture_timestamp_ns=capture_timestamp_ns,
+            width=ros_data["width"],
+            height=ros_data["height"],
+            stride=ros_data["step"],
+            encoding=ros_data["encoding"],
+            is_bigendian=bool(ros_data.get("is_bigendian", False)),
+            data=bytes(data),
+            # An empty frame is no frame.
+            frame_id=ros_header.get("frame_id") or None,
+            sample_counter=ros_header.get("seq"),
+        )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, ImageSequenceRaw],
+        typestore: Typestore,
+        ros_msg_type: Optional[str] = None,
+    ) -> MsgType:
+        """
+        Converts a Mosaico ``ImageSequenceRaw`` (or a ``Message`` wrapping one)
+        into a ``sensor_msgs/msg/Image`` message, with its bytes and header.
+
+        Args:
+            mosaico_data (Union[Message, ImageSequenceRaw]): A ``Message`` wrapping an
+                ``ImageSequenceRaw`` instance, or a raw ``ImageSequenceRaw``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
+                ``sensor_msgs/msg/Image`` is supported.
+
+        Returns:
+            MsgType: A ``sensor_msgs/msg/Image`` instance, or raises an error if:
+
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+        """
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
+
+        image, _ = cls.unpack_mosaico_msg(mosaico_data)
+        header = Header(
+            timestamp=Time.from_nanoseconds(image.capture_timestamp_ns),
+            frame_id=image.frame_id or "",
+            sample_counter=image.sample_counter,
+        )
+        ros_header = HeaderAdapter.to_ros(header, typestore)
+        # ROS 1 only: `HeaderAdapter` writes a `seq` of 0.
+        if "seq" in getattr(ros_header, "__dataclass_fields__", {}):
+            ros_header = dataclasses.replace(ros_header, seq=image.sample_counter or 0)
+        return typestore.types["sensor_msgs/msg/Image"](
+            header=ros_header,
+            height=image.height,
+            width=image.width,
+            encoding=image.encoding,
+            is_bigendian=int(bool(image.is_bigendian)),
+            step=image.stride,
+            data=np.frombuffer(image.data, dtype=np.uint8),
+        )
+
+    @classmethod
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
+
+
+class DeprecatedImageAdapter(ROSAdapterBase[Image]):
+    """
+    Adapter for translating ROS Image messages to the deprecated Mosaico `Image`,
+    and back: it exports the `Image` topics written before
+    [`ImageAdapter`][mosaicolabs.bridges.ros.adapters.sensor_msgs.ImageAdapter]
+    wrote `ImageSequenceRaw` ones. Not registered for ROS messages.
 
     **Supported ROS Types:**
 
@@ -1057,7 +1239,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
             }
         )
         # Automatically resolves to a flat Mosaico Image with attached metadata
-        mosaico_image = ImageAdapter.translate(ros_msg)
+        mosaico_image = DeprecatedImageAdapter.translate(ros_msg)
         ```
     """
 
@@ -1107,7 +1289,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
                 "encoding": "bgr8",
             }
             # Automatically resolves to a flat Mosaico Image with attached metadata
-            mosaico_image = ImageAdapter.from_dict(ros_data)
+            mosaico_image = DeprecatedImageAdapter.from_dict(ros_data)
             ```
 
         Args:
@@ -1216,6 +1398,11 @@ class ImageAdapter(ROSAdapterBase[Image]):
             Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
+
+
+# `Image` topics, deprecated, are still exported to ROS: by the adapter that wrote them.
+DeprecatedImageAdapter.__is_default_adapter__ = True
+ROSBridge._default_mosaico_adapters[Image.ontology_tag()] = DeprecatedImageAdapter
 
 
 @register_default_adapter(is_default=True)

@@ -136,6 +136,12 @@ class Image(
     """
     Represents raw, uncompressed image data.
 
+    !!! warning "Deprecated"
+        Use [`ImageSequenceRaw`][mosaicolabs.models.sensors.ImageSequenceRaw]
+        for raw images, or [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence]
+        for PNGs: the server turns their topics into lossless videos. `Image`
+        topics can still be written, with a `DeprecationWarning`, and read.
+
     This class provides a flattened, row-major binary representation of an image.
     It is designed to handle:
     1.  **Arbitrary Data Types**: From standard uint8 RGB to float32 Depth and uint16 IR.
@@ -180,6 +186,8 @@ class Image(
     # Sets the batching strategy to 'Bytes' (instead of 'Count') for better network performance
     __serialization_format__ = SerializationFormat.Image
     __supported_image_formats__ = [ImageFormat.PNG, ImageFormat.RAW]
+    # Deprecated: writing a topic of it warns, naming its replacement.
+    __deprecated_by__ = "ImageSequenceRaw"
 
     # Pydantic Fields
     data: MosaicoType.binary = MosaicoField(

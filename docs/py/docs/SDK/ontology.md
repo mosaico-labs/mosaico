@@ -64,7 +64,7 @@ High-level models representing physical hardware devices and their processed out
 | --- | --- | --- |
 | **Inertial** | [`IMU`][mosaicolabs.models.sensors.IMU] | 6-DOF inertial data: linear acceleration and angular velocity. |
 | **Navigation** | [`GPS`][mosaicolabs.models.sensors.GPS], [`GPSStatus`][mosaicolabs.models.sensors.GPSStatus], [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | Geodetic fixes (WGS 84), signal quality, and raw NMEA strings. |
-| **Vision** | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage], [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo], [`ROI`][mosaicolabs.models.data.ROI] | Raw pixels, encoded streams (JPEG/H264), calibration, and regions of interest. |
+| **Vision** | [`ImageSequenceRaw`][mosaicolabs.models.sensors.ImageSequenceRaw], [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage], [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo], [`ROI`][mosaicolabs.models.data.ROI], [`Image`][mosaicolabs.models.sensors.Image] (deprecated) | Raw pixels and PNGs, which the server turns into lossless videos, encoded streams (JPEG/H264), calibration, and regions of interest. |
 | **Environment** | [`Temperature`][mosaicolabs.models.sensors.Temperature], [`Pressure`][mosaicolabs.models.sensors.Pressure], [`Range`][mosaicolabs.models.sensors.Range] | Thermal readings (K), pressure (Pa), and distance intervals (m). |
 | **Dynamics** | [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque] | 3D force and torque vectors for load sensing. |
 | **Magnetic** | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | Magnetic field vectors measured in microTesla (). |
@@ -777,7 +777,9 @@ You can optimize remote server performance by overriding the `__serialization_fo
 | --- | --- | --- |
 | **Default** | `"default"` | **Standard Table**: Fixed-width data with a constant number of fields. |
 | **Ragged** | `"ragged"` | **Variable Length**: Best for lists, sequences, or point clouds. |
-| **Image** | `"image"` | **Blobs**: Raw or compressed images requiring specialized codec handling. |
+| **Image** | `"image"` | **Blobs**: Raw or compressed images requiring specialized codec handling. Deprecated for raw images: use `ImageSequenceRaw`. |
+| **ImageSequence** | `"image_sequence"` | **Image Sequences**: Losslessly compressed images (PNG) with their capture time, as in [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence]. Lossy images, such as JPEG, are not supported for now. Requires `capture_timestamp_ns` and `format` fields, which the server compresses and keeps statistics on; the image data, compressed already, is stored as it is. |
+| **ImageSequenceRaw** | `"image_sequence_raw"` | **Raw Image Sequences**: Raw images, as a camera driver writes them (e.g. a ROS `sensor_msgs/Image`), with their capture time, as in [`ImageSequenceRaw`][mosaicolabs.models.sensors.ImageSequenceRaw]. Requires `capture_timestamp_ns`, `width`, `height`, `stride` and `encoding` fields, which the server compresses and keeps statistics on, and compresses the image data. |
 
 If not explicitly set, the system defaults to `Default` format.
 
