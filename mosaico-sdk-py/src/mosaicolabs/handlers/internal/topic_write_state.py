@@ -43,7 +43,7 @@ def _is_monotonic_increasing(arr: pa.Array) -> bool:
         return False
 
     left, right = arr[:-1], arr[1:]
-    return pc.all(pc.less_equal(left, right)).as_py()
+    return pc.all(pc.less(left, right)).as_py()
 
 
 class _TopicWriteState:
