@@ -335,6 +335,7 @@ version = "58.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21ca356ad6425cecb6eb7b28e4f659f1ee7880fbb1a16127de7dd62901efee9e"
 dependencies = [
+ "serde",
  "serde_core",
  "serde_json",
 ]
@@ -2657,6 +2658,8 @@ dependencies = [
  "futures",
  "mosaicod-core",
  "parquet",
+ "serde_json",
+ "sha2",
  "thiserror",
  "tokio",
  "tonic",

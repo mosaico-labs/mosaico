@@ -1,10 +1,11 @@
 #![allow(unused_crate_dependencies)]
 
 //! Schema related testing functions
-use arrow::array::{Int64Array, RecordBatch};
-use arrow::datatypes::{DataType, Field, Schema};
+use arrow::array::{ArrayRef, Int64Array, RecordBatch, new_null_array};
+use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 use mosaicod_core::constants;
 use mosaicod_db as db;
+use mosaicod_ext::schema_hash::SchemaHash;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tests::{self, actions, common};
@@ -95,6 +96,101 @@ async fn test_schema_metadata_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Check schema coherence
     assert_eq!(doget_schema.fields(), schema.fields());
+}
+
+/// A schema read back with `get_schema` hashes like the uploaded one, although its layouts change
+/// on the way: arrow-flight's encoder sends a `LargeList` as a `List`, and DataFusion reads
+/// top-level strings and binaries back as views.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_schema_hash_round_trip(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/my_topic", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
+        .await
+        .unwrap();
+
+    let list = |data_type| DataType::List(Arc::new(Field::new_list_field(data_type, true)));
+    let large_list =
+        |data_type| DataType::LargeList(Arc::new(Field::new_list_field(data_type, true)));
+
+    // Each field with the type `get_schema` returns it as.
+    let layouts = [
+        ("utf8", DataType::Utf8, DataType::Utf8View),
+        ("large_utf8", DataType::LargeUtf8, DataType::Utf8View),
+        ("binary", DataType::Binary, DataType::BinaryView),
+        ("large_binary", DataType::LargeBinary, DataType::BinaryView),
+        ("list", list(DataType::Float32), list(DataType::Float32)),
+        (
+            "large_list",
+            large_list(DataType::Float32),
+            list(DataType::Float32),
+        ),
+        ("utf8_list", list(DataType::Utf8), list(DataType::Utf8)),
+    ];
+
+    let metadata = |key: &str, value: &str| HashMap::from([(key.to_owned(), value.to_owned())]);
+    let x = Field::new("x", DataType::Float64, true).with_metadata(metadata("description", "x"));
+    let fields = [
+        Field::new("position", DataType::Struct(vec![x].into()), true),
+        Field::new(
+            "stamp",
+            DataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".into())),
+            true,
+        ),
+    ]
+    .into_iter()
+    .chain(
+        layouts
+            .iter()
+            .map(|(name, data_type, _)| Field::new(*name, data_type.clone(), true)),
+    );
+    let ts_field = Field::new(
+        constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+        DataType::Int64,
+        false,
+    );
+    let schema = Arc::new(Schema::new_with_metadata(
+        std::iter::once(ts_field).chain(fields).collect::<Vec<_>>(),
+        metadata("key", "value"),
+    ));
+
+    let columns = std::iter::once(Arc::new(Int64Array::from(vec![10000])) as ArrayRef)
+        .chain(
+            schema
+                .fields()
+                .iter()
+                .skip(1)
+                .map(|field| new_null_array(field.data_type(), 1)),
+        )
+        .collect();
+    let batch = RecordBatch::try_new(schema.clone(), columns).unwrap();
+
+    actions::do_put(&mut client, &topic_uuid, topic_name, vec![batch], false)
+        .await
+        .unwrap();
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    let read_back = actions::get_schema(&mut client, topic_name).await.unwrap();
+
+    for (name, _, read_back_type) in &layouts {
+        let field = read_back.field_with_name(name).unwrap();
+        assert_eq!(field.data_type(), read_back_type, "{name}");
+    }
+    assert_eq!(SchemaHash::new(&read_back), SchemaHash::new(&schema));
 }
 
 /// `get_schema` only supports Topic locators; a Sequence locator must be rejected.
