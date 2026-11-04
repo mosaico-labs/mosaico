@@ -130,16 +130,14 @@ class ProgressManager:
 
     def advance_global(self, advance: Optional[int] = None):
         """Advances only the global progress bar (used when skipping messages)."""
-        if advance is None:
-            advance = 1
+        advance = advance or 1
 
         if self.global_task is not None:
             self.progress.advance(self.global_task, float(advance))
 
     def advance_all(self, topic: str, advance: Optional[int] = None):
         """Advances both the specific topic's bar and the global bar."""
-        if advance is None:
-            advance = 1
+        advance = advance or 1
 
         if topic in self.tasks:
             self.progress.advance(self.tasks[topic], float(advance))
