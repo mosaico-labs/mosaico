@@ -50,7 +50,7 @@ from ..base_injector import (
 )
 from ..helpers import _parse_json_arg
 from ..topic_status import to_color
-from .lerobot_message import LeRobotMessage
+from .lerobot_batch import LeRobotBatch
 from .loader import LeRobotEpisodeLoader, LeRobotLoader
 from .metadata import LeRobotSchemaMetadata
 from .ui_lerobot import LeRobotProgressManager
@@ -92,8 +92,10 @@ class LeRobotInjectionConfig(InjectionConfigBase):
             its partial sequence or Report the error). The next episodes are uploaded in any case.
             Default: [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior
-            of the topic writers when a write fails. Whatever the policy, a batch that is not
-            written fails its episode.
+            of the topic writers when a write fails: `Raise` fails the episode (which then applies
+            `on_error`), `Ignore` drops the failed batch and keeps uploading the topic, `Finalize`
+            closes the topic and skips its remaining batches in the episode. With `Ignore` and
+            `Finalize` the episode is not failed, but its sequence may miss some batches.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
@@ -322,6 +324,8 @@ class LeRobotInjector:
         Any error while uploading the episode is raised within the sequence, so that the sequence
         applies its `on_error` policy (by default `Delete`: a partially uploaded episode is not
         kept), and then logged: the episode is reported as failed, without stopping the ingestion.
+        Write errors suppressed by an `Ignore` or `Finalize` topic policy do not fail the episode
+        (see `_upload_batch`).
 
         Args:
             mclient (MosaicoClient): The connected Mosaico client.
@@ -397,59 +401,69 @@ class LeRobotInjector:
 
     def _upload_batch(
         self,
-        lerobot_msg: LeRobotMessage,
+        lerobot_batch: LeRobotBatch,
         session_writer: AnySessionWriter,
     ):
         """
         Uploads a batch of an episode to its topic, creating the topic on its first batch.
 
+        A write error is handled by the topic error policy (see `topics_on_error`):
+        - `Raise`: the error is propagated, failing the episode.
+        - `Ignore`: the batch is dropped, the next batches of the topic are still uploaded.
+        - `Finalize`: the topic is closed, its next batches in the episode are skipped.
+
         Args:
-            lerobot_msg (LeRobotMessage): The batch to upload.
+            lerobot_batch (LeRobotBatch): The batch to upload.
             session_writer (AnySessionWriter): The active session writer for the sequence.
 
         Raises:
-            RuntimeError: If the topic cannot be created, or the batch is not written (e.g. a
-                write error ignored or finalized by the topic error policy): a partially uploaded
-                episode is a failed episode. The write errors raised by the topic error policy
-                are propagated as they are.
+            RuntimeError: If the topic cannot be created.
+            Exception: The write errors of a topic with the `Raise` policy, as they are.
         """
         # Retrieve the writer from SequenceWriter local cache or create new one on server
-        twriter = session_writer.get_topic_writer(lerobot_msg.msco_topic_name)
+        twriter = session_writer.get_topic_writer(lerobot_batch.msco_topic_name)
 
         # The topic is created on its first batch
         if twriter is None:
             # --- Schema metadata Resolution ---
 
             t_metadata = (self._cfg.topic_metadata or {}).get(
-                lerobot_msg.msco_topic_name, {}
+                lerobot_batch.msco_topic_name, {}
             )
 
             # Register new topic on server
             twriter = session_writer.topic_create(
-                topic_name=lerobot_msg.msco_topic_name,
+                topic_name=lerobot_batch.msco_topic_name,
                 metadata=t_metadata,
-                ontology_type=lerobot_msg.msco_ontology,
-                on_error=self._get_topic_on_error(lerobot_msg.msco_topic_name),
+                ontology_type=lerobot_batch.msco_ontology,
+                on_error=self._get_topic_on_error(lerobot_batch.msco_topic_name),
             )
             if twriter is None:
                 raise RuntimeError(
-                    f"Could not create Mosaico topic '{lerobot_msg.msco_topic_name}'."
+                    f"Could not create Mosaico topic '{lerobot_batch.msco_topic_name}'."
                 )
 
         # --- Push ---
         if (
             twriter.is_active
-        ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
+        ):  # Skip the batch if prematurely closed (TopicLevelErrorPolicy.Finalize)
             with twriter:
-                twriter.push_batch(lerobot_msg.timestamp_ns, lerobot_msg.data)
+                twriter.push_batch(lerobot_batch.timestamp_ns, lerobot_batch.data)
 
-        # A batch not written (e.g. a write error ignored or finalized by the topic error
-        # policy, or a record too large) leaves the episode partially uploaded
-        if twriter.status != TopicWriterStatus.Active:
-            raise RuntimeError(
-                f"Could not write a batch to Mosaico topic '{lerobot_msg.msco_topic_name}' "
-                f"('{twriter.status.value}'): {twriter.last_error}"
-            )
+            # The error, if any, was suppressed by the topic error policy (`Raise` propagates it)
+            if twriter.status == TopicWriterStatus.IgnoredLastError:
+                logger.warning(
+                    f"A batch of Mosaico topic '{lerobot_batch.msco_topic_name}' was dropped "
+                    f"('{TopicLevelErrorPolicy.Ignore.value}' error policy): "
+                    f"'{twriter.last_error}'"
+                )
+            elif twriter.status == TopicWriterStatus.FinalizedWithError:
+                logger.warning(
+                    f"Mosaico topic '{lerobot_batch.msco_topic_name}' was closed, its next "
+                    f"batches in the episode are skipped "
+                    f"('{TopicLevelErrorPolicy.Finalize.value}' error policy): "
+                    f"'{twriter.last_error}'"
+                )
 
     # Public API
     def run(self) -> InjectionStatus:
