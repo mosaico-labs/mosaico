@@ -253,140 +253,14 @@ async fn send(
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::testing::{Receiver, Reply};
     use std::time::Instant;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::{TcpListener, TcpStream};
-
-    /// How the test server answers a request.
-    #[derive(Clone, Copy)]
-    enum Reply {
-        Status(u16),
-        /// Never answers, so the attempt times out.
-        Hang,
-        /// A `302` to another path.
-        Redirect,
-    }
-
-    struct Request {
-        method: String,
-        path: String,
-        headers: Vec<(String, String)>,
-        body: Vec<u8>,
-    }
-
-    impl Request {
-        fn header(&self, name: &str) -> Option<&str> {
-            self.headers
-                .iter()
-                .find(|(n, _)| n == name)
-                .map(|(_, v)| v.as_str())
-        }
-
-        fn event_id(&self) -> String {
-            let json: serde_json::Value = serde_json::from_slice(&self.body).unwrap();
-            json["id"].as_str().unwrap().to_owned()
-        }
-    }
-
-    /// Answers the n-th request with the n-th reply, and with `200` once the replies run out.
-    struct Server {
-        url: String,
-        requests: Arc<Mutex<Vec<Request>>>,
-    }
-
-    impl Server {
-        async fn start(replies: Vec<Reply>) -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-            let url = format!("http://{}/hook", listener.local_addr().unwrap());
-            let requests = Arc::new(Mutex::new(Vec::new()));
-
-            let recorded = requests.clone();
-            tokio::spawn(async move {
-                loop {
-                    let (mut stream, _) = listener.accept().await.unwrap();
-                    let request = read_request(&mut stream).await;
-
-                    let reply = {
-                        let mut recorded = recorded.lock().unwrap();
-                        let reply = replies.get(recorded.len()).copied();
-                        recorded.push(request);
-                        reply.unwrap_or(Reply::Status(200))
-                    };
-
-                    tokio::spawn(async move {
-                        let response = match reply {
-                            Reply::Status(code) => format!(
-                                "HTTP/1.1 {code} Test\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"
-                            ),
-                            Reply::Redirect => "HTTP/1.1 302 Found\r\nlocation: /elsewhere\r\n\
-                                content-length: 0\r\nconnection: close\r\n\r\n"
-                                .to_owned(),
-                            Reply::Hang => {
-                                tokio::time::sleep(Duration::from_secs(60)).await;
-                                return;
-                            }
-                        };
-                        let _ = stream.write_all(response.as_bytes()).await;
-                    });
-                }
-            });
-
-            Self { url, requests }
-        }
-
-        fn requests(&self) -> std::sync::MutexGuard<'_, Vec<Request>> {
-            self.requests.lock().unwrap()
-        }
-    }
-
-    async fn read_request(stream: &mut TcpStream) -> Request {
-        let mut buf = Vec::new();
-        let mut chunk = [0; 4096];
-
-        let head_len = loop {
-            let n = stream.read(&mut chunk).await.unwrap();
-            assert!(n > 0, "connection closed mid-request");
-            buf.extend_from_slice(&chunk[..n]);
-
-            if let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
-                break pos + 4;
-            }
-        };
-
-        let head = String::from_utf8(buf[..head_len].to_vec()).unwrap();
-        let mut lines = head.split("\r\n");
-        let mut request_line = lines.next().unwrap().split(' ');
-        let method = request_line.next().unwrap().to_owned();
-        let path = request_line.next().unwrap().to_owned();
-
-        let headers: Vec<(String, String)> = lines
-            .filter_map(|line| line.split_once(':'))
-            .map(|(name, value)| (name.trim().to_ascii_lowercase(), value.trim().to_owned()))
-            .collect();
-
-        let mut request = Request {
-            method,
-            path,
-            headers,
-            body: buf[head_len..].to_vec(),
-        };
-
-        let len: usize = request
-            .header("content-length")
-            .map_or(0, |len| len.parse().unwrap());
-
-        while request.body.len() < len {
-            let n = stream.read(&mut chunk).await.unwrap();
-            assert!(n > 0, "connection closed mid-body");
-            request.body.extend_from_slice(&chunk[..n]);
-        }
-
-        request
-    }
 
     fn test_policy() -> Policy {
         Policy {
@@ -413,11 +287,11 @@ mod tests {
 
     #[tokio::test]
     async fn delivers_body_and_headers() {
-        let server = Server::start(vec![]).await;
+        let receiver = Receiver::start().await;
 
-        deliver_to(&server.url, &test_policy()).await.unwrap();
+        deliver_to(receiver.url(), &test_policy()).await.unwrap();
 
-        let requests = server.requests();
+        let requests = receiver.requests();
         assert_eq!(requests.len(), 1);
 
         let request = &requests[0];
@@ -435,57 +309,63 @@ mod tests {
 
     #[tokio::test]
     async fn retries_server_errors_and_too_many_requests() {
-        let server = Server::start(vec![Reply::Status(500), Reply::Status(429)]).await;
+        let receiver = Receiver::start_with(vec![Reply::Status(500), Reply::Status(429)]).await;
 
-        deliver_to(&server.url, &test_policy()).await.unwrap();
+        deliver_to(receiver.url(), &test_policy()).await.unwrap();
 
-        let requests = server.requests();
+        let requests = receiver.requests();
         assert_eq!(requests.len(), 3);
         assert!(requests.iter().all(|r| r.body == requests[0].body));
     }
 
     #[tokio::test]
     async fn gives_up_after_the_last_attempt() {
-        let server = Server::start(vec![Reply::Status(503); 4]).await;
+        let receiver = Receiver::start_with(vec![Reply::Status(503); 4]).await;
 
-        let err = deliver_to(&server.url, &test_policy()).await.unwrap_err();
+        let err = deliver_to(receiver.url(), &test_policy())
+            .await
+            .unwrap_err();
 
         assert!(matches!(
             err,
             DeliveryError::Status(StatusCode::SERVICE_UNAVAILABLE)
         ));
-        assert_eq!(server.requests().len(), 3);
+        assert_eq!(receiver.requests().len(), 3);
     }
 
     #[tokio::test]
     async fn does_not_retry_other_statuses() {
         for code in [400, 401, 404] {
-            let server = Server::start(vec![Reply::Status(code)]).await;
+            let receiver = Receiver::start_with(vec![Reply::Status(code)]).await;
 
-            let err = deliver_to(&server.url, &test_policy()).await.unwrap_err();
+            let err = deliver_to(receiver.url(), &test_policy())
+                .await
+                .unwrap_err();
 
             assert!(matches!(err, DeliveryError::Status(s) if s.as_u16() == code));
-            assert_eq!(server.requests().len(), 1, "{code}");
+            assert_eq!(receiver.requests().len(), 1, "{code}");
         }
     }
 
     #[tokio::test]
     async fn does_not_follow_redirects() {
-        let server = Server::start(vec![Reply::Redirect]).await;
+        let receiver = Receiver::start_with(vec![Reply::Redirect]).await;
 
-        let err = deliver_to(&server.url, &test_policy()).await.unwrap_err();
+        let err = deliver_to(receiver.url(), &test_policy())
+            .await
+            .unwrap_err();
 
         assert!(matches!(err, DeliveryError::Status(StatusCode::FOUND)));
-        assert_eq!(server.requests().len(), 1);
+        assert_eq!(receiver.requests().len(), 1);
     }
 
     #[tokio::test]
     async fn retries_timeouts() {
-        let server = Server::start(vec![Reply::Hang]).await;
+        let receiver = Receiver::start_with(vec![Reply::Hang]).await;
 
-        deliver_to(&server.url, &test_policy()).await.unwrap();
+        deliver_to(receiver.url(), &test_policy()).await.unwrap();
 
-        assert_eq!(server.requests().len(), 2);
+        assert_eq!(receiver.requests().len(), 2);
     }
 
     #[tokio::test]
@@ -529,10 +409,10 @@ mod tests {
         pool: sqlx::Pool<db::DatabaseType>,
     ) -> sqlx::Result<()> {
         let database = db::testing::Database::new(pool);
-        let first = Server::start(vec![]).await;
-        let second = Server::start(vec![]).await;
+        let first = Receiver::start().await;
+        let second = Receiver::start().await;
 
-        db::hook_create(&mut database.connection(), &first.url, 0)
+        db::hook_create(&mut database.connection(), first.url(), 0)
             .await
             .unwrap();
 
@@ -541,28 +421,25 @@ mod tests {
             Dispatcher::spawn_with((*database).clone(), shutdown.clone(), test_policy()).unwrap();
 
         // Registered after the worker started: hooks are read on every event.
-        db::hook_create(&mut database.connection(), &second.url, 0)
+        db::hook_create(&mut database.connection(), second.url(), 0)
             .await
             .unwrap();
 
         dispatcher.emit(session_uploaded());
         dispatcher.emit(session_uploaded());
 
-        let deadline = Instant::now() + Duration::from_secs(5);
-        while first.requests().len() < 2 || second.requests().len() < 2 {
-            assert!(Instant::now() < deadline, "events not delivered in time");
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-
         // Each event has its own id, and both hooks got the same ones.
-        let ids = |server: &Server| {
-            let mut ids: Vec<String> = server.requests().iter().map(Request::event_id).collect();
+        let ids = |requests: Vec<testing::Request>| {
+            let mut ids: Vec<String> = requests
+                .iter()
+                .map(|r| r.json()["id"].as_str().unwrap().to_owned())
+                .collect();
             ids.sort();
             ids
         };
-        let first_ids = ids(&first);
+        let first_ids = ids(first.wait_for_requests(2).await);
         assert_ne!(first_ids[0], first_ids[1]);
-        assert_eq!(first_ids, ids(&second));
+        assert_eq!(first_ids, ids(second.wait_for_requests(2).await));
 
         shutdown.cancel();
 

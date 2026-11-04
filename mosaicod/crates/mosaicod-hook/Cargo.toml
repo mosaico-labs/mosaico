@@ -9,6 +9,9 @@ license.workspace = true
 [lib]
 name = "mosaicod_hook"
 
+[features]
+testing = ["tokio/io-util", "tokio/net"]
+
 [dependencies]
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }

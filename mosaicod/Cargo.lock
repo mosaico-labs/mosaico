@@ -4364,6 +4364,7 @@ dependencies = [
  "mosaicod-facade",
  "mosaicod-grpc",
  "mosaicod-grpc-common",
+ "mosaicod-hook",
  "mosaicod-marshal",
  "mosaicod-proto",
  "mosaicod-query",
