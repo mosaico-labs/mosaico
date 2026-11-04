@@ -15,7 +15,7 @@ from ..helpers import (
 )
 from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
-from .lerobot_message import LeRobotMessage
+from .lerobot_batch import LeRobotBatch
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
 from .reader import LeRobotReader
 
@@ -301,14 +301,14 @@ class LeRobotEpisodeLoader:
 
     def __iter__(
         self,
-    ) -> Generator[Tuple[LeRobotMessage, Optional[Exception]], None, None]:
+    ) -> Generator[Tuple[LeRobotBatch, Optional[Exception]], None, None]:
         """
         Streams the messages of the episode: the timeseries batches, then the image batches,
         one camera at a time.
 
         Yields:
-            A tuple of (LeRobotMessage, Exception). If reading succeeds, Exception is None.
-            If it fails, the remaining batches of that topic are skipped, and LeRobotMessage
+            A tuple of (LeRobotBatch, Exception). If reading succeeds, Exception is None.
+            If it fails, the remaining batches of that topic are skipped, and LeRobotBatch
             still contains its topic and ontology, but `data` and `timestamp_ns` are None.
         """
         reader = self._reader
@@ -319,7 +319,7 @@ class LeRobotEpisodeLoader:
                 yield msg, None
         except Exception as ex:
             yield (
-                LeRobotMessage(
+                LeRobotBatch(
                     reader.timeseries_msco_topic_name,
                     reader.timeseries_column_names,
                     None,
@@ -339,7 +339,7 @@ class LeRobotEpisodeLoader:
                     yield msg, None
             except Exception as ex:
                 yield (
-                    LeRobotMessage(
+                    LeRobotBatch(
                         reader.get_msco_topic_name(camera_col_name) or "?",
                         [camera_col_name],
                         None,
