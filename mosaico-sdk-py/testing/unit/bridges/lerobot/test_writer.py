@@ -13,7 +13,6 @@ from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.writer import (
     LeRobotWriter,
     _aggregate_stats,
-    _check_episode_stats,
     _compute_stats,
     _decode_stats_image,
     _sample_indices,
@@ -260,34 +259,3 @@ def test_compute_episode_stats_skips_a_camera_without_images(lerobot_dataset):
     stats = writer._compute_episode_stats({CAMERA_COLUMN_NAMES[0]: []}, length=7)
 
     assert stats == {}
-
-
-def test_check_episode_stats_warns_out_of_tolerance(lerobot_dataset, caplog):
-    """A wider tolerance for the quantiles (0.05% of max - min); the renumbered columns and the
-    stats missing from the source are skipped."""
-    episode = replace(
-        LeRobotDatasetMeta.load(lerobot_dataset).episodes_map[0],
-        stats={
-            STATE_COLUMN_NAME: {"mean": [1.0, 2.0], "q50": [1.0, 2.0], "count": [5]},
-            "index": {"mean": [0.0]},
-        },
-    )
-    stats = {
-        STATE_COLUMN_NAME: {
-            "min": np.array([0.0, 0.0]),
-            "max": np.array([10.0, 10.0]),
-            "mean": np.array([1.0, 2.1]),
-            "q50": np.array([1.004, 2.0]),
-            "count": np.array([5]),
-        },
-        "index": {
-            "min": np.array([5.0]),
-            "max": np.array([9.0]),
-            "mean": np.array([7.0]),
-        },
-    }
-
-    _check_episode_stats(episode, stats)
-
-    assert [r.levelname for r in caplog.records] == ["WARNING"]
-    assert f"the `mean` of `{STATE_COLUMN_NAME}`" in caplog.records[0].getMessage()

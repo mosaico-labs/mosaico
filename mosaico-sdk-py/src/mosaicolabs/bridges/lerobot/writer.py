@@ -8,7 +8,6 @@ sequences, with the types LeRobot writes them with (see
 """
 
 import io
-import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import DefaultDict, Dict, List
@@ -19,18 +18,11 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 from PIL import Image as PILImage
 
-from mosaicolabs.logging_config import get_logger
-
 from ..helpers import _dotted_name_to_topic_name
 from ..protocols.lerobot import LeRobotSchemaConverter
 from .helpers import _from_timestamp_ns
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
-from .metadata.feature import (
-    _EPISODE_INDEX_COLUMN,
-    _FRAME_INDEX_COLUMN,
-    _INDEX_COLUMN,
-    _TASK_INDEX_COLUMN,
-)
+from .metadata.feature import _FRAME_INDEX_COLUMN
 from .mosaico_loader import LeRobotEpisodeStreamer
 from .reader import (
     _NESTED_NAME_SEP,
@@ -53,24 +45,6 @@ _NO_STATS_DTYPES = ("string", "language")
 
 _STATS_QUANTILES = {"q01": 0.01, "q10": 0.10, "q50": 0.50, "q90": 0.90, "q99": 0.99}
 """The quantiles of the stats, by name (`DEFAULT_QUANTILES` in LeRobot)."""
-
-_CHECK_RTOL = 1e-5
-"""The relative tolerance of the debug check of the stats (see `_check_episode_stats`)."""
-
-_CHECK_ATOL = 1e-8
-"""The absolute tolerance of the debug check of the stats but the quantiles, for the values
-near 0 (e.g. the std of a constant column)."""
-
-_CHECK_QUANTILE_ATOL_SHARE = 0.0005
-"""The absolute tolerance of the quantiles in the debug check of the stats, as a share of
-`max - min`: LeRobot estimates them from a 5000-bin histogram, so up to one bin (0.02% of the
-range) apart."""
-
-_RENUMBERED_COLUMNS = (_INDEX_COLUMN, _EPISODE_INDEX_COLUMN, _TASK_INDEX_COLUMN)
-"""The columns renumbered on export: their stats differ from the source ones."""
-
-# Set the hierarchical logger
-logger = get_logger(__name__)
 
 
 def _sample_indices(length: int) -> pa.Array:
@@ -197,46 +171,6 @@ def _aggregate_stats(meta: LeRobotDatasetMeta) -> Dict[str, Dict[str, List]]:
             name: value.tolist() for name, value in aggregated.items()
         }
     return dataset_stats
-
-
-def _check_episode_stats(
-    episode: LeRobotEpisode, stats: Dict[str, Dict[str, np.ndarray]]
-) -> None:
-    """
-    Debug check of the stats computed on export: logs a warning for each stat out of tolerance
-    with the source one the episode carries (computed by LeRobot, read from the `_lerobot_`
-    metadata of its sequence). The tolerance is `_CHECK_RTOL` and `_CHECK_ATOL`, or
-    `_CHECK_QUANTILE_ATOL_SHARE` of `max - min` for the quantiles. The renumbered columns
-    (`_RENUMBERED_COLUMNS`) and the stats missing on either side are skipped; a non-finite
-    source value, stored as `None`, is compared as NaN.
-
-    Args:
-        episode (LeRobotEpisode): The episode, with its source stats.
-        stats (Dict[str, Dict[str, np.ndarray]]): By feature, its stats computed on export
-            (see `LeRobotWriter._compute_episode_stats`).
-    """
-    for key, feature_stats in stats.items():
-        source = episode.stats.get(key)
-        if source is None or key in _RENUMBERED_COLUMNS:
-            continue
-
-        value_range = feature_stats["max"] - feature_stats["min"]
-        for name, value in feature_stats.items():
-            if name not in source:
-                continue
-            expected = np.asarray(source[name], dtype=np.float64)
-            atol = (
-                _CHECK_QUANTILE_ATOL_SHARE * value_range
-                if name in _STATS_QUANTILES
-                else _CHECK_ATOL
-            )
-            if expected.shape != value.shape or not np.allclose(
-                value, expected, rtol=_CHECK_RTOL, atol=atol, equal_nan=True
-            ):
-                logger.warning(
-                    f"Episode {episode.episode_index}: the `{name}` of `{key}` is "
-                    f"{value.tolist()}, while the source one is {expected.tolist()}."
-                )
 
 
 def _to_timeseries_column(timeseries: pa.RecordBatch, key: str) -> pa.Array:
@@ -603,9 +537,7 @@ class LeRobotWriter:
         Writes an episode, streamed from its Mosaico sequence, to its data parquet file: the
         `data_path` template of `info` under `root`, filled with the `data/chunk_index` and
         `data/file_index` of the episode. Its stats (see `_compute_episode_stats`) replace
-        the source ones in the metadata (see `LeRobotDatasetMeta.set_episode_stats`), after
-        a debug check against them when the logger is at `DEBUG` (see
-        `_check_episode_stats`).
+        the source ones in the metadata (see `LeRobotDatasetMeta.set_episode_stats`).
 
         The episode is written slice by slice, as streamed: only one slice is held in memory,
         never the whole episode, which can be very large. Each slice is a row group of the file
@@ -643,8 +575,6 @@ class LeRobotWriter:
             )
 
         stats = self._compute_episode_stats(stats_inputs, episode.length)
-        if logger.isEnabledFor(logging.DEBUG):
-            _check_episode_stats(episode, stats)
         self._meta.set_episode_stats(episode.episode_index, stats)
 
     def close(self) -> None:
