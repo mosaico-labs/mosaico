@@ -2,7 +2,7 @@ name: Full Stack
 
 on:
   push:
-    branches: ["main", "release/v*.*", "release/py/v*.*"]
+    branches: ["main"]
     paths:
       - ".github/workflows/ci.yml"
       - "mosaicod/.cargo/config.toml"
@@ -26,6 +26,7 @@ on:
       - "**/uv.lock"
       - "scripts/tests"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

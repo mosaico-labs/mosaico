@@ -16,6 +16,7 @@ on:
       - "**/Cargo.toml"
       - "**/Cargo.lock"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

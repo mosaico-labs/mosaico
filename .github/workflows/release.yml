@@ -1,0 +1,176 @@
+name: Release
+
+# Weekly release (see docs/main/docs/dev/release_cycle.md). Started by hand from the Actions tab on
+# `main`: it tests the current commit, tags it as `v0.N.0` with a signed tag and bumps `main` to
+# `0.(N+1).0`. The tag push then triggers the release workflows of every component.
+#
+# Requires the secrets:
+#   RELEASE_APP_ID, RELEASE_APP_PRIVATE_KEY   GitHub App allowed to push to `main`. Pushes made with
+#                                             GITHUB_TOKEN don't trigger other workflows.
+#   RELEASE_GPG_PRIVATE_KEY, RELEASE_GPG_PASSPHRASE
+#                                             Release key, published on keyserver.ubuntu.com, that
+#                                             signs the tag and the bump commit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run every step without pushing the tag and the version bump"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      next_version: ${{ steps.version.outputs.next_version }}
+      sha: ${{ steps.version.outputs.sha }}
+    steps:
+      - name: Check branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Releases can only be started from main (got ${GITHUB_REF})."
+          exit 1
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Read and check version
+        id: version
+        run: |
+          read_version() { grep -m1 '^version = ' "$1" | sed 's/version = "\(.*\)"/\1/'; }
+
+          VERSION=$(read_version mosaicod/Cargo.toml)
+          PY_VERSION=$(read_version mosaico-sdk-py/pyproject.toml)
+
+          if [[ "$VERSION" != "$PY_VERSION" ]]; then
+            echo "::error::Version mismatch: mosaicod is $VERSION, the Python SDK is $PY_VERSION."
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^0\.([0-9]+)\.0$ ]]; then
+            echo "::error::Version $VERSION is not a weekly release version (0.N.0)."
+            exit 1
+          fi
+          NEXT_VERSION="0.$((BASH_REMATCH[1] + 1)).0"
+
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "::error::Tag v$VERSION already exists."
+            exit 1
+          fi
+
+          # Skip the release if nothing landed since the previous one. The previous tag may not be
+          # on main (old releases were tagged on release branches), so count from the merge-base.
+          # The version bump commit made by this workflow doesn't count as a change.
+          PREVIOUS=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [[ -n "$PREVIOUS" ]]; then
+            BASE=$(git merge-base "$PREVIOUS" HEAD)
+            CHANGES=$(git rev-list --count --invert-grep --grep='^chore: bump version to ' "$BASE..HEAD")
+            if [[ "$CHANGES" -eq 0 ]]; then
+              echo "::error::No changes since $PREVIOUS, release skipped."
+              exit 1
+            fi
+            echo "$CHANGES commits since $PREVIOUS."
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "next_version=$NEXT_VERSION"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+  mosaicod-tests:
+    name: mosaicod
+    needs: prepare
+    uses: ./.github/workflows/mosaicod-ci.yml
+
+  py-tests:
+    name: Python SDK
+    needs: prepare
+    uses: ./.github/workflows/py-ci.yml
+
+  full-stack-tests:
+    name: Full Stack
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+
+  tag-and-bump:
+    name: Tag and bump version
+    needs: [prepare, mosaicod-tests, py-tests, full-stack-tests]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      NEXT_VERSION: ${{ needs.prepare.outputs.next_version }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+    steps:
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Import release GPG key
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.13.1"
+
+      # The tag goes on the tested commit, even if main moved in the meantime.
+      - name: Tag release
+        run: git tag -s "v$VERSION" -m "Mosaico v$VERSION" "$SHA"
+
+      - name: Bump version
+        run: |
+          sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$NEXT_VERSION\"/}" mosaicod/Cargo.toml
+          sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$NEXT_VERSION\"/}" mosaico-sdk-py/pyproject.toml
+          (cd mosaicod && cargo update --workspace)
+          uv lock --project mosaico-sdk-py
+          git add mosaicod/Cargo.toml mosaicod/Cargo.lock mosaico-sdk-py/pyproject.toml mosaico-sdk-py/uv.lock
+          git commit -m "chore: bump version to $NEXT_VERSION"
+
+      - name: Push
+        if: ${{ !inputs.dry_run }}
+        run: git push --atomic origin HEAD:refs/heads/main "refs/tags/v$VERSION"
+
+      - name: Job summary
+        run: |
+          {
+            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+              echo "### Release v$VERSION (dry run, nothing pushed)"
+            else
+              echo "### Release v$VERSION"
+            fi
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Tag | \`v$VERSION\` on \`${SHA::8}\` |"
+            echo "| Next version on main | \`$NEXT_VERSION\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

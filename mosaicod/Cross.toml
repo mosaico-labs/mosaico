@@ -1,0 +1,4 @@
+# Release builds read the commit and the release tag from the environment, since the git history
+# isn't available inside the cross container (see crates/mosaicod-build/build.rs).
+[build.env]
+passthrough = ["GIT_HASH", "MOSAICOD_RELEASE_TAG"]
