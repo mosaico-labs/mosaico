@@ -348,6 +348,27 @@ class LeRobotReader:
 
     # Public API functions
 
+    def read_episode_timestamps(self, episode_index: int) -> pa.ChunkedArray:
+        """
+        Reads the `timestamp` column of an episode (seconds since the episode start) as float64,
+        in file order.
+
+        Raises:
+            FileNotFoundError: If the data file of the episode is missing.
+            ValueError: If the episode is not defined in `meta/episodes`, or its number of
+                rows in its data file differs from its `length`.
+        """
+        return pa.chunked_array(
+            [
+                batch.column(0).cast(pa.float64())
+                for batch in self._iter_episode_batches(
+                    episode_index, [_TIMESTAMP_COLUMN_NAME]
+                )
+            ],
+            # Needed when the episode has no rows: there is no batch to take the type from
+            type=pa.float64(),
+        )
+
     @property
     def n_episodes(self) -> int:
         """The number of episodes of the dataset (`total_episodes` in `meta/info.json`)."""
