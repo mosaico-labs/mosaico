@@ -167,11 +167,11 @@ async fn run_worker(
 
                 tokio::select! {
                     _ = shutdown.cancelled() => (),
-                    res = deliver(&client, &hook.url, body, &policy) => {
+                    res = deliver(&client, hook.hook_id, &hook.url, body, &policy) => {
                         if let Err(e) = res {
                             warn!(
-                                "delivery of `{name}` event {event_id} to hook {} ({}) failed: {e}",
-                                hook.hook_id, hook.url,
+                                "delivery of `{name}` event {event_id} to hook {} failed: {e}",
+                                hook.hook_id,
                             );
                         }
                     }
@@ -204,9 +204,10 @@ impl DeliveryError {
     }
 }
 
-/// Sends `body` to `url`, retrying as `policy` says.
+/// Sends `body` to `url`, the URL of hook `hook_id`, retrying as `policy` says.
 async fn deliver(
     client: &reqwest::Client,
+    hook_id: i32,
     url: &str,
     body: Bytes,
     policy: &Policy,
@@ -221,7 +222,7 @@ async fn deliver(
 
         match waits.next() {
             Some(wait) if err.is_retryable() => {
-                debug!("delivery to {url} failed, retrying in {wait:?}: {err}");
+                debug!("delivery to hook {hook_id} failed, retrying in {wait:?}: {err}");
                 tokio::time::sleep(*wait).await;
             }
             _ => return Err(err),
@@ -242,7 +243,7 @@ async fn send(
         .body(body)
         .send()
         .await
-        .map_err(DeliveryError::Transport)?;
+        .map_err(|e| DeliveryError::Transport(e.without_url()))?;
 
     let status = response.status();
 
@@ -273,7 +274,7 @@ mod tests {
 
     async fn deliver_to(url: &str, policy: &Policy) -> Result<(), DeliveryError> {
         let body = Bytes::from_static(br#"{"id":"test"}"#);
-        deliver(&build_client().unwrap(), url, body, policy).await
+        deliver(&build_client().unwrap(), 1, url, body, policy).await
     }
 
     fn session_uploaded() -> Event {
@@ -372,7 +373,8 @@ mod tests {
     async fn retries_refused_connections() {
         // Nothing listens on this port once the listener is dropped.
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/hook", listener.local_addr().unwrap());
+        let addr = listener.local_addr().unwrap().to_string();
+        let url = format!("http://{addr}/hook");
         drop(listener);
 
         let policy = Policy {
@@ -384,6 +386,7 @@ mod tests {
         let err = deliver_to(&url, &policy).await.unwrap_err();
 
         assert!(matches!(err, DeliveryError::Transport(_)));
+        assert!(!err.to_string().contains(&addr), "{err}");
         // It waited before both retries.
         assert!(start.elapsed() >= Duration::from_millis(200));
     }
