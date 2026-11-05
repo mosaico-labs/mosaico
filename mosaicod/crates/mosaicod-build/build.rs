@@ -6,13 +6,15 @@ use std::{
     process::Command,
 };
 
-/// Fingerprint of the GPG key that signs release tags, published on [`KEYSERVER`].
+/// Fingerprint of the GPG key that signs release tags.
 ///
 /// A build of a commit tagged as a release (`vX.Y.Z`) verifies the tag signature against this key:
 /// if it matches, the key is shown in `mosaicod --version`, otherwise the release has no signature.
 const RELEASE_KEY_FINGERPRINT: &str = "5E181E2A5A39E5D43647F92B3FA3206A41ADC4EF";
 
-const KEYSERVER: &str = "hkps://keyserver.ubuntu.com";
+/// Public release key, relative to this crate. The build never goes online: the key is also
+/// published on keyserver.ubuntu.com, for anyone who wants to verify a release on their own.
+const RELEASE_KEY_FILE: &str = "release-key.asc";
 
 /// Base64 encoded signed tag object (`git cat-file tag vX.Y.Z | base64 -w0`), used to build a
 /// release where the git history is not available (e.g. in a container).
@@ -185,7 +187,7 @@ fn verify_signature(object: &str) -> Result<String, String> {
     Ok(RELEASE_KEY_FINGERPRINT.to_uppercase())
 }
 
-/// Verifies `signature` over `payload` with the release key fetched from [`KEYSERVER`], using a
+/// Verifies `signature` over `payload` with the release key in [`RELEASE_KEY_FILE`], using a
 /// temporary GPG home so the user keyring is never involved. Returns the fingerprint of the
 /// primary key that made the signature.
 fn gpg_verify(payload: &str, signature: &str) -> Result<String, String> {
@@ -206,11 +208,6 @@ fn gpg_verify_in(home: &Path, payload: &str, signature: &str) -> Result<String, 
             .map_err(|e| format!("unable to set permissions on the GPG home: {e}"))?;
     }
 
-    // Without IPv6 connectivity (common in containers) the keyserver lookup fails with "No route
-    // to host" instead of falling back to IPv4.
-    fs::write(home.join("dirmngr.conf"), "disable-ipv6\n")
-        .map_err(|e| format!("unable to write the dirmngr configuration: {e}"))?;
-
     let payload_path = home.join("tag");
     let signature_path = home.join("tag.asc");
     fs::write(&payload_path, payload).map_err(|e| format!("unable to write the tag: {e}"))?;
@@ -227,16 +224,13 @@ fn gpg_verify_in(home: &Path, payload: &str, signature: &str) -> Result<String, 
             .map_err(|e| format!("gpg is not available: {e}"))
     };
 
-    let recv = gpg(&[
-        "--keyserver",
-        KEYSERVER,
-        "--recv-keys",
-        RELEASE_KEY_FINGERPRINT,
-    ])?;
-    if !recv.status.success() {
+    let key_path = Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join(RELEASE_KEY_FILE);
+    let import = gpg(&["--import", &key_path.to_string_lossy()])?;
+    if !import.status.success() {
         return Err(format!(
-            "unable to fetch the release key from {KEYSERVER}: {}",
-            String::from_utf8_lossy(&recv.stderr).trim()
+            "unable to import the release key from {}: {}",
+            key_path.display(),
+            String::from_utf8_lossy(&import.stderr).trim()
         ));
     }
 
@@ -290,6 +284,7 @@ fn is_release_tag(tag: &str) -> bool {
 /// current commit and the tags.
 fn rerun_if_changed() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed={RELEASE_KEY_FILE}");
     println!("cargo:rerun-if-env-changed=GIT_HASH");
     println!("cargo:rerun-if-env-changed={RELEASE_TAG_ENV}");
 
