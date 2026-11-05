@@ -1,4 +1,4 @@
-from mosaicolabs.bridges.ros.loader import BaseLoader
+from mosaicolabs.bridges.loader_base import AdaptedLoader
 from mosaicolabs.bridges.topic_status import TopicStatus
 
 
@@ -6,7 +6,7 @@ class _FakeAdapter:
     """Stand-in for a resolved adapter type; identity is all that matters here."""
 
 
-class _FakeLoader(BaseLoader):
+class _FakeLoader(AdaptedLoader):
     """
     Minimal concrete subclass exercising the base class's bookkeeping without needing
     a real bag file or Mosaico sequence. The accepted/resolved containers are passed in

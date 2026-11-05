@@ -107,17 +107,18 @@ class TopicResolution(Generic[AdapterT]):
             )
 
 
-class BaseLoader(ABC, Generic[AdapterT]):
+class BaseLoader(ABC):
     """
-    Shared topic classification and adapter-resolution logic for
-    - `ROSLoader` (bag file source)
-    - `MCAPLoader` (mcap file source)
-    - `MosaicoLoader` (Mosaico sequence source).
+    Shared topic classification logic for every loader, whatever the direction:
+    - `ROSLoader` (bag file source, via `AdaptedLoader`)
+    - `MCAPLoader` (mcap file source, via `AdaptedLoader`)
+    - `MosaicoLoader` (Mosaico sequence source, via `AdaptedLoader`)
+    - loaders whose topics are not translated through a bridge adapter (e.g. LeRobot).
 
     All loaders classify every topic of their underlying data source as either
-    **accepted** (adapter resolved, passes the user's `topics` filter) or **rejected**,
-    the latter carrying a `TopicStatus` saying why — excluded by the user's
-    filter, no adapter resolvable, or a source-specific reason such as
+    **accepted** (passes the user's `topics` filter and the source-specific resolution)
+    or **rejected**, the latter carrying a `TopicStatus` saying why — excluded by the
+    user's filter, no adapter resolvable, or a source-specific reason such as
     `TopicStatus.NOT_IN_TYPESTORE` or `TopicStatus.UNAVAILABLE_SCHEMA`. This base
     class implements the properties that only need to read that bookkeeping, so each
     subclass only has to populate it via its own `_ensure_resolved()` (which performs the
@@ -128,28 +129,26 @@ class BaseLoader(ABC, Generic[AdapterT]):
 
     * `_resolved_topics`: **all** topic names in the source (dict or list; only
       the keys/elements are read by this base class).
-    * `_accepted_topics`: topic names that passed filtering and adapter resolution.
-    * `_topic_cached_adapters`: `Dict[str, Type[AdapterT]]` mapping accepted
-      topic names to their resolved adapter.
+    * `_accepted_topics`: topic names that passed filtering and resolution.
 
     and record every rejection through `_reject`, which is the single place
     rejection reasons live — there are no per-reason buckets to keep in sync.
+
+    Loaders translating each topic through a `BridgeAdapterBase` should derive from
+    `AdaptedLoader` instead, which adds the per-topic adapter cache.
     """
 
     _resolved_topics: Any
     _accepted_topics: Any
     _rejections: Dict[str, TopicStatus]
-    _topic_cached_adapters: Dict[str, Type[AdapterT]]
 
     def __init__(self, container_type: Type[Iterable]):
         self._resolved_topics = container_type()
         """The full set of canonical topic names in the underlying source (dict or list; only the keys/elements are read by this base class)."""
         self._accepted_topics = container_type()
-        """The set of topic names that passed filtering and adapter resolution (dict or list; only the keys/elements are read by this base class)."""
+        """The set of topic names that passed filtering and resolution (dict or list; only the keys/elements are read by this base class)."""
         self._rejections: Dict[str, TopicStatus] = {}
         """Every rejected topic, mapped to the reason it was rejected."""
-        self._topic_cached_adapters: dict[str, type[AdapterT]] = {}
-        """Dictionary mapping accepted topic names to their resolved Mosaico adapter class."""
 
     @abstractmethod
     def _ensure_resolved(self) -> None:
@@ -206,16 +205,6 @@ class BaseLoader(ABC, Generic[AdapterT]):
         return list(self._resolved_topics)
 
     @property
-    def unresolved_adapter_topics(self) -> List[str]:
-        """
-        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
-
-        Returns:
-            List[str]: A list of topics with unresolved adapter to translate them into/from Mosaico Ontology.
-        """
-        return self._topics_with_status(TopicStatus.UNRESOLVED_ADAPTER)
-
-    @property
     def filtered_topics(self) -> List[str]:
         """
         Retrieves the list of topic names that are **skipped** due to the user filter.
@@ -238,6 +227,41 @@ class BaseLoader(ABC, Generic[AdapterT]):
         self._ensure_resolved()
         return list(self._rejections.items())
 
+
+class AdaptedLoader(BaseLoader, Generic[AdapterT]):
+    """
+    A `BaseLoader` whose accepted topics are each translated through a bridge adapter
+    (`AdapterT`, a `BridgeAdapterBase` subclass). Shared by
+    - `ROSLoader` (bag file source)
+    - `MCAPLoader` (mcap file source)
+    - `MosaicoLoader` (Mosaico sequence source).
+
+    On top of the `BaseLoader` bookkeeping, subclasses are expected to set, during
+    `_ensure_resolved()`:
+
+    * `_topic_cached_adapters`: `Dict[str, Type[AdapterT]]` mapping accepted
+      topic names to their resolved adapter.
+
+    and to reject topics with no resolvable adapter as `TopicStatus.UNRESOLVED_ADAPTER`.
+    """
+
+    _topic_cached_adapters: Dict[str, Type[AdapterT]]
+
+    def __init__(self, container_type: Type[Iterable]):
+        super().__init__(container_type)
+        self._topic_cached_adapters: dict[str, type[AdapterT]] = {}
+        """Dictionary mapping accepted topic names to their resolved Mosaico adapter class."""
+
+    @property
+    def unresolved_adapter_topics(self) -> List[str]:
+        """
+        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
+
+        Returns:
+            List[str]: A list of topics with unresolved adapter to translate them into/from Mosaico Ontology.
+        """
+        return self._topics_with_status(TopicStatus.UNRESOLVED_ADAPTER)
+
     def resolve_adapter(self, topic_name: str) -> Optional[type[AdapterT]]:
         """
         Returns the resolved adapter for an accepted topic.
@@ -258,7 +282,12 @@ class BaseLoader(ABC, Generic[AdapterT]):
         return self._topic_cached_adapters.get(topic_name)
 
 
-class MosaicoLoader(BaseLoader[AdapterT], Generic[AdapterT]):
+# FIXME: `MosaicoLoader` only serves the Mosaico -> format (extraction) direction, while
+# `BaseLoader`/`AdaptedLoader` above are shared by both directions. Move it, together with
+# `TopicResolution` (only used by `MosaicoLoader._resolve_topic` and its overrides), to its
+# own module (e.g. `bridges/base_mosaico_loader.py`, next to `base_sequence_extractor.py`).
+# Same split applies to `ros/loader.py` and `mcap/loader.py`, which hold both directions.
+class MosaicoLoader(AdaptedLoader[AdapterT], Generic[AdapterT]):
     """
     Streams messages back **out of** a Mosaico sequence, adapting each one into a native
     format on the way.

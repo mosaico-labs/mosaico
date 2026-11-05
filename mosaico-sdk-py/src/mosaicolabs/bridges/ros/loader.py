@@ -24,7 +24,7 @@ from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ...models.core.serializable import _compute_schema_fingerprint
-from ..loader_base import BaseLoader, MosaicoLoader, TopicResolution
+from ..loader_base import AdaptedLoader, MosaicoLoader, TopicResolution
 from ..protocols.mcap.converters.ros_converter import RosMsgSchemaConverter
 from ..topic_status import TopicStatus
 from .adapter_base import ROSAdapterBase, RosSchemaMetadata
@@ -41,7 +41,7 @@ from .ros_message import ROSMessage
 logger = get_logger(__name__)
 
 
-class ROSLoader(BaseLoader[ROSAdapterBase]):
+class ROSLoader(AdaptedLoader[ROSAdapterBase]):
     """
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
 
