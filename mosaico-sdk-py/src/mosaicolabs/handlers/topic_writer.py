@@ -8,6 +8,7 @@ serialization, and connection management.
 
 from typing import Any, Optional, Type
 
+import pyarrow as pa
 import pyarrow.flight as fl
 
 from mosaicolabs.enum.topic_level_error_policy import TopicLevelErrorPolicy
@@ -369,6 +370,68 @@ class TopicWriter:
             self._status = TopicWriterStatus.RecordTooLarge
             self._last_err = err
             self._error_report(err)
+
+    def push_batch(self, timestamp_ns: pa.Array, data: pa.RecordBatch) -> None:
+        """
+        Sends a whole batch of records to the server in a single transmission.
+
+        This is the columnar counterpart of [`push()`][mosaicolabs.handlers.TopicWriter.push],
+        meant for data that is already in Arrow format (e.g. read from Parquet files): the
+        records are never converted into [`Message`][mosaicolabs.models.core.Message] objects.
+
+        Following the `Message` envelope pattern, `data` holds only the payload columns of the
+        topic's ontology, while the `timestamp_ns` column is prepended by this method right
+        before sending. Any record buffered via `push()` is flushed first, so ordering is kept.
+
+        Note: Batch Size
+            Each call is transmitted as a single Flight message, and the server stores it as a
+            single chunk: the batch is not split nor merged with other batches. Its serialized
+            size must not exceed
+            [`MosaicoClient.max_batch_size_bytes`][mosaicolabs.comm.MosaicoClient.max_batch_size_bytes],
+            and batches close to that limit make the most efficient use of storage.
+
+        Args:
+            timestamp_ns (pa.Array): The `int64` record timestamps in nanoseconds, one per row of `data`.
+            data (pa.RecordBatch): The payload columns, whose schema must match the ontology schema
+                of the topic (the fields of `__msco_pyarrow_struct__`, in the same order).
+
+        Raises:
+            ValueError: If `data` does not match the ontology schema, if `timestamp_ns` is not a
+                null-free `int64` array as long as `data`, or if the batch is too large.
+            Exception: If the transmission fails.
+
+        Example:
+            ```python
+            import pyarrow as pa
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                with client.sequence_create(...) as seq_writer:
+                    floating_writer = seq_writer.topic_create(
+                        topic_name="sensors/temperature",
+                        metadata={},
+                        ontology_type=Floating64,
+                    )
+
+                    floating_writer.push_batch(
+                        timestamp_ns=pa.array([1700000000000, 1700000001000], pa.int64()),
+                        data=pa.RecordBatch.from_pydict(
+                            {"data": [21.5, 21.7]},
+                            schema=pa.schema(list(Floating64.__msco_pyarrow_struct__)),
+                        ),
+                    )
+            ```
+        """
+        try:
+            self._wrstate.push_batch(timestamp_ns, data)
+        except Exception as e:
+            logger.error(f"Error during TopicWriter.push_batch: '{e}'")
+            self._status = TopicWriterStatus.RaisedException
+            self._last_err = str(e)
+            raise e
+
+        # If everything ok, reset any previous status
+        self._status = TopicWriterStatus.Active
+        self._last_err = None
 
     @property
     def name(self) -> str:
