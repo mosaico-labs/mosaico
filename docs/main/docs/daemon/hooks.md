@@ -104,7 +104,7 @@ Delivery is **best effort**. A request counts as delivered when the hook answers
 | Connection error, no answer within 5 seconds, `429`, or `5xx` | Retries, up to 3 attempts in all, waiting 1 second and then 10 seconds. |
 | Any other status | Gives up. Redirects aren't followed. |
 
-When it gives up, `mosaicod` logs a warning with the hook, the event `id` and the error.
+When it gives up, `mosaicod` logs a warning with the hook's id, as listed by `mosaicod hook ls`, the event `id` and the error.
 
 What that means for a receiver:
 
