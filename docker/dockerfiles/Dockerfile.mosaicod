@@ -1,8 +1,8 @@
 FROM rust:1.92-slim-bookworm AS builder
 
 ARG GIT_HASH=undefined
-# Base64 encoded signed release tag object (`git cat-file tag vX.Y.Z | base64 -w0`). Set only for
-# release builds: the build verifies its signature, since `.git` is not part of the image.
+# Base64 encoded release tag object (`git cat-file tag vX.Y.Z | base64 -w0`), set only for release
+# builds since `.git` is not part of the image.
 ARG MOSAICOD_RELEASE_TAG=
 
 WORKDIR /mosaicod
@@ -12,8 +12,7 @@ RUN apt-get update && \
   pkg-config \
   libpq-dev \
   build-essential \
-  ca-certificates \
-  gnupg
+  ca-certificates 
 
 COPY mosaicod/Cargo.toml mosaicod/Cargo.lock ./
 COPY mosaicod/crates ./crates
