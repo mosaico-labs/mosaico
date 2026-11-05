@@ -10,8 +10,7 @@ use std::{
 ///
 /// A build of a commit tagged as a release (`vX.Y.Z`) verifies the tag signature against this key:
 /// if it matches, the key is shown in `mosaicod --version`, otherwise the release has no signature.
-// TODO: set the fingerprint of the release key once it is published.
-const RELEASE_KEY_FINGERPRINT: &str = "";
+const RELEASE_KEY_FINGERPRINT: &str = "5E181E2A5A39E5D43647F92B3FA3206A41ADC4EF";
 
 const KEYSERVER: &str = "hkps://keyserver.ubuntu.com";
 
@@ -78,17 +77,17 @@ fn release(git_hash: &str) -> (bool, Option<String>) {
         Ok(Some(tag)) => tag,
         Ok(None) => return (false, None),
         Err(e) => {
-            println!("cargo:warning=building a development version: {e}");
+            warning(&format!("building a development version: {e}"));
             return (false, None);
         }
     };
 
     let expected = format!("v{}", env::var("CARGO_PKG_VERSION").unwrap());
     if tag.name != expected {
-        println!(
-            "cargo:warning=building a development version: tag {} doesn't match the crate version ({expected})",
+        warning(&format!(
+            "building a development version: tag {} doesn't match the crate version ({expected})",
             tag.name
-        );
+        ));
         return (false, None);
     }
 
@@ -99,13 +98,19 @@ fn release(git_hash: &str) -> (bool, Option<String>) {
     match key {
         Ok(key) => (true, Some(key)),
         Err(e) => {
-            println!(
-                "cargo:warning=building release {} without signature: {e}",
+            warning(&format!(
+                "building release {} without signature: {e}",
                 tag.name
-            );
+            ));
             (true, None)
         }
     }
+}
+
+/// Prints a cargo warning. Cargo reads one directive per line, so the lines are joined.
+fn warning(message: &str) {
+    let message: Vec<_> = message.lines().map(str::trim).collect();
+    println!("cargo:warning={}", message.join(" | "));
 }
 
 /// Returns the release tag of the commit being built, if any.
@@ -200,6 +205,11 @@ fn gpg_verify_in(home: &Path, payload: &str, signature: &str) -> Result<String, 
         fs::set_permissions(home, fs::Permissions::from_mode(0o700))
             .map_err(|e| format!("unable to set permissions on the GPG home: {e}"))?;
     }
+
+    // Without IPv6 connectivity (common in containers) the keyserver lookup fails with "No route
+    // to host" instead of falling back to IPv4.
+    fs::write(home.join("dirmngr.conf"), "disable-ipv6\n")
+        .map_err(|e| format!("unable to write the dirmngr configuration: {e}"))?;
 
     let payload_path = home.join("tag");
     let signature_path = home.join("tag.asc");
