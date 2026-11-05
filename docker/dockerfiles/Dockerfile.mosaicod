@@ -1,6 +1,9 @@
 FROM rust:1.92-slim-bookworm AS builder
 
 ARG GIT_HASH=undefined
+# Base64 encoded signed release tag object (`git cat-file tag vX.Y.Z | base64 -w0`). Set only for
+# release builds: the build verifies its signature, since `.git` is not part of the image.
+ARG MOSAICOD_RELEASE_TAG=
 
 WORKDIR /mosaicod
 
@@ -9,7 +12,8 @@ RUN apt-get update && \
   pkg-config \
   libpq-dev \
   build-essential \
-  ca-certificates 
+  ca-certificates \
+  gnupg
 
 COPY mosaicod/Cargo.toml mosaicod/Cargo.lock ./
 COPY mosaicod/crates ./crates
@@ -20,7 +24,7 @@ COPY mosaicod/bin ./bin
 # here since the build context is now the repo root, not `mosaicod/`.
 COPY proto /proto
 
-RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
+RUN GIT_HASH=${GIT_HASH} MOSAICOD_RELEASE_TAG=${MOSAICOD_RELEASE_TAG} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 
 FROM gcr.io/distroless/cc-debian12
 

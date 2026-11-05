@@ -13,3 +13,4 @@ name = "mosaicod_build"
 [build-dependencies]
 chrono = { workspace = true }
 
+base64 = { workspace = true, features = ["alloc"] }
