@@ -6,9 +6,9 @@ per episode, see `LeRobotInjector`) back to a LeRobot v3.0 dataset folder.
 
 The episodes are read from the `_lerobot_` metadata of the sequences and merged by a
 `MosaicoToLeRobotLoader`. Their data is then streamed from the sequences and written to the data
-files by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`, with
-`meta/stats.json` combined from the stats of the exported episodes. The videos are not written
-yet.
+files by a `LeRobotWriter`, and the `meta/` folder by `LeRobotDatasetMeta.dump`, with the stats
+of the episodes and `meta/stats.json` computed from the data files written. The videos are not
+written yet.
 
 Typical usage as a script:
     $ python -m mosaicolabs.bridges.lerobot.sequences_extractor \\
@@ -34,7 +34,7 @@ from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .metadata import LeRobotDatasetMeta
 from .mosaico_loader import MosaicoToLeRobotLoader
-from .writer import LeRobotWriter, _aggregate_stats
+from .writer import LeRobotWriter
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -193,11 +193,10 @@ class LeRobotSequencesExtractor:
         """
         Writes the dataset under the `root` of `meta`: the data of the episodes, streamed from
         their sequences (see `LeRobotWriter`), then the `meta/` folder (see
-        `LeRobotDatasetMeta.dump`), with the stats of the episodes combined into
-        `meta/stats.json` (see `_aggregate_stats`).
+        `LeRobotDatasetMeta.dump`), with the stats computed from the data files written.
 
         Returns:
-            LeRobotDatasetMeta: The metadata written, with its `stats`.
+            LeRobotDatasetMeta: The metadata written.
 
         Raises:
             ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
@@ -211,13 +210,9 @@ class LeRobotSequencesExtractor:
                 )
                 writer.write_episode(streamer)
 
-        meta = LeRobotDatasetMeta.from_data(
-            meta.root,
-            meta.info,
-            list(meta.episodes_map.values()),
-            meta.tasks,
-            stats=_aggregate_stats(meta),
-        )
+        # Only now: the stats are computed from the data files, readable once closed at the
+        # end of the `with` block
+        logger.info("Writing the 'meta/' folder, with the stats of the episodes...")
         meta.dump()
         return meta
 
