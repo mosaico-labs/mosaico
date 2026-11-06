@@ -23,6 +23,7 @@ arrow = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 sqlx = { workspace = true }

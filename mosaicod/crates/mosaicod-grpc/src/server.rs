@@ -4,10 +4,12 @@ use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_hook as hook;
 use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use std::net::{IpAddr, SocketAddr};
+use tokio_util::sync::CancellationToken;
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -173,7 +175,14 @@ pub async fn serve(
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::new(opts.host, opts.port);
 
-    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone())?;
+    // The hook worker stops on shutdown, and in any case once `serve` returns.
+    let hook_shutdown = shutdown
+        .as_ref()
+        .map_or_else(CancellationToken::new, |s| s.token().child_token());
+    let _stop_hook_worker = hook_shutdown.clone().drop_guard();
+    let dispatcher = hook::Dispatcher::spawn(db.clone(), hook_shutdown)?;
+
+    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone(), dispatcher)?;
 
     if opts.enable_api_key_management {
         grpc_flight_svc.enable_api_key_manegement();

@@ -7,7 +7,7 @@ mod get_flight_info;
 mod get_schema;
 mod list_flights;
 
-pub use do_action::do_action;
+pub use do_action::{DoActionContext, do_action};
 pub use do_get::do_get;
 pub use do_put::{DoPutContext, do_put};
 pub use get_flight_info::get_flight_info;

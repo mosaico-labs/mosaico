@@ -623,7 +623,9 @@ impl HandleWriter {
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
     /// consolidated (e.g. metadata, timestamp bounds).
-    pub async fn finalize(self) -> Result<()> {
+    ///
+    /// Returns the topic's metadata.
+    pub async fn finalize(self) -> Result<TopicMetadata> {
         // 1. Update topic record in database.
         let mut tx = self.context.db.transaction().await?;
 
@@ -674,11 +676,11 @@ impl HandleWriter {
         metadata_write_to_store(
             &self.context,
             path_in_store.path_metadata().as_path(),
-            metadata,
+            metadata.clone(),
         )
         .await?;
 
-        Ok(())
+        Ok(metadata)
     }
 }
 

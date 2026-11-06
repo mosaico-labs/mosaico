@@ -227,6 +227,48 @@ mosaicod api-key purge -A
     Using `--all` is irreversible: every API key will be permanently revoked, including keys currently in use by services or integrations. Make sure you have a way to reissue the keys before running this command.
 :::
 
+## mosaicod hook
+
+Manage [hooks](hooks.md), the HTTP endpoints `mosaicod` sends an event to when a topic is uploaded or a session is finalized. Like `mosaicod api-key`, it needs the same database and store configuration as `mosaicod server`.
+
+### create
+
+Register a hook and print its id.
+
+```bash
+mosaicod hook create <URL>
+```
+
+`<URL>` is the `http` or `https` URL `mosaicod` sends events to.
+
+#### Examples
+
+```bash
+mosaicod hook create http://hooks.internal:8080/
+```
+
+### ls
+
+List all hooks, with their id, creation time and URL. `list` is an alias.
+
+```bash
+mosaicod hook ls
+```
+
+### rm
+
+Delete one or more hooks, by the ids `mosaicod hook ls` shows. If any id is unknown, nothing is deleted. `remove` is an alias.
+
+```bash
+mosaicod hook rm <ID>...
+```
+
+#### Examples
+
+```bash
+mosaicod hook rm 3 4
+```
+
 ## Common Options
 
 Each `mosaicod` command shares the following common options:
