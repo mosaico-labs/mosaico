@@ -18,6 +18,7 @@ Every value is a function of its frame (see `action_value`, `state_value`, `time
 
 import io
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -150,12 +151,19 @@ def image_value(index: int, camera_column_name: str) -> bytes:
 
 
 def _vector_stats(values: List[List[float]]) -> Dict[str, List[Any]]:
-    """The LeRobot statistics of a vector feature over `values`, per dimension."""
+    """The LeRobot statistics of a vector feature over `values`, per dimension, without the
+    quantiles (as the LeRobot versions before them wrote them)."""
     dims = list(zip(*values))
+    means = [sum(dim) / len(dim) for dim in dims]
     return {
         "min": [min(dim) for dim in dims],
         "max": [max(dim) for dim in dims],
-        "mean": [sum(dim) / len(dim) for dim in dims],
+        "mean": means,
+        # Divided by n, as LeRobot does
+        "std": [
+            math.sqrt(sum((value - mean) ** 2 for value in dim) / len(dim))
+            for dim, mean in zip(dims, means)
+        ],
         "count": [len(values)],
     }
 

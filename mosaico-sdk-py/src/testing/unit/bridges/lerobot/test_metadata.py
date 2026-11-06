@@ -2,7 +2,7 @@ import json
 import math
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Iterable, List
 
 import numpy as np
 import pandas as pd
@@ -18,13 +18,14 @@ from mosaicolabs.bridges.lerobot.schema_metadata import LeRobotSchemaMetadata
 
 from .config import (
     ACTION_COLUMN_NAME,
-    CAMERA_COLUMN_NAMES,
     DATA_PATH,
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     FPS,
     STATE_COLUMN_NAME,
     TASK,
+    action_value,
+    state_value,
 )
 
 
@@ -50,6 +51,27 @@ def _episode_row() -> Dict[str, Any]:
 def _edit_info_json(root: Path, edit: Callable[[Dict[str, Any]], Any]):
     info_path = root / "meta" / "info.json"
     info_path.write_text(json.dumps(edit(json.loads(info_path.read_text()))))
+
+
+def _frames_stats(
+    value: Callable[[int], List[float]], frames: Iterable[int]
+) -> Dict[str, Any]:
+    """The stats of a vector feature of the example dataset (e.g. `state_value`) over
+    `frames`, as LeRobot computes them."""
+    values = np.array([value(index) for index in frames])
+    return {
+        "min": values.min(axis=0),
+        "max": values.max(axis=0),
+        "mean": values.mean(axis=0),
+        "std": values.std(axis=0),
+        "count": [len(values)],
+    }
+
+
+def _without_stats(meta: LeRobotDatasetMeta) -> LeRobotDatasetMeta:
+    """`meta` with episodes without stats, as those exported from Mosaico."""
+    episodes = [replace(e, stats={}) for e in meta.episodes_map.values()]
+    return LeRobotDatasetMeta.from_data(meta.root, meta.info, episodes, meta.tasks)
 
 
 # --- LeRobotSchemaMetadata ---
@@ -283,26 +305,56 @@ def test_load(lerobot_dataset):
     assert [e.data_file_index for e in meta.episodes_map.values()] == [0, 0, 1]
 
 
-def test_load_without_stats_json(lerobot_dataset_factory):
-    """`meta/stats.json` is optional in LeRobot."""
-    meta = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_stats_json=False))
+# --- LeRobotDatasetMeta.stats ---
 
-    assert meta.stats is None
+
+def test_stats_combine_those_of_the_episodes(lerobot_dataset):
+    """As LeRobot writes `meta/stats.json`: those over every frame, for the features with
+    stats in the episodes."""
+    stats = LeRobotDatasetMeta.load(lerobot_dataset).stats
+
+    assert stats is not None
+    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+    every_frame = range(sum(EPISODE_LENGTHS))
+    for key, value in (
+        (ACTION_COLUMN_NAME, action_value),
+        (STATE_COLUMN_NAME, state_value),
+    ):
+        for name, expected in _frames_stats(value, every_frame).items():
+            np.testing.assert_allclose(stats[key][name], expected)
+
+
+# --- LeRobotDatasetMeta.get_episode_stats ---
+
+
+def test_get_episode_stats_returns_those_of_the_episode(lerobot_dataset, tmp_path):
+    """Those read from `meta/episodes`: no data file is read (there is none under `root`)."""
+    meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path)
+
+    stats = meta.get_episode_stats(0)
+
+    assert stats == meta.episodes_map[0].stats
+    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+
+
+def test_get_episode_stats_of_an_unknown_episode(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+
+    with pytest.raises(KeyError):
+        meta.get_episode_stats(len(EPISODE_LENGTHS))
 
 
 # --- LeRobotDatasetMeta.dump ---
 
 
-@pytest.mark.parametrize("with_stats_json", [False, True])
-def test_dump_writes_what_load_reads(
-    lerobot_dataset_factory, tmp_path, with_stats_json
-):
-    source = lerobot_dataset_factory(with_stats_json=with_stats_json)
-    meta = replace(LeRobotDatasetMeta.load(source), root=tmp_path / "dumped")
+def test_dump_writes_what_load_reads(lerobot_dataset, tmp_path):
+    meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path / "dumped")
 
     meta.dump()
 
     assert LeRobotDatasetMeta.load(meta.root) == meta
+    stats_json = json.loads((meta.root / "meta" / "stats.json").read_text())
+    assert stats_json == meta.stats
 
 
 def test_dump_writes_the_tasks_as_lerobot_reads_them(lerobot_dataset, tmp_path):
@@ -316,20 +368,18 @@ def test_dump_writes_the_tasks_as_lerobot_reads_them(lerobot_dataset, tmp_path):
     assert tasks.loc[TASK, "task_index"] == 0
 
 
-def test_set_episode_stats_is_dumped(lerobot_dataset, tmp_path):
-    """The stats replace the source ones, as lists, and `dump` writes them."""
-    meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path)
-    stats = {
-        STATE_COLUMN_NAME: {"mean": np.array([1.0, 2.0]), "count": np.array([5])},
-        CAMERA_COLUMN_NAMES[0]: {"mean": np.full((3, 1, 1), 0.5)},
-    }
+def test_dump_computes_the_missing_stats(lerobot_dataset_factory):
+    """As on export: the episodes without stats get those of their data, written to
+    `meta/episodes`, and `meta/stats.json` combines them."""
+    meta = _without_stats(LeRobotDatasetMeta.load(lerobot_dataset_factory()))
 
-    for episode_index in meta.episode_indexes:
-        meta.set_episode_stats(episode_index, stats)
     meta.dump()
 
-    assert meta.episodes_map[0].stats == {
-        STATE_COLUMN_NAME: {"mean": [1.0, 2.0], "count": [5]},
-        CAMERA_COLUMN_NAMES[0]: {"mean": [[[0.5]], [[0.5]], [[0.5]]]},
-    }
-    assert LeRobotDatasetMeta.load(tmp_path) == meta
+    reloaded = LeRobotDatasetMeta.load(meta.root)
+    assert reloaded == meta
+    assert all(
+        set(episode.stats) == set(DATA_SCHEMA.names)
+        for episode in reloaded.episodes_map.values()
+    )
+    stats_json = json.loads((meta.root / "meta" / "stats.json").read_text())
+    assert stats_json == reloaded.stats

@@ -49,7 +49,10 @@ class LeRobotEpisode:
     """The file index of the episodes parquet file holding this row (`meta/episodes/file_index`)."""
 
     stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    """The per-feature statistics of the episode (`stats/<feature>/<stat>` columns)."""
+    """
+    The per-feature statistics of the episode (`stats/<feature>/<stat>` columns, 
+    or none if not known yet: they are then computed from the data file.
+    """
 
     _REQUIRED_COLUMNS: ClassVar[Dict[str, str]] = {
         "episode_index": "episode_index",

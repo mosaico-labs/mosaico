@@ -22,10 +22,10 @@ class LeRobotDatasetBuilder:
 
     The first episode sets the reference `info`: every next episode must be compatible with it
     (see `LeRobotInfo.check_compatible`), or `add_episode` raises. Each accepted episode is
-    renumbered after the previous ones, and `info` is kept consistent with them (totals and
-    `splits`). The new index of each episode is kept by the name of its sequence
-    (`episode_index_by_sequence`). The dataset is written as a single data file and a single
-    episodes file. The video features, not supported yet, are dropped.
+    renumbered after the previous ones, without its stats, and `info` is kept consistent with
+    them (totals and `splits`). The new index of each episode is kept by the name of its
+    sequence (`episode_index_by_sequence`). The dataset is written as a single data file and a
+    single episodes file. The video features, not supported yet, are dropped.
 
     Example:
         ```python
@@ -88,6 +88,10 @@ class LeRobotDatasetBuilder:
         """
         Adds the episode of a sequence to the dataset, after the previous ones, renumbered.
 
+        Its stats are dropped: those of its source dataset do not apply to the new one (its
+        indexes are renumbered, and it can hold only part of the episode). They are computed
+        from the data of the new dataset instead (see `LeRobotDatasetMeta.get_episode_stats`).
+
         The video features are dropped from `info` before comparing it with the one of the
         first episode (see `LeRobotInfo.check_compatible`).
 
@@ -127,6 +131,8 @@ class LeRobotDatasetBuilder:
             data_file_index=0,
             meta_episodes_chunk_index=0,
             meta_episodes_file_index=0,
+            # Computed from the data of the new dataset
+            stats={},
         )
 
         self._episodes.append(episode)
