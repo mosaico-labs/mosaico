@@ -119,6 +119,13 @@ def pytest_addoption(parser):
         type=str,
         help="Set Auth Manage api-key.",
     )
+    parser.addoption(
+        "--mosaicod-bin",
+        action="store",
+        default=None,
+        type=str,
+        help="Path to the mosaicod binary, to register hooks. Hook tests are skipped without it.",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -167,6 +174,11 @@ def api_key_delete(request):
 @pytest.fixture(scope="session")
 def api_key_manage(request):
     return request.config.getoption("--api-key-manage")
+
+
+@pytest.fixture(scope="session")
+def mosaicod_bin(request):
+    return request.config.getoption("--mosaicod-bin")
 
 
 @pytest.fixture(scope="session")

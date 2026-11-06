@@ -292,7 +292,9 @@ run_full_stack_tests() {
 
     # Run full-stack tests
     title "running full-stack tests" "." "${BLUE}"
-    run_sdk_pytest -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
+    # The hook tests register their hooks with the mosaicod CLI.
+    run_sdk_pytest -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS} \
+        --mosaicod-bin "${MOSAICOD_PATH}/target/debug/mosaicod"
 }
 
 VERBOSE=false
