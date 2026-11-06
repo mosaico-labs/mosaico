@@ -68,29 +68,8 @@ pub fn hook(cmd: Hook) -> Result<()> {
                 print_hook_list(&hooks);
             }
 
-            Hook::Rm { mut ids } => {
-                ids.sort_unstable();
-                ids.dedup();
-
-                // Check every id first, so a typo doesn't leave the other hooks half deleted.
-                let hooks = facade::hook::list(&context).await?;
-                let unknown: Vec<String> = ids
-                    .iter()
-                    .filter(|id| !hooks.iter().any(|hook| hook.id == **id))
-                    .map(i32::to_string)
-                    .collect();
-
-                if !unknown.is_empty() {
-                    let noun = if unknown.len() == 1 { "hook" } else { "hooks" };
-                    Err(core::Error::not_found(format!(
-                        "{noun} {}",
-                        unknown.join(", ")
-                    )))?;
-                }
-
-                for id in ids {
-                    facade::hook::delete(&context, id).await?;
-                }
+            Hook::Rm { ids } => {
+                facade::hook::delete(&context, &ids).await?;
             }
         }
 

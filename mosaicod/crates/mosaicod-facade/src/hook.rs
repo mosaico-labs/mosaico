@@ -38,17 +38,33 @@ pub async fn list(context: &Context) -> Result<Vec<types::Hook>> {
     Ok(records.into_iter().map(Into::into).collect())
 }
 
-/// Deletes a hook.
+/// Deletes hooks, all or none, in one transaction.
 ///
-/// Returns a `not_found` error if no hook has this id.
-pub async fn delete(context: &Context, id: i32) -> Result<()> {
-    let mut cx = context.db.connection();
+/// If any id is unknown, nothing is deleted and a `not_found` error names every unknown id. A
+/// repeated id counts once.
+pub async fn delete(context: &Context, ids: &[i32]) -> Result<()> {
+    let mut ids = ids.to_vec();
+    ids.sort_unstable();
+    ids.dedup();
 
-    if !db::hook_delete(&mut cx, id).await? {
-        Err(core::Error::not_found(format!("hook {id}")))?;
+    let mut tx = context.db.transaction().await?;
+    let mut unknown = Vec::new();
+
+    for id in ids {
+        if !db::hook_delete(&mut tx, id).await? {
+            unknown.push(id.to_string());
+        }
     }
 
-    Ok(())
+    if unknown.is_empty() {
+        tx.commit().await?;
+        return Ok(());
+    }
+
+    tx.rollback().await?;
+
+    let noun = if unknown.len() == 1 { "hook" } else { "hooks" };
+    Err(core::Error::not_found(format!("{noun} {}", unknown.join(", "))).into())
 }
 
 #[cfg(test)]
@@ -87,7 +103,7 @@ mod tests {
             vec![first.clone(), second.clone()]
         );
 
-        delete(&context, first.id).await.unwrap();
+        delete(&context, &[first.id]).await.unwrap();
         assert_eq!(list(&context).await.unwrap(), vec![second]);
 
         Ok(())
@@ -129,11 +145,25 @@ mod tests {
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
-    async fn delete_unknown_id(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+    async fn delete_is_all_or_nothing(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
         let context = test_context(pool);
 
-        let err = delete(&context, 42).await.unwrap_err().error();
-        assert!(matches!(err.kind(), ErrorKind::NotFound(_)), "{err:?}");
+        let hook = create(&context, "http://hooks.internal/").await.unwrap();
+
+        // The known hook is deleted first, then rolled back.
+        let err = delete(&context, &[hook.id, 43, 42])
+            .await
+            .unwrap_err()
+            .error();
+        assert!(
+            matches!(err.kind(), ErrorKind::NotFound(what) if what == "hooks 42, 43"),
+            "{err:?}"
+        );
+        assert_eq!(list(&context).await.unwrap(), vec![hook.clone()]);
+
+        // A repeated id isn't reported as unknown after its first delete.
+        delete(&context, &[hook.id, hook.id]).await.unwrap();
+        assert!(list(&context).await.unwrap().is_empty());
 
         Ok(())
     }
