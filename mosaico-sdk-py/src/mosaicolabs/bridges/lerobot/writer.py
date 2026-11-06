@@ -7,22 +7,18 @@ sequences, with the types LeRobot writes them with (see
 `LeRobotSchemaConverter.to_lerobot_pyarrow`).
 """
 
-import io
-from collections import defaultdict
 from pathlib import Path
-from typing import DefaultDict, Dict, List
+from typing import Dict, List
 
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.parquet as pq
-from PIL import Image as PILImage
 
 from ..helpers import _dotted_name_to_topic_name
 from ..protocols.lerobot import LeRobotSchemaConverter
 from .helpers import _from_timestamp_ns
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
-from .metadata.feature import _FRAME_INDEX_COLUMN
 from .mosaico_loader import LeRobotEpisodeStreamer
 from .reader import (
     _NESTED_NAME_SEP,
@@ -39,138 +35,6 @@ _IMAGE_FORMAT_FIELD = "format"
 
 _FRAME_INDEX_WIDTH = 6
 """The number of digits of the frame index in the name of an image (`frame-000012.png`)."""
-
-_NO_STATS_DTYPES = ("string", "language")
-"""The `dtype` of the features LeRobot computes no stats for."""
-
-_STATS_QUANTILES = {"q01": 0.01, "q10": 0.10, "q50": 0.50, "q90": 0.90, "q99": 0.99}
-"""The quantiles of the stats, by name (`DEFAULT_QUANTILES` in LeRobot)."""
-
-
-def _sample_indices(length: int) -> pa.Array:
-    """
-    Returns the frames of an episode whose images go into the stats, as LeRobot picks them
-    (`sample_indices` in `lerobot/datasets/compute_stats.py`): evenly spaced, 100 of them (all
-    the frames of a shorter episode), up to 10,000 for a long one (`length ** 0.75`).
-
-    Args:
-        length (int): The number of frames of the episode.
-
-    Returns:
-        pa.Array: The `frame_index` of the sampled frames.
-    """
-    num_samples = max(min(100, length), min(int(length**0.75), 10_000))
-    return pa.array(np.round(np.linspace(0, length - 1, num_samples)).astype(np.int64))
-
-
-def _decode_stats_image(data: bytes, is_depth_map: bool) -> np.ndarray:
-    """
-    Decodes an image for the stats, as LeRobot does (`sample_images` in
-    `lerobot/datasets/compute_stats.py`): RGB `uint8`, or a depth map in its own dtype (e.g.
-    `uint16` or `float32`) and channel, and downsampled by striding to about 150 px on its
-    longer side when that side is 300 px or more.
-
-    Args:
-        data (bytes): The content of the image file.
-        is_depth_map (bool): Whether the image is a depth map.
-
-    Returns:
-        np.ndarray: The image, of shape `(pixels, channels)`: a row per pixel, a column per
-            channel.
-    """
-    image = PILImage.open(io.BytesIO(data))
-    if not is_depth_map:
-        image = image.convert("RGB")
-    # (height, width, channels): a depth map has no channel axis, it gets one
-    image = np.atleast_3d(np.asarray(image))
-
-    long_side = max(image.shape[:2])
-    step = long_side // 150 if long_side >= 300 else 1
-    # A copy: a strided view would keep the whole decoded image in memory
-    return image[::step, ::step].reshape(-1, image.shape[-1]).copy()
-
-
-def _compute_stats(values: np.ndarray) -> Dict[str, np.ndarray]:
-    """
-    Computes the stats of a feature in an episode, per column of `values`, as LeRobot does
-    (`get_feature_stats` in `lerobot/datasets/compute_stats.py`): min, max, mean, std (divided
-    by n) and the quantiles of `_STATS_QUANTILES`, in `float64`. The quantiles are exact, with
-    the rule LeRobot estimates from a histogram: the first value where the count reaches
-    `q * n` (`inverted_cdf`), without interpolating between two values.
-
-    Args:
-        values (np.ndarray): The values, of shape `(rows, columns)`, with at least one row:
-            e.g. a row per frame and a column per dimension of a vector.
-
-    Returns:
-        Dict[str, np.ndarray]: Each stat, of shape `(columns,)`.
-    """
-    values = values.astype(np.float64, copy=False)
-    quantiles = np.quantile(
-        values, list(_STATS_QUANTILES.values()), axis=0, method="inverted_cdf"
-    )
-    return {
-        "min": values.min(axis=0),
-        "max": values.max(axis=0),
-        "mean": values.mean(axis=0),
-        "std": values.std(axis=0),
-        **dict(zip(_STATS_QUANTILES, quantiles)),
-    }
-
-
-def _aggregate_stats(meta: LeRobotDatasetMeta) -> Dict[str, Dict[str, List]]:
-    """
-    Combines the episode stats of `meta` (see `LeRobotDatasetMeta.set_episode_stats`) into
-    those of the dataset (`meta/stats.json`), as LeRobot does (`aggregate_stats` in
-    `lerobot/datasets/compute_stats.py`): min, max, mean, std and count are exact; a quantile
-    up to q50 is the lowest among the episodes, above q50 the highest. A feature is combined
-    over the episodes that have stats for it.
-    """
-    dataset_stats: Dict[str, Dict[str, List]] = {}
-    for feature in meta.features:
-        # The stats of the feature in each episode that has them
-        episodes_stats = [
-            episode.stats[feature.key]
-            for episode in meta.episodes_map.values()
-            if feature.key in episode.stats
-        ]
-        if not episodes_stats:
-            # A video, or a camera without any sampled image
-            continue
-
-        # Each stat stacked over the episodes, a row per episode
-        stacked = {
-            name: np.array([stats[name] for stats in episodes_stats])
-            for name in episodes_stats[0]
-        }
-        counts = stacked["count"][:, 0]
-        mean = np.average(stacked["mean"], axis=0, weights=counts)
-
-        # The variance of each episode around the dataset mean, weighted by its frames
-        deviations = stacked["mean"] - mean
-        variance = np.average(
-            stacked["std"] ** 2 + deviations**2, axis=0, weights=counts
-        )
-
-        aggregated = {
-            "min": stacked["min"].min(axis=0),
-            "max": stacked["max"].max(axis=0),
-            "mean": mean,
-            "std": np.sqrt(variance),
-            "count": stacked["count"].sum(axis=0),
-        }
-
-        # The quantiles of the episodes cannot be combined exactly: keep the widest range
-        for name, quantile in _STATS_QUANTILES.items():
-            if quantile <= 0.5:
-                aggregated[name] = stacked[name].min(axis=0)
-            else:
-                aggregated[name] = stacked[name].max(axis=0)
-
-        dataset_stats[feature.key] = {
-            name: value.tolist() for name, value in aggregated.items()
-        }
-    return dataset_stats
 
 
 def _to_timeseries_column(timeseries: pa.RecordBatch, key: str) -> pa.Array:
@@ -440,91 +304,6 @@ class LeRobotWriter:
 
         return lerobot_batch
 
-    def _accumulate_stats_inputs(
-        self,
-        lerobot_rb: pa.RecordBatch,
-        sampled_frames: pa.Array,
-        inputs: DefaultDict[str, List[np.ndarray]],
-    ) -> None:
-        """
-        Keeps what the stats of an episode need from rows of the episode, as written to the
-        data file (see `_to_lerobot_rb`): the stats of `episode_index`, `index` and
-        `task_index` are then those of the exported dataset. Only these copies are kept,
-        never the slice, whose images can be very large.
-
-        The `string` and `language` features are skipped, as in LeRobot.
-
-        Args:
-            lerobot_rb (pa.RecordBatch): Rows of the episode, with the schema of the data file.
-            sampled_frames (pa.Array): The `frame_index` of the frames of the episode whose
-                images go into the stats (see `_sample_indices`).
-            inputs (DefaultDict[str, List[np.ndarray]]): By feature, its values in each slice
-                so far, as `_compute_stats` takes them. A timeseries: a column per element of
-                the last axis, and a row per frame (per frame and position on the other axes,
-                for an array, as in LeRobot). An image: its sampled images, decoded (see
-                `_decode_stats_image`); a frame without an image (written as null, see
-                `_to_image_column`) is skipped.
-        """
-        is_sampled = pc.is_in(
-            lerobot_rb.column(_FRAME_INDEX_COLUMN), value_set=sampled_frames
-        )
-
-        for feature in self._features:
-            if feature.dtype in _NO_STATS_DTYPES:
-                continue
-
-            column = lerobot_rb.column(feature.key)
-            if feature.is_image():
-                sampled = pc.filter(column, pc.and_(is_sampled, pc.is_valid(column)))
-                for image in sampled.to_pylist():
-                    inputs[feature.key].append(
-                        _decode_stats_image(image["bytes"], feature.is_depth_map())
-                    )
-            else:
-                # Every axis but the last pooled into the rows, as in LeRobot
-                values = (
-                    column
-                    if feature.is_scalar()
-                    else pc.list_flatten(column, recursive=True)
-                )
-                inputs[feature.key].append(
-                    values.to_numpy(zero_copy_only=False).reshape(-1, feature.shape[-1])
-                )
-
-    def _compute_episode_stats(
-        self, inputs: Dict[str, List[np.ndarray]], length: int
-    ) -> Dict[str, Dict[str, np.ndarray]]:
-        """
-        Computes the stats of an episode from its inputs (see `_accumulate_stats_inputs`), as
-        LeRobot does (`compute_episode_stats` in `lerobot/datasets/compute_stats.py`). Those
-        of an image are per channel, of shape `(channels, 1, 1)`, and divided by 255 but for
-        a depth map. `count` is the `length` of the episode for every feature, the images
-        included. A camera without any sampled image gets no stats.
-
-        Args:
-            inputs (Dict[str, List[np.ndarray]]): By feature, its values in each slice of the
-                episode (its sampled images, for an image).
-            length (int): The number of frames of the episode.
-
-        Returns:
-            Dict[str, Dict[str, np.ndarray]]: By feature, its stats (see `_compute_stats`)
-                and `count` as `[length]`.
-        """
-        stats: Dict[str, Dict[str, np.ndarray]] = {}
-        for feature in self._features:
-            values = inputs.get(feature.key)
-            if not values:
-                continue
-            feature_stats = _compute_stats(np.concatenate(values))
-            if feature.is_image():
-                scale = 1.0 if feature.is_depth_map() else 255.0
-                feature_stats = {
-                    name: value.reshape(-1, 1, 1) / scale
-                    for name, value in feature_stats.items()
-                }
-            stats[feature.key] = {**feature_stats, "count": np.array([length])}
-        return stats
-
     # --- Public API --- #
 
     @property
@@ -536,8 +315,7 @@ class LeRobotWriter:
         """
         Writes an episode, streamed from its Mosaico sequence, to its data parquet file: the
         `data_path` template of `info` under `root`, filled with the `data/chunk_index` and
-        `data/file_index` of the episode. Its stats (see `_compute_episode_stats`) replace
-        the source ones in the metadata (see `LeRobotDatasetMeta.set_episode_stats`).
+        `data/file_index` of the episode.
 
         The episode is written slice by slice, as streamed: only one slice is held in memory,
         never the whole episode, which can be very large. Each slice is a row group of the file
@@ -559,12 +337,9 @@ class LeRobotWriter:
 
         file_writer = self._get_file_writer(episode)
 
-        sampled_frames = _sample_indices(episode.length)
-        stats_inputs: DefaultDict[str, List[np.ndarray]] = defaultdict(list)
         for ts, b in streamer:
             lerobot_rb = self._to_lerobot_rb(episode, ts, b)
             file_writer.write_batch(lerobot_rb)
-            self._accumulate_stats_inputs(lerobot_rb, sampled_frames, stats_inputs)
 
         # The next episode starts where this one ends in the metadata
         if self._current_index != episode.dataset_to_index:
@@ -573,9 +348,6 @@ class LeRobotWriter:
                 f"row {self._current_index}, while it should end at row "
                 f"{episode.dataset_to_index} (its `length` is {episode.length})."
             )
-
-        stats = self._compute_episode_stats(stats_inputs, episode.length)
-        self._meta.set_episode_stats(episode.episode_index, stats)
 
     def close(self) -> None:
         """
