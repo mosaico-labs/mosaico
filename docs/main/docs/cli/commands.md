@@ -82,15 +82,17 @@ mosaico topic ls [OPTIONS]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `--locator <PATTERN>` | `*` | Glob-style search pattern on the topic locator (`<sequence>/<topic_path>`). |
+| `--locator <PATTERN>` | `*` | Glob-style search pattern on the topic name (e.g. `/camera/front`, `/imu*`). |
 | `-m`, `--metadata <KEY=VALUE>` | | Filter by user metadata. Repeatable; repeated filters are combined with a logical AND. |
 | `--limit <N>` | | Cap the number of results returned. |
 | `-o`, `--output <table\|csv>` | inferred | Force the output format (see [Piping](#piping)). |
 
+The pattern is matched against the topic name only, so **do not prefix it with the sequence name** (`my_sequence/imu*` matches nothing). Topic names always begin with `/`, so the pattern must begin with `/` too: `/camera*` matches `/camera_front` and `/camera/left`, while `camera*` matches nothing.
+
 #### Examples
 
 ```bash
-mosaico topic ls --locator "*/imu/*"
+mosaico topic ls --locator "/imu/*"
 ```
 
 ### `stat`
@@ -106,7 +108,7 @@ Same handler resolution rules as `sequence stat`: positional arguments, or piped
 #### Examples
 
 ```bash
-mosaico topic ls --locator "my_sequence/*" | mosaico topic stat
+mosaico topic ls --locator "/camera*" | mosaico topic stat
 ```
 
 ### `mcat`
@@ -135,7 +137,7 @@ mosaico topic mcat --from-index 0 --count 15 "my_sequence/imu,170000000000000000
 Chain a search straight into a read:
 
 ```bash
-mosaico topic ls --locator "drive_01/*" | mosaico topic mcat --count 15
+mosaico topic ls --locator "/imu*" | mosaico topic mcat --count 15
 ```
 
 Extract a single field with `jq`:
@@ -165,12 +167,12 @@ Most commands exchange CSV-formatted lines rather than raw arguments in the form
 ```
 
 - `<locator>` is a sequence name (e.g. `my_sequence`) or a topic path within a sequence (e.g. `my_sequence/imu/acceleration`); 
-- the two timestamps are the time range, in epoch nanoseconds.
+- the two timestamps are the time range, in epoch nanoseconds. Both bounds are inclusive: they are the timestamps of the first and last message, so `topic mcat` emits the message at `<timestamp_ns_max>` too.
 
 This is exactly what `sequence ls` and `topic ls` print in their CSV output, and exactly what `sequence stat`, `topic stat`, and `topic mcat` accept, so the typical flow is to pipe a listing straight into a follow-up command:
 
 ```bash
-mosaico topic ls --locator "my_sequence/*" | mosaico topic mcat --count 100
+mosaico topic ls --locator "/camera*" | mosaico topic mcat --count 100
 ```
 
 Every listing command (`sequence ls`, `topic ls`, `extension ls`) detects whether its output is going to a terminal or being redirected. 
@@ -181,7 +183,7 @@ Chaining a search into a read this way turns each stage of the pipeline into a p
 For example, to read the X-axis linear acceleration reported by every `imu` topic across the catalog:
 
 ```bash
-mosaico topic ls --locator "*/imu" | mosaico topic mcat | jq '.acceleration.x'
+mosaico topic ls --locator "/imu*" | mosaico topic mcat | jq '.acceleration.x'
 ```
 
-`topic ls` resolves the `*/imu` pattern to one handler per matching topic and prints them as CSV; `topic mcat` reads that CSV from stdin and streams every message from those topics as JSON Lines; `jq '.acceleration.x'` then picks out just the `x` component of the `acceleration` vector from each line. Narrow the locator (e.g. `--locator "drive_01/imu"`) or add `--count` to `mcat` to work on a smaller slice first.
+`topic ls` resolves the `/imu` pattern to one handler per matching topic, across every sequence, and prints them as CSV; `topic mcat` reads that CSV from stdin and streams every message from those topics as JSON Lines; `jq '.acceleration.x'` then picks out just the `x` component of the `acceleration` vector from each line. Narrow the search (e.g. with `--metadata` or `--limit`) or add `--count` to `mcat` to work on a smaller slice first.
