@@ -260,7 +260,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its maximum value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -272,7 +273,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its minimum value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -284,7 +286,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its range (`max - min`) over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -297,7 +300,8 @@ class _QueryableNumeric(_QueryableComparable):
         included.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -310,7 +314,8 @@ class _QueryableNumeric(_QueryableComparable):
         neither null nor NaN.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -322,7 +327,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to the mean of its valid samples over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -335,7 +341,8 @@ class _QueryableNumeric(_QueryableComparable):
         samples over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -348,7 +355,8 @@ class _QueryableNumeric(_QueryableComparable):
         over the topic, i.e. the square root of `.var()`.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -360,7 +368,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its value at the first timestamp of the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -372,7 +381,8 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its value at the last timestamp of the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -386,7 +396,8 @@ class _QueryableNumeric(_QueryableComparable):
         from the first to the last timestamp of the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -503,7 +514,8 @@ class _QueryableBool:
         if at least one record is `True`.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -516,7 +528,8 @@ class _QueryableBool:
         if every record is `True`.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -736,7 +749,8 @@ class _QueryableString:
         Aggregates the field to its lexicographically greatest value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -748,7 +762,8 @@ class _QueryableString:
         Aggregates the field to its lexicographically smallest value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -760,7 +775,8 @@ class _QueryableString:
         Aggregates the field to its value at the first timestamp of the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
@@ -772,7 +788,8 @@ class _QueryableString:
         Aggregates the field to its value at the last timestamp of the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
             TypeError: If the field is already aggregated or is a list field.
