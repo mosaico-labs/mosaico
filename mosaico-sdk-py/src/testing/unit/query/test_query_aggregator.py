@@ -1,6 +1,8 @@
+from typing import List
+
 import pytest
 
-from mosaicolabs import IMU, RobotJoint
+from mosaicolabs import IMU, MosaicoType, RobotJoint, Serializable
 from mosaicolabs.models.data import RobotPath
 from mosaicolabs.proto.v1.query_pb2 import (
     AGGREGATOR_COUNT,
@@ -164,6 +166,40 @@ def test_nested_list_of_structs_aggregator():
     expr = RobotPath.Q.poses.position.covariance.max().lt(1.0)
     assert expr.key == f"{RobotPath.ontology_tag()}.poses.position.covariance"
     assert expr.aggregator == AGGREGATOR_MAX
+
+
+def test_deeply_nested_list_aggregator():
+    class Cell(Serializable):
+        values: List[List[List[float]]]
+
+    class DeepLists(Serializable):
+        tensor: MosaicoType.tensor3d(MosaicoType.float32)
+        fixed_tensor: MosaicoType.tensor3d(MosaicoType.float32, 2, 3, 4)
+        labels: List[List[List[List[str]]]]
+        cells: List[Cell]
+
+    tag = DeepLists.ontology_tag()
+
+    # The aggregators work on the elements of the innermost lists, at any depth,
+    # with the operators of their type
+    expr = DeepLists.Q.tensor.max().lt(1.0)
+    assert expr.key == f"{tag}.tensor"
+    assert expr.aggregator == AGGREGATOR_MAX
+    expr = DeepLists.Q.fixed_tensor.range().lt(1.0)
+    assert expr.key == f"{tag}.fixed_tensor"
+    assert expr.aggregator == AGGREGATOR_RANGE
+    expr = DeepLists.Q.labels.min().eq("a")
+    assert expr.key == f"{tag}.labels"
+    assert expr.aggregator == AGGREGATOR_MIN
+    with pytest.raises(TypeError, match="Invalid type"):
+        DeepLists.Q.labels.max().gt(1.0)
+    expr = DeepLists.Q.cells.values.max().lt(1.0)
+    assert expr.key == f"{tag}.cells.values"
+    assert expr.aggregator == AGGREGATOR_MAX
+
+    # The count compares as a number, whatever the type of the elements
+    expr = DeepLists.Q.labels.count().gt(10)
+    assert expr.aggregator == AGGREGATOR_COUNT
 
 
 def test_aggregator_on_list_field_is_rejected():
