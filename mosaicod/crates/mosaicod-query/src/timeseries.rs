@@ -861,7 +861,7 @@ mod tests {
     /// range.
     #[tokio::test]
     async fn timeseries_range() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 
@@ -900,7 +900,7 @@ mod tests {
     /// replacement for both.
     #[tokio::test]
     async fn count_and_timestamp_range_matches_separate_calls() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 
