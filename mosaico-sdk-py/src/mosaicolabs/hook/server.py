@@ -2,6 +2,7 @@
 A small HTTP server that receives the events mosaicod sends to a hook.
 """
 
+import logging
 import socket
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -9,7 +10,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Callable, TypeVar
 
-from mosaicolabs.logging_config import get_logger
+from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .events import Event, _parse_event
 
@@ -89,9 +90,16 @@ class HookServer:
                 another machine or container.
             port: The port to listen on. Keep it fixed, so the URL registered in
                 mosaicod stays valid across restarts.
+
+        It logs where it listens, and any receiver that raises. Unless logging is
+        already set up, for example with `setup_sdk_logging` or `logging.basicConfig`,
+        it first calls `setup_sdk_logging()`, which logs `INFO` and above to stderr.
         """
+        if not _logging_configured():
+            setup_sdk_logging(level="INFO")
+
         server = self._bind(host, port)
-        print(_listening_message(host, server.server_address[1]), flush=True)
+        logger.info(_listening_message(host, server.server_address[1]))
 
         try:
             server.serve_forever()
@@ -180,6 +188,23 @@ class _Handler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:
         logger.debug("%s - %s", self.address_string(), format % args)
+
+
+def _logging_configured() -> bool:
+    """
+    Whether a handler gets this module's records.
+
+    Like `Logger.hasHandlers`, except that the `NullHandler` the SDK adds doesn't count.
+    """
+    current: logging.Logger | None = logger
+    while current is not None:
+        if any(not isinstance(h, logging.NullHandler) for h in current.handlers):
+            return True
+        if not current.propagate:
+            break
+        current = current.parent
+
+    return False
 
 
 def _listening_message(host: str, port: int) -> str:

@@ -1,6 +1,9 @@
 import http.client
 import json
 import queue
+import subprocess
+import sys
+import textwrap
 import threading
 
 import pytest
@@ -185,3 +188,48 @@ def test_listening_message():
     everywhere = _listening_message("0.0.0.0", 8080)
     assert "all interfaces, port 8080" in everywhere
     assert "mosaicod hook create http://" in everywhere
+
+
+def start(setup: str = "") -> str:
+    """
+    Runs `HookServer.start` in a new Python, where nothing but `setup` touches
+    logging, stops it as Ctrl-C would as soon as it listens, and returns its stderr.
+    """
+    script = setup + textwrap.dedent(
+        """
+        from mosaicolabs.hook import HookServer
+        from mosaicolabs.hook.server import _Server
+
+        def serve_forever(self, poll_interval=0.5):
+            raise KeyboardInterrupt
+
+        _Server.serve_forever = serve_forever
+        HookServer().start(port=0)
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=True,
+    )
+    assert result.stdout == ""
+    return result.stderr
+
+
+def test_start_sets_up_logging():
+    stderr = start()
+
+    assert "SDK Logging initialized at level: INFO" in stderr
+    assert "Listening on http://127.0.0.1:" in stderr
+
+
+def test_start_keeps_configured_logging():
+    stderr = start(
+        "import logging\n"
+        "logging.basicConfig(level=logging.INFO, format='configured: %(message)s')\n"
+    )
+
+    assert stderr.startswith("configured: Listening on http://127.0.0.1:")
+    assert "SDK Logging initialized" not in stderr

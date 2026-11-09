@@ -145,3 +145,5 @@ if __name__ == "__main__":
 The events use the SDK's names rather than the JSON ones: `sequence_name`, `topic_name` (such as `/front_camera`), `session_locator` and `created_timestamp`, and a session's `topics` are topic names. So an event can go straight to the client, for example `client.topic_handler(e.sequence_name, e.topic_name)`.
 
 `HookServer` answers each request before running the decorated functions, so a slow function doesn't cause a retry. By default it listens on `127.0.0.1`, which only this machine can reach; pass `host="0.0.0.0"` when `mosaicod` runs on another machine or container. It accepts events on any path, so a hook registered as `http://host:8080/mosaico` works too.
+
+`start()` logs where it listens, and any decorated function that raises. Unless logging is already set up, for example with `setup_sdk_logging()` or `logging.basicConfig()`, it calls `setup_sdk_logging()` first, which logs to stderr.
