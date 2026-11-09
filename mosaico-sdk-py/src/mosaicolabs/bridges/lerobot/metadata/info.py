@@ -3,6 +3,7 @@ The `meta/info.json` file of a LeRobot v3.0 dataset.
 """
 
 from dataclasses import MISSING, dataclass, fields
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .feature import LeRobotFeature
@@ -48,7 +49,7 @@ class LeRobotInfo:
     """The size, in MB, beyond which LeRobot starts a new video file."""
 
     data_path: str
-    """The template of the data file paths (see `LeRobotDatasetMeta.get_parquet_file`)."""
+    """The template of the data file paths (see `get_path_to_data`)."""
 
     splits: Dict[str, str]
     """The dataset splits, as ranges of episode indexes (e.g. `{"train": "0:50"}`)."""
@@ -166,3 +167,21 @@ class LeRobotInfo:
                 f"Current info has robot type '{self.robot_type}' while the other has "
                 f"'{other_info.robot_type}'."
             )
+
+    def get_path_to_data(self, root: Path, chunk_index: int, file_index: int) -> Path:
+        """
+        Returns the path of a data parquet file, as LeRobot finds it: the `data_path` template
+        (e.g. `data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet`) filled with
+        `chunk_index` and `file_index`, under `root`.
+
+        Args:
+            root (Path): The root folder of the dataset.
+            chunk_index (int): The chunk of the file (the `data/chunk_index` of its episodes).
+            file_index (int): The file in its chunk (the `data/file_index` of its episodes).
+
+        Returns:
+            Path: The path of the data file, under `root`.
+        """
+        return root / self.data_path.format(
+            chunk_index=chunk_index, file_index=file_index
+        )

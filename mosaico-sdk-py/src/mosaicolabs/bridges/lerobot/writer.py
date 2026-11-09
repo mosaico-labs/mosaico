@@ -18,7 +18,7 @@ import pyarrow.parquet as pq
 from ..helpers import _dotted_name_to_topic_name
 from ..protocols.lerobot import LeRobotSchemaConverter
 from .helpers import _from_timestamp_ns
-from .metadata import LeRobotDatasetMeta, LeRobotEpisode
+from .metadata import LeRobotEpisode, LeRobotFeature
 from .mosaico_loader import LeRobotEpisodeStreamer
 from .reader import (
     _NESTED_NAME_SEP,
@@ -26,6 +26,7 @@ from .reader import (
     _TASK_COLUMN,
     _TIMESERIES_MSCO_TOPIC_NAME,
 )
+from .ui_lerobot import LeRobotProgressManager
 
 _IMAGE_DATA_FIELD = "data"
 """The field of the `CompressedImage` ontology holding the content of the image file."""
@@ -153,34 +154,42 @@ def _to_task_index_column(timeseries: pa.RecordBatch, tasks: List[str]) -> pa.Ar
 
 class LeRobotWriter:
     """
-    Writes the data of the episodes of an exported LeRobot dataset to its data parquet file.
+    Writes the data of the episodes of an exported LeRobot dataset to its data parquet files.
 
-    The schema of the file is built from the features of the dataset (see `schema`), before
-    any episode is written. Each data file is opened, under the `root` of the dataset, when its
-    first episode is written (see `write_episode`), and stays open until `close` (or the
+    The schema of the files is built from the features of the dataset (see `schema`), before
+    any episode is written. Each data file is opened, at the path given with its first episode
+    (see `write_episode`), when that episode is written, and stays open until `close` (or the
     `with` block exits): a parquet file is only readable once closed, and cannot be reopened
     to append more episodes.
 
     ```python
-    with LeRobotWriter(meta) as writer:
+    with LeRobotWriter(info.features, tasks) as writer:
         for streamer in loader:
-            writer.write_episode(streamer)
+            episode = streamer.episode_metadata
+            data_path = info.get_path_to_data(
+                root, episode.data_chunk_index, episode.data_file_index
+            )
+            writer.write_episode(streamer, data_path)
     ```
     """
 
-    def __init__(self, meta: LeRobotDatasetMeta):
+    def __init__(self, features: List[LeRobotFeature], tasks: List[str]):
         """
         Args:
-            meta (LeRobotDatasetMeta): The metadata of the exported dataset.
+            features (List[LeRobotFeature]): The features of the exported dataset, in the
+                order of `meta/info.json`. The video features are skipped: they are not stored
+                in the data files.
+            tasks (List[str]): The tasks of the exported dataset, in task index order: the
+                `task_index` of a frame is the position of its task in this list.
 
         Raises:
             ValueError: If a feature has an unsupported `dtype` or `shape` (see
                 `LeRobotSchemaConverter.to_lerobot_pyarrow`).
         """
-        self._meta = meta
-        """The metadata of the exported dataset."""
-        self._features = [f for f in meta.features if not f.is_video()]
+        self._features = [f for f in features if not f.is_video()]
         """The features stored in the data file: all but the videos."""
+        self._tasks = tasks
+        """The tasks of the exported dataset, in task index order."""
         self._schema = LeRobotSchemaConverter.to_lerobot_pyarrow(self._features)
         """The schema of the data parquet file, a field per feature of `_features`."""
         self._current_index: int = 0
@@ -188,19 +197,14 @@ class LeRobotWriter:
         self._file_writers: Dict[Path, pq.ParquetWriter] = {}
         """The writer of each data parquet file opened, keyed by its path."""
 
-    def _get_file_writer(self, episode: LeRobotEpisode) -> pq.ParquetWriter:
+    def _get_file_writer(self, data_path: Path) -> pq.ParquetWriter:
         """
-        Returns the writer of the data parquet file of an episode: the `data_path` template of
-        `info` under `root`, filled with the `data/chunk_index` and `data/file_index` of the
-        episode.
+        Returns the writer of the data parquet file at `data_path`.
 
         The file is opened (creating its folders) for its first episode only, then its writer
-        is reused: opening a parquet file empties it.
+        is reused: opening a parquet file empties it. The writers are keyed by `data_path` as
+        given, so the episodes of a same file must be given the same path.
         """
-        data_path = self._meta.root / self._meta.info.data_path.format(
-            chunk_index=episode.data_chunk_index, file_index=episode.data_file_index
-        )
-
         file_writer = self._file_writers.get(data_path)
         if file_writer is None:
             data_path.parent.mkdir(parents=True, exist_ok=True)
@@ -281,7 +285,7 @@ class LeRobotWriter:
                 column = frame_index
             elif feature.is_task_index():
                 column = _to_task_index_column(
-                    batches[_TIMESERIES_MSCO_TOPIC_NAME], self._meta.tasks
+                    batches[_TIMESERIES_MSCO_TOPIC_NAME], self._tasks
                 )
             elif feature.is_image():
                 msco_topic_name = _dotted_name_to_topic_name(feature.key)
@@ -311,11 +315,15 @@ class LeRobotWriter:
         """The schema of the data parquet file: a column per feature, except the videos."""
         return self._schema
 
-    def write_episode(self, streamer: LeRobotEpisodeStreamer) -> None:
+    def write_episode(
+        self,
+        streamer: LeRobotEpisodeStreamer,
+        data_path: Path,
+        ui: LeRobotProgressManager,
+    ) -> None:
         """
-        Writes an episode, streamed from its Mosaico sequence, to its data parquet file: the
-        `data_path` template of `info` under `root`, filled with the `data/chunk_index` and
-        `data/file_index` of the episode.
+        Writes an episode, streamed from its Mosaico sequence, to its data parquet file at
+        `data_path`.
 
         The episode is written slice by slice, as streamed: only one slice is held in memory,
         never the whole episode, which can be very large. Each slice is a row group of the file
@@ -323,10 +331,15 @@ class LeRobotWriter:
         before it are already written.
 
         The episodes must be written in the order of the exported dataset, each one starting at
-        the row the previous one ended at.
+        the row the previous one ended at. The episodes sharing a data file must be given the
+        same `data_path`: the file is opened with its first episode only (see
+        `_get_file_writer`).
 
         Args:
             streamer (LeRobotEpisodeStreamer): The episode, as yielded by the loader.
+            data_path (Path): The data parquet file of the episode: the `data_path` template of
+                `info` filled with its `data/chunk_index` and `data/file_index`, under the root
+                of the dataset (see `LeRobotInfo.get_path_to_data`).
 
         Raises:
             ValueError: If the episode does not end at its `dataset_to_index`, or a slice
@@ -335,11 +348,15 @@ class LeRobotWriter:
         """
         episode = streamer.episode_metadata
 
-        file_writer = self._get_file_writer(episode)
+        file_writer = self._get_file_writer(data_path)
 
         for ts, b in streamer:
             lerobot_rb = self._to_lerobot_rb(episode, ts, b)
             file_writer.write_batch(lerobot_rb)
+
+            advance = len(ts)
+            topics = [topic for topic in b]
+            ui.advance_all_topics(topics, advance)
 
         # The next episode starts where this one ends in the metadata
         if self._current_index != episode.dataset_to_index:
