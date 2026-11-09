@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -18,14 +20,14 @@ FPS = 30
 TS = list(np.arange(10) / FPS)
 
 
-def _chunked(ts) -> pa.ChunkedArray:
-    return pa.chunked_array([ts], pa.float64())
+def _ts(ts) -> np.ndarray:
+    return np.array(ts, dtype=np.float64)
 
 
 def test_valid_timestamps_pass():
-    assert _validate_timestamps(_chunked(TS), FPS) == []
-    assert _validate_timestamps(_chunked(TS[:1]), FPS) == []
-    assert _validate_timestamps(_chunked([]), FPS) == []
+    assert _validate_timestamps(_ts(TS), FPS) == []
+    assert _validate_timestamps(_ts(TS[:1]), FPS) == []
+    assert _validate_timestamps(_ts([]), FPS) == []
 
 
 @pytest.mark.parametrize(
@@ -39,7 +41,7 @@ def test_valid_timestamps_pass():
     ],
 )
 def test_corrupted_timestamps_fail(ts, issue):
-    assert issue in _validate_timestamps(_chunked(ts), FPS)
+    assert issue in _validate_timestamps(_ts(ts), FPS)
 
 
 # --- validate_episode ---
@@ -90,3 +92,31 @@ def test_validate_episode_finds_an_unreadable_episode(lerobot_dataset_factory):
     (issue,) = validate_episode(_reader(root), 0)
 
     assert issue.startswith("unreadable: Episode 0 has")
+
+
+class _BatchReader:
+    """Yields the given timestamps as separate batches."""
+
+    _meta = SimpleNamespace(fps=FPS)
+
+    def __init__(self, *parts):
+        self._parts = parts
+
+    def _iter_episode_batches(self, episode_index, columns):
+        for part in self._parts:
+            yield pa.record_batch([pa.array(part, pa.float64())], names=columns)
+
+
+@pytest.mark.parametrize(
+    "parts, issues",
+    [
+        ((TS[:5], TS[5:]), []),
+        ((TS[:5], TS[6:]), ["timestamps not 1 / fps apart"]),
+        (
+            (TS[:5], [TS[4]] + TS[6:]),
+            ["timestamps not strictly increasing", "timestamps not 1 / fps apart"],
+        ),
+    ],
+)
+def test_validate_episode_checks_the_interval_across_batches(parts, issues):
+    assert validate_episode(_BatchReader(*parts), 0) == issues
