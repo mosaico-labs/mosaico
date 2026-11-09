@@ -144,7 +144,7 @@ class LeRobotDatasetMeta:
         return [
             feature.key
             for feature in self.features
-            if feature.is_image() or feature.is_timeserie()
+            if feature.is_image() or feature.is_timeseries()
         ]
 
     def get_parquet_file(self, episode_index: int) -> Path:
