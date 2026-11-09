@@ -141,7 +141,6 @@ class TestRosInject:
         assert cfg.mosaico_api_key == "secret"
         assert cfg.ros_distro is Stores.EMPTY
         assert cfg.topics is None
-        assert cfg.metadata == {"rosbag_injection": input_file.name}
         assert cfg.topic_metadata is None
         assert cfg.update_if_exists is False
         assert cfg.dry_run is False
@@ -179,10 +178,7 @@ class TestRosInject:
         (cfg,) = fake.configs
         assert cfg.ros_distro is Stores.ROS2_HUMBLE
         assert cfg.topics == ["/cam/*", "!/cam/debug*"]
-        assert cfg.metadata == {
-            "driver": "alice",
-            "rosbag_injection": input_file.name,
-        }
+        assert cfg.metadata == {"driver": "alice"}
         assert cfg.topic_metadata == {"/imu": {"unit": "rad/s"}}
         assert cfg.update_if_exists is True
         assert cfg.log_level == "WARNING"
@@ -315,7 +311,7 @@ class TestMcapInject:
         assert cfg.host == "bridge.test"
         assert cfg.port == 1234
         assert cfg.channels == ["front_car.*", "!front_car.debug"]
-        assert cfg.metadata == {"driver": "alice", "mcap_injection": input_file.name}
+        assert cfg.metadata == {"driver": "alice"}
 
 
 class TestMcapExtract:
