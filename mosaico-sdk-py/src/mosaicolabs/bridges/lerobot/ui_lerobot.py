@@ -130,15 +130,8 @@ class LeRobotProgressManager(ProgressManager):
 
     def _episode_label(self) -> str:
         """The label of the episode bar: the episode being uploaded and the counters."""
-        current = (
-            ""
-            if self._current_episode is None
-            else f" (uploading index {self._current_episode})"
-        )
-        return (
-            f"Episodes{current}  "
-            f"[green]✓ {self._n_succeeded}[/]  [red]✗ {self._n_failed}[/]"
-        )
+
+        return f"Episodes [green]✓ {self._n_succeeded}[/]  [red]✗ {self._n_failed}[/]"
 
     def _refresh_episode_label(self):
         if self.episode_task is not None:

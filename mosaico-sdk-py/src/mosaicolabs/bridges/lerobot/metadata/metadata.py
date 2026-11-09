@@ -150,10 +150,8 @@ class LeRobotDatasetMeta:
     def get_parquet_file(self, episode_index: int) -> Path:
         """
         Returns the path of the data parquet file holding an episode, as LeRobot finds it: the
-        `data_path` template of `meta/info.json` (e.g.
-        `data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet`), filled with the
-        `data/chunk_index` and `data/file_index` of the episode. The file can hold other
-        episodes too.
+        `data_path` template of `meta/info.json` filled with the `data/chunk_index` and
+        `data/file_index` of the episode. The file can hold other episodes too.
 
         Args:
             episode_index (int): The episode index.
@@ -170,8 +168,8 @@ class LeRobotDatasetMeta:
                 f"Episode {episode_index} is not defined in 'meta/episodes'."
             )
 
-        return self.root / self.info.data_path.format(
-            chunk_index=episode.data_chunk_index, file_index=episode.data_file_index
+        return self.info.get_path_to_data(
+            self.root, episode.data_chunk_index, episode.data_file_index
         )
 
     def read_schema(self) -> pa.Schema:

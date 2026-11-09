@@ -152,6 +152,22 @@ class MosaicoToLeRobotLoader(BaseLoader):
         self._ensure_resolved()
         return self._builder.tasks
 
+    def msg_count(self, topic: Optional[str] = None) -> int:
+        """This should return the total number of messages in the passed
+        topic if not None. Otherwise returns all messages in all topics"""
+        self._resolve_sequence_handlers()
+
+        if not topic:
+            return sum(self.msg_count(topic) for topic in self._accepted_topics)
+
+        if topic not in self._resolved_topics:
+            logger.error(f"Column '{topic}' not found in the dataset.")
+            return 0
+
+        # Every topic has one row per frame
+        info = self._builder.info
+        return info.total_frames if info else 0
+
     def _resolve_sequence_handlers(self) -> List[SequenceHandler]:
         """
         Lazily resolves the sequences: their handlers, the episodes of the exported dataset and
@@ -289,6 +305,12 @@ class LeRobotEpisodeStreamer:
             s_handler.get_data_streamer()._as_batch_provider()
         )
 
+    def __del__(self):
+
+        # Close all PyArrow streams
+        for stream in self._streamers.values():
+            stream.close()
+
     @property
     def sequence_name(self) -> str:
         """The name of the sequence of the episode."""
@@ -343,7 +365,7 @@ class LeRobotEpisodeStreamer:
                         f"Sequence '{self._sequence_name}': {n_streamed} rows streamed, "
                         f"while its episode has length {self.episode_metadata.length}."
                     )
-                return
+                break
 
             ended = self._get_finished_topics(batches_map)
             if len(ended) > 0:

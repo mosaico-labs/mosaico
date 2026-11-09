@@ -29,11 +29,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from rich.live import Live
+
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .metadata import LeRobotDatasetMeta
 from .mosaico_loader import MosaicoToLeRobotLoader
+from .ui_lerobot import LeRobotProgressManager
 from .writer import LeRobotWriter
 
 # Set the hierarchical logger
@@ -165,14 +168,17 @@ class LeRobotSequencesExtractor:
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
-                meta = LeRobotDatasetMeta.from_data(
-                    saving_path, loader.info, loader.episodes, loader.tasks
-                )
-
                 if saving_path.exists():
                     shutil.rmtree(saving_path)
                 try:
-                    meta = self._write_dataset(loader, meta)
+                    ui = LeRobotProgressManager(loader, len(loader.episodes))
+                    ui.setup()
+
+                    with Live(
+                        ui.progress, console=self._console, refresh_per_second=1000
+                    ):
+                        meta = self._write_dataset(loader, saving_path, ui)
+
                 except Exception:
                     # The files written so far are left as they are. An interruption
                     # (`KeyboardInterrupt`) is not an `Exception`: it is not reported here
@@ -188,12 +194,22 @@ class LeRobotSequencesExtractor:
         return meta
 
     def _write_dataset(
-        self, loader: MosaicoToLeRobotLoader, meta: LeRobotDatasetMeta
+        self,
+        loader: MosaicoToLeRobotLoader,
+        saving_path: Path,
+        ui: LeRobotProgressManager,
     ) -> LeRobotDatasetMeta:
         """
-        Writes the dataset under the `root` of `meta`: the data of the episodes, streamed from
-        their sequences (see `LeRobotWriter`), then the `meta/` folder (see
-        `LeRobotDatasetMeta.dump`), with the stats computed from the data files written.
+        Writes the dataset under `saving_path`: the data of the episodes, streamed from their
+        sequences (see `LeRobotWriter`), each to the data file given by its
+        `data/chunk_index` and `data/file_index` (see `LeRobotInfo.get_path_to_data`), then
+        the `meta/` folder (see `LeRobotDatasetMeta.dump`), with the stats computed from the
+        data files written.
+
+        Args:
+            loader (MosaicoToLeRobotLoader): The resolved loader of the sequences: the
+                `info`, episodes and tasks of the dataset, and the streams of its episodes.
+            saving_path (Path): The root folder of the dataset.
 
         Returns:
             LeRobotDatasetMeta: The metadata written.
@@ -202,17 +218,35 @@ class LeRobotSequencesExtractor:
             ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
-        with LeRobotWriter(meta) as writer:
+        info = loader.info
+        with LeRobotWriter(info.features, loader.tasks) as writer:
             for streamer in loader:
+                episode = streamer.episode_metadata
                 logger.info(
-                    f"Writing episode {streamer.episode_metadata.episode_index} (sequence "
+                    f"Writing episode {episode.episode_index} (sequence "
                     f"'{streamer.sequence_name}')..."
                 )
-                writer.write_episode(streamer)
+                data_path = info.get_path_to_data(
+                    saving_path, episode.data_chunk_index, episode.data_file_index
+                )
 
+                ui.start_episode(episode.episode_index, episode.length)
+
+                try:
+                    writer.write_episode(streamer, data_path, ui)
+
+                except Exception:
+                    ui.finish_episode(succeeded=False)
+                    raise
+
+                ui.finish_episode(succeeded=True)
         # Only now: the stats are computed from the data files, readable once closed at the
-        # end of the `with` block
+        # end of the `with` block. `meta` reads no file on creation: its `root` is
+        # `saving_path`, so `get_parquet_file` finds the data files written above
         logger.info("Writing the 'meta/' folder, with the stats of the episodes...")
+        meta = LeRobotDatasetMeta.from_data(
+            saving_path, info, loader.episodes, loader.tasks
+        )
         meta.dump()
         return meta
 
