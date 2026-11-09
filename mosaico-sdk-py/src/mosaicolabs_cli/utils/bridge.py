@@ -3,7 +3,6 @@ Options and helpers shared by the `ros` and `mcap` bridge commands.
 """
 
 import json
-import sys
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -141,7 +140,7 @@ def require_profile(ctx: typer.Context) -> MosaicoProfile:
             "[bold red]Error:[/bold red] No default profile found. "
             "Set a default profile or specify one using --profile."
         )
-        raise SystemExit(1)
+        raise typer.Exit(code=1)
     return profile
 
 
@@ -201,13 +200,13 @@ def run_injector(injector) -> None:
     try:
         status = injector.run()
     except KeyboardInterrupt:
-        sys.exit(EXIT_INTERRUPTED)
+        raise typer.Exit(code=EXIT_INTERRUPTED)
     except Exception:
         # Already logged with a full traceback inside run()
         raise typer.Exit(code=1)
 
     if status is InjectionStatus.CANCELLED:
-        sys.exit(EXIT_INTERRUPTED)
+        raise typer.Exit(code=EXIT_INTERRUPTED)
 
 
 def run_extractor(extractor) -> None:

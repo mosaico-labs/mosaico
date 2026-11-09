@@ -65,8 +65,6 @@ def inject(
     profile = ctx.obj if dry_run else require_profile(ctx)
 
     user_metadata = parse_json_option(metadata, "--metadata")
-    # Traceability metadata, as in the `mosaicolabs.ros_injector` script
-    user_metadata["rosbag_injection"] = bag_path.name
     user_topic_metadata = parse_json_option(topic_metadata, "--topic-metadata")
 
     from mosaicolabs.bridges.ros import RosbagInjector, ROSInjectionConfig
