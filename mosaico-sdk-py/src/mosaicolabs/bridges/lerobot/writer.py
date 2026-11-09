@@ -290,7 +290,7 @@ class LeRobotWriter:
             elif feature.is_image():
                 msco_topic_name = _dotted_name_to_topic_name(feature.key)
                 column = _to_image_column(batches[msco_topic_name], frame_index)
-            elif feature.is_timeserie():
+            elif feature.is_timeseries():
                 timeseries = batches[_TIMESERIES_MSCO_TOPIC_NAME]
                 column = _to_timeseries_column(timeseries, feature.key)
             else:
