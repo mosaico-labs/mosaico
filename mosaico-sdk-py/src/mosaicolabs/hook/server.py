@@ -30,8 +30,7 @@ class HookServer:
     """
     Receives the events mosaicod sends to a hook, and passes each one to every receiver.
 
-    Mosaicod sends an event when a topic finishes uploading and when a session is
-    finalized. Register the server's URL with `mosaicod hook create <URL>`.
+    Register the server's URL with `mosaicod hook create <URL>`.
 
     Delivery is best effort: an event can be lost, for example if this server is down
     longer than mosaicod keeps retrying, and a retry can deliver an event twice, with
@@ -80,8 +79,7 @@ class HookServer:
         """
         Listens for events until interrupted, for example with Ctrl-C.
 
-        `host` and `port` are where this server listens, which isn't always the URL
-        mosaicod reaches it at, for example behind NAT or Docker port mapping. Register
+        `host` and `port` are where this server listens. Register
         that URL with `mosaicod hook create`.
 
         Args:

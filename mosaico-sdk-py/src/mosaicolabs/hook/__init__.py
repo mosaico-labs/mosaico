@@ -1,9 +1,8 @@
 """
-Run your own code when data lands in mosaicod.
+Run your own code on the events mosaicod sends.
 
-A hook is an HTTP endpoint that mosaicod sends an event to when a topic finishes
-uploading and when a session is finalized. `HookServer` receives those events and
-passes each one to every function decorated with it.
+A hook is an HTTP endpoint that mosaicod sends events to. `HookServer` receives them
+and passes each one to every function decorated with it.
 """
 
 from .events import (

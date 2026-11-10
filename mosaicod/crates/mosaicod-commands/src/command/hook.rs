@@ -20,7 +20,7 @@ pub enum Hook {
     #[command(visible_alias = "list")]
     Ls,
 
-    /// Delete hooks. If any id is unknown, nothing is deleted.
+    /// Delete hooks. Fails with an error if any id is unknown.
     #[command(visible_alias = "remove")]
     Rm {
         /// Ids of the hooks to delete, as shown by `hook ls`.

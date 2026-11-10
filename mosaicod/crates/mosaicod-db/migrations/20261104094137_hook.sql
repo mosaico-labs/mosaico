@@ -1,5 +1,4 @@
--- HTTP endpoints that mosaicod sends an event to when a topic is uploaded or a session is
--- finalized (see `mosaicod hook`).
+-- HTTP endpoints that mosaicod sends an event to (see `mosaicod hook`).
 CREATE TABLE hook_t
 (
     hook_id              SERIAL PRIMARY KEY,

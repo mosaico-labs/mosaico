@@ -1,5 +1,4 @@
-//! Hooks: HTTP endpoints that mosaicod sends an event to when a topic is uploaded or a session
-//! is finalized.
+//! Hooks: HTTP endpoints that mosaicod sends an event to.
 
 use crate::Context;
 use mosaicod_core::error::PublicError;

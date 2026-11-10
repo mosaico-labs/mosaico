@@ -229,7 +229,7 @@ mosaicod api-key purge -A
 
 ## mosaicod hook
 
-Manage [hooks](hooks.md), the HTTP endpoints `mosaicod` sends an event to when a topic is uploaded or a session is finalized. Like `mosaicod api-key`, it needs the same database and store configuration as `mosaicod server`.
+Manage [hooks](hooks.md), the HTTP endpoints `mosaicod` sends events to.
 
 ### create
 
@@ -257,7 +257,7 @@ mosaicod hook ls
 
 ### rm
 
-Delete one or more hooks, by the ids `mosaicod hook ls` shows. If any id is unknown, nothing is deleted. `remove` is an alias.
+Delete one or more hooks, by the ids `mosaicod hook ls` shows. Fails with an error if any id is unknown. `remove` is an alias.
 
 ```bash
 mosaicod hook rm <ID>...

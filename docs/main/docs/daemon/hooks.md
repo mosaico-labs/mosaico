@@ -4,7 +4,7 @@ sidebar_position: 9
 description: "How mosaicod notifies your own HTTP endpoints when a topic is uploaded or a session is finalized. Covers registering hooks, the events and their JSON format, what delivery does and doesn't promise, and security."
 ---
 
-A **hook** is an HTTP endpoint that `mosaicod` sends an event to when data lands: when a topic finishes uploading, and when a session is finalized. Use hooks to run your own code at that moment, such as sending a notification or starting a processing job, instead of polling `mosaicod`.
+A **hook** is an HTTP endpoint that `mosaicod` sends an event to when data lands: when a topic finishes uploading, and when a session is finalized. Use hooks to run your own code, such as sending a notification or starting a processing job, instead of polling `mosaicod`.
 
 ## Registering a hook
 
@@ -19,7 +19,7 @@ ID     CREATED                URL
 $ mosaicod hook rm 3
 ```
 
-Hooks are stored in the database. Every `mosaicod server` using that database sends events to them, and a change applies to the next event, with no restart.
+A change applies from the next event on, without restarting `mosaicod server`.
 
 ## Events
 

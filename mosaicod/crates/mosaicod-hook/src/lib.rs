@@ -1,5 +1,4 @@
-//! Delivery of hook events: the HTTP `POST`s mosaicod sends when a topic is uploaded or a
-//! session is finalized. See `mosaicod hook`.
+//! Delivery of hook events: the HTTP `POST`s mosaicod sends. See `mosaicod hook`.
 //!
 //! Delivery is best effort. Each server process runs one worker, fed through a bounded queue by
 //! every [`Dispatcher`]. Events are dropped when the queue is full, when a hook keeps failing
