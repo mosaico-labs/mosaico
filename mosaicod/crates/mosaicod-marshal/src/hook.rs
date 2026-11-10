@@ -1,6 +1,6 @@
 //! JSON projection of [`types::HookEvent`]: the body mosaicod `POST`s to hooks.
 
-use super::JsonMetadataBlob;
+use super::{Error, JsonMetadataBlob};
 use mosaicod_core::types;
 use serde::Serialize;
 
@@ -45,6 +45,11 @@ impl JsonHookEvent {
             id: id.to_string(),
             event,
         }
+    }
+
+    /// The request body.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
+        serde_json::to_vec(self).map_err(|e| Error::SerializationError(e.to_string()))
     }
 }
 
@@ -103,7 +108,8 @@ mod tests {
     }
 
     fn to_json(event: types::HookEvent<JsonMetadataBlob>) -> serde_json::Value {
-        serde_json::to_value(JsonHookEvent::new(&event_id(), event)).unwrap()
+        let body = JsonHookEvent::new(&event_id(), event).to_bytes().unwrap();
+        serde_json::from_slice(&body).unwrap()
     }
 
     #[test]

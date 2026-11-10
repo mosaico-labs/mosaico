@@ -150,7 +150,7 @@ async fn run_worker(
 
         let event_id = types::Uuid::new();
 
-        let body = match serde_json::to_vec(&marshal::JsonHookEvent::new(&event_id, event)) {
+        let body = match marshal::JsonHookEvent::new(&event_id, event).to_bytes() {
             Ok(body) => Bytes::from(body),
             Err(e) => {
                 warn!("cannot serialize a `{name}` event, dropping it: {e}");
