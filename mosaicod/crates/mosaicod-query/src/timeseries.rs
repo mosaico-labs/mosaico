@@ -214,7 +214,7 @@ impl TimeseriesResult {
     ///
     /// This function will return a [`Error::DataFusion`] if backend fails or
     /// an [`Error::NullMinMaxTimestamps`] if there is some problem retrieving the
-    /// timestamp values (very rare since schema are checked before data upload)
+    /// timestamp values (very rare since schema are checked before data upload).
     pub async fn timestamp_range(self) -> Result<Option<types::TimestampRange>, Error> {
         let stats = self.data_frame.aggregate(
             vec![],
@@ -588,7 +588,7 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr
 /// Examples:
 /// - `"pose[?].x"`     ->  `col("pose")`
 /// - `"a.b[?].c.d"`    ->  `col("a").field("b")`
-/// - `"value"`         ->  `col("value")`
+/// - `"value"`         ->  `col("value")`.
 fn list_col_expr(field: &OntologyField) -> Expr {
     let parsed = field.field_path();
     let list_idx = parsed.list_access.as_ref().map(|la| la.segment_index);
@@ -858,7 +858,7 @@ mod tests {
     }
 
     /// Writes a local parquet file and tries to read and retrieve data in the correct timestamp
-    /// range
+    /// range.
     #[tokio::test]
     async fn timeseries_range() {
         config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();

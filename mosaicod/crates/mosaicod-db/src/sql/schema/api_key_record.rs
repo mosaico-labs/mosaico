@@ -1,26 +1,26 @@
 use mosaicod_core::types;
 
-/// To inspect inner fields this type needs to be converted in a [`types::AuthorizationPolicy`].
+/// To inspect inner fields this type needs to be converted in a [`types::ApiKey`].
 pub struct ApiKeyRecord {
     /// Unique identifier of the authorization policy used as primary key.
     ///
     /// This identifier is the fingerprint part of the API key.
     pub(crate) fingerprint: Vec<u8>,
 
-    /// Payload part of the API key
+    /// Payload part of the API key.
     pub(crate) payload: Vec<u8>,
 
     /// Permissions are stored as 2 bytes (for future usages, and since some modern database
-    /// system have no support for 1 byte words)
+    /// system have no support for 1 byte words).
     pub(crate) permissions: i16,
 
-    /// Authorization policy description
+    /// Authorization policy description.
     pub description: String,
 
-    /// UNIX timestamp in milliseconds since the creation
+    /// UNIX timestamp in milliseconds since the creation.
     pub(crate) creation_unix_timestamp: i64,
 
-    /// UNIX timestamp in milliseconds of the expiration date
+    /// UNIX timestamp in milliseconds of the expiration date.
     pub(crate) expiration_unix_timestamp: Option<i64>,
 }
 

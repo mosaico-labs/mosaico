@@ -1,4 +1,4 @@
-//! Query-related actions
+//! Query-related actions.
 
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;

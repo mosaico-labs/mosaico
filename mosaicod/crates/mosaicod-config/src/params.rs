@@ -43,15 +43,15 @@ pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: NonZero<usize> =
 pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warning;
 pub const DEFAULT_LOG_FORMAT: LogFormat = LogFormat::Pretty;
 
-/// Marker trait for parameters visibility
+/// Marker trait for parameters visibility.
 pub trait ParamVisibility {}
 
-/// Marker used to specify that a parameers needs to be hidden from prints
+/// Marker used to specify that a parameers needs to be hidden from prints.
 #[derive(Default)]
 pub struct Hidden;
 impl ParamVisibility for Hidden {}
 
-/// Marker for default parameter visibility
+/// Marker for default parameter visibility.
 #[derive(Default)]
 pub struct Plain;
 impl ParamVisibility for Plain {}
@@ -61,10 +61,10 @@ pub struct Param<T, V = Plain>
 where
     V: ParamVisibility,
 {
-    /// Name of the environment variable
+    /// Name of the environment variable.
     pub env: String,
 
-    /// Value
+    /// Value.
     pub value: T,
 
     _visibility: PhantomData<V>,
@@ -274,7 +274,7 @@ where
     }
 }
 
-/// Required and configurables parameters of mosaico
+/// Required and configurables parameters of mosaico.
 #[derive(Debug)]
 pub struct Params {
     /// Maximum incoming message size (in bytes) accepted by the gRPC protocol.
@@ -363,47 +363,47 @@ pub struct Params {
 
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
-    /// Defaults to 75 MB
+    /// Defaults to 75 MB.
     pub parquet_in_memory_encoding_buffer_size: Param<usize>,
 
     /// Log verbosity level. Note: if `RUST_LOG` is set, it takes priority over this
     /// (see [`mosaicod_core::types::init_logger`]).
     pub log_level: Param<LogLevel>,
 
-    /// Log output format
+    /// Log output format.
     pub log_format: Param<LogFormat>,
 
-    /// Host address the server listens on
+    /// Host address the server listens on.
     pub host: Param<IpAddr>,
 
-    /// Port the server listens on
+    /// Port the server listens on.
     pub port: Param<NonZero<u16>>,
 
     /// Whether TLS is enabled for the server. Requires [`Params::tls_certificate_file`]
     /// and [`Params::tls_private_key_file`] to be set.
     pub tls_enabled: Param<bool>,
 
-    /// Path of the `cert.pem` file used as TLS certificate
+    /// Path of the `cert.pem` file used as TLS certificate.
     pub tls_certificate_file: Param<String>,
 
-    /// Path of the `key.pem` file used as private key for TLS
+    /// Path of the `key.pem` file used as private key for TLS.
     pub tls_private_key_file: Param<String>,
 
-    /// Whether gzip compression is enabled for gRPC requests and responses
+    /// Whether gzip compression is enabled for gRPC requests and responses.
     pub gzip_enabled: Param<bool>,
 
     /// Whether API key enforcement is enabled. See command `mosaicod api-key`.
     pub api_key_enabled: Param<bool>,
 
-    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`)
+    /// Database URL, without credentials (e.g. `postgresql://host:port/dbname`).
     pub db_url: Param<String>,
 
     pub db_user: Param<String>,
 
-    /// May also be set via `MOSAICOD_DB_PASSWORD_FILE` (see [`Param::optional_or_file`])
+    /// May also be set via `MOSAICOD_DB_PASSWORD_FILE` (see [`Param::optional_or_file`]).
     pub db_password: Param<String, Hidden>,
 
-    /// Maximum number of database connections in the pool
+    /// Maximum number of database connections in the pool.
     pub max_db_connections: Param<NonZero<u32>>,
 
     pub store_endpoint: Param<String>,
@@ -413,7 +413,7 @@ pub struct Params {
     /// default is used. Ignored by the local filesystem backend.
     pub store_region: Param<String>,
 
-    /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`])
+    /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`]).
     pub store_secret_key: Param<String, Hidden>,
 
     pub store_access_key: Param<String>,
@@ -450,10 +450,10 @@ impl Params {
     }
 }
 
-/// Options for loading parameters from environment variables
+/// Options for loading parameters from environment variables.
 #[derive(Default)]
 pub struct ParamsLoadOptions {
-    /// Avoid requiring the `MOSAICOD_DB_*` env variables
+    /// Avoid requiring the `MOSAICOD_DB_*` env variables.
     pub skip_db_config: bool,
 
     /// Skip the process-environment tier entirely for every field, resolving purely

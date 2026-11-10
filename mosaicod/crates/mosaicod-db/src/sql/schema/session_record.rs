@@ -16,17 +16,17 @@ pub struct SessionRecord {
     /// The unique UUID for the session.
     pub(crate) session_uuid: uuid::Uuid,
 
-    /// UNIX timestamp in milliseconds since the creation
+    /// UNIX timestamp in milliseconds since the creation.
     pub(crate) creation_unix_tstamp: i64,
 
-    /// UNIX timestamp in milliseconds since the completion
+    /// UNIX timestamp in milliseconds since the completion.
     pub(crate) completion_unix_tstamp: Option<i64>,
 }
 
 impl SessionRecord {
     /// Returns the resource locator for this session.
     ///
-    /// Because a [`SessionRecord`] should only be created using [`SessionRecord::new`], that requires a [`types::SessionLocator`],
+    /// Because the locator stored in the database always comes from a valid [`types::SessionLocator`],
     /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
     /// changed it manually directly inside the database.
     pub fn locator(&self) -> types::SessionLocator {

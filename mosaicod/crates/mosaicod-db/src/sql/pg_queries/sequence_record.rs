@@ -204,7 +204,7 @@ fn parse_locator(name: String) -> Result<types::SequenceLocator, Error> {
 
 /// Deletes a sequence record from the database by its name.
 ///
-/// This function requires a [`DataLossToken`] because it permanently removes the record
+/// This function requires a [`DataLossToken`](types::DataLossToken) because it permanently removes the record
 /// from the database without checking if it's referenced elsewhere.
 /// Improper use can lead to data inconsistency or loss.
 pub async fn sequence_delete_by_locator(
@@ -226,7 +226,7 @@ pub async fn sequence_delete_by_locator(
 
 /// Deletes a sequence record from the database by its id.
 ///
-/// This function requires a [`DataLossToken`] because it permanently removes the record
+/// This function requires a [`DataLossToken`](types::DataLossToken) because it permanently removes the record
 /// from the database without checking if it's referenced elsewhere.
 /// Improper use can lead to data inconsistency or loss.
 pub async fn sequence_delete_by_id(

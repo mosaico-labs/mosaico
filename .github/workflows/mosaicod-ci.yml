@@ -40,6 +40,7 @@ jobs:
         run: |
           cargo fmt -- --check
           cargo clippy -- -D warnings
+          RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items
 
   unit-tests:
     name: "Backend: unit tests"

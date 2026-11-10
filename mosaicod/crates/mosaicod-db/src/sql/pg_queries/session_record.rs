@@ -113,7 +113,7 @@ pub async fn session_finalized(exe: &mut impl AsExec, session_id: i32) -> Result
 
 /// Deletes a session record from the database by its UUID, **bypassing any lock state**.
 ///
-/// This function requires a [`DataLossToken`] because it permanently removes the record from the database
+/// This function requires a [`DataLossToken`](types::DataLossToken) because it permanently removes the record from the database
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn session_delete(
     exe: &mut impl AsExec,
@@ -136,7 +136,7 @@ pub async fn session_delete(
     Ok(())
 }
 
-/// Find all topic associated with a session
+/// Find all topic associated with a session.
 pub async fn session_find_all_topics(
     exe: &mut impl AsExec,
     id: i32,

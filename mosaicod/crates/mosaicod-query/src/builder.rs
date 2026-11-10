@@ -34,7 +34,7 @@ pub trait CompileClause {
         V: Into<Value> + IsSupportedOp;
 }
 
-/// Specify how a given ontology field needs to be formatted
+/// Specify how a given ontology field needs to be formatted.
 pub trait OntologyFieldFmt {
     fn ontology_column_fmt(&self, val: &OntologyField) -> String;
 }

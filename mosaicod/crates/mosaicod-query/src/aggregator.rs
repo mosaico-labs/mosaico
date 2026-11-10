@@ -2,27 +2,27 @@ use crate::{OntologyField, Op, Value};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AggregatorError {
-    /// Unsupported aggregator
+    /// Unsupported aggregator.
     #[error("unsupported aggregator")]
     UnsupportedAggregator,
 
-    /// Unsupported operation
+    /// Unsupported operation.
     #[error("unsupported operation for the given aggregator")]
     UnsupportedOperation,
 
-    /// The aggregator can not be applied to a list field
+    /// The aggregator can not be applied to a list field.
     #[error("unsupported aggregator on list fields")]
     UnsupportedListField,
 
-    /// The aggregator can not be computed on the field value type
+    /// The aggregator can not be computed on the field value type.
     #[error("unsupported value type for the given aggregator")]
     UnsupportedValueType,
 
-    /// The predicate has no aggregator
+    /// The predicate has no aggregator.
     #[error("missing aggregator")]
     MissingAggregator,
 
-    /// The predicate has an aggregator where only plain predicates are allowed
+    /// The predicate has an aggregator where only plain predicates are allowed.
     #[error("unexpected aggregator")]
     UnexpectedAggregator,
 }
@@ -124,7 +124,7 @@ impl Aggregator {
     }
 
     /// Returns true if the aggregator can be computed on fields holding values
-    /// of the same type of the `op` operands
+    /// of the same type of the `op` operands.
     pub fn is_supported_value(&self, op: &Op<Value>) -> bool {
         match op.operand() {
             // An aggregate is a single value, it can't be compared with an array.
@@ -148,7 +148,7 @@ impl Aggregator {
         }
     }
 
-    /// Checks that the aggregator can be applied to `field` with `op`
+    /// Checks that the aggregator can be applied to `field` with `op`.
     pub fn validate(&self, field: &OntologyField, op: &Op<Value>) -> Result<(), AggregatorError> {
         if !self.is_supported_aggregator(op) {
             return Err(AggregatorError::UnsupportedOperation);

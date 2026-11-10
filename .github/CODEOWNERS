@@ -1,0 +1,19 @@
+# Code owners for mosaico.
+
+# Fallback: root files (README.md, LICENSE, CONTRIBUTING.md, .gitignore)
+# and anything not listed below
+*                           @cabba @fdicorato
+
+/mosaicod/                  @cabba
+/docker/                    @cabba
+
+/mosaico-sdk-py/            @fdicorato
+/.pre-commit-config.yaml    @fdicorato
+
+/docs/                      @cabba @fdicorato
+/docs/py/                   @fdicorato
+/docs/main/docs/daemon/     @cabba
+/logo/                      @cabba @fdicorato
+/scripts/                   @cabba @fdicorato
+/proto/                     @cabba @fdicorato
+/.github/                   @cabba

@@ -18,10 +18,10 @@ pub struct SequenceRecord {
     pub(crate) locator_name: String,
 
     /// This metadata field is only for database query access and
-    /// should not be exposed
+    /// should not be exposed.
     pub(crate) user_metadata: Option<serde_json::Value>,
 
-    /// UNIX timestamp in milliseconds from the creation
+    /// UNIX timestamp in milliseconds from the creation.
     pub(crate) creation_unix_tstamp: i64,
 
     /// Path inside Object store where to find backup files and other sequence info.
@@ -39,7 +39,7 @@ impl SequenceRecord {
 
     /// Returns the resource locator for this sequence.
     ///
-    /// Because a [`SequenceRecord`] should only be created using [`SequenceRecord::new`], that requires a [`types::SequenceLocator`],
+    /// Because the locator stored in the database always comes from a valid [`types::SequenceLocator`],
     /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
     /// changed it manually directly inside the database.
     pub fn locator(&self) -> types::SequenceLocator {
