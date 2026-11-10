@@ -33,10 +33,7 @@ pub fn hook(cmd: Hook) -> Result<()> {
     let rt = common::init_runtime()?;
     let store = common::init_store()?;
 
-    let ts_gw = Arc::new(query::TimeseriesEngine::try_new(
-        store.clone(),
-        params::params().query_engine_memory_pool_size.value,
-    )?);
+    let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0)?);
 
     let db = common::init_db(
         &rt,
