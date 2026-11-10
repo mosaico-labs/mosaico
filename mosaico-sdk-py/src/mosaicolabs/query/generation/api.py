@@ -185,8 +185,9 @@ class _QueryProxy(_QueryNode):
     It intercepts attribute access (like .position or .status) to
     build nested query paths and provide custom error messages.
 
-    The proxy is created by the `queryable` decorator and is available as a
-    class attribute named ``Q``.
+    The proxy is injected as a class attribute named ``Q`` by
+    `_QueryProxyMixin._inject_query_proxy()`, which `Serializable` calls when
+    each of its subclasses is defined.
 
     Example:
         ```python

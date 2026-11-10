@@ -264,7 +264,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -277,7 +278,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
@@ -290,7 +292,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_RANGE)
 
@@ -304,7 +307,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_COUNT)
 
@@ -318,7 +322,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_COUNT_VALID)
 
@@ -331,7 +336,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MEAN)
 
@@ -345,7 +351,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_VAR)
 
@@ -359,7 +366,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_STD)
 
@@ -372,7 +380,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_FIRST)
 
@@ -385,7 +394,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_LAST)
 
@@ -400,7 +410,8 @@ class _QueryableNumeric(_QueryableComparable):
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_RATE)
 
@@ -518,7 +529,8 @@ class _QueryableBool:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -532,7 +544,8 @@ class _QueryableBool:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
@@ -753,7 +766,8 @@ class _QueryableString:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -766,7 +780,8 @@ class _QueryableString:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
@@ -779,7 +794,8 @@ class _QueryableString:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_FIRST)
 
@@ -792,7 +808,8 @@ class _QueryableString:
                 value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_LAST)
 
@@ -804,7 +821,8 @@ class _QueryableString:
             A numeric queryable field, whose operators compare the aggregated value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_COUNT)
 
@@ -816,7 +834,8 @@ class _QueryableString:
             A numeric queryable field, whose operators compare the aggregated value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_COUNT_VALID)
 
@@ -830,7 +849,8 @@ class _QueryableString:
             A numeric queryable field, whose operators compare the aggregated value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_RATE)
 
@@ -1220,17 +1240,23 @@ class _QueryableField:
         """
         Internal helper to create an atomic comparison expression.
         """
-        if self._aggregator is None:
-            return self._expr_cls(self._full_path, op, value)
-
         return self._expr_cls(self._full_path, op, value, aggregator=self._aggregator)
 
     def _check_aggregable(self):
         """
         Internal helper to check that the field can be aggregated.
 
+        A field can't be aggregated in two cases:
+
+        - it is already aggregated, since the aggregators can't be chained
+          (e.g. `IMU.Q.acceleration.x.max().min()`);
+        - it is an element of a list selected with `.any()`, `.all()` or `[i]`
+          (e.g. `RobotJoint.Q.positions.any()`), since the server aggregates a
+          list only as a whole (e.g. `RobotJoint.Q.positions.max()`).
+
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         if self._aggregator is not None:
             name = query_pb2.Aggregator.Name(self._aggregator)
@@ -1240,7 +1266,9 @@ class _QueryableField:
             )
         if "[" in self._full_path:
             raise TypeError(
-                f"Aggregators are not supported on list fields: '{self._full_path}'."
+                f"Aggregators are not supported on list elements selected with "
+                f".any(), .all() or [i]: '{self._full_path}'. Aggregate the list "
+                f"as a whole instead, e.g. .max()."
             )
 
     def _aggregate(self, aggregator: query_pb2.Aggregator) -> "_QueryableField":
@@ -1255,7 +1283,7 @@ class _QueryableField:
         field._aggregator = aggregator
         return field
 
-    def _aggregate_numeric(self, aggregator: query_pb2.Aggregator) -> Any:
+    def _aggregate_numeric(self, aggregator: query_pb2.Aggregator) -> "_QueryableField":
         """
         Like `_aggregate()`, but returns a numeric field, for the aggregators whose
         value is a number whatever the field type (e.g. the count of a string field).

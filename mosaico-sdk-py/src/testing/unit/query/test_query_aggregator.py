@@ -156,7 +156,7 @@ def test_nested_list_selectors_are_rejected():
     with pytest.raises(TypeError, match="inside a list selected"):
         RobotPath.Q.poses[0].position.covariance[2]
     # ... nor aggregates a list inside a selected list
-    with pytest.raises(TypeError, match="not supported on list fields"):
+    with pytest.raises(TypeError, match="not supported on list elements selected"):
         RobotPath.Q.poses[0].position.covariance.max()
 
 
@@ -202,9 +202,16 @@ def test_deeply_nested_list_aggregator():
     assert expr.aggregator == AGGREGATOR_COUNT
 
 
-def test_aggregator_on_list_field_is_rejected():
-    with pytest.raises(TypeError, match="not supported on list fields"):
-        QueryableNumeric("imu.values[?]").max()
+def test_aggregator_on_selected_list_element_is_rejected():
+    # A list is aggregated as a whole, not its elements selected with a quantifier
+    for field in (
+        RobotJoint.Q.positions.any(),
+        RobotJoint.Q.positions.all(),
+        RobotJoint.Q.positions[0],
+        QueryableNumeric("imu.values[?]"),
+    ):
+        with pytest.raises(TypeError, match="not supported on list elements selected"):
+            field.max()
 
 
 def test_match_on_aggregator():
