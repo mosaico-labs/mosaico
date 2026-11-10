@@ -32,10 +32,8 @@ class HookServer:
 
     Register the server's URL with `mosaicod hook create <URL>`.
 
-    Delivery is best effort: an event can be lost, for example if this server is down
-    longer than mosaicod keeps retrying, and a retry can deliver an event twice, with
-    the same `id`. Requests aren't authenticated, so anything that can reach the
-    server can send it events. Keep it on a network only mosaicod can reach.
+    Requests aren't authenticated, so anything that can reach the server can send it
+    events. Keep it on a network only mosaicod can reach.
 
     Example:
         ```python
