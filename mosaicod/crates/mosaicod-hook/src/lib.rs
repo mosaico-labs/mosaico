@@ -16,6 +16,12 @@ use tokio::sync::{Semaphore, mpsc};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
+// The limits `Policy::default` sets. Each one is described on its `Policy` field.
+const QUEUE_CAPACITY: usize = 1024;
+const MAX_CONCURRENT_DELIVERIES: usize = 16;
+const ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
+const RETRY_WAITS: [Duration; 2] = [Duration::from_secs(1), Duration::from_secs(10)];
+
 /// An event, with JSON user metadata.
 pub type Event = types::HookEvent<marshal::JsonMetadataBlob>;
 
@@ -102,10 +108,10 @@ struct Policy {
 impl Default for Policy {
     fn default() -> Self {
         Self {
-            queue_capacity: 1024,
-            max_concurrent_deliveries: 16,
-            attempt_timeout: Duration::from_secs(5),
-            retry_waits: vec![Duration::from_secs(1), Duration::from_secs(10)],
+            queue_capacity: QUEUE_CAPACITY,
+            max_concurrent_deliveries: MAX_CONCURRENT_DELIVERIES,
+            attempt_timeout: ATTEMPT_TIMEOUT,
+            retry_waits: RETRY_WAITS.to_vec(),
         }
     }
 }
