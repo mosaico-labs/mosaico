@@ -829,8 +829,6 @@ def ros_injector():
 
     # Parse metadata
     user_metadata = _parse_json_arg(args.metadata, arg_name="Metadata")
-    # Inject traceability metadata
-    user_metadata.update({"rosbag_injection": args.bag_path.name})
     user_topic_metadata = _parse_json_arg(
         args.topic_metadata, arg_name="Topic metadata"
     )
