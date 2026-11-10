@@ -5,6 +5,7 @@
 //! after the last retry, and on shutdown.
 
 use bytes::Bytes;
+use mosaicod_config::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
@@ -82,7 +83,7 @@ impl Dispatcher {
 fn build_client() -> Result<reqwest::Client, Error> {
     Ok(reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!("mosaicod/", env!("CARGO_PKG_VERSION")))
+        .user_agent(params::user_agent())
         .build()?)
 }
 
@@ -304,11 +305,9 @@ mod tests {
         assert_eq!(request.method, "POST");
         assert_eq!(request.path, "/hook");
         assert_eq!(request.header("content-type"), Some("application/json"));
-        assert!(
-            request
-                .header("user-agent")
-                .unwrap()
-                .starts_with("mosaicod/")
+        assert_eq!(
+            request.header("user-agent"),
+            Some(params::user_agent().as_str())
         );
         assert_eq!(request.body, br#"{"id":"test"}"#);
     }

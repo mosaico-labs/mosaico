@@ -13,6 +13,7 @@ name = "mosaicod_hook"
 testing = ["tokio/io-util", "tokio/net"]
 
 [dependencies]
+mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-marshal = { workspace = true }

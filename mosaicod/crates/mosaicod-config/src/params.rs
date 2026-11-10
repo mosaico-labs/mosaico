@@ -741,6 +741,11 @@ pub fn version() -> String {
     version
 }
 
+/// The `User-Agent` mosaicod sends with its HTTP requests: `mosaicod/<version>`.
+pub fn user_agent() -> String {
+    format!("mosaicod/{}", version())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
