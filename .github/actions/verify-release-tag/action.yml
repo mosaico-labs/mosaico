@@ -1,0 +1,37 @@
+name: Verify release tag
+description: >-
+  Fails unless the tag is signed with the release key. To check a release locally:
+  `gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys 5E181E2A5A39E5D43647F92B3FA3206A41ADC4EF`
+  and `git verify-tag vX.Y.Z`.
+
+inputs:
+  tag:
+    description: Tag to verify.
+    required: true
+  public-key:
+    description: Armored public release key (vars.RELEASE_PUBLIC_KEY).
+    required: true
+  fetch:
+    description: Fetch the tag from origin first ("true" in the workflows triggered by the tag).
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch tag
+      if: inputs.fetch == 'true'
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag }}
+      run: git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+
+    # A temporary GnuPG home holding only the release key, so no other key is trusted.
+    - name: Verify signature
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag }}
+        PUBLIC_KEY: ${{ inputs.public-key }}
+      run: |
+        export GNUPGHOME="$(mktemp -d)"
+        echo "$PUBLIC_KEY" | gpg --batch --import
+        git verify-tag "$TAG"

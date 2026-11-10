@@ -9,9 +9,9 @@ name: Release
 #                                             GITHUB_TOKEN don't trigger other workflows.
 #   RELEASE_GPG_PRIVATE_KEY, RELEASE_GPG_PASSPHRASE
 #                                             Release key that signs the tag and the bump commit.
-#                                             Its public key is .github/release-key.asc (also on
-#                                             keyserver.ubuntu.com), checked by
-#                                             .github/scripts/verify-release-tag.
+# and the variable:
+#   RELEASE_PUBLIC_KEY                        Public release key (also on keyserver.ubuntu.com),
+#                                             checked by .github/actions/verify-release-tag.
 
 on:
   workflow_dispatch:
@@ -31,19 +31,13 @@ permissions:
 jobs:
   prepare:
     name: Prepare
+    # Releases are cut only from main: on other branches the whole run is skipped.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       next_version: ${{ steps.version.outputs.next_version }}
-      sha: ${{ steps.version.outputs.sha }}
     steps:
-      # Releases are cut only from main.
-      - name: Check branch
-        if: github.ref != 'refs/heads/main'
-        run: |
-          echo "::error::Releases can only be started from main (got ${GITHUB_REF})."
-          exit 1
-
       # Full history and tags, to check whether the release tag already exists.
       - uses: actions/checkout@v6
         with:
@@ -71,11 +65,8 @@ jobs:
             exit 1
           fi
 
-          {
-            echo "version=$VERSION"
-            echo "next_version=$NEXT_VERSION"
-            echo "sha=$(git rev-parse HEAD)"
-          } >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
 
   # Run the existing CI on the commit to release.
   mosaicod-tests:
@@ -100,7 +91,8 @@ jobs:
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
       NEXT_VERSION: ${{ needs.prepare.outputs.next_version }}
-      SHA: ${{ needs.prepare.outputs.sha }}
+      # The commit the run started from, the one tested by the CI jobs.
+      SHA: ${{ github.sha }}
     steps:
       # The App token can push to main, and its pushes trigger the release workflows.
       - name: Generate GitHub App token
@@ -130,9 +122,7 @@ jobs:
           git_tag_gpgsign: true
 
       # cargo updates Cargo.lock in the version bump.
-      - uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
+      - uses: dtolnay/rust-toolchain@stable
 
       # uv sets the Python SDK version and updates uv.lock in the version bump.
       - name: Install uv
@@ -146,7 +136,10 @@ jobs:
 
       # The release workflows only build tags signed with the release key: check it before pushing.
       - name: Verify release tag
-        run: .github/scripts/verify-release-tag "v$VERSION"
+        uses: ./.github/actions/verify-release-tag
+        with:
+          tag: v${{ env.VERSION }}
+          public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
 
       # Set the next version in manifests and lockfiles (sed only matches the workspace version).
       - name: Bump version
@@ -154,6 +147,10 @@ jobs:
           sed -i "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" mosaicod/Cargo.toml
           (cd mosaicod && cargo update --workspace)
           uv version --project mosaico-sdk-py --no-sync "$NEXT_VERSION"
+
+      # Commit the version bump, signed with the release key.
+      - name: Commit version bump
+        run: |
           git add mosaicod/Cargo.toml mosaicod/Cargo.lock mosaico-sdk-py/pyproject.toml mosaico-sdk-py/uv.lock
           git commit -m "chore: bump version to $NEXT_VERSION"
 
@@ -164,16 +161,12 @@ jobs:
 
       # Show what was released in the run summary.
       - name: Job summary
+        env:
+          DRY_RUN: ${{ inputs.dry_run && ' (dry run, nothing pushed)' || '' }}
         run: |
-          {
-            if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-              echo "### Release v$VERSION (dry run, nothing pushed)"
-            else
-              echo "### Release v$VERSION"
-            fi
-            echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Tag | \`v$VERSION\` on \`${SHA::8}\` |"
-            echo "| Next version on main | \`$NEXT_VERSION\` |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "### Release v$VERSION$DRY_RUN" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Tag | \`v$VERSION\` on \`${SHA::8}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Next version on main | \`$NEXT_VERSION\` |" >> "$GITHUB_STEP_SUMMARY"

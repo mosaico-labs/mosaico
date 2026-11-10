@@ -27,9 +27,11 @@ jobs:
 
       # Only tags signed with the release key are released.
       - name: Verify release tag
-        run: |
-          git fetch --force origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-          .github/scripts/verify-release-tag "${GITHUB_REF_NAME}"
+        uses: ./.github/actions/verify-release-tag
+        with:
+          tag: ${{ github.ref_name }}
+          public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
+          fetch: "true"
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3

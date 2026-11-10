@@ -24,27 +24,45 @@ fn main() {
 
     // Builds without the git history (e.g. containers) get the commit and the tags from the
     // environment.
+    println!("cargo::rerun-if-env-changed=GIT_HASH");
+    println!("cargo::rerun-if-env-changed=GIT_TAG");
     let git_hash = env_or_git("GIT_HASH", &["rev-parse", "HEAD"]).unwrap_or("undefined".into());
     println!("cargo:rustc-env=MOSAICOD_GIT_HASH={}", git_hash);
 
-    // A release is a commit with the `v<version>` tag.
+    // A release is a commit with the `v<version>` tag: it sets the `mosaicod_release` cfg.
     let release_tag = format!("v{}", env::var("CARGO_PKG_VERSION").unwrap());
     let tags = env_or_git("GIT_TAG", &["tag", "--points-at", "HEAD"]).unwrap_or_default();
-    let release = tags.lines().any(|tag| tag.trim() == release_tag);
-    println!("cargo:rustc-env=MOSAICOD_BUILD_RELEASE={}", release);
+    println!("cargo::rustc-check-cfg=cfg(mosaicod_release)");
+    if tags.lines().any(|tag| tag.trim() == release_tag) {
+        println!("cargo::rustc-cfg=mosaicod_release");
+    }
 }
 
-/// Returns the environment variable `var` if set, otherwise the output of `git <args>`.
+/// Returns the environment variable `var` if set (even if empty), otherwise the output of
+/// `git <args>`. Git errors are printed as cargo warnings, since builds without the git history
+/// (e.g. from a source tarball) are still valid.
 fn env_or_git(var: &str, args: &[&str]) -> Option<String> {
-    if let Ok(value) = env::var(var)
-        && !value.trim().is_empty()
-    {
+    if let Ok(value) = env::var(var) {
         return Some(value.trim().to_owned());
     }
 
-    let output = Command::new("git").args(args).output().ok()?;
-    if !output.status.success() {
-        return None;
+    let result = Command::new("git")
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout).map_err(|e| e.to_string())
+            } else {
+                Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
+            }
+        });
+
+    match result {
+        Ok(stdout) => Some(stdout.trim().to_owned()),
+        Err(e) => {
+            println!("cargo:warning=`git {}` failed: {e}", args.join(" "));
+            None
+        }
     }
-    Some(String::from_utf8(output.stdout).ok()?.trim().to_owned())
 }
