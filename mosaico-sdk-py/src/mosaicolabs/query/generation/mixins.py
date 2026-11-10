@@ -1,3 +1,4 @@
+import copy
 import datetime
 import inspect
 from typing import Any, Optional, Tuple, Type, Union
@@ -243,9 +244,10 @@ class _QueryableNumeric(_QueryableComparable):
     `.Q` proxy fields (e.g. `IMU.Q.acceleration.x`) and the class-free
     [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric].
 
-    The aggregators `.max()`, `.min()` and `.range()` turn the field into a single
-    value computed over the whole topic, instead of the single samples, e.g.
-    `IMU.Q.acceleration.x.max().lt(20)` matches the topics where every
+    The aggregators (`.max()`, `.min()`, `.range()`, `.count()`, `.count_valid()`,
+    `.mean()`, `.var()`, `.std()`, `.first()`, `.last()`, `.rate()`) turn the field
+    into a single value computed over the whole topic, instead of the single samples,
+    e.g. `IMU.Q.acceleration.x.max().lt(20)` matches the topics where every
     `acceleration.x` sample is below 20.
     """
 
@@ -258,10 +260,12 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its maximum value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -270,10 +274,12 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its minimum value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
@@ -282,12 +288,132 @@ class _QueryableNumeric(_QueryableComparable):
         Aggregates the field to its range (`max - min`) over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_RANGE)
+
+    def count(self) -> Any:
+        """
+        Aggregates the field to its number of samples over the topic, null and NaN
+        included.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_COUNT)
+
+    def count_valid(self) -> Any:
+        """
+        Aggregates the field to its number of valid samples over the topic, i.e.
+        neither null nor NaN.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_COUNT_VALID)
+
+    def mean(self) -> Any:
+        """
+        Aggregates the field to the mean of its valid samples over the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MEAN)
+
+    def var(self) -> Any:
+        """
+        Aggregates the field to the sample variance (divided by `n - 1`) of its valid
+        samples over the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_VAR)
+
+    def std(self) -> Any:
+        """
+        Aggregates the field to the sample standard deviation of its valid samples
+        over the topic, i.e. the square root of `.var()`.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_STD)
+
+    def first(self) -> Any:
+        """
+        Aggregates the field to its value at the first timestamp of the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_FIRST)
+
+    def last(self) -> Any:
+        """
+        Aggregates the field to its value at the last timestamp of the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_LAST)
+
+    def rate(self) -> Any:
+        """
+        Aggregates the field to its number of samples per second (Hz) over the topic,
+        null and NaN included, i.e. `(count - 1) / duration`, where the duration goes
+        from the first to the last timestamp of the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_RATE)
 
 
 # TODO: Top be better implemented. Disable for now
@@ -399,10 +525,12 @@ class _QueryableBool:
         if at least one record is `True`.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -412,10 +540,12 @@ class _QueryableBool:
         if every record is `True`.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
 
@@ -632,10 +762,12 @@ class _QueryableString:
         Aggregates the field to its lexicographically greatest value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MAX)
 
@@ -644,12 +776,83 @@ class _QueryableString:
         Aggregates the field to its lexicographically smallest value over the topic.
 
         Returns:
-            The same queryable field, whose operators compare the aggregated value.
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
 
         Raises:
-            TypeError: If the field is already aggregated or is a list field.
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
         """
         return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_MIN)
+
+    def first(self) -> Any:
+        """
+        Aggregates the field to its value at the first timestamp of the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_FIRST)
+
+    def last(self) -> Any:
+        """
+        Aggregates the field to its value at the last timestamp of the topic.
+
+        Returns:
+            A copy of the queryable field, whose operators compare the aggregated
+                value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate")(query_pb2.AGGREGATOR_LAST)
+
+    def count(self) -> Any:
+        """
+        Aggregates the field to its number of samples over the topic, null included.
+
+        Returns:
+            A numeric queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_COUNT)
+
+    def count_valid(self) -> Any:
+        """
+        Aggregates the field to its number of non-null samples over the topic.
+
+        Returns:
+            A numeric queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_COUNT_VALID)
+
+    def rate(self) -> Any:
+        """
+        Aggregates the field to its number of samples per second (Hz) over the topic,
+        null included, i.e. `(count - 1) / duration`, where the duration goes from the
+        first to the last timestamp of the topic.
+
+        Returns:
+            A numeric queryable field, whose operators compare the aggregated value.
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        return getattr(self, "_aggregate_numeric")(query_pb2.AGGREGATOR_RATE)
 
 
 # -------------------------------------------------------------------------
@@ -1037,27 +1240,61 @@ class _QueryableField:
         """
         Internal helper to create an atomic comparison expression.
         """
-        if self._aggregator is None:
-            return self._expr_cls(self._full_path, op, value)
-
         return self._expr_cls(self._full_path, op, value, aggregator=self._aggregator)
+
+    def _check_aggregable(self):
+        """
+        Internal helper to check that the field can be aggregated.
+
+        A field can't be aggregated in two cases:
+
+        - it is already aggregated, since the aggregators can't be chained
+          (e.g. `IMU.Q.acceleration.x.max().min()`);
+        - it is an element of a list selected with `.any()`, `.all()` or `[i]`
+          (e.g. `RobotJoint.Q.positions.any()`), since the server aggregates a
+          list only as a whole (e.g. `RobotJoint.Q.positions.max()`).
+
+        Raises:
+            TypeError: If the field is already aggregated, or is an element of a
+                list selected with `.any()`, `.all()` or `[i]`.
+        """
+        if self._aggregator is not None:
+            name = query_pb2.Aggregator.Name(self._aggregator)
+            raise TypeError(
+                f"Field '{self._full_path}' is already aggregated with "
+                f"'{name.removeprefix('AGGREGATOR_').lower()}()'."
+            )
+        if "[" in self._full_path:
+            raise TypeError(
+                f"Aggregators are not supported on list elements selected with "
+                f".any(), .all() or [i]: '{self._full_path}'. Aggregate the list "
+                f"as a whole instead, e.g. .max()."
+            )
 
     def _aggregate(self, aggregator: query_pb2.Aggregator) -> "_QueryableField":
         """
         Internal helper to create a copy of the field whose operators compare
         `aggregator` computed over the topic, instead of the single records.
         """
-        if self._aggregator is not None:
-            raise TypeError(
-                f"Field '{self._full_path}' is already aggregated with '{self._aggregator}()'."
-            )
-        if "[" in self._full_path:
-            raise TypeError(
-                f"Aggregators are not supported on list fields: '{self._full_path}'."
-            )
+        self._check_aggregable()
 
-        self._aggregator = aggregator
-        return self
+        # Copy the field, so that it can still be used for plain comparisons
+        field = copy.copy(self)
+        field._aggregator = aggregator
+        return field
+
+    def _aggregate_numeric(self, aggregator: query_pb2.Aggregator) -> "_QueryableField":
+        """
+        Like `_aggregate()`, but returns a numeric field, for the aggregators whose
+        value is a number whatever the field type (e.g. the count of a string field).
+        """
+        self._check_aggregable()
+
+        field = _make_queryable_field_type(_QueryableNumeric)(
+            full_path=self._full_path, expr_cls=self._expr_cls
+        )
+        field._aggregator = aggregator
+        return field
 
     def _transform_value(self, value: Any) -> Any:
         """
