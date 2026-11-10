@@ -44,7 +44,7 @@ Every event is an [`Event`][mosaicolabs.hook.Event], with an `id`, and functions
 
 An event can go straight to the client, for example `client.topic_handler(e.sequence_name, e.topic_name)`.
 
-An event of a type this SDK version doesn't know is answered, so `mosaicod` doesn't retry it, and dropped without running any function. Update the SDK to receive it.
+A `mosaicod` newer than the SDK can send event types this SDK version doesn't know yet. `HookServer` accepts them, so `mosaicod` doesn't retry them, but ignores them: your functions only receive the classes above. To receive the new types, update the SDK.
 
 ## How Events Are Handled
 
