@@ -23,6 +23,12 @@ pub type Event = types::HookEvent<marshal::JsonMetadataBlob>;
 #[error("cannot build the hook HTTP client: {0}")]
 pub struct Error(#[from] reqwest::Error);
 
+impl mosaicod_core::error::PublicError for Error {
+    fn error(&self) -> mosaicod_core::Error {
+        mosaicod_core::Error::internal(Some(self.to_string()))
+    }
+}
+
 /// Hands events to the worker that delivers them.
 ///
 /// Cloning is cheap, and every clone feeds the same worker.

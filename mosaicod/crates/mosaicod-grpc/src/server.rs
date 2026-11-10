@@ -9,7 +9,6 @@ use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use std::net::{IpAddr, SocketAddr};
-use tokio_util::sync::CancellationToken;
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -111,6 +110,7 @@ impl Server {
         let res: Result<()> = rt.block_on(async {
             let server_store = self.store.clone();
             let server_db = self.db.clone();
+            let hooks = hook::Dispatcher::spawn(server_db.clone(), shutdown.token())?;
 
             let instance = db::instance_registry_create(
                 &mut server_db.connection(),
@@ -132,7 +132,8 @@ impl Server {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown.clone())).await
+                if let Err(err) =
+                    serve(server_store, server_db, hooks, opts, Some(shutdown.clone())).await
                 {
                     error!("{}", err);
                 }
@@ -170,19 +171,13 @@ impl Server {
 pub async fn serve(
     store: store::StoreRef,
     db: db::Database,
+    hooks: hook::Dispatcher,
     opts: Options,
     shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::new(opts.host, opts.port);
 
-    // The hook worker stops on shutdown, and in any case once `serve` returns.
-    let hook_shutdown = shutdown
-        .as_ref()
-        .map_or_else(CancellationToken::new, |s| s.token().child_token());
-    let _stop_hook_worker = hook_shutdown.clone().drop_guard();
-    let dispatcher = hook::Dispatcher::spawn(db.clone(), hook_shutdown)?;
-
-    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone(), dispatcher)?;
+    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone(), hooks)?;
 
     if opts.enable_api_key_management {
         grpc_flight_svc.enable_api_key_manegement();
