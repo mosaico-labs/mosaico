@@ -64,6 +64,7 @@ nav:
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
     - SDK/watchdog.md
+    - SDK/hook.md
   - API Reference:
     - SDK/API_reference/comm.md
     - SDK/API_reference/enum.md

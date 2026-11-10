@@ -123,27 +123,4 @@ Over an `http://` URL the request body, `user_metadata` included, crosses the ne
 
 ## Receiving events in Python
 
-The Python SDK's [`HookServer`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/hook/) receives events and passes each one to every function decorated with it:
-
-```python
-from mosaicolabs.hook import Event, HookServer, SessionUploaded, TopicUploaded
-
-hook = HookServer()
-
-@hook
-def on_event(e: Event):
-    match e:
-        case TopicUploaded():
-            print(f"{e.topic_name} uploaded to {e.sequence_name}")
-        case SessionUploaded():
-            print(f"{len(e.topics)} topics uploaded to {e.sequence_name}")
-
-if __name__ == "__main__":
-    hook.start(host="0.0.0.0", port=8080)
-```
-
-The events use the SDK's names rather than the JSON ones: `sequence_name`, `topic_name` (such as `/front_camera`), `session_locator` and `created_timestamp`, and a session's `topics` are topic names. So an event can go straight to the client, for example `client.topic_handler(e.sequence_name, e.topic_name)`.
-
-`HookServer` answers each request before running the decorated functions, so a slow function doesn't cause a retry. By default it listens on `127.0.0.1`, which only this machine can reach; pass `host="0.0.0.0"` when `mosaicod` runs on another machine or container. It accepts events on any path, so a hook registered as `http://host:8080/mosaico` works too.
-
-`start()` logs where it listens, and any decorated function that raises. Unless logging is already set up, for example with `setup_sdk_logging()` or `logging.basicConfig()`, it calls `setup_sdk_logging()` first, which logs to stderr.
+The Python SDK's `HookServer` receives events and passes each one to your functions. See [Hooks](https://docs.mosaico.dev/python-sdk/SDK/hook/) in the SDK docs.
