@@ -480,7 +480,7 @@ wheels = [
 
 [[package]]
 name = "mosaicolabs"
-version = "0.8.0.dev0"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "av" },

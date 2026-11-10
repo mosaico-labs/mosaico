@@ -25,6 +25,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Only tags signed with the release key are released.
+      - name: Verify release tag
+        run: |
+          git fetch --force origin "+refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          .github/scripts/verify-release-tag "${GITHUB_REF_NAME}"
+
+      # `cross` builds in a container that can't read the git history (see mosaicod/Cross.toml).
+      - name: Pass commit and tag to the build
+        run: |
+          echo "GIT_HASH=${GITHUB_SHA}" >> "$GITHUB_ENV"
+          echo "GIT_TAG=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
