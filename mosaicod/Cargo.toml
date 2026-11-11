@@ -42,7 +42,7 @@ datafusion = { version = "54.0.0", default-features = false, features = ["parque
 tonic = { version = "0.14.6", default-features = false, features = ["router", "transport", "codegen", "tls-ring", "gzip"] }
 object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
 
-base64 = { version = "0.22.1", default-features = false }
+base64 = { version = "0.23.1", default-features = false }
 bincode = { version = "2.0.1", default-features = false, features = ["alloc", "derive", "serde"] }
 bytes = { version = "1.11.1", default-features = false }
 chrono = { version = "0.4.44", default-features = false, features = ["clock"] }
