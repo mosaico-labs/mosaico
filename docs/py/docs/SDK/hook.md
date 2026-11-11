@@ -8,6 +8,9 @@ The **Hook** module runs your own code on the events `mosaicod` sends to [hooks]
 !!! info "Hooks in `mosaicod`"
     Registering hooks, the events' JSON format and what delivery promises are covered in the daemon's [Hooks](https://docs.mosaico.dev/daemon/hooks) page. This page covers receiving the events in Python.
 
+!!! example "Try-It Out"
+    See the **[Reacting to New Data with Hooks](https://docs.mosaico.dev/learn/hooks)** guide for a walkthrough and typical use cases.
+
 ## Quick Start
 
 ```python
