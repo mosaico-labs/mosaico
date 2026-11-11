@@ -33,6 +33,7 @@ jobs:
             mosaicod
             sdk-.+
             docs
+            cli
           requireScope: false
           # `[WIP] <title>` skips the validation and keeps the check pending, for drafts
           wip: true
