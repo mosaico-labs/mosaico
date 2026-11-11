@@ -1,0 +1,115 @@
+# git-cliff configuration for the release notes (see .github/scripts/changelog).
+#
+# Commits follow the PR title convention checked by .github/workflows/pr-title.yml:
+# `type(scope): description`, with the scopes `mosaicod`, `sdk-*`, `cli` and `docs`. The notes have one
+# section per component (the scope); commits with more scopes appear in each of them, commits with
+# no or another scope go under "General". To add a component (e.g. a new SDK), add it to
+# `components` and `titles`.
+#
+# Each change shows its author: the GitHub user of the PR, from the GitHub API (see
+# [remote.github]), or the git author name when the notes are generated offline.
+
+[changelog]
+body = """
+{%- set components = ["mosaicod", "sdk-py", "cli", "docs"] -%}
+{%- set titles = ["mosaicod", "Python SDK", "CLI", "Docs"] -%}
+
+{%- macro author(commit) -%}
+{%- if commit.remote.username %}by @{{ commit.remote.username }}{% elif commit.author.name %}by {{ commit.author.name }}{% endif -%}
+{%- endmacro author -%}
+
+{%- macro section(title, commits) -%}
+{%- set groups = ["Features", "Fixes", "Performance", "Refactoring", "Documentation"] -%}
+## {{ title }}
+{% set breaking = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking %}
+### ⚠️ Breaking changes
+{% for commit in breaking %}
+- {{ commit.message | split(pat="\n") | first | trim | upper_first }} {{ self::author(commit=commit) }}
+{%- endfor %}
+{% endif -%}
+{% for group in groups -%}
+{% set group_commits = commits | filter(attribute="group", value=group) | filter(attribute="breaking", value=false) -%}
+{% if group_commits %}
+### {{ group }}
+{% for commit in group_commits %}
+- {{ commit.message | split(pat="\n") | first | trim | upper_first }} {{ self::author(commit=commit) }}
+{%- endfor %}
+{% endif -%}
+{% endfor %}
+{% endmacro section -%}
+
+{%- set_global general = [] -%}
+{%- for commit in commits -%}
+  {%- set scopes = commit.scope | default(value="") | replace(from=" ", to="") -%}
+  {%- set scopes = "," ~ scopes ~ "," -%}
+  {%- set_global matched = false -%}
+  {%- for component in components -%}
+    {%- if scopes is containing("," ~ component ~ ",") %}{% set_global matched = true %}{% endif -%}
+  {%- endfor -%}
+  {%- if not matched %}{% set_global general = general | concat(with=commit) %}{% endif -%}
+{%- endfor -%}
+
+{%- for component in components -%}
+  {%- set_global component_commits = [] -%}
+  {%- for commit in commits -%}
+    {%- set scopes = commit.scope | default(value="") | replace(from=" ", to="") -%}
+    {%- set scopes = "," ~ scopes ~ "," -%}
+    {%- if scopes is containing("," ~ component ~ ",") -%}
+      {%- set_global component_commits = component_commits | concat(with=commit) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {%- if component_commits %}
+{{ self::section(title=titles | nth(n=loop.index0), commits=component_commits) }}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- if general %}
+{{ self::section(title="General", commits=general) }}
+{%- endif -%}
+"""
+trim = true
+postprocessors = [
+  # Collapse the spaces and blank lines left by the template and the commit titles.
+  { pattern = '  +', replace = " " },
+  { pattern = '\n{3,}', replace = "\n\n" },
+  # Link the PR number that GitHub appends to squash-merged commits.
+  { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/mosaico-labs/mosaico/pull/${1}))" },
+]
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+filter_commits = true
+# Only the release tags of the current cycle (not the old py/v*, doc/v*, mosaicod/v*).
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+
+# Map the older conventions to the current one.
+commit_preprocessors = [
+  # `feat(mosaicod)! : ...` -> `feat(mosaicod)!: ...`
+  { pattern = '^([a-z]+(\([^)]*\))?!?)\s+:', replace = "${1}:" },
+  # Types: bug -> fix, doc -> docs.
+  { pattern = '^bug([(!:])', replace = "fix${1}" },
+  { pattern = '^doc([(!:])', replace = "docs${1}" },
+  # Scopes: py, tests-py, ros-bridge, models -> sdk-py; mosacoid -> mosaicod.
+  { pattern = '^([a-z]+\((?:[^)]*[ ,])?)(?:py|tests-py|ros-bridge|models)([ ,)])', replace = "${1}sdk-py${2}" },
+  { pattern = '^([a-z]+\((?:[^)]*[ ,])?)mosacoid([ ,)])', replace = "${1}mosaicod${2}" },
+  # `docs: ...` with no scope is about the documentation as a whole.
+  { pattern = '^docs(!?):', replace = "docs(docs)${1}:" },
+]
+
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^docs", group = "Documentation" },
+  # Skip the other types (chore, ci, build, test...), except for breaking changes.
+  { message = ".*", skip = true },
+]
+protect_breaking_commits = true
+
+# GitHub user of each commit's PR, shown as its author. Reads GITHUB_TOKEN if set.
+[remote.github]
+owner = "mosaico-labs"
+repo = "mosaico"

@@ -4,9 +4,11 @@ on:
   push:
     tags:
       - 'v[0-9].*.*'
+  # To re-run it by hand: "Use workflow from" the release tag.
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-release:
@@ -72,11 +74,46 @@ jobs:
           # Checksum
           sha256sum mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
+      # The next job attaches all the binaries to the GitHub Release.
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: mosaicod-${{ matrix.arch }}
+          path: |
             mosaicod-${{ matrix.arch }}.tar.gz
             mosaicod-${{ matrix.arch }}.tar.gz.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: error
+          retention-days: 1
+
+  attach-binaries:
+    name: Attach binaries to the GitHub Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      # The binaries built by the previous job.
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: mosaicod-*
+          path: dist
+          merge-multiple: true
+
+      # The release is created by the "GitHub Release" workflow, started by the same tag.
+      - name: Wait for the GitHub Release
+        run: |
+          for attempt in $(seq 30); do
+            gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 && exit 0
+            echo "Release $TAG not found yet (attempt $attempt/30), retrying in 20s"
+            sleep 20
+          done
+          echo "::error::Release $TAG not found: run the GitHub Release workflow on the tag, then re-run this job."
+          exit 1
+
+      # Attach the binaries, replacing them if this workflow is re-run.
+      - name: Attach binaries
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"

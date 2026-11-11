@@ -1,0 +1,57 @@
+name: GitHub Release
+
+# Creates the GitHub Release of each release tag, with the notes generated from the commit messages.
+# The other release workflows (e.g. the precompiled binaries) attach their files to it. Re-running
+# this workflow regenerates the notes and keeps the attached files.
+
+on:
+  push:
+    tags:
+      - 'v[0-9].*.*'
+  # To re-run it by hand: "Use workflow from" the release tag.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read # to show the PR author of each change in the notes
+    steps:
+      # Full history and tags, to list the changes since the previous release.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Only tags signed with the release key are released.
+      - name: Verify release tag
+        uses: ./.github/actions/verify-release-tag
+        with:
+          tag: ${{ github.ref_name }}
+          public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
+          fetch: "true"
+
+      # uv installs git-cliff, which generates the release notes.
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
+
+      # Release notes from the commit messages, one section per component (see .github/cliff.toml).
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv tool install git-cliff==2.14.2
+          PATH="$(uv tool dir --bin):$PATH" .github/scripts/changelog "${GITHUB_REF_NAME}" > release-notes.md
+
+      # Create the GitHub Release of the tag, or update its notes if it already exists.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md

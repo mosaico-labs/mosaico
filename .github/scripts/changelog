@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+# Prints the release notes of a release, generated with git-cliff from the commit messages
+# (see .github/cliff.toml). Used by the release workflow, and to preview the next release.
+#
+# Usage: .github/scripts/changelog [<tag>]
+#
+# With no tag, previews the next release (the version in mosaicod/Cargo.toml) up to HEAD.
+# Set GITHUB_TOKEN (e.g. `GITHUB_TOKEN=$(gh auth token)`) to avoid the GitHub API rate limit.
+
+set -euo pipefail
+
+if [[ $# -gt 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+    echo "Usage: $(basename "$0") [<tag>]"
+    exit 1
+fi
+
+PROJECT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+cd "$PROJECT_DIR"
+
+TAG="${1:-v$(grep -m1 '^version = ' mosaicod/Cargo.toml | cut -d '"' -f2)}"
+TARGET=$(git rev-parse -q --verify "refs/tags/$TAG" > /dev/null && echo "$TAG" || echo HEAD)
+
+# The previous release is the highest release tag before this one. Old releases were tagged on
+# release branches, not on main, so the notes start from where its history meets this one.
+PREVIOUS=$({ git tag --list 'v*'; echo "$TAG"; } | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+    sort -uV | grep -x -B1 "$TAG" | grep -vx "$TAG" || true)
+RANGE="$TARGET"
+if [[ -n "$PREVIOUS" ]]; then
+    RANGE="$(git merge-base "$PREVIOUS" "$TARGET")..$TARGET"
+fi
+
+# The authors come from the GitHub API (GITHUB_TOKEN avoids its rate limit); if it can't be reached,
+# fall back to the git author names instead of failing the release.
+if ! NOTES=$(git-cliff --config .github/cliff.toml --tag "$TAG" "$RANGE"); then
+    echo "warning: GitHub API unreachable, using the git author names" >&2
+    NOTES=$(git-cliff --offline --config .github/cliff.toml --tag "$TAG" "$RANGE")
+fi
+echo "$NOTES"
