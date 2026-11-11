@@ -181,8 +181,7 @@ def tls_cert_path(with_tls) -> Optional[str]:
     if with_tls:
         return str(
             (
-                Path(__file__).resolve().parent
-                / "../../../mosaicod/tests/data/cert.pem"
+                Path(__file__).resolve().parent / "../../mosaicod/tests/data/cert.pem"
             ).resolve()
         )
     return None
