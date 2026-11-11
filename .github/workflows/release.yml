@@ -35,38 +35,74 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
-      next_version: ${{ steps.version.outputs.next_version }}
+      version: ${{ steps.release.outputs.version }}
+      next_version: ${{ steps.release.outputs.next_version }}
     steps:
       # Full history and tags, to check whether the release tag already exists.
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      # mosaicod and the Python SDK must share the same 0.N.0 version, not released yet.
-      - name: Read and check version
-        id: version
+      # Versions of mosaicod and of the Python SDK.
+      - name: Read versions
+        id: versions
         run: |
           VERSION=$(yq -p toml -oy '.workspace.package.version' mosaicod/Cargo.toml)
           PY_VERSION=$(yq -p toml -oy '.project.version' mosaico-sdk-py/pyproject.toml)
-
-          if [[ "$VERSION" != "$PY_VERSION" ]]; then
-            echo "::error::Version mismatch: mosaicod is $VERSION, the Python SDK is $PY_VERSION."
-            exit 1
-          fi
-          if [[ ! "$VERSION" =~ ^0\.([0-9]+)\.0$ ]]; then
-            echo "::error::Version $VERSION is not a weekly release version (0.N.0)."
-            exit 1
-          fi
-          NEXT_VERSION="0.$((BASH_REMATCH[1] + 1)).0"
-
-          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
-            echo "::error::Tag v$VERSION already exists."
-            exit 1
-          fi
-
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "py_version=$PY_VERSION" >> "$GITHUB_OUTPUT"
+
+      # mosaicod and the Python SDK are released with the same version.
+      - name: Fail on version mismatch
+        if: steps.versions.outputs.version != steps.versions.outputs.py_version
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+          PY_VERSION: ${{ steps.versions.outputs.py_version }}
+        run: |
+          echo "::error::Version mismatch: mosaicod is $VERSION, the Python SDK is $PY_VERSION."
+          exit 1
+
+      # N of a weekly release version 0.N.0, empty for any other version.
+      - name: Parse weekly version
+        id: parse
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+        run: echo "minor=$(sed -nE 's/^0\.([0-9]+)\.0$/\1/p' <<< "$VERSION")" >> "$GITHUB_OUTPUT"
+
+      # Only weekly versions (0.N.0) are released by this workflow.
+      - name: Fail on non-weekly version
+        if: steps.parse.outputs.minor == ''
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+        run: |
+          echo "::error::Version $VERSION is not a weekly release version (0.N.0)."
+          exit 1
+
+      # Whether the release tag already exists.
+      - name: Check existing tag
+        id: tag
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+        run: echo "exists=$(git tag -l "v$VERSION")" >> "$GITHUB_OUTPUT"
+
+      # A version is released only once.
+      - name: Fail on existing tag
+        if: steps.tag.outputs.exists != ''
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+        run: |
+          echo "::error::Tag v$VERSION already exists."
+          exit 1
+
+      # The version to release and the next one, for the following jobs.
+      - name: Export release versions
+        id: release
+        env:
+          VERSION: ${{ steps.versions.outputs.version }}
+          MINOR: ${{ steps.parse.outputs.minor }}
+        run: |
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "next_version=0.$((MINOR + 1)).0" >> "$GITHUB_OUTPUT"
 
   # Run the existing CI on the commit to release.
   mosaicod-tests:
@@ -128,7 +164,8 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
-          version: "0.13.1"
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
 
       # The tag goes on the tested commit, even if main moved in the meantime.
       - name: Tag release
@@ -145,7 +182,7 @@ jobs:
       - name: Bump version
         run: |
           sed -i "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" mosaicod/Cargo.toml
-          (cd mosaicod && cargo update --workspace)
+          cargo update --workspace --manifest-path mosaicod/Cargo.toml
           uv version --project mosaico-sdk-py --no-sync "$NEXT_VERSION"
 
       # Commit the version bump, signed with the release key.
