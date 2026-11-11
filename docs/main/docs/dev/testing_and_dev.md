@@ -139,6 +139,15 @@ The test suite can be executed with:
 
 Use `--help` to see available options.
 
+By default, the Python SDK tests run against the sources. To test a built wheel instead, pass its path with `--wheel`, so the tests import the SDK as users install it:
+
+```bash
+uv build mosaico-sdk-py
+./scripts/tests --sdk-python --wheel mosaico-sdk-py/dist/mosaicolabs-*.whl
+```
+
+The release workflow runs the unit and full-stack tests this way on the wheel of every release.
+
 ## Development Environment
 
 The project provides a script that generates a disposable development environment. This environment launches a clean `mosaicod` instance without any data, allowing you to test and interact with the daemon without needing to set up your own data.
