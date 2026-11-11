@@ -30,8 +30,8 @@ class LeRobotDatasetBuilder:
     Example:
         ```python
         builder = LeRobotDatasetBuilder()
-        for sequence_name, info, episode in sources:
-            builder.add_episode(sequence_name, info, episode)
+        for sequence_name, info, tasks, length in sources:
+            builder.add_episode(sequence_name, info, tasks, length)
 
         info, episodes = builder.info, builder.episodes
         ```
@@ -83,14 +83,15 @@ class LeRobotDatasetBuilder:
         return dict(self._episode_index_by_sequence)
 
     def add_episode(
-        self, sequence_name: str, info: LeRobotInfo, episode: LeRobotEpisode
+        self, sequence_name: str, info: LeRobotInfo, tasks: List[str], length: int
     ) -> None:
         """
         Adds the episode of a sequence to the dataset, after the previous ones, renumbered.
 
-        Its stats are dropped: those of its source dataset do not apply to the new one (its
-        indexes are renumbered, and it can hold only part of the episode). They are computed
-        from the data of the new dataset instead (see `LeRobotDatasetMeta.get_or_compute_episode_stats`).
+        Only its `tasks` and `length` are taken from its source dataset: its indexes are set by
+        its position in the new dataset. Its stats are not taken either: those of its source
+        dataset do not apply to the new one (it can hold only part of the episode). They are
+        computed from the data of the new dataset instead (see `LeRobotDatasetMeta.get_or_compute_episode_stats`).
 
         The video features are dropped from `info` before comparing it with the one of the
         first episode (see `LeRobotInfo.check_compatible`).
@@ -98,7 +99,8 @@ class LeRobotDatasetBuilder:
         Args:
             sequence_name (str): The name of the sequence holding the episode.
             info (LeRobotInfo): The `info` of the source dataset of the episode.
-            episode (LeRobotEpisode): The episode, as in its source dataset.
+            tasks (List[str]): The natural-language tasks performed in the episode.
+            length (int): The number of frames of the episode.
 
         Raises:
             ValueError: If the sequence was already added, or its `info` is not compatible with
@@ -121,11 +123,12 @@ class LeRobotDatasetBuilder:
             self._info.check_compatible(info)
 
         start = self._episodes[-1].dataset_to_index if self._episodes else 0
-        episode = replace(
-            episode,
+        episode = LeRobotEpisode(
             episode_index=len(self._episodes),
+            tasks=tasks,
+            length=length,
             dataset_from_index=start,
-            dataset_to_index=start + episode.length,
+            dataset_to_index=start + length,
             # A single data file and a single episodes file
             data_chunk_index=0,
             data_file_index=0,
