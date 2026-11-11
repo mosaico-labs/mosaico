@@ -33,12 +33,6 @@ Once you have an Issue to work on, you can:
 4. **Push** to your fork and submit a **Pull Request** that links the Issue.
 5. Ensure all automated checks (Tests, Clippy, Black/Ruff) pass before requesting a review.
 
-### Proposing Major Changes
-
-If you intend to modify critical portions of the project (e.g., the core Rust engine, complex algorithms, or fundamental SDK architecture), we strongly recommend opening a [Discussion](https://github.com/mosaico-labs/mosaico/discussions) before you start, even if an Issue already exists.
-
-This allows us to verify that your proposed changes align with the Mosaico roadmap and do not conflict with ongoing developments.
-
 ## Contributor License Agreement (CLA)
 
 To contribute to Mosaico you must sign our Contributor License Agreement (CLA). This applies to every Pull Request, including small fixes and dependency updates.
