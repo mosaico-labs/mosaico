@@ -371,14 +371,13 @@ pub struct OntologyField {
 
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
-        let ontology_tag = v
-            .split('.')
-            .next()
-            .ok_or_else(|| super::Error::bad_field(v.to_string()))?;
+        let (ontology_tag, field_part) = v
+            .split_once('.')
+            .ok_or_else(|| super::Error::bad_field(v.clone()))?;
+        if ontology_tag.is_empty() {
+            return Err(super::Error::bad_field(v));
+        }
         let tag = ontology_tag.to_owned();
-        let len = ontology_tag.len();
-
-        let field_part = &v[(len + 1)..];
         let raw_segments: Vec<&str> = field_part.split('.').collect();
 
         let mut segments = Vec::with_capacity(raw_segments.len());
@@ -387,6 +386,9 @@ impl OntologyField {
         for (i, segment) in raw_segments.iter().enumerate() {
             let (name, specifier) =
                 parse_segment(segment).map_err(|_| super::Error::bad_field(v.clone()))?;
+            if name.is_empty() {
+                return Err(super::Error::bad_field(v));
+            }
 
             if let Some(specifier) = specifier {
                 // A second specifier in the same path is not allowed.
@@ -803,6 +805,22 @@ mod tests {
         assert_eq!(oc.field(), "info.height");
         assert_eq!(oc.ontology_tag(), "image");
         assert_eq!(oc.value(), "image.info.height");
+    }
+
+    #[test]
+    fn ontology_field_without_dot_is_error() {
+        assert!(OntologyField::try_new("imu".into()).is_err());
+        assert!(OntologyField::try_new(String::new()).is_err());
+    }
+
+    #[test]
+    fn ontology_field_with_empty_parts_is_error() {
+        for bad in [".x", "imu.", "imu..x", "imu.acc.", "imu.[?]", "imu.acc.[0]"] {
+            assert!(
+                OntologyField::try_new(bad.into()).is_err(),
+                "`{bad}` should be rejected"
+            );
+        }
     }
 
     #[test]
