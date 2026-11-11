@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: "weekly"
     commit-message:
-      prefix: "chore(ci)"
+      prefix: "ci"
 
   - package-ecosystem: "cargo"
     directory: "/mosaicod"
