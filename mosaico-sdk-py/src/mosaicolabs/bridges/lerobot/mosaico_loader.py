@@ -29,10 +29,19 @@ _TIMESTAMP_NS_COLUMN_NAME = "timestamp_ns"
 """The column of the timestamp of the messages, in every topic."""
 
 
-def _unpack_sequence(sequence: SequenceHandler) -> Tuple[LeRobotInfo, LeRobotEpisode]:
+def _unpack_sequence(
+    sequence: SequenceHandler,
+) -> Tuple[
+    LeRobotInfo,
+    List[str],
+    int,
+]:
     """
     Reads the `_lerobot_` metadata of a sequence (see `LeRobotSchemaMetadata.restore`): its
-    `info` and its episode, as in their source dataset.
+    `info`, and the `tasks` and `length` of its episode, as in their source dataset.
+
+    Returns:
+        Tuple[LeRobotInfo, List[str], int]: The `info`, the episode tasks and the episode length.
 
     Raises:
         ValueError: If the `_lerobot_` metadata is missing or malformed.
@@ -40,14 +49,16 @@ def _unpack_sequence(sequence: SequenceHandler) -> Tuple[LeRobotInfo, LeRobotEpi
     try:
         block = LeRobotSchemaMetadata.restore(sequence.user_metadata)
         info = LeRobotInfo.from_dict(block["info"])
-        episode = LeRobotEpisode.from_dict(block["episode"])
+        ep_length = block["episode"]["length"]
+        ep_tasks = block["episode"]["tasks"]
+
     except (AttributeError, KeyError, TypeError, ValueError) as e:
         raise ValueError(
             f"Sequence '{sequence.name}' has missing or malformed "
             f"'{LeRobotSchemaMetadata.KEY}' metadata: {e!r}"
         ) from e
 
-    return info, episode
+    return info, ep_tasks, ep_length
 
 
 def _pop_timestamps(
@@ -199,11 +210,11 @@ class MosaicoToLeRobotLoader(BaseLoader):
                     continue
 
                 try:
-                    info, episode = _unpack_sequence(seq_handler)
+                    info, ep_tasks, ep_length = _unpack_sequence(seq_handler)
                     # TODO: a sequence ingested with a column filter
                     # (`LeRobotInjectionConfig.column_names`) has features in its `info` with no
                     # topic: drop them from `info`, or drop the sequence
-                    builder.add_episode(sequence_name, info, episode)
+                    builder.add_episode(sequence_name, info, ep_tasks, ep_length)
                 except ValueError as e:
                     logger.warning(
                         f"Episode of sequence '{sequence_name}' dropped: {e}"

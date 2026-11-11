@@ -13,8 +13,11 @@ def test_builder_renumbers_the_episodes(lerobot_dataset):
     builder = LeRobotDatasetBuilder()
 
     # Episode 2 of the source dataset first, then episode 0
-    builder.add_episode("a", meta.info, meta.episodes_map[2])
-    builder.add_episode("b", meta.info, meta.episodes_map[0])
+    episode = meta.episodes_map[2]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("b", meta.info, episode.tasks, episode.length)
 
     first, second = EPISODE_LENGTHS[2], EPISODE_LENGTHS[0]
     assert [
@@ -36,12 +39,15 @@ def test_builder_renumbers_the_episodes(lerobot_dataset):
 def test_builder_rejects_an_incompatible_episode(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     builder = LeRobotDatasetBuilder()
-    builder.add_episode("a", meta.info, meta.episodes_map[0])
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
 
     other_robot = replace(meta.info, robot_type="other_robot")
 
     with pytest.raises(ValueError, match="robot type"):
-        builder.add_episode("b", other_robot, meta.episodes_map[1])
+        episode = meta.episodes_map[1]
+        builder.add_episode("b", other_robot, episode.tasks, episode.length)
     assert len(builder.episodes) == 1
     assert builder.episode_index_by_sequence == {"a": 0}
 
@@ -49,10 +55,13 @@ def test_builder_rejects_an_incompatible_episode(lerobot_dataset):
 def test_builder_rejects_a_sequence_added_twice(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     builder = LeRobotDatasetBuilder()
-    builder.add_episode("a", meta.info, meta.episodes_map[0])
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
 
     with pytest.raises(ValueError, match="already been added"):
-        builder.add_episode("a", meta.info, meta.episodes_map[1])
+        episode = meta.episodes_map[1]
+        builder.add_episode("a", meta.info, episode.tasks, episode.length)
     assert len(builder.episodes) == 1
     assert builder.episode_index_by_sequence == {"a": 0}
 
@@ -63,12 +72,11 @@ def test_builder_tasks_are_the_distinct_tasks_of_the_episodes(lerobot_dataset):
     builder = LeRobotDatasetBuilder()
     assert builder.tasks == []
 
-    builder.add_episode(
-        "a", meta.info, replace(meta.episodes_map[0], tasks=["place", "pick"])
-    )
-    builder.add_episode(
-        "b", meta.info, replace(meta.episodes_map[1], tasks=["pick", "push"])
-    )
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, ["place", "pick"], episode.length)
+
+    episode = meta.episodes_map[1]
+    builder.add_episode("b", meta.info, ["pick", "push"], episode.length)
 
     assert builder.tasks == ["place", "pick", "push"]
     assert builder.info is not None
@@ -78,13 +86,14 @@ def test_builder_tasks_are_the_distinct_tasks_of_the_episodes(lerobot_dataset):
 def test_builder_tasks_exclude_the_rejected_episodes(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
     builder = LeRobotDatasetBuilder()
-    builder.add_episode("a", meta.info, replace(meta.episodes_map[0], tasks=["pick"]))
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, ["pick"], episode.length)
 
     other_robot = replace(meta.info, robot_type="other_robot")
     with pytest.raises(ValueError, match="robot type"):
-        builder.add_episode(
-            "b", other_robot, replace(meta.episodes_map[1], tasks=["push"])
-        )
+        episode = meta.episodes_map[1]
+        builder.add_episode("b", other_robot, ["push"], episode.length)
 
     assert builder.tasks == ["pick"]
 
@@ -97,8 +106,9 @@ def test_builder_ignores_the_video_features(lerobot_dataset_factory):
     )
     builder = LeRobotDatasetBuilder()
 
-    builder.add_episode("a", with_video.info, with_video.episodes_map[0])
-    builder.add_episode("b", without_video.info, without_video.episodes_map[0])
+    episode = with_video.episodes_map[0]
+    builder.add_episode("a", with_video.info, episode.tasks, episode.length)
+    builder.add_episode("b", without_video.info, episode.tasks, episode.length)
 
     assert len(builder.episodes) == 2
     assert builder.info is not None

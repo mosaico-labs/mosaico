@@ -7,7 +7,8 @@ rejects metadata keys containing `.`, and non-finite floats (`NaN`, `inf`), whic
 JSON. The namespace therefore stores:
 
 - `info` (`meta/info.json`) with its `features` as a JSON string, which is not queryable;
-- `episode` (the `meta/episodes` row of the episode) with its `stats` nested on `.`
+- `episode` (the `length`, `tasks` and `stats` of the `meta/episodes` row of the episode; its
+  indexes are not stored, as they are set again on export) with its `stats` nested on `.`
   (`observation.state` -> `observation` / `state`) and their non-finite floats replaced by
   `None`, so that the sequences can be queried by the statistics of their episode.
 
@@ -39,8 +40,8 @@ class LeRobotSchemaMetadata(BaseSchemaMetadata):
     Encapsulates Mosaico's reserved ``_lerobot_`` metadata namespace in a single place.
 
     It holds, on each sequence created by the LeRobot bridge (one per episode), the content of
-    `meta/info.json` (`info`), the `meta/episodes` row of the episode (`episode`) and the name of
-    the dataset folder (`source_file`). The topics carry no `_lerobot_` metadata.
+    `meta/info.json` (`info`), the `length`, `tasks` and `stats` of the `meta/episodes` row of
+    the episode (`episode`) and the name of the dataset folder (`source_file`). The topics carry no `_lerobot_` metadata.
 
     Every field set on this namespace is made server-compatible on the fly (see the module
     docstring), and the resulting keys are validated, so that an invalid key is reported before
