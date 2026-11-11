@@ -124,9 +124,12 @@ pub struct Builder {
     /// The name of the specific bucket to access.
     pub bucket: String,
 
-    /// The region of the storage service.
+    /// The region where the bucket is located (e.g. `eu-south-1`).
     ///
-    /// Only used by remote object stores, when `None` the client default is used.
+    /// Region is a general concept shared by many cloud storage services.
+    /// For example, an S3 store uses it to sign requests, so on AWS it must
+    /// match the region of the bucket. It is ignored for `file://`
+    /// endpoints. When `None`, the client default (`us-east-1`) is used.
     pub region: Option<String>,
 
     /// The access key for the storage bucket
