@@ -1,12 +1,6 @@
 # Contributing to Mosaico
 
-Mosaico is free and open-source software. However, for legal reasons, we are currently unable to accept open-source contributions (Pull Requests) from the general public.
-
-If you are interested in contributing to the project and becoming an approved contributor, please reach out to us directly at [foss@mosaico.dev](mailto:foss@mosaico.dev). Once you're onboarded as a contributor, the process below applies to you.
-
-> [!WARNING]
->
-> Pull Requests opened by contributors who have not been approved through the process above will be closed immediately without review.
+Mosaico is free and open-source software, and we welcome contributions. This guide explains how to propose a change and what we need from you before we can merge it.
 
 ## Did you find a bug?
 
@@ -18,19 +12,38 @@ If you have found a bug please open a new [Discussion](https://github.com/mosaic
 
 ## How to Submit a Change
 
-> [!IMPORTANT]
->
-> Proposing changes requires **[prior approval](#proposing-major-changes)** from the project maintainers.
+### Small fixes and dependency updates
 
-We value your time (and ours), so we aim to avoid unnecessary work. Before opening a Pull Request, please [create a new Discussion](https://github.com/mosaico-labs/mosaico/discussions/categories/issue) so we can coordinate. Even if a PR is excellent, it may not align with our internal roadmap, and we want to ensure your efforts aren't wasted.
+Typos, broken links, similarly small changes, and dependency updates don't need any prior coordination: open a Pull Request directly.
 
-Once the discussion is finalized and a corresponding **Issue** is created, you can:
+### Everything else
+
+We value your time (and ours), so we aim to avoid unnecessary work. Even if a PR is excellent, it may not align with our internal roadmap, so any other change has to start from one of the following:
+
+- **An open [Issue](https://github.com/mosaico-labs/mosaico/issues).** Leave a comment on it to let us know you're working on it.
+- **A new [Discussion](https://github.com/mosaico-labs/mosaico/discussions/categories/issue)** describing what you'd like to change. Once the discussion is finalized, a maintainer will create a corresponding Issue.
+
+If you'd like to contribute but don't know where to start, look for issues labeled [`good first issue`](https://github.com/mosaico-labs/mosaico/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
+
+Once you have an Issue to work on, you can:
 
 1. **Fork** the repository.
 2. **Create a branch** for your feature or fix.
 3. **Commit** changes with clear, descriptive messages.
-4. **Push** to your fork and submit a **Pull Request**.
+4. **Push** to your fork and submit a **Pull Request** that links the Issue.
 5. Ensure all automated checks (Tests, Clippy, Black/Ruff) pass before requesting a review.
+
+### Proposing Major Changes
+
+If you intend to modify critical portions of the project (e.g., the core Rust engine, complex algorithms, or fundamental SDK architecture), we strongly recommend opening a [Discussion](https://github.com/mosaico-labs/mosaico/discussions) before you start, even if an Issue already exists.
+
+This allows us to verify that your proposed changes align with the Mosaico roadmap and do not conflict with ongoing developments.
+
+## Contributor License Agreement (CLA)
+
+To contribute to Mosaico you must sign our Contributor License Agreement (CLA). This applies to every Pull Request, including small fixes and dependency updates.
+
+After you open your Pull Request, a maintainer will ask you to sign the CLA. We can only merge your Pull Request once it's signed.
 
 ## Do you want to contribute code?
 
@@ -49,12 +62,6 @@ cd ..
 ```
 
 The SDK supports Python 3.10 or newer. uv creates the local `.venv`, installs the SDK in editable mode, and includes development tools. Keep `--extra cli` on SDK runs so the optional CLI dependencies remain installed. Commit changes to `pyproject.toml` and `uv.lock` together. See the [development guide](docs/main/docs/dev/testing_and_dev.md) for dependency updates and documentation builds.
-
-## Proposing Major Changes
-
-If you intend to modify critical portions of the project (e.g., the core Rust engine, complex algorithms, or fundamental SDK architecture), we strongly recommend [contacting the maintainers](mailto:foss@mosaico.dev) or opening a [discussion](https://github.com/mosaico-labs/mosaico/discussions).
-
-This allows us to verify that your proposed changes align with the Mosaico roadmap and do not conflict with ongoing developments.
 
 ## Commit messages (Conventional Commits)
 
