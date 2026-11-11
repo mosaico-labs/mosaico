@@ -92,7 +92,9 @@ class LeRobotDatasetMeta:
             FileNotFoundError: If the data file of an episode is missing.
             pa.ArrowInvalid: If the data file of an episode is not a readable parquet file.
         """
-        episodes_stats = [self.get_episode_stats(i) for i in self.episode_indexes]
+        episodes_stats = [
+            self.get_or_compute_episode_stats(i) for i in self.episode_indexes
+        ]
 
         dataset_stats: Dict[str, Dict[str, List]] = {}
         for feature in self.features:
@@ -209,7 +211,9 @@ class LeRobotDatasetMeta:
         episode = self.episodes_map.get(episode_index)
         return episode.length if episode is not None else 0
 
-    def get_episode_stats(self, episode_index: int) -> Dict[str, Dict[str, Any]]:
+    def get_or_compute_episode_stats(
+        self, episode_index: int
+    ) -> Dict[str, Dict[str, Any]]:
         """
         Returns the stats of an episode: those it holds (e.g. read from `meta/episodes`) or,
         if it has none, those computed from its rows in its data file, which must then be
@@ -321,10 +325,10 @@ class LeRobotDatasetMeta:
         - `tasks.parquet`: `tasks`, indexed by task as LeRobot reads them;
         - the episodes parquet files, each episode in the one given by its
           `meta/episodes/chunk_index` and `meta/episodes/file_index` (0 if not set), with
-          its stats (see `get_episode_stats`).
+          its stats (see `get_or_compute_episode_stats`).
 
         The stats of the episodes without any are computed from their data files, which must
-        then be complete and closed (see `get_episode_stats`). Existing files are overwritten.
+        then be complete and closed (see `get_or_compute_episode_stats`). Existing files are overwritten.
 
         Raises:
             ValueError: If the stats of a feature in an episode are missing or not feasible.

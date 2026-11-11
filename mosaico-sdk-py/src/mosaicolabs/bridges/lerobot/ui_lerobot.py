@@ -29,6 +29,10 @@ class LeRobotProgressManager(ProgressManager):
     3. `finish_episode()` once the episode is done, succeeded or failed: the rows the episode
        did not upload are filled in, so that every bar reaches its total once all the episodes
        are done.
+
+    On export only, the stats of the episodes are computed once they are all written:
+    `setup_episode_stats()` creates their bar, and `advance_episode_stats()` advances it once
+    per episode.
     """
 
     def __init__(self, loader: LoaderUIAPI, n_episodes: int):
@@ -51,6 +55,9 @@ class LeRobotProgressManager(ProgressManager):
         """The number of episodes uploaded."""
         self._n_failed = 0
         """The number of episodes failed."""
+        self.episode_stats_task: Optional[TaskID] = None
+        """The bar of the episodes whose stats are computed, created by
+        `setup_episode_stats()` (only on export)."""
 
     def setup(self):
         """
@@ -127,6 +134,21 @@ class LeRobotProgressManager(ProgressManager):
 
         self._current_episode = None
         self._refresh_episode_label()
+
+    def setup_episode_stats(self):
+        """
+        Creates the bar of the episodes whose stats are computed, shown below the other bars.
+        Must be called before computing the stats of the first episode. Only the export
+        computes the stats of the episodes: the ingestion does not show this bar.
+        """
+        self.episode_stats_task = self.progress.add_task(
+            "", total=self._n_episodes, name="Episode stats"
+        )
+
+    def advance_episode_stats(self):
+        """Advances the episode stats bar by one episode, once its stats are computed."""
+        if self.episode_stats_task is not None:
+            self.progress.advance(self.episode_stats_task)
 
     def _episode_label(self) -> str:
         """The label of the episode bar: the episode being uploaded and the counters."""

@@ -90,7 +90,7 @@ class LeRobotDatasetBuilder:
 
         Its stats are dropped: those of its source dataset do not apply to the new one (its
         indexes are renumbered, and it can hold only part of the episode). They are computed
-        from the data of the new dataset instead (see `LeRobotDatasetMeta.get_episode_stats`).
+        from the data of the new dataset instead (see `LeRobotDatasetMeta.get_or_compute_episode_stats`).
 
         The video features are dropped from `info` before comparing it with the one of the
         first episode (see `LeRobotInfo.check_compatible`).
