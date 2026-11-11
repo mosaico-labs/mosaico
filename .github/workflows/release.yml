@@ -3,7 +3,7 @@ name: Release
 # Weekly release (see docs/main/docs/dev/release_cycle.md). Started by hand from the Actions tab on
 # `main`: it tests the current commit and the Python SDK wheel built from it, tags it as `v0.N.0`
 # with a signed tag and bumps `main` to `0.(N+1).0`. The tag push then triggers the release
-# workflows of every component.
+# workflows of every component, and this workflow attaches the tested wheel to the GitHub release.
 #
 # Requires the secrets:
 #   RELEASE_APP_ID, RELEASE_APP_PRIVATE_KEY   GitHub App allowed to push to `main`. Pushes made with
@@ -214,3 +214,28 @@ jobs:
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Tag | \`v$VERSION\` on \`${SHA::8}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Next version on main | \`$NEXT_VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  # Attach the tested wheel and sdist to the GitHub release of the new tag, so the released files
+  # are the ones the py-wheel job tested.
+  py-release:
+    name: Release Python SDK wheel
+    needs: [prepare, tag-and-bump]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - name: Download distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: python-sdk-dist
+          path: dist
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ env.VERSION }}
+          files: dist/*
+          fail_on_unmatched_files: true
