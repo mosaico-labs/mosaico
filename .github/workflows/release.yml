@@ -1,8 +1,9 @@
 name: Release
 
 # Weekly release (see docs/main/docs/dev/release_cycle.md). Started by hand from the Actions tab on
-# `main`: it tests the current commit, tags it as `v0.N.0` with a signed tag and bumps `main` to
-# `0.(N+1).0`. The tag push then triggers the release workflows of every component.
+# `main`: it tests the current commit and the Python SDK wheel built from it, tags it as `v0.N.0`
+# with a signed tag and bumps `main` to `0.(N+1).0`. The tag push then triggers the release
+# workflows of every component.
 #
 # Requires the secrets:
 #   RELEASE_APP_ID, RELEASE_APP_PRIVATE_KEY   GitHub App allowed to push to `main`. Pushes made with
@@ -120,9 +121,15 @@ jobs:
     needs: prepare
     uses: ./.github/workflows/ci.yml
 
+  # Build the Python SDK wheel and test it: a wheel that fails its tests blocks the release.
+  py-wheel:
+    name: Python SDK wheel
+    needs: prepare
+    uses: ./.github/workflows/py-wheel.yml
+
   tag-and-bump:
     name: Tag and bump version
-    needs: [prepare, mosaicod-tests, py-tests, full-stack-tests]
+    needs: [prepare, mosaicod-tests, py-tests, full-stack-tests, py-wheel]
     runs-on: ubuntu-latest
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
