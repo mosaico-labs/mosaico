@@ -324,24 +324,26 @@ def test_stats_combine_those_of_the_episodes(lerobot_dataset):
             np.testing.assert_allclose(stats[key][name], expected)
 
 
-# --- LeRobotDatasetMeta.get_episode_stats ---
+# --- LeRobotDatasetMeta.get_or_compute_episode_stats ---
 
 
-def test_get_episode_stats_returns_those_of_the_episode(lerobot_dataset, tmp_path):
+def test_get_or_compute_episode_stats_returns_those_of_the_episode(
+    lerobot_dataset, tmp_path
+):
     """Those read from `meta/episodes`: no data file is read (there is none under `root`)."""
     meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path)
 
-    stats = meta.get_episode_stats(0)
+    stats = meta.get_or_compute_episode_stats(0)
 
     assert stats == meta.episodes_map[0].stats
     assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
 
 
-def test_get_episode_stats_of_an_unknown_episode(lerobot_dataset):
+def test_get_or_compute_episode_stats_of_an_unknown_episode(lerobot_dataset):
     meta = LeRobotDatasetMeta.load(lerobot_dataset)
 
     with pytest.raises(KeyError):
-        meta.get_episode_stats(len(EPISODE_LENGTHS))
+        meta.get_or_compute_episode_stats(len(EPISODE_LENGTHS))
 
 
 # --- LeRobotDatasetMeta.dump ---

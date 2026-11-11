@@ -78,12 +78,9 @@ def _decode_image(column: pa.ChunkedArray, is_depth_map: bool) -> np.ndarray:
 
         if not is_depth_map:
             pil_image = pil_image.convert("RGB")
-            image = np.asarray(pil_image, dtype=np.float64) / 255.0
-        else:
-            image = np.asarray(pil_image, dtype=np.float64)
 
         # (height, width, channels): a depth map has no channel axis, it gets one
-        image = np.atleast_3d(image)
+        image = np.atleast_3d(np.asarray(pil_image))
 
         # Subsampling: if the longer side is 300 px or more, stride it down to about 150 px
         long_side = max([pil_image.width, pil_image.height])
@@ -94,11 +91,16 @@ def _decode_image(column: pa.ChunkedArray, is_depth_map: bool) -> np.ndarray:
         )
         image = image[::stride, ::stride]
 
-        # Final shape needs to be: Rows x Channels
+        # Final shape needs to be: Rows x Channels, kept in the dtype of the image for now
         channels = image.shape[-1]
         pixels.append(image.reshape(-1, channels))
 
-    return np.concatenate(pixels)
+    # Converted to float once, over the sampled pixels of all the images
+    values = np.concatenate(pixels).astype(np.float64)
+    if not is_depth_map:
+        values /= 255.0
+
+    return values
 
 
 def _to_matrix(feature: LeRobotFeature, column: pa.ChunkedArray) -> np.ndarray:
