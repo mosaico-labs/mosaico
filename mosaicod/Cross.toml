@@ -1,0 +1,4 @@
+# The git history isn't available inside the cross container: the commit and the tag come from the
+# environment (see crates/mosaicod-build/build.rs).
+[build.env]
+passthrough = ["GIT_HASH", "GIT_TAG"]
