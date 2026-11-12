@@ -33,6 +33,10 @@ pub enum Error {
     InvalidEndpoint(String),
     #[error("unable to create directory `{0}`: {1}")]
     DirCreationFailed(String, std::io::Error),
+    #[error("connection to storage backend timed out after {0:?}")]
+    ConnectionTimeout(std::time::Duration),
+    #[error("connectivity check failed: {0}")]
+    ConnectivityCheckFailed(object_store::Error),
 }
 
 impl mosaicod_core::error::PublicError for Error {
@@ -63,6 +67,15 @@ impl mosaicod_core::error::PublicError for Error {
                 "object store local directory".to_owned(),
                 self.to_string(),
             ),
+            Self::ConnectionTimeout(timeout) => Error::invalid_configuration(
+                "object store connection".to_owned(),
+                format!(
+                    "timed out after {timeout:?}: check that the endpoint is reachable and, when no access/secret keys are set, that instance credentials (e.g. IMDS) are available."
+                ),
+            ),
+            Self::ConnectivityCheckFailed(err) => {
+                Error::invalid_configuration("object store connection".to_owned(), err.to_string())
+            }
             _ => Error::internal(Some("store failed".to_owned())),
         }
     }
@@ -132,14 +145,16 @@ pub struct Builder {
     /// endpoints. When `None`, the client default (`us-east-1`) is used.
     pub region: Option<String>,
 
-    /// The access key for the storage bucket
+    /// The access key for the storage bucket.
     ///
-    /// This field is **required** to work with remote object store.
+    /// If not provided, `object_store` will attempt to resolve credentials
+    /// from the environment or the EC2/ECS instance role (IAM).
     pub access_key: Option<String>,
 
-    /// The secret key of the storage bucket
+    /// The secret key of the storage bucket.
     ///
-    /// This field is **required** to work with remote object store.
+    /// If not provided, `object_store` will attempt to resolve credentials
+    /// from the environment or the EC2/ECS instance role (IAM).
     pub secret_key: Option<String>,
 }
 
@@ -157,6 +172,18 @@ impl Builder {
     /// Configure credentials to access the object store.
     pub fn with_credentials(mut self, key: String, secret: String) -> Self {
         self.access_key = Some(key);
+        self.secret_key = Some(secret);
+        self
+    }
+
+    /// Configure the access key to access the object store.
+    pub fn with_access_key(mut self, key: String) -> Self {
+        self.access_key = Some(key);
+        self
+    }
+
+    /// Configure the secret key to access the object store.
+    pub fn with_secret_key(mut self, secret: String) -> Self {
         self.secret_key = Some(secret);
         self
     }
@@ -194,21 +221,24 @@ impl Builder {
             return Store::try_from_filesystem(&path);
         }
 
-        let Some(access_key) = self.access_key else {
-            return Err(Error::MissingCredentials("access key".to_owned()));
+        let (access_key, secret_key) = match (self.access_key, self.secret_key) {
+            (Some(ak), Some(sk)) => {
+                if !is_valid_access_key(&ak) {
+                    return Err(Error::InvalidAccessKey);
+                }
+                if !is_valid_secret_key(&sk) {
+                    return Err(Error::InvalidSecretKey);
+                }
+                (Some(ak), Some(sk))
+            }
+            (None, None) => (None, None),
+            (Some(_), None) => {
+                return Err(Error::MissingCredentials("secret key".to_owned()));
+            }
+            (None, Some(_)) => {
+                return Err(Error::MissingCredentials("access key".to_owned()));
+            }
         };
-
-        let Some(secret_key) = self.secret_key else {
-            return Err(Error::MissingCredentials("secret key".to_owned()));
-        };
-
-        if !is_valid_access_key(&access_key) {
-            return Err(Error::InvalidAccessKey);
-        }
-
-        if !is_valid_secret_key(&secret_key) {
-            return Err(Error::InvalidSecretKey);
-        }
 
         if let Some(region) = &self.region
             && !is_valid_region(region)
@@ -284,8 +314,8 @@ impl Store {
         endpoint: url::Url,
         bucket: String,
         region: Option<String>,
-        access_key: String,
-        secret_key: String,
+        access_key: Option<String>,
+        secret_key: Option<String>,
     ) -> Result<Self, Error> {
         trace!(
             "creating object driver for a s3 compatible store, endpoint: {}",
@@ -301,9 +331,13 @@ impl Store {
         let mut s3_builder = AmazonS3Builder::new()
             .with_endpoint(endpoint.to_string())
             .with_bucket_name(&bucket)
-            .with_access_key_id(access_key)
-            .with_secret_access_key(secret_key)
             .with_allow_http(true);
+
+        if let (Some(access_key), Some(secret_key)) = (access_key, secret_key) {
+            s3_builder = s3_builder
+                .with_access_key_id(access_key)
+                .with_secret_access_key(secret_key);
+        }
 
         if let Some(region) = region {
             s3_builder = s3_builder.with_region(region);
@@ -450,6 +484,18 @@ impl Store {
     pub fn parquet_reader(&self, path: impl AsRef<std::path::Path>) -> ParquetObjectReader {
         ParquetObjectReader::new(self.driver.clone(), to_object_path(path))
     }
+
+    /// Checks store connectivity and authorization by executing a probe listing against the root.
+    ///
+    /// This validates that credentials (or IAM instance roles) are valid, the bucket exists,
+    /// and that the daemon is authorized to access it. Fails fast if the operation exceeds `timeout`.
+    pub async fn check_connectivity(&self, timeout: std::time::Duration) -> Result<(), Error> {
+        tokio::time::timeout(timeout, self.driver.list_with_delimiter(None))
+            .await
+            .map_err(|_| Error::ConnectionTimeout(timeout))?
+            .map_err(Error::ConnectivityCheckFailed)?;
+        Ok(())
+    }
 }
 
 impl traits::AsyncWriteToPath for Store {
@@ -560,6 +606,13 @@ mod test {
 
         let store = Builder::new(endpoint, bucket).build().unwrap();
 
+        assert!(
+            store
+                .check_connectivity(std::time::Duration::from_secs(1))
+                .await
+                .is_ok()
+        );
+
         let sample = r#"Some example text"#;
         let buffer = sample.as_bytes();
 
@@ -574,6 +627,23 @@ mod test {
         assert_eq!(buffer, read_buffer);
 
         assert_eq!(store.list("", None).await.unwrap().len(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_store_check_connectivity_timeout() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let endpoint = format!("http://127.0.0.1:{port}").parse().unwrap();
+
+        let store = Builder::new(endpoint, "my-bucket".to_owned())
+            .with_credentials("access-key".to_owned(), "secret".to_owned())
+            .build()
+            .unwrap();
+
+        let res = store
+            .check_connectivity(std::time::Duration::from_millis(50))
+            .await;
+        assert!(matches!(res, Err(Error::ConnectionTimeout(_))));
     }
 
     #[test]
@@ -625,17 +695,31 @@ mod test {
     }
 
     #[test]
-    fn test_filesystem_store_remote_missing_credentials() {
+    fn test_filesystem_store_remote_partial_credentials() {
         let bucket = "my-bucket".to_owned();
+        let endpoint: url::Url = "dummy://fake.url".parse().unwrap();
 
-        let endpoint = "dummy://fake.url".parse().unwrap();
+        // When only access key is set, missing secret key error is returned
+        let res = Builder::new(endpoint.clone(), bucket.clone())
+            .with_access_key("access-key".to_owned())
+            .build();
+        assert!(matches!(res, Err(Error::MissingCredentials(ref msg)) if msg == "secret key"));
 
+        // When only secret key is set, missing access key error is returned
+        let res = Builder::new(endpoint, bucket)
+            .with_secret_key("secret".to_owned())
+            .build();
+        assert!(matches!(res, Err(Error::MissingCredentials(ref msg)) if msg == "access key"));
+    }
+
+    #[test]
+    fn test_filesystem_store_remote_without_credentials() {
+        let bucket = "my-bucket".to_owned();
+        let endpoint: url::Url = "dummy://fake.url".parse().unwrap();
+
+        // When neither key is set, builder succeeds (delegates to IAM instance role)
         let res = Builder::new(endpoint, bucket).build();
-
-        dbg!(&res);
-
-        // A non `file:///` store should require credentials
-        assert!(matches!(res, Err(Error::MissingCredentials(_))));
+        assert!(res.is_ok());
     }
 
     #[test]
