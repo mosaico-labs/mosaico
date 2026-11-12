@@ -6,7 +6,7 @@ from typing_extensions import Annotated
 from mosaicolabs_cli.utils.bridge import (
     PATTERNS_HELP,
     DryRunOpt,
-    InputFileArg,
+    InputDirArg,
     LogLevel,
     LogLevelOpt,
     MetadataOpt,
@@ -20,7 +20,7 @@ from mosaicolabs_cli.utils.bridge import (
 
 def inject(
     ctx: typer.Context,
-    dataset_path: InputFileArg,
+    dataset_path: InputDirArg,
     sequence_name: Annotated[
         str,
         typer.Option(
@@ -50,6 +50,14 @@ def inject(
 ) -> None:
     """
     Inject a LeRobotDataset into Mosaico, one sequence per episode.
+
+    `dataset_path` is the root folder of a LeRobotDataset v3.0:
+
+    - meta/: schema, stats, tasks and episode index.
+
+    - data/: Parquet frame partitions.
+
+    Video features (videos/) are not supported yet and are skipped.
     """
     # A dry run never connects, so it can run without a profile
     profile = ctx.obj if dry_run else require_profile(ctx)
