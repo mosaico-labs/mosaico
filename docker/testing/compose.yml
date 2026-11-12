@@ -44,35 +44,9 @@ services:
       retries: 3
       start_period: 60s
 
-  mosaico-store-testing:
-    image: ghcr.io/versity/versitygw:latest
-    ports:
-      - "127.0.0.1:7080:7070"  # S3 API
-      - "127.0.0.1:7081:7071"  # Admin API  
-    environment:
-      ROOT_ACCESS_KEY: admin
-      ROOT_SECRET_KEY: password
-      VGW_PORT: ":7080"
-      VGW_ADMIN_PORT: ":7081"
-      VGW_BACKEND: posix
-      VGW_BACKEND_ARGS: /data/store
-      VGW_HEALTH: "/health"
-    volumes:
-      - mosaico-testing-store-data:/data/store/mosaico
-    networks:
-      - mosaico-store-testing-net
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-
 volumes:
   mosaico-testing-pg-data:
   mosaico-testing-pg-tls-data:
-  mosaico-testing-store-data:
 
 networks:
   mosaico-pg-testing-net:
-  mosaico-store-testing-net:
