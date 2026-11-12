@@ -1,0 +1,363 @@
+name: Publish release
+
+# Publishes a release when its signed tag `vX.Y.Z` is pushed (by the Release workflow, or by hand
+# for a security update). It runs in two phases, so a release is published only if every artifact
+# could be built:
+#   1. build: mosaicod binaries, Python SDK wheel and sdist (tested), docs, container images;
+#   2. publish: container tags on GHCR, docs on the object store and, last, the GitHub release with
+#      the notes, the wheel, the sdist and the binaries. These jobs only upload what phase 1 built.
+# A failed publish job can be retried with "Re-run failed jobs", with the same artifacts.
+#
+# Requires the variable RELEASE_PUBLIC_KEY (see release.yml) and the secrets R2_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY for the docs.
+
+on:
+  push:
+    tags:
+      - 'v[0-9].*.*'
+  # To re-run it by hand: "Use workflow from" the release tag.
+  workflow_dispatch:
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Only tags signed with the release key are released.
+      - name: Verify release tag
+        uses: ./.github/actions/verify-release-tag
+        with:
+          tag: ${{ github.ref_name }}
+          public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
+          fetch: "true"
+
+  # ------------------------------------------------------------------------------------------------
+  # Phase 1: build every artifact.
+  # ------------------------------------------------------------------------------------------------
+
+  binaries:
+    name: Build mosaicod (${{ matrix.target }})
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            arch: linux-amd64
+          - target: aarch64-unknown-linux-musl
+            arch: linux-arm64
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cross Binary
+        id: cache-cross
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cross
+          key: ${{ runner.os }}-cross-v1
+
+      - name: Install Cross
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: cargo install cross --git https://github.com/cross-rs/cross.git
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "mosaicod -> target"
+          key: ${{ matrix.target }}
+
+      # `cross` builds in a container that can't read the git history: the commit and the tag come
+      # from the environment (see mosaicod/Cross.toml).
+      - name: Build binary
+        env:
+          GIT_HASH: ${{ github.sha }}
+          GIT_TAG: ${{ github.ref_name }}
+        working-directory: mosaicod
+        run: ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
+
+      # Tarball and its checksum.
+      - name: Package binary
+        run: |
+          tar -czvf mosaicod-${{ matrix.arch }}.tar.gz -C mosaicod/target/${{ matrix.target }}/release mosaicod
+          sha256sum mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: mosaicod-${{ matrix.arch }}
+          path: |
+            mosaicod-${{ matrix.arch }}.tar.gz
+            mosaicod-${{ matrix.arch }}.tar.gz.sha256
+          if-no-files-found: error
+
+  # Builds the wheel and sdist once and tests them (artifact `python-sdk-dist`).
+  python-sdk:
+    name: Python SDK
+    needs: verify
+    uses: ./.github/workflows/py-wheel.yml
+
+  docs-main:
+    name: Build docs (Docusaurus)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/main/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/main
+        run: npm ci
+
+      - name: Build Docusaurus
+        working-directory: docs/main
+        run: npm run build
+
+      - name: Upload docs
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-main
+          path: docs/main/build
+          if-no-files-found: error
+
+  docs-py:
+    name: Build docs (Python SDK)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: docs/py/uv.lock
+
+      - name: Install dependencies
+        working-directory: docs/py
+        run: uv sync --locked
+
+      - name: Build MkDocs
+        working-directory: docs/py
+        run: uv run --locked mkdocs build
+
+      - name: Upload docs
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-py
+          path: docs/py/site
+          if-no-files-found: error
+
+  # One image per platform, on native runners. The images are pushed to GHCR by digest only, with
+  # no tag: nobody sees them until phase 2 tags the multi-platform image.
+  container:
+    name: Build container (${{ matrix.platform }})
+    needs: verify
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/dockerfiles/Dockerfile.mosaicod
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            GIT_HASH=${{ github.sha }}
+            GIT_TAG=${{ github.ref_name }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The digest of the image, for phase 2.
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/*
+          if-no-files-found: error
+
+  # ------------------------------------------------------------------------------------------------
+  # Phase 2: publish, only if every artifact was built. These jobs only upload.
+  # ------------------------------------------------------------------------------------------------
+
+  publish-container:
+    name: Publish container
+    needs: [binaries, python-sdk, docs-main, docs-py, container]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Tags `X.Y.Z`, `X.Y` and `latest` (added for stable semver tags).
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/mosaicod
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+
+      # The multi-platform image from the digests of phase 1, with the release tags.
+      - name: Create manifest list and push
+        env:
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/mosaicod
+        run: |
+          TAGS=$(jq -r '.tags[] | "-t " + .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          # shellcheck disable=SC2046,SC2086
+          docker buildx imagetools create $TAGS $(printf "$IMAGE@sha256:%s " $(ls digests))
+
+      - name: Inspect image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/mosaicod
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: docker buildx imagetools inspect "$IMAGE:$VERSION"
+
+  publish-docs:
+    name: Publish docs
+    needs: [binaries, python-sdk, docs-main, docs-py, container]
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+    steps:
+      - name: Download docs (Docusaurus)
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-main
+          path: docs-main
+
+      - name: Download docs (Python SDK)
+        uses: actions/download-artifact@v8
+        with:
+          name: docs-py
+          path: docs-py
+
+      # Replace the online docs: files that are no longer in the build are removed.
+      - name: Upload docs (Docusaurus)
+        run: aws s3 sync docs-main s3://mosaico-docs/latest --delete --endpoint-url "$ENDPOINT" --region auto
+
+      - name: Upload docs (Python SDK)
+        run: aws s3 sync docs-py s3://mosaico-docs/python-sdk --delete --endpoint-url "$ENDPOINT" --region auto
+
+  # Last, so the release is announced only once the container and the docs are published.
+  github-release:
+    name: Publish GitHub release
+    needs: [publish-container, publish-docs]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read # to show the PR author of each change in the notes
+    steps:
+      # Full history and tags, to list the changes since the previous release.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # uv installs git-cliff, which generates the release notes.
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
+
+      # Release notes from the commit messages, one section per component (see .github/cliff.toml).
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv tool install git-cliff==2.14.2
+          PATH="$(uv tool dir --bin):$PATH" .github/scripts/changelog "${GITHUB_REF_NAME}" > release-notes.md
+
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: mosaicod-*
+          path: dist
+          merge-multiple: true
+
+      - name: Download Python SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: python-sdk-dist
+          path: dist
+
+      # The release of the tag, with the notes, the binaries, the wheel and the sdist.
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: dist/*
+          fail_on_unmatched_files: true
