@@ -1,0 +1,393 @@
+{
+  "1": {
+    "area": "data model",
+    "must_contain": [
+      {
+        "fact": "A topic is a single time series of one ontology model: one topic, one model",
+        "source": "docs/main/docs/overview.mdx:52"
+      },
+      {
+        "fact": "A sequence groups the topics of one recording session, a time-bounded collection of related streams",
+        "source": "docs/main/docs/overview.mdx:54"
+      },
+      {
+        "fact": "So no: IMU and GPS are two topics of the same sequence",
+        "source": "docs/main/docs/overview.mdx:52-54"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/overview.mdx",
+      "docs/py/docs/SDK/ontology.md",
+      "docs/main/docs/learn/writing_multiple_topics.mdx"
+    ],
+    "wrong_claims": [
+      "a topic can hold several ontology models or sensor types",
+      "a sequence is a single sensor stream"
+    ]
+  },
+  "2": {
+    "area": "writing, sessions",
+    "must_contain": [
+      {
+        "fact": "Versions make queries ambiguous (which version to search?)",
+        "source": "docs/main/docs/daemon/ingestion.md:11-14"
+      },
+      {
+        "fact": "A session is an immutable data layer inside a sequence, the topics uploaded together as one unit",
+        "source": "docs/main/docs/daemon/ingestion.md:18-19"
+      },
+      {
+        "fact": "A stored sequence is extended by committing a new session with new topics; existing data is not modified",
+        "source": "docs/main/docs/daemon/ingestion.md:26, 116-120"
+      },
+      {
+        "fact": "In the SDK this is SequenceUpdater, obtained from client.sequence_update() or SequenceHandler.update(); it adds new topics only",
+        "source": "docs/py/docs/SDK/handling/writing.md:163-165; docs/main/docs/learn/updating_sequences.mdx:47,63"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/daemon/ingestion.md",
+      "docs/py/docs/SDK/handling/writing.md",
+      "docs/main/docs/learn/updating_sequences.mdx"
+    ],
+    "wrong_claims": [
+      "a session overwrites or edits the existing topics",
+      "SequenceUpdater can change the sequence metadata or existing topics",
+      "the sequence must be re-ingested to add a topic"
+    ]
+  },
+  "3": {
+    "area": "architecture",
+    "must_contain": [
+      {
+        "fact": "mosaicod is the Mosaico daemon, written in Rust, handling ingestion, retrieval and query",
+        "source": "docs/main/docs/overview.mdx:58-60"
+      },
+      {
+        "fact": "It speaks Apache Arrow Flight (over gRPC)",
+        "source": "docs/main/docs/daemon/index.md:25"
+      },
+      {
+        "fact": "Metadata and system state live in a database (RDBMS); bulk data in an object store: S3, MinIO or the local filesystem",
+        "source": "docs/main/docs/daemon/index.md:46"
+      },
+      {
+        "fact": "If the database is destroyed the data is not lost: mosaicod rebuilds the catalog by rescanning the object store",
+        "source": "docs/main/docs/daemon/index.md:49-52"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/daemon/index.md",
+      "docs/main/docs/overview.mdx"
+    ],
+    "wrong_claims": [
+      "the sensor data is stored in the database",
+      "losing the database loses the data",
+      "mosaicod exposes a REST/JSON API"
+    ]
+  },
+  "4": {
+    "area": "ontology",
+    "must_contain": [
+      {
+        "fact": "Knowing what the data is lets Mosaico apply type-specific processing, compression, indexing and storage layout",
+        "source": "docs/main/docs/overview.mdx:27"
+      },
+      {
+        "fact": "Ontology classes are validatable (Pydantic), serializable (PyArrow) and queryable (.Q)",
+        "source": "docs/py/docs/SDK/ontology.md:20-22"
+      },
+      {
+        "fact": "Data with no Python class can use Unmodeled, an ontology built at runtime from an Arrow schema; or a custom ontology class can be written",
+        "source": "docs/py/docs/SDK/ontology.md:619; docs/main/docs/examples/custom_ontology.mdx"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/overview.mdx",
+      "docs/py/docs/SDK/ontology.md",
+      "docs/main/docs/examples/custom_ontology.mdx",
+      "docs/main/docs/learn/queryable_fields_queries.mdx"
+    ],
+    "wrong_claims": [
+      "Mosaico stores untyped data as opaque bytes",
+      "data without a Python class cannot be ingested"
+    ]
+  },
+  "5": {
+    "area": "reading",
+    "must_contain": [
+      {
+        "fact": "Handlers (SequenceHandler, TopicHandler) fetch metadata only and never download sensor records",
+        "source": "docs/main/docs/examples/data_inspection.mdx:100; docs/py/docs/SDK/handling/reading.md:16"
+      },
+      {
+        "fact": "Streamers deliver the data: SequenceDataStreamer merges several topics in timestamp order, TopicDataStreamer reads one topic",
+        "source": "docs/py/docs/SDK/handling/reading.md:89-96, 135"
+      },
+      {
+        "fact": "Both streamers accept a time window (start_timestamp_ns, end_timestamp_ns)",
+        "source": "docs/py/docs/SDK/handling/reading.md:97, 141"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/py/docs/SDK/handling/reading.md",
+      "docs/main/docs/examples/data_inspection.mdx",
+      "docs/main/docs/learn/streaming_data.mdx"
+    ],
+    "wrong_claims": [
+      "a handler downloads the topic data",
+      "a streamer loads the whole sequence into memory"
+    ]
+  },
+  "6": {
+    "area": "query",
+    "must_contain": [
+      {
+        "fact": "Three filter domains: sequence (name, creation time, metadata), topic (name, ontology tag, metadata), ontology (recorded values)",
+        "source": "docs/main/docs/daemon/query.md:11-17"
+      },
+      {
+        "fact": "SDK builders QuerySequence, QueryTopic, QueryOntologyCatalog",
+        "source": "docs/py/docs/SDK/query.md:298, 325, 354"
+      },
+      {
+        "fact": "Builders passed to one query() call are combined with a logical AND",
+        "source": "docs/py/docs/SDK/query.md:66"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/daemon/query.md",
+      "docs/py/docs/SDK/query.md",
+      "docs/main/docs/learn/multi_domain_query.mdx",
+      "docs/main/docs/examples/querying_catalogs.mdx"
+    ],
+    "wrong_claims": [
+      "filters are combined with OR",
+      "queries are written in SQL or another query language"
+    ]
+  },
+  "7": {
+    "area": "security",
+    "must_contain": [
+      {
+        "fact": "No: API keys are coarse-grained and grant an operation type across the whole platform, not per sequence or topic",
+        "source": "docs/main/docs/daemon/api_key.md:10-12"
+      },
+      {
+        "fact": "No: read, write and delete are independent; combine them explicitly, e.g. read|write",
+        "source": "docs/main/docs/daemon/api_key.md:56"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/daemon/api_key.md",
+      "docs/main/docs/learn/secure_connection.mdx",
+      "docs/py/docs/SDK/client.md"
+    ],
+    "wrong_claims": [
+      "an API key can be restricted to one sequence",
+      "write includes read",
+      "TLS and API keys are the same mechanism"
+    ]
+  },
+  "8": {
+    "area": "ML bridge",
+    "must_contain": [
+      {
+        "fact": "DataFrameExtractor flattens nested ontology fields into columns named {topic}.{ontology_tag}.{field_path}",
+        "source": "docs/py/docs/SDK/bridges/ml.md:19-24"
+      },
+      {
+        "fact": "Its output is sparse: the union of all timestamps with NaN where a sensor has no reading",
+        "source": "docs/py/docs/SDK/bridges/ml.md:27"
+      },
+      {
+        "fact": "SyncTransformer resamples the streams onto a fixed-frequency grid",
+        "source": "docs/py/docs/SDK/bridges/ml.md:141"
+      },
+      {
+        "fact": "SyncTransformer is stateful: create it once, outside the chunk loop",
+        "source": "docs/py/docs/SDK/bridges/ml.md:169-172"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/py/docs/SDK/bridges/ml.md",
+      "docs/main/docs/learn/ml_training_batches.mdx",
+      "docs/main/docs/overview.mdx"
+    ],
+    "wrong_claims": [
+      "the data must be exported to files and aligned by hand",
+      "create a new SyncTransformer for every chunk"
+    ]
+  },
+  "9": {
+    "area": "ROS and MCAP bridges",
+    "must_contain": [
+      {
+        "fact": "ROS 2 bags in .mcap (and .db3, ROS 1 .bag) go through the ROS bridge (RosbagInjector)",
+        "source": "docs/py/docs/SDK/bridges/ros.md:6, 25; docs/py/docs/SDK/bridges/mcap.md:12"
+      },
+      {
+        "fact": "The MCAP bridge (MCAPInjector) handles protobuf-encoded channels",
+        "source": "docs/py/docs/SDK/bridges/mcap.md:11-12"
+      },
+      {
+        "fact": "MCAP channels with no adapter become Unmodeled ontologies built from the embedded schema",
+        "source": "docs/py/docs/SDK/bridges/mcap.md:14"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/py/docs/SDK/bridges/ros.md",
+      "docs/py/docs/SDK/bridges/mcap.md",
+      "docs/main/docs/examples/ROS/ros_ingestion.mdx",
+      "docs/main/docs/examples/MCAP/mcap_ingestion.mdx",
+      "docs/main/docs/learn/watchdog.mdx"
+    ],
+    "wrong_claims": [
+      "ROS 2 .mcap bags go through the MCAP bridge",
+      "the MCAP bridge needs a message definition or generated code for every channel"
+    ]
+  },
+  "10": {
+    "area": "watchdog",
+    "must_contain": [
+      {
+        "fact": "The Watchdog, installed with the SDK as mosaicolabs.watchdog, ingests every new .mcap/.bag/.db3 in a folder",
+        "source": "docs/main/docs/learn/watchdog.mdx:32, 45"
+      },
+      {
+        "fact": "Daemon mode keeps watching the folder; single-pass (default) scans once and exits",
+        "source": "docs/main/docs/learn/watchdog.mdx:40-41"
+      },
+      {
+        "fact": "One sequence per file; files already loaded are never ingested twice (state files in the folder)",
+        "source": "docs/main/docs/learn/watchdog.mdx:35-36"
+      },
+      {
+        "fact": "Files modified in the last 30 seconds are skipped until a later scan (--min-file-age)",
+        "source": "docs/main/docs/learn/watchdog.mdx:69"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/learn/watchdog.mdx",
+      "docs/py/docs/SDK/watchdog.md"
+    ],
+    "wrong_claims": [
+      "the parts of a split recording are merged into one sequence",
+      "the Watchdog re-ingests every file on each scan"
+    ]
+  },
+  "11": {
+    "area": "CLI",
+    "must_contain": [
+      {
+        "fact": "Yes: the mosaico command line tool (pip install \"mosaicolabs[cli]\") lists and inspects sequences and topics and streams messages",
+        "source": "docs/main/docs/cli/commands.md:7-12"
+      },
+      {
+        "fact": "It connects through a profile: host, port, optionally API key and TLS settings",
+        "source": "docs/main/docs/cli/profiles.md:7"
+      },
+      {
+        "fact": "--profile or MOSAICO_PROFILE picks one, otherwise the default profile; the first profile added becomes the default",
+        "source": "docs/main/docs/cli/profiles.md:28, 184"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/cli/commands.md",
+      "docs/main/docs/cli/profiles.md"
+    ],
+    "wrong_claims": [
+      "browsing the catalog requires Python",
+      "topic mcat outputs CSV"
+    ]
+  },
+  "12": {
+    "area": "ecosystem",
+    "must_contain": [
+      {
+        "fact": "No: Mosaico will not ship a visualization tool, it focuses on the data stack",
+        "source": "docs/main/docs/integrations/visualization.md:7-9"
+      },
+      {
+        "fact": "PlotJuggler connects to mosaicod to browse and plot topics without code",
+        "source": "docs/main/docs/integrations/visualization.md:13"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/integrations/visualization.md",
+      "docs/main/docs/learn/streaming_to_foxglove.mdx"
+    ],
+    "wrong_claims": [
+      "Mosaico includes its own plotting or visualization UI"
+    ]
+  },
+  "13": {
+    "area": "routing",
+    "must_contain": [
+      {
+        "fact": "Use the mosaico-sdk-query skill",
+        "source": "SKILL.md section 4"
+      },
+      {
+        "fact": "A condition on recorded values is a QueryOntologyCatalog expression with the .Q proxy, e.g. IMU.Q.acceleration.z",
+        "source": "docs/py/docs/SDK/query.md:354; docs/main/docs/examples/querying_catalogs.mdx:129-135"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/py/docs/SDK/query.md",
+      "docs/main/docs/examples/querying_catalogs.mdx",
+      "docs/main/docs/learn/multi_domain_query.mdx",
+      "docs/main/docs/learn/temporal_windows.mdx"
+    ],
+    "wrong_claims": [
+      "routes to mosaico-ml-dataset or mosaico-setup",
+      "says the values must be streamed and filtered by hand because the query cannot do it"
+    ]
+  },
+  "14": {
+    "area": "routing",
+    "must_contain": [
+      {
+        "fact": "Start from Getting Started: a running mosaicod is needed before any client call succeeds",
+        "source": "docs/main/docs/getting_started.md:7, 11"
+      },
+      {
+        "fact": "Install the SDK with pip install mosaicolabs",
+        "source": "docs/main/docs/getting_started.md:82"
+      },
+      {
+        "fact": "Use the mosaico-setup skill to install and connect",
+        "source": "SKILL.md section 4"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/getting_started.md",
+      "docs/main/docs/daemon/install.md",
+      "docs/py/docs/SDK/client.md"
+    ],
+    "wrong_claims": [
+      "routes to mosaico-sdk-query",
+      "the SDK works without a running daemon"
+    ]
+  },
+  "15": {
+    "area": "routing",
+    "must_contain": [
+      {
+        "fact": "Use the mosaico-ml-dataset skill",
+        "source": "SKILL.md section 4"
+      },
+      {
+        "fact": "The page is the ML training batches guide, built on the ML module (DataFrameExtractor, SyncTransformer)",
+        "source": "docs/main/docs/learn/ml_training_batches.mdx:10; docs/py/docs/SDK/bridges/ml.md"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/learn/ml_training_batches.mdx",
+      "docs/py/docs/SDK/bridges/ml.md"
+    ],
+    "wrong_claims": [
+      "routes to mosaico-sdk-query as the main answer"
+    ]
+  }
+}

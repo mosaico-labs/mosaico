@@ -310,7 +310,9 @@ def mcat_topic(
                 )
                 continue
 
-            streamer = handler.get_data_streamer(ts_min, ts_max)
+            # Handler triplets are closed [min, max] (first and last sample),
+            # while the streamer's end bound is exclusive.
+            streamer = handler.get_data_streamer(ts_min, ts_max + 1)
 
             msg_index = 0
             start = fromIndex or 0

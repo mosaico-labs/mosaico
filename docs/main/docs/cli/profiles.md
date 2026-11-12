@@ -173,7 +173,7 @@ Sometimes you want to override a single connection detail for one shell session,
 | Variable | Description |
 | :--- | :--- |
 | `MOSAICO_PROFILE` | Name of the profile to use, as an alternative to `--profile`. |
-| `MOSAICO_DAEMON_URL` | Overrides the host, e.g. `api.mosaico.dev` or `api.mosaico.dev:6276`. If no port is embedded, the profile's port (or the default, `6726`) is used. |
+| `MOSAICO_DAEMON_URL` | Overrides the host, e.g. `api.mosaico.dev` or `api.mosaico.dev:6276`. If no port is embedded, the port of the resolved profile is kept; with no profile resolved (or a profile without a port), the default port `6726` is used. |
 | `MOSAICO_API_KEY` | Overrides the API key. |
 | `MOSAICO_TLS` | Overrides whether TLS is enabled. Accepted truthy values are `1`, `true`, or `yes` (case-insensitive); anything else, including unset, is treated as disabled. |
 | `MOSAICO_CERT_PATH` | Overrides the path to a custom TLS CA certificate. |

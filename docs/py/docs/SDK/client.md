@@ -59,7 +59,7 @@ with MosaicoClient.connect(
     port=6726,
     api_key="<msco_secret_key>",
 ) as client:
-    print(client.version())
+    print(client.info().version)
 ```
 
 !!! warning "API-Key and TLS"
@@ -77,7 +77,7 @@ with MosaicoClient.connect(
     api_key="<msco_secret_key>",
     tls_cert_path="/etc/mosaico/certs/ca.pem"
 ) as client:
-    print(client.version())
+    print(client.info().version)
 ```
 
 #### Environment-Based Configuration (`from_env`)
@@ -97,7 +97,7 @@ from mosaicolabs import MosaicoClient
 
 with MosaicoClient.from_env(host="mosaico.internal", port=6726) as client:
     # Security is initialized automatically from the environment
-    print(client.version())
+    print(client.info().version)
 ```
 
 ## Compression

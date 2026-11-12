@@ -1,0 +1,17 @@
+{
+  "1": {
+    "rows": 5679,
+    "column": ["/camera/imu.IMU.acceleration.x", "/camera/imu.IMU.acceleration.y", "/camera/imu.IMU.acceleration.z"]
+  },
+  "2": {
+    "rows": 1001,
+    "first_ns": 1654544056462859631,
+    "last_ns": 1654544061464195967,
+    "mean_vx": 1.8455907803599823
+  },
+  "3": { "rows": 2840, "tick_ns": 1654544066461638212, "acc_z": 12.28205722955101, "vel_x": 13.132598624637614 },
+  "4": { "rows": 2897, "empty": 447, "first_empty_ns": 1654836237885248899 },
+  "5": { "rows": 8520, "with_value": 5678, "empty": 2842 },
+  "6": { "rows": 1420, "mean_acc_z": 8.387845689239672, "scale_acc_z": 4.969167064504319 },
+  "7": { "rows": 1789, "empty_gt": 581, "first_gt_ns": 1540820265584444132 }
+}
