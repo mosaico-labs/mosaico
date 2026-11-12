@@ -16,7 +16,8 @@ What is reused from the MCAP bridge (bridges/mcap/injector.py):
     - `ULogInjector` subclasses `MCAPInjector`: `run()` (connection, sequence create,
       progress UI, main loop), `_dry_run_report()`, `_print_summary()` and
       `_get_topic_on_error()` are inherited as they are;
-    - `_parse_json_arg` (CLI JSON/file arguments) is imported, not copied;
+    - `_parse_json_arg` (CLI JSON/file arguments) is imported from `bridges/helpers.py`,
+      as the MCAP CLI does;
     - `ulog_injector()` is the same CLI as `mcap_injector()`, with `--topics`
       instead of `--channels` and without `--update-if-exists`.
 Only the loader and `_process_message` are ULog-specific.
@@ -37,7 +38,8 @@ from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger
 
 from ..base_injector import InjectionConfigBase, InjectionStatus
-from ..mcap.injector import MCAPInjector, _parse_json_arg
+from ..helpers import _parse_json_arg
+from ..mcap.injector import MCAPInjector
 from ..ui import ProgressManager
 from .helpers import _chunks
 from .loader import ULogLoader
@@ -191,8 +193,7 @@ class ULogInjector(MCAPInjector):
             )
             ui.update_status(topic, "Error. Check the logs.", "red")
             self._malformed_message_counts[topic] = n_rows
-            for _ in range(n_rows):
-                ui.advance_global()
+            ui.advance_global(n_rows)
             return
 
         # The batch is `timestamp_ns` + the payload columns, which push_batch (from the
@@ -215,9 +216,7 @@ class ULogInjector(MCAPInjector):
                     ui.update_status(topic, "Write Error (Ignored)", "yellow")
                 elif twriter.status == TopicWriterStatus.FinalizedWithError:
                     ui.update_status(topic, "Fatal Error: Prematurely finalized", "red")
-            # ProgressManager advances by one message per call
-            for _ in range(chunk.num_rows):
-                ui.advance_all(topic)
+            ui.advance_all(topic, chunk.num_rows)
 
 
 def ulog_injector():

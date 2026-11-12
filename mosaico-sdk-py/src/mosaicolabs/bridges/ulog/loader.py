@@ -2,7 +2,7 @@
 ULog loader: the read side of the ULog bridge.
 
 Same role as `MCAPLoader` (bridges/mcap/loader.py): it opens the source file, classifies
-every topic as accepted or rejected (via the shared `BaseLoader` bookkeeping), resolves
+every topic as accepted or rejected (via the shared `AdaptedLoader` bookkeeping), resolves
 one adapter per topic and then yields the data to the injector.
 
 The difference is how data flows: MCAP streams one decoded message at a time, while
@@ -29,7 +29,7 @@ from mosaicolabs.models.core import Message
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 from ..helpers import _filter_from_list
-from ..loader_base import BaseLoader
+from ..loader_base import AdaptedLoader
 from ..protocols.ulog.converter import ULogSchemaConverter
 from ..topic_status import TopicStatus
 from .adapter_base import ULogAdapterBase, ULogSchemaMetadata
@@ -41,7 +41,7 @@ from .ulog_message import ULogMessage
 logger = get_logger(__name__)
 
 
-class ULogLoader(BaseLoader[ULogAdapterBase]):
+class ULogLoader(AdaptedLoader[ULogAdapterBase]):
     """
     ULog loader: reads a PX4 `.ulg` file with pyulog and yields its topics as Arrow batches.
 
@@ -84,7 +84,7 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
                 format name (e.g. `sensor_accel`) to the `SerializationFormat` of its
                 `Unmodeled` ontology. Defaults to `SerializationFormat.Default`.
         """
-        # Same constructor shape as MCAPLoader: BaseLoader keeps _resolved_topics,
+        # Same constructor shape as MCAPLoader: AdaptedLoader keeps _resolved_topics,
         # _accepted_topics, _rejections and _topic_cached_adapters for us.
         super().__init__(container_type=dict)
         self._file_path = Path(file_path)
