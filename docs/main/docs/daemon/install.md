@@ -150,7 +150,7 @@ SQLX_OFFLINE=true cargo build --release
 
 ### Online Build
 
-If you need to modify the database schema, a running PostgreSQL instance is required. This allows `sqlx` to verify queries against a live database during compilation. You can use the provided Docker Compose file in `docker/devel` which sets up an instance of [MinIO](https://www.min.io/) and a PostgreSQL database.
+If you need to modify the database schema, a running PostgreSQL instance is required. This allows `sqlx` to verify queries against a live database during compilation. You can use the provided Docker Compose file in `docker/devel` which sets up a PostgreSQL database and a [VersityGW](https://github.com/versity/versitygw) S3 object store.
 
 First, start the development environment:
 ```bash
