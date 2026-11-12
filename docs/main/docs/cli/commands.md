@@ -250,7 +250,7 @@ In a shell like zsh, `!` triggers history expansion, so quote exclusion patterns
 
 ## `mosaico examples`
 
-Runs the official SDK [examples](/examples/ROS/ros_ingestion) against the server of the active connection profile.
+Runs the official SDK examples: small runnable programs for trying out the base features of Mosaico, such as ingesting a sample recording, querying the catalog and reading data back, against a quick-start Mosaico instance. The server is reached through the active connection profile.
 
 ### `ls`
 
@@ -270,7 +270,7 @@ mosaico examples <EXAMPLE> [--log <LEVEL>]
 
 | Option | Default | Description |
 | :--- | --- | :--- |
-| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. `--log-level` is accepted too. |
+| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
 
 The examples don't support a custom CA certificate yet, so a profile's certificate path is ignored.
 

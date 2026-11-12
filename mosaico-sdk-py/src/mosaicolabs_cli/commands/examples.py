@@ -2,6 +2,7 @@
 `mosaico examples`: runs the official SDK examples against the server of the active profile.
 """
 
+import csv
 import logging
 import sys
 from dataclasses import dataclass
@@ -10,9 +11,13 @@ from typing import Callable, Optional
 
 import typer
 from rich.table import Table
-from typing_extensions import Annotated
 
-from mosaicolabs_cli.utils.bridge import EXIT_INTERRUPTED, LogLevel, require_profile
+from mosaicolabs_cli.utils.bridge import (
+    EXIT_INTERRUPTED,
+    LogLevel,
+    LogLevelOpt,
+    require_profile,
+)
 from mosaicolabs_cli.utils.config import OutputFormat, console, error_console
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
@@ -56,17 +61,6 @@ EXAMPLES = {
     ),
 }
 
-ExampleLogLevelOpt = Annotated[
-    LogLevel,
-    typer.Option(
-        "--log",
-        "--log-level",
-        "-l",
-        case_sensitive=False,
-        help="Logging verbosity level.",
-    ),
-]
-
 app = typer.Typer(no_args_is_help=True)
 
 
@@ -85,8 +79,10 @@ def list_examples(
         output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
 
     if output == OutputFormat.CSV:
+        # Quoted properly: descriptions may contain commas
+        writer = csv.writer(sys.stdout, lineterminator="\n")
         for name, example in EXAMPLES.items():
-            print(f"{name},{example.help}")
+            writer.writerow([name, example.help])
         return
 
     table = Table(
@@ -138,13 +134,16 @@ def run_example(ctx: typer.Context, name: str, log_level: LogLevel) -> None:
     console.print(f"[bold cyan]Launching example:[/bold cyan] {name}")
     console.print(f"Target host: {target}\n")
     if profile.tls_cert_path:
-        console.print(
+        error_console.print(
             "[yellow]The examples don't support a custom CA certificate yet; "
             "the profile's certificate path is ignored.[/yellow]"
         )
 
-    entry_point = _load_entry_point(name)
+    # The import runs inside the try: importing an example can fail too (a missing
+    # optional dependency, an error at module level) or be interrupted, since the SDK
+    # imports are slow. typer.Exit from a missing `main` is not an Exception, so it passes.
     try:
+        entry_point = _load_entry_point(name)
         entry_point()
     except KeyboardInterrupt:
         raise typer.Exit(code=EXIT_INTERRUPTED)
@@ -158,7 +157,7 @@ def run_example(ctx: typer.Context, name: str, log_level: LogLevel) -> None:
 
 
 def _make_command(name: str) -> Callable[..., None]:
-    def command(ctx: typer.Context, log_level: ExampleLogLevelOpt = LogLevel.INFO):
+    def command(ctx: typer.Context, log_level: LogLevelOpt = LogLevel.INFO):
         run_example(ctx, name, log_level)
 
     command.__doc__ = EXAMPLES[name].help

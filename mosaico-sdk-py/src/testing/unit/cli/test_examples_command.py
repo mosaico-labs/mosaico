@@ -1,3 +1,4 @@
+import csv
 import re
 import types
 
@@ -14,9 +15,9 @@ runner = CliRunner()
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 
-def plain(result):
+def plain(result, stream="output"):
     """Command output without colour codes (rich colours it when a CI runner forces colour)."""
-    return ANSI_ESCAPE.sub("", result.output)
+    return ANSI_ESCAPE.sub("", getattr(result, stream))
 
 
 CONNECTION_ENV = (
@@ -57,12 +58,13 @@ def restore_config(monkeypatch):
 class FakeImport:
     """Stands in for import_module, recording the config seen at import time."""
 
-    def __init__(self, main=None, has_main=True):
+    def __init__(self, main=None, has_main=True, import_error=None):
         self.calls = []
         self.config_at_import = None
         self.main_calls = 0
         self._main = main
         self._has_main = has_main
+        self._import_error = import_error
 
     def __call__(self, module_path):
         self.calls.append(module_path)
@@ -73,6 +75,8 @@ class FakeImport:
             "api_key": config.API_KEY,
             "log_level": config.LOG_LEVEL,
         }
+        if self._import_error is not None:
+            raise self._import_error
         module = types.ModuleType(module_path)
         if self._has_main:
 
@@ -118,8 +122,11 @@ class TestList:
     def test_csv_lists_every_example(self, no_profile_env):
         result = runner.invoke(app, ["examples", "ls", "--output", "csv"])
         assert result.exit_code == 0
-        lines = plain(result).strip().splitlines()
-        assert [line.split(",", 1)[0] for line in lines] == list(examples_cmd.EXAMPLES)
+        rows = list(csv.reader(plain(result).strip().splitlines()))
+        assert [row[0] for row in rows] == list(examples_cmd.EXAMPLES)
+        # Descriptions may contain commas, so every row must still parse as two fields
+        assert all(len(row) == 2 for row in rows)
+        assert dict(rows)["mujoco_vis"] == examples_cmd.EXAMPLES["mujoco_vis"].help
 
     def test_table_output(self, no_profile_env):
         result = runner.invoke(app, ["examples", "ls", "--output", "table"])
@@ -142,11 +149,9 @@ class TestRun:
         }
         assert fake.main_calls == 1
 
-    def test_log_level_alias(self, profile_env, fake_import):
+    def test_short_log_option(self, profile_env, fake_import):
         fake = fake_import()
-        result = runner.invoke(
-            app, ["examples", "data_inspection", "--log-level", "warning"]
-        )
+        result = runner.invoke(app, ["examples", "data_inspection", "-l", "warning"])
         assert result.exit_code == 0, result.output
         assert fake.config_at_import["log_level"] == "WARNING"
 
@@ -170,7 +175,8 @@ class TestRun:
         fake = fake_import()
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 0, result.output
-        assert "certificate" in plain(result)
+        assert "certificate" in plain(result, "stderr")
+        assert "certificate" not in plain(result, "stdout")
         assert fake.main_calls == 1
 
     def test_no_profile_exits_before_import(self, no_profile_env, fake_import):
@@ -185,6 +191,18 @@ class TestRun:
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 1
         assert "No 'main' function" in plain(result)
+
+    def test_failing_import(self, profile_env, fake_import):
+        fake_import(import_error=ModuleNotFoundError("No module named 'mujoco'"))
+        result = runner.invoke(app, ["examples", "mujoco_vis"])
+        assert result.exit_code == 1
+        assert result.exception is None or isinstance(result.exception, SystemExit)
+        assert "No module named 'mujoco'" in plain(result)
+
+    def test_interrupted_import(self, profile_env, fake_import):
+        fake_import(import_error=KeyboardInterrupt())
+        result = runner.invoke(app, ["examples", "data_inspection"])
+        assert result.exit_code == 130
 
     def test_failing_example(self, profile_env, fake_import):
         def boom():
