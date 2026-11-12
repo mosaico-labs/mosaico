@@ -1,3 +1,4 @@
+import re
 import types
 
 import pytest
@@ -9,6 +10,14 @@ from mosaicolabs.examples import cli as legacy_cli, config
 from mosaicolabs_cli.main import app
 
 runner = CliRunner()
+
+ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def plain(result):
+    """Command output without colour codes (rich colours it when a CI runner forces colour)."""
+    return ANSI_ESCAPE.sub("", result.output)
+
 
 CONNECTION_ENV = (
     "MOSAICO_DAEMON_URL",
@@ -91,31 +100,31 @@ class TestHelp:
     def test_group_listed_in_main_help(self):
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "examples" in result.output
+        assert "examples" in plain(result)
 
     def test_every_example_is_a_subcommand(self):
         result = runner.invoke(app, ["examples", "--help"])
         assert result.exit_code == 0
         for name in [*examples_cmd.EXAMPLES, "ls"]:
-            assert name in result.output
+            assert name in plain(result)
 
     def test_example_help_needs_no_profile(self, no_profile_env):
         result = runner.invoke(app, ["examples", "data_inspection", "--help"])
         assert result.exit_code == 0
-        assert "--log" in result.output
+        assert "--log" in plain(result)
 
 
 class TestList:
     def test_csv_lists_every_example(self, no_profile_env):
         result = runner.invoke(app, ["examples", "ls", "--output", "csv"])
         assert result.exit_code == 0
-        lines = result.output.strip().splitlines()
+        lines = plain(result).strip().splitlines()
         assert [line.split(",", 1)[0] for line in lines] == list(examples_cmd.EXAMPLES)
 
     def test_table_output(self, no_profile_env):
         result = runner.invoke(app, ["examples", "ls", "--output", "table"])
         assert result.exit_code == 0
-        assert "ros_injection" in result.output
+        assert "ros_injection" in plain(result)
 
 
 class TestRun:
@@ -151,7 +160,7 @@ class TestRun:
     def test_api_key_is_never_printed(self, profile_env, fake_import):
         fake_import()
         result = runner.invoke(app, ["examples", "data_inspection"])
-        assert "secret" not in result.output
+        assert "secret" not in plain(result)
 
     def test_cert_path_is_reported_as_ignored(
         self, profile_env, monkeypatch, tmp_path, fake_import
@@ -161,21 +170,21 @@ class TestRun:
         fake = fake_import()
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 0, result.output
-        assert "certificate" in result.output
+        assert "certificate" in plain(result)
         assert fake.main_calls == 1
 
     def test_no_profile_exits_before_import(self, no_profile_env, fake_import):
         fake = fake_import()
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 1
-        assert "No default profile" in result.output
+        assert "No default profile" in plain(result)
         assert fake.calls == []
 
     def test_example_without_main(self, profile_env, fake_import):
         fake_import(has_main=False)
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 1
-        assert "No 'main' function" in result.output
+        assert "No 'main' function" in plain(result)
 
     def test_failing_example(self, profile_env, fake_import):
         def boom():
@@ -184,7 +193,7 @@ class TestRun:
         fake_import(main=boom)
         result = runner.invoke(app, ["examples", "data_inspection"])
         assert result.exit_code == 1
-        assert "server unreachable" in result.output
+        assert "server unreachable" in plain(result)
 
     def test_interrupted_example(self, profile_env, fake_import):
         def interrupt():
@@ -210,8 +219,8 @@ class TestDeprecatedScript:
             ["data_inspection", "--host", "old.test", "--port", "99", "--api-key", "k"],
         )
         assert result.exit_code == 0, result.output
-        assert "deprecated" in result.output
-        assert "mosaico examples data_inspection" in result.output
+        assert "deprecated" in plain(result)
+        assert "mosaico examples data_inspection" in plain(result)
         assert fake.config_at_import["host"] == "old.test"
         assert fake.config_at_import["port"] == 99
         assert fake.config_at_import["api_key"] == "k"
@@ -223,4 +232,4 @@ class TestDeprecatedScript:
             legacy_cli.run_example_cli,
             ["data_inspection", "--tls", "--api-key", "k"],
         )
-        assert "localhost:6726 --tls --api-key" in result.output
+        assert "localhost:6726 --tls --api-key" in plain(result)
