@@ -247,8 +247,9 @@ jobs:
             GIT_HASH=${{ github.sha }}
             GIT_TAG=${{ github.ref_name }}
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # One cache per platform, or the two builds overwrite each other's cache.
+          cache-from: type=gha,scope=release-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
 
       # The digest of the image, for phase 2.
       - name: Export digest
