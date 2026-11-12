@@ -146,7 +146,7 @@ mosaico topic mcat "my_sequence/imu,1700000000000000000,1700003600000000000" | j
 
 ## `mosaico inject`
 
-Injects a ROS bag or an MCAP file into a new sequence, or a LeRobot dataset into one sequence per episode. The server is reached through the active connection profile, except with `--dry-run`, which never connects.
+Injects a ROS bag, an MCAP file or a LeRobot dataset. A ROS bag or an MCAP file becomes one new sequence. A LeRobot dataset becomes one new sequence per episode. The server is reached through the active connection profile, except with `--dry-run`, which never connects.
 
 ### `ros`
 
