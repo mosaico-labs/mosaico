@@ -4,6 +4,7 @@ import pytest
 
 from mosaicolabs.bridges.base_injector import InjectionStatus
 from mosaicolabs.bridges.ulog import ULogInjectionConfig, ULogInjector, ULogLoader
+from mosaicolabs.comm.mosaico_client import MosaicoClient
 
 ULOG_FILE = (
     Path(__file__).resolve().parents[3] / "data" / "ulog" / "sample_log_small.ulg"
@@ -24,8 +25,10 @@ def ulog_config(host, port, api_key_manage, with_tls, tls_cert_path):
     )
 
 
-def test_ulog_injection(mosaico_client, ulog_config):
+def test_ulog_injection(mosaico_client, ulog_config, monkeypatch):
     """The whole file lands on the server: topics, row counts, `_ulog_` and sequence metadata."""
+    # A small batch limit, so that the larger topics are written in several chunks
+    monkeypatch.setattr(MosaicoClient, "max_batch_size_bytes", 64 * 1024)
     with ULogLoader(ULOG_FILE) as loader:
         expected = {
             t: (

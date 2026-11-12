@@ -16,7 +16,7 @@ from typing import Dict, List, Tuple
 
 import pyarrow as pa
 
-# Type mapping from the design guide: same sign and width as the ULog type
+# Type mapping: same sign and width as the ULog type
 _PRIMITIVES: Dict[str, pa.DataType] = {
     "int8_t": pa.int8(),
     "uint8_t": pa.uint8(),

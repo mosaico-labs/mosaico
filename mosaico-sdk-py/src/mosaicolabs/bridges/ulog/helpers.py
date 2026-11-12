@@ -6,7 +6,7 @@ ULog bridge helpers.
   role `MCAPMsgDecoderBase._to_dict()` plays for MCAP (native data -> the shape of the
   Unmodeled schema), but on whole columns instead of one message at a time.
 - `_chunks`: cuts a topic into the batches sent with `TopicWriter.push_batch`.
-- `_synthetic_topics`: the guide's fixed-schema topics for non-data ULog records.
+- `_synthetic_topics`: fixed-schema topics for the non-data ULog records.
 - `_json_safe`: makes pyulog values acceptable as server metadata.
 """
 
@@ -59,7 +59,7 @@ def _valid_rows(timestamp_us: np.ndarray, topic: str) -> Tuple[np.ndarray, int, 
 
 def _strings(chars: np.ndarray) -> pa.Array:
     """`char[N]` rows (int8) -> strings, cut at the first NUL."""
-    # ponytail: undecodable bytes become U+FFFD instead of rejecting the whole topic
+    # NOTE: undecodable bytes become U+FFFD instead of rejecting the whole topic
     return pa.array(
         [
             r.tobytes().split(b"\0", 1)[0].decode("utf-8", "replace")
@@ -193,7 +193,8 @@ def _synthetic_topics(ulog) -> Dict[str, SimpleNamespace]:
     data timestamp read before them, so they are flagged `timestamp_estimated`.
     Topics without records are left out.
 
-    Topic names and contents follow the ULog bridge design guide.
+    The `level` of a logged string is the raw ULog byte, i.e. the ASCII code of the
+    syslog level (`'0'` emergency to `'7'` debug, so 48 to 55).
     """
     logs = sorted(
         [

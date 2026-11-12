@@ -55,13 +55,15 @@ class ULogInjectionConfig(InjectionConfigBase):
     e.g. `/sensor_accel/0`. Keys of `serialization_formats` are ULog format names
     (e.g. `sensor_accel`), since all instances of a format share one ontology class.
     `update_if_exists` is not supported: a ULog file is a whole flight, i.e. one sequence.
+    The `ulog_*` keys of the sequence metadata are written by the bridge (see
+    `ULogLoader.sequence_metadata`) and replace user-supplied keys with the same name.
 
     Attributes:
         topics (Optional[List[str]]): Topic names or glob patterns to ingest; patterns
             starting with "!" exclude, evaluated in order. If None, all topics are loaded.
     """
 
-    # Same as MCAPInjectionConfig.channels, under the name the guide uses
+    # Same role as MCAPInjectionConfig.channels
     topics: Optional[List[str]] = None
 
 
@@ -72,8 +74,9 @@ class ULogInjector(MCAPInjector):
     Connection, sequence creation, progress UI, dry run and summary are inherited from
     `MCAPInjector`. What changes is the loader (`ULogLoader`) and the unit of work: each
     item is a whole topic, created with its `_ulog_` metadata and written in chunks with
-    `TopicWriter.push_batch` (from the LeRobot bridge, issue #945). The file-level ULog content (info, parameters, ingestion
-    stats, see `ULogLoader.sequence_metadata`) is added to the sequence metadata.
+    `TopicWriter.push_batch` (from the LeRobot bridge, issue #945). The file-level ULog
+    content (info, parameters, ingestion stats, see `ULogLoader.sequence_metadata`) is
+    added to the sequence metadata.
 
     Example:
         ```python
@@ -84,7 +87,7 @@ class ULogInjector(MCAPInjector):
         ```
     """
 
-    # ponytail: reuses MCAPInjector's orchestration instead of copying it; extract a
+    # NOTE: reuses MCAPInjector's orchestration instead of copying it; extract a
     # shared BaseInjector when the bridges' injectors diverge
 
     _cfg: ULogInjectionConfig

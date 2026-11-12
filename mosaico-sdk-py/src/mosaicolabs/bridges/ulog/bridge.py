@@ -10,9 +10,9 @@ class ULogBridge:
     `Unmodeled` (see `UnmodeledAdapter`).
 
     Same pattern as `MCAPBridge` (bridges/mcap/bridge.py), keyed by format name instead
-    of schema name + encoding (ULog has a single encoding). Empty on purpose, as the
-    design guide asks: typed adapters (e.g. `sensor_combined` -> IMU) can be added later
-    without touching the loader or the injector.
+    of schema name + encoding (ULog has a single encoding). Empty for now: typed
+    adapters (e.g. `sensor_combined` -> IMU) can be added later without touching the
+    loader or the injector.
     """
 
     _default_adapters: Dict[str, Type[ULogAdapterBase]] = {}

@@ -103,7 +103,7 @@ def test_filter_rejections_and_metadata():
 def test_resubscribed_and_synthetic_topics(monkeypatch):
     """
     Two subscriptions of one (format, multi_id), e.g. appended data, are one topic;
-    logged strings, changed parameters and dropouts become the guide's `/ulog/*` topics.
+    logged strings, changed parameters and dropouts become the `/ulog/*` topics.
     """
 
     def data(ts):
