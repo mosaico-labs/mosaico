@@ -104,7 +104,7 @@ impl core::error::PublicError for Error {
     }
 }
 
-/// Converts a [`query::regex::Error`] into an [`Error`] adding the field name to the error description.
+/// Converts a [`regex::Error`](crate::regex::Error) into an [`Error`] adding the field name to the error description.
 pub fn regex_to_query_error(regex_err: super::regex::Error, field: String) -> Error {
     match regex_err {
         super::regex::Error::EmptyPattern => Error::empty_pattern(field),

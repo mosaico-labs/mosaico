@@ -8,7 +8,7 @@ use mosaicod_marshal as marshal;
 use std::path;
 use tracing::trace;
 
-/// Define sequence metadata type contaning json user metadata
+/// Define sequence metadata type contaning json user metadata.
 pub type SequenceUserMetadata = marshal::JsonMetadataBlob;
 
 pub type SequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
@@ -131,7 +131,7 @@ pub async fn page(
     Ok(db::sequence_find_page(&mut cx, &cmd.start, cmd.limit).await?)
 }
 
-/// Add a notification to the sequence
+/// Add a notification to the sequence.
 pub async fn notify(
     context: &Context,
     locator: &types::SequenceLocator,
@@ -153,7 +153,7 @@ pub async fn notify(
     Ok(notification.into_notification(locator.clone()))
 }
 
-/// Returns a list of all notifications for the sequence
+/// Returns a list of all notifications for the sequence.
 pub async fn notification_list(
     context: &Context,
     locator: types::SequenceLocator,
@@ -168,14 +168,14 @@ pub async fn notification_list(
         .collect())
 }
 
-/// Deletes all the notifications associated with the sequence
+/// Deletes all the notifications associated with the sequence.
 pub async fn notification_purge(context: &Context, locator: &types::SequenceLocator) -> Result<()> {
     let mut cx = context.db.connection();
     db::sequence_notifications_purge(&mut cx, locator).await?;
     Ok(())
 }
 
-/// Retrieves info regarding the given sequence and its topics [`locator`]
+/// Retrieves info regarding the given sequence and its topics, given its `locator`.
 pub async fn info(
     context: &Context,
     locator: &types::SequenceLocator,

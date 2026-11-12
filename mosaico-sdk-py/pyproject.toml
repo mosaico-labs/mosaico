@@ -1,6 +1,6 @@
 [project]
 name = "mosaicolabs"
-version = "0.8.0-dev"
+version = "0.8.0"
 description = "Python SDK for Mosaico Data-Platform"
 authors = [{ name = "Mosaico Labs", email = "info@mosaico.dev" }]
 readme = "README.md"
@@ -89,8 +89,10 @@ build-backend = "uv_build"
 [project.scripts]
 "mosaicolabs.ros_injector" = "mosaicolabs.bridges.ros.injector:ros_injector"
 "mosaicolabs.mcap_injector" = "mosaicolabs.bridges.mcap.injector:mcap_injector"
+"mosaicolabs.lerobot_injector" = "mosaicolabs.bridges.lerobot.injector:lerobot_injector"
 "mosaicolabs.ulog_injector" = "mosaicolabs.bridges.ulog.injector:ulog_injector"
+"mosaicolabs.ros_sequence_extractor" = "mosaicolabs.bridges.ros.sequence_extractor:ros_sequence_extractor"
+"mosaicolabs.mcap_sequence_extractor" = "mosaicolabs.bridges.mcap.sequence_extractor:mcap_sequence_extractor"
 "mosaicolabs.watchdog" = "mosaicolabs.watchdog.watchdog:main"
 "mosaicolabs.examples" = "mosaicolabs.examples.cli:run_example_cli"
-"mosaicolabs.testing" = "testing.testing:mosaico_testing"
 "mosaico" = "mosaicolabs_cli.main:app"

@@ -11,7 +11,7 @@ use tracing::debug;
 
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
-/// mosaicod - Mosaico high-performance daemon
+/// mosaicod - Mosaico high-performance daemon.
 struct Cli {
     /// Path to a config.toml file. Defaults to MOSAICOD_CONFIG_FILE, then
     /// $XDG_CONFIG_HOME/mosaicod/config.toml (or ~/.config/mosaicod/config.toml),
@@ -33,21 +33,21 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start the mosaicod server
+    /// Start the mosaicod server.
     Server(command::Server),
 
-    /// Run the store cleanup routine
+    /// Run the store cleanup routine.
     Cleanup(command::Cleanup),
 
-    /// Run the store optimization routine
+    /// Run the store optimization routine.
     #[command(name = "store-optimizer")]
     StoreOptimizer(command::StoreOptimizer),
 
-    /// Manage mosaico API keys
+    /// Manage mosaico API keys.
     #[command(subcommand, name = "api-key")]
     Auth(command::ApiKey),
 
-    /// List registered mosaicod instances (server, cleanup) and cleanup routine status
+    /// List registered mosaicod instances (server, cleanup) and cleanup routine status.
     Ps(command::Ps),
 }
 

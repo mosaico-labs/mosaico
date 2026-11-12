@@ -7,14 +7,14 @@ pub struct Handle {
 }
 
 impl Handle {
-    /// Creates an API key [`Handle`] using its fingerprint
+    /// Creates an API key [`Handle`] using its fingerprint.
     pub async fn try_from_fingerprint(context: &Context, fingerprint: &str) -> Result<Self> {
         let mut cx = context.db.connection();
         let api_key = db::api_key_find_by_fingerprint(&mut cx, fingerprint).await?;
         Ok(Self { api_key })
     }
 
-    /// Returns the inner API key
+    /// Returns the inner API key.
     pub fn api_key(&self) -> &types::ApiKey {
         &self.api_key
     }
@@ -26,7 +26,7 @@ impl From<Handle> for types::ApiKey {
     }
 }
 
-/// Creates a new API key in the system
+/// Creates a new API key in the system.
 pub async fn create(
     context: &Context,
     permissions: types::auth::Permissions,
@@ -39,13 +39,13 @@ pub async fn create(
     Ok(Handle { api_key })
 }
 
-/// Returns a list of all API keys in the system
+/// Returns a list of all API keys in the system.
 pub async fn all_keys(context: &Context) -> Result<Vec<types::ApiKey>> {
     let mut cx = context.db.connection();
     Ok(db::api_key_find_all(&mut cx).await?)
 }
 
-/// Deletes the current API key
+/// Deletes the current API key.
 pub async fn delete(context: &Context, handle: Handle) -> Result<()> {
     let mut cx = context.db.connection();
     db::api_key_delete(&mut cx, handle.api_key.token().fingerprint()).await?;

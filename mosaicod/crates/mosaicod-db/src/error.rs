@@ -5,10 +5,10 @@ pub enum Error {
     /// An error occurred in the underlying SQL database backend (e.g., connection, query execution).
     BackendError(sqlx::Error),
 
-    /// The record already exists
+    /// The record already exists.
     AlreadyExists,
 
-    /// An error occurred regarding foreign Key constraints
+    /// An error occurred regarding foreign Key constraints.
     ForeignKeyViolation,
 
     /// An error occurred during database schema migration.
@@ -18,7 +18,7 @@ pub enum Error {
     /// typically to or from JSON in the database.
     SerializationError(serde_json::Error),
 
-    /// Found some bad data inside the database
+    /// Found some bad data inside the database.
     BadData(String),
 
     /// An attempt was made to handle an unrecognized or unsupported report type.
@@ -27,13 +27,13 @@ pub enum Error {
     /// A required field was found to be empty.
     EmptyField,
 
-    /// The received query is empty
+    /// The received query is empty.
     EmptyQuery,
 
     // Not found
     NotFound,
 
-    /// The query received contains an unsupported operation
+    /// The query received contains an unsupported operation.
     QueryError(mosaicod_query::Error),
 }
 

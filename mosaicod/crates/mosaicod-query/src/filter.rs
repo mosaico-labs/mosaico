@@ -23,16 +23,17 @@
 //!     It represents the complete set of criteria required to match a specific resource.
 //!
 
+use crate::Aggregator;
 use mosaicod_core::types;
 use std::{collections::HashMap, collections::hash_map::Entry};
 
-/// Floating point value type alias
+/// Floating point value type alias.
 pub type Float = f64;
-/// Integer value type alias
+/// Integer value type alias.
 pub type Integer = i64;
-/// Timestam type alias
+/// Timestamp type alias.
 pub type Timestamp = types::Timestamp;
-/// Text type alias
+/// Text type alias.
 pub type Text = String;
 
 #[derive(Debug, thiserror::Error)]
@@ -41,7 +42,7 @@ pub enum OpError {
     #[error("wrong type")]
     WrongType,
 
-    /// Unsupported operation
+    /// Unsupported operation.
     #[error("unsupported operation")]
     UnsupportedOperation,
 
@@ -70,35 +71,8 @@ pub enum OpError {
     MalformedPattern(String),
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum AggregatorError {
-    /// Unsupported aggregator
-    #[error("unsupported aggregator")]
-    UnsupportedAggregator,
-
-    /// Unsupported operation
-    #[error("unsupported operation for the given aggregator")]
-    UnsupportedOperation,
-
-    /// Aggregators can not be applied to list fields
-    #[error("aggregators are not supported on list fields")]
-    UnsupportedListField,
-
-    /// The aggregator can not be computed on the field value type
-    #[error("unsupported value type for the given aggregator")]
-    UnsupportedValueType,
-
-    /// The predicate has no aggregator
-    #[error("missing aggregator")]
-    MissingAggregator,
-
-    /// The predicate has an aggregator where only plain predicates are allowed
-    #[error("unexpected aggregator")]
-    UnexpectedAggregator,
-}
-
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
-/// to coexist in dynamic containers like [`Metadata`].
+/// to coexist in dynamic containers like metadata.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Integer(Integer),
@@ -263,11 +237,11 @@ where
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IndexSpecifier {
-    /// Access the element at a specific position: [0], [42].
+    /// Access the element at a specific position: `[0]`, `[42]`.
     At(usize),
-    /// At least one element must satisfy the predicate: [?].
+    /// At least one element must satisfy the predicate: `[?]`.
     Any,
-    /// Every element must satisfy the predicate: [!].
+    /// Every element must satisfy the predicate: `[!]`.
     All,
 }
 
@@ -284,24 +258,27 @@ impl std::fmt::Display for IndexSpecifier {
 /// The position and specifier of the list field within an [`OntologyFieldPath`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ListAccess {
-    /// Index into [`OntologyFieldPath::segments`] of the list field.
+    /// Index into `OntologyFieldPath::segments` of the list field.
     pub segment_index: usize,
     pub specifier: IndexSpecifier,
 }
 
 /// The structured representation of an ontology field path after parsing.
 ///
-/// At most one segment may carry a list specifier ([?], [!], [N]).
+/// At most one segment may carry a list specifier (`[?]`, `[!]`, `[N]`).
 /// After the list field, only plain struct navigation is allowed.
 ///
 /// Examples:
-/// - "x"                     segments: ["x"],                      list_access: None
-/// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
-/// - "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
-/// - "acceleration.x"        segments: ["acceleration","x"],       list_access: None
-/// - "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
-/// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
-/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
+///
+/// ```text
+/// "x"                     segments: ["x"],                      list_access: None
+/// "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
+/// "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
+/// "acceleration.x"        segments: ["acceleration","x"],       list_access: None
+/// "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
+/// "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
+/// "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyFieldPath {
     /// All field name segments in order, without specifiers.
@@ -368,14 +345,13 @@ pub struct OntologyField {
 
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
-        let ontology_tag = v
-            .split('.')
-            .next()
-            .ok_or_else(|| super::Error::bad_field(v.to_string()))?;
+        let (ontology_tag, field_part) = v
+            .split_once('.')
+            .ok_or_else(|| super::Error::bad_field(v.clone()))?;
+        if ontology_tag.is_empty() {
+            return Err(super::Error::bad_field(v));
+        }
         let tag = ontology_tag.to_owned();
-        let len = ontology_tag.len();
-
-        let field_part = &v[(len + 1)..];
         let raw_segments: Vec<&str> = field_part.split('.').collect();
 
         let mut segments = Vec::with_capacity(raw_segments.len());
@@ -384,6 +360,9 @@ impl OntologyField {
         for (i, segment) in raw_segments.iter().enumerate() {
             let (name, specifier) =
                 parse_segment(segment).map_err(|_| super::Error::bad_field(v.clone()))?;
+            if name.is_empty() {
+                return Err(super::Error::bad_field(v));
+            }
 
             if let Some(specifier) = specifier {
                 // A second specifier in the same path is not allowed.
@@ -478,8 +457,7 @@ impl<T> OntologyPredicateGroup<T> {
         Self { group }
     }
 
-    /// Exports filter data as several predicate groups grouped by ontology tag
-    /// So if the
+    /// Splits the predicates into several groups, one per ontology tag.
     pub fn split_by_ontology_tag(self) -> Vec<OntologyPredicateGroup<T>> {
         let mut map: HashMap<String, OntologyPredicateGroup<T>> = HashMap::new();
         for predicate in self.group {
@@ -548,7 +526,7 @@ impl OntologyFilter {
             .map(|e| e.ontology_field().ontology_tag())
     }
 
-    /// Exports filter data as a unique predicate group
+    /// Exports filter data as a unique predicate group.
     pub fn into_ontology_predicate_group(self) -> OntologyPredicateGroup<Value> {
         OntologyPredicateGroup::new(self.ontology)
     }
@@ -565,31 +543,51 @@ impl OntologyFilter {
 /// Represents the logical operator to apply to a field for filtering.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Op<T> {
-    /// Equal
+    /// Equal.
     Eq(T),
-    /// Not equal
+    /// Not equal.
     Neq(T),
-    /// Less than or equal
+    /// Less than or equal.
     Leq(T),
-    /// Greater then or equal
+    /// Greater than or equal.
     Geq(T),
-    /// Lower then
+    /// Less than.
     Lt(T),
-    /// Greater then
+    /// Greater than.
     Gt(T),
-    /// Exists
+    /// Exists.
     Ex,
-    /// Not exists
+    /// Not exists.
     Nex,
-    /// In between a two value range [a, b] with a <= b
+    /// In between a two value range [a, b] with a <= b.
     Between(Range<T>),
-    /// Found in a set
+    /// Found in a set.
     In(Vec<T>),
-    /// Matches a certain expression
+    /// Matches a certain expression.
     Match(T),
     /// Outside a two value range [a, b], the strict complement of `Between`:
-    /// v < a or v > b, with a <= b
+    /// v < a or v > b, with a <= b.
     Outside(Range<T>),
+}
+
+impl<T> Op<T> {
+    /// The representative operand of the operation, the one whose type the field is
+    /// compared with: the lower bound of a range, the first item of `In`.
+    /// `None` for `Ex` and `Nex` (no operand) and for an empty `In`.
+    pub fn operand(&self) -> Option<&T> {
+        match self {
+            Self::Eq(v)
+            | Self::Neq(v)
+            | Self::Lt(v)
+            | Self::Leq(v)
+            | Self::Gt(v)
+            | Self::Geq(v)
+            | Self::Match(v) => Some(v),
+            Self::Between(r) | Self::Outside(r) => Some(&r.min),
+            Self::In(items) => items.first(),
+            Self::Ex | Self::Nex => None,
+        }
+    }
 }
 
 impl<T> Op<T>
@@ -617,115 +615,6 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Aggregator {
-    Max,
-    Min,
-    Count,
-    Range,
-    First,
-    Last,
-    Std,
-    Mean,
-    Diff,
-    Rate,
-    P50,
-    P90,
-    P99,
-}
-
-impl Aggregator {
-    pub fn is_supported_aggregator<T>(&self, op: &Op<T>) -> bool {
-        match self {
-            Self::Max | Self::Min => matches!(
-                op,
-                Op::Eq(_)
-                    | Op::Neq(_)
-                    | Op::Lt(_)
-                    | Op::Leq(_)
-                    | Op::Gt(_)
-                    | Op::Geq(_)
-                    | Op::In(_)
-                    | Op::Between(_)
-                    | Op::Outside(_)
-                    | Op::Match(_)
-            ),
-            Self::Range | Self::First | Self::Last | Self::Std => matches!(
-                op,
-                Op::Eq(_)
-                    | Op::Neq(_)
-                    | Op::Lt(_)
-                    | Op::Leq(_)
-                    | Op::Gt(_)
-                    | Op::Geq(_)
-                    | Op::In(_)
-                    | Op::Between(_)
-                    | Op::Outside(_)
-            ),
-            Self::Count
-            | Self::Mean
-            | Self::Diff
-            | Self::Rate
-            | Self::P50
-            | Self::P90
-            | Self::P99 => matches!(
-                op,
-                Op::Eq(_)
-                    | Op::Neq(_)
-                    | Op::Lt(_)
-                    | Op::Leq(_)
-                    | Op::Gt(_)
-                    | Op::Geq(_)
-                    | Op::In(_)
-                    | Op::Between(_)
-                    | Op::Outside(_)
-            ),
-        }
-    }
-
-    /// Returns true if the aggregator can be computed on fields holding values
-    /// of the same type of the `op` operands
-    pub fn is_supported_value(&self, op: &Op<Value>) -> bool {
-        let value = match op {
-            Op::Eq(v)
-            | Op::Neq(v)
-            | Op::Lt(v)
-            | Op::Leq(v)
-            | Op::Gt(v)
-            | Op::Geq(v)
-            | Op::Match(v) => Some(v),
-            Op::Between(r) | Op::Outside(r) => Some(&r.min),
-            Op::In(items) => items.first(),
-            Op::Ex | Op::Nex => None,
-        };
-
-        match value {
-            // Text is ordered lexicographically, only extremes are defined
-            Some(Value::Text(_) | Value::TextArray(_)) => matches!(self, Self::Max | Self::Min),
-            Some(Value::Boolean(_) | Value::BooleanArray(_)) => false,
-            Some(
-                Value::Integer(_) | Value::Float(_) | Value::IntegerArray(_) | Value::FloatArray(_),
-            ) => true,
-            // No operand to check the type against (`Ex`, `Nex`)
-            None => false,
-        }
-    }
-
-    /// Checks that the aggregator can be applied to `field` with `op`
-    pub fn validate(&self, field: &OntologyField, op: &Op<Value>) -> Result<(), AggregatorError> {
-        if !self.is_supported_aggregator(op) {
-            return Err(AggregatorError::UnsupportedOperation);
-        }
-        if !self.is_supported_value(op) {
-            return Err(AggregatorError::UnsupportedValueType);
-        }
-        if field.field_path().specifier().is_some() {
-            return Err(AggregatorError::UnsupportedListField);
-        }
-        Ok(())
-    }
-}
-
 /// The root object representing a complete search query.
 ///
 /// A query allows filtering across three distinct domains:
@@ -742,7 +631,7 @@ pub struct Filter {
 }
 
 impl Filter {
-    /// Returns true if there are no filters applied
+    /// Returns true if there are no filters applied.
     pub fn is_empty(&self) -> bool {
         self.sequence.is_none() && self.topic.is_none() && self.ontology.is_none()
     }
@@ -801,6 +690,22 @@ mod tests {
         assert_eq!(oc.field(), "info.height");
         assert_eq!(oc.ontology_tag(), "image");
         assert_eq!(oc.value(), "image.info.height");
+    }
+
+    #[test]
+    fn ontology_field_without_dot_is_error() {
+        assert!(OntologyField::try_new("imu".into()).is_err());
+        assert!(OntologyField::try_new(String::new()).is_err());
+    }
+
+    #[test]
+    fn ontology_field_with_empty_parts_is_error() {
+        for bad in [".x", "imu.", "imu..x", "imu.acc.", "imu.[?]", "imu.acc.[0]"] {
+            assert!(
+                OntologyField::try_new(bad.into()).is_err(),
+                "`{bad}` should be rejected"
+            );
+        }
     }
 
     #[test]

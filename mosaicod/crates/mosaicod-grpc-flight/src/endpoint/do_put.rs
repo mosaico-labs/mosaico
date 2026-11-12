@@ -51,7 +51,7 @@ fn extract_schema_from_flight_data(data: &DecodedFlightData) -> grpc_common::Res
     Err(core::Error::missing_schema())?
 }
 
-/// Extract descriptor tag from flight decoded data
+/// Extract descriptor tag from flight decoded data.
 fn extract_command_from_flight_data(
     data: &DecodedFlightData,
 ) -> grpc_common::Result<types::flight::DoPutCmd> {
@@ -113,6 +113,12 @@ async fn do_put_topic_data(
                     msg_body_size = data.inner.data_body.len() / 1_000_000,
                     batch_physical_size = batch.get_array_memory_size() / 1_000_000,
                 );
+
+                // Since do_put with empty record batches is allowed,
+                // in this way we avoid writing empty batches with empty stats.
+                if batch.num_rows() == 0 {
+                    continue;
+                }
 
                 // Trying to acquire a semaphore to limit the total amount of concurrent writes
                 // run by this instance. This is done in order to bound memory consumption and

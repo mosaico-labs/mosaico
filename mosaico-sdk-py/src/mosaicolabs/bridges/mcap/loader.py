@@ -11,7 +11,7 @@ from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 
-from ..loader_base import BaseLoader, MosaicoLoader, TopicResolution
+from ..loader_base import AdaptedLoader, MosaicoLoader, TopicResolution
 from ..protocols.mcap.registry import McapSchemaRegistry
 from ..topic_status import TopicStatus
 from .adapter_base import MCAPAdapterBase, MCAPSchemaMetadata
@@ -30,7 +30,7 @@ from .mcap_message import MCAPMessage
 logger = get_logger(__name__)
 
 
-class MCAPLoader(BaseLoader[MCAPAdapterBase]):
+class MCAPLoader(AdaptedLoader[MCAPAdapterBase]):
     """
     MCAP loader for reading and deserializing MCAP files.
 

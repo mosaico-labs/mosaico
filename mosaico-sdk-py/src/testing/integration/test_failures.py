@@ -430,7 +430,7 @@ def test_sequence_invalid_metadata_key(mosaico_client: MosaicoClient):
         ):
             pass
 
-    invalid_metadata = {"ok-key1": 0, "invalid/|\key=": 1, "ok-key2": 2}
+    invalid_metadata = {"ok-key1": 0, r"invalid/|\key=": 1, "ok-key2": 2}
 
     with pytest.raises(
         ArrowInvalid,

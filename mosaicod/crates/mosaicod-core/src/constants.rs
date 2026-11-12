@@ -6,17 +6,17 @@
 //! `mosaicod-config` depends on `mosaicod-core` (for `error`/`types`), so the dependency
 //! can't run the other way without a cycle.
 
-/// Defines the name of the index timestamp column in the arrow schema
+/// Defines the name of the index timestamp column in the arrow schema.
 pub const ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP: &str = "timestamp_ns";
 
-/// Internal resolution for floating point comparisons
+/// Internal resolution for floating point comparisons.
 pub const EPSILON: f64 = 1.0e-06;
 
 pub const MAX_BUFFERED_FUTURES: usize = 8;
 
-/// Module containing several file extensions
+/// Module containing several file extensions.
 pub mod ext {
-    /// Json file extension
+    /// Json file extension.
     pub const JSON: &str = "json";
     pub const PARQUET: &str = "parquet";
 }

@@ -107,7 +107,7 @@ pub async fn topic_find_path_in_store(
     Ok(found)
 }
 
-/// Return all topics
+/// Return all topics.
 pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
     Ok(
@@ -119,7 +119,7 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
 
 /// Deletes a topic record from the database by its id, **bypassing any lock state**.
 ///
-/// This function requires a [`DataLossToken`] since permanently removes the record
+/// This function requires a [`DataLossToken`](types::DataLossToken) because it permanently removes the record
 /// from the database without checking whether it is locked or referenced
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn topic_delete(
@@ -330,7 +330,7 @@ pub async fn topic_update_path_in_store_if_null(
     Ok(res.rows_affected() != 0)
 }
 
-/// Updates optimization completion timestamp and path in store for the given [`topic_id`].
+/// Updates optimization completion timestamp and path in store for the given `topic_id`.
 pub async fn topic_optimization_complete(
     exe: &mut impl AsExec,
     topic_id: i32,
@@ -458,7 +458,11 @@ pub async fn topic_from_query_filter(
     trace!("query values: {:?}", qr.values);
     trace!("generated SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    // Do not cache the prepared statement: sqlx caches statements by query text, and
+    // the same text is built for operands of different types (e.g. `3` and `3.5`).
+    // A cached statement keeps the parameter types of its first execution, so an
+    // operand of another type would be silently misread (an integer decoded as a float).
+    let mut r = sqlx::query(&query).persistent(false);
 
     for v in qr.values.into_iter() {
         match v {

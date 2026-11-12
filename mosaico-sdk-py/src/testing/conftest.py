@@ -1,8 +1,9 @@
 import json
 import logging
+from functools import partial
 from pathlib import Path
 from time import time_ns
-from typing import Dict, Optional, Type
+from typing import Callable, Dict, Optional, Type
 
 import pytest
 from google.protobuf.message import Message
@@ -37,6 +38,7 @@ from .unit.bridges.config import (
     make_variant_mcap,
     time_generator,
 )
+from .unit.bridges.lerobot.config import make_lerobot_dataset
 
 
 def pytest_configure(config):
@@ -374,3 +376,27 @@ def mcap_file(request: FixtureRequest):
     """Resolves an indirect parametrize value (a fixture name) to that fixture's value"""
 
     return request.getfixturevalue(request.param)
+
+
+# LeRobot stuff
+
+
+@pytest.fixture(scope="session")
+def lerobot_dataset(tmp_path_factory) -> Path:
+    """Creates and returns the root folder of an example LeRobot v3.0 dataset.
+
+    Shared by the whole session: tests must not modify it (see `lerobot_dataset_factory`).
+    """
+
+    return make_lerobot_dataset(tmp_path_factory.mktemp("data"))
+
+
+@pytest.fixture
+def lerobot_dataset_factory(tmp_path) -> Callable[..., Path]:
+    """Returns `make_lerobot_dataset` writing in the test temporary folder, for the tests that
+    need a variant of the example LeRobot dataset or that modify it.
+
+    Each dataset of a test needs its own `name`.
+    """
+
+    return partial(make_lerobot_dataset, tmp_path)

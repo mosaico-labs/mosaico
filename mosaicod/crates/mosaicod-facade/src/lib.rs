@@ -12,7 +12,7 @@
 //!   span both the metadata database and the physical object store—ensuring state
 //!   consistency.
 //! * **Encapsulation:** By focusing database operations within this layer, the rest of
-//!   the system interacts with high-level entities like [`FacadeTopic`] rather than
+//!   the system interacts with high-level operations like the ones in [`topic`] rather than
 //!   manipulating raw database models.
 
 pub mod sequence;
