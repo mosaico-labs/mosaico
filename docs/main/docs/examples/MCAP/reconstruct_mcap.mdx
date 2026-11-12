@@ -31,10 +31,10 @@ The Rust SDK is currently in development.
 </Tabs>
 
 ```bash title="Run"
-mosaicolabs.examples reconstruct_mcaps
+mosaico examples reconstruct_mcaps
 ```
 
-Run the command with `--help` to see all available options.
+The connection is taken from the active [connection profile](../../cli/profiles.md). Run `mosaico examples ls` to list all the examples.
 
 The daemon must be running, and it must already contain the sequences ingested by the [MCAP Ingestion](./mcap_ingestion) example. This script only reads back data already on the server, it does not download or ingest anything itself.
 

@@ -3,11 +3,16 @@
 
 ## [Unreleased]
 
+### Breaking Changes
+
+- **`mosaicolabs.examples` script deprecated**: use `mosaico examples <EXAMPLE>` instead, which takes the connection from the active profile. The old script still works but prints a deprecation warning and will be removed in a future release. ([#1028](https://github.com/mosaico-labs/mosaico/issues/1028))
+
 ### Features
 
 - Added the **`mosaico inject`** and **`mosaico extract`** command groups to the official CLI, each with a **`ros`** and an **`mcap`** command (e.g. `mosaico inject ros`, `mosaico extract mcap`), taking their connection settings from the active profile (`inject --dry-run` needs none). ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
 - Added the **`mosaicolabs.ros_sequence_extractor`** and **`mosaicolabs.mcap_sequence_extractor`** command-line scripts, the extraction counterparts of the `mosaicolabs.ros_injector` / `mosaicolabs.mcap_injector` development scripts. ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
 - The documentation now uses the `mosaico` CLI in its command-line examples; the `mosaicolabs.*` scripts are documented as development tools.
+- Added the **`mosaico examples`** command group to the official CLI: `mosaico examples ls` lists the SDK examples and `mosaico examples <EXAMPLE>` runs one, taking its connection settings from the active profile. ([#1028](https://github.com/mosaico-labs/mosaico/issues/1028))
 
 
 ## [0.7.0] - 2026-10-08
