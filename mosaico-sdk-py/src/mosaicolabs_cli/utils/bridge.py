@@ -73,7 +73,6 @@ InputDirArg = Annotated[
     typer.Argument(
         exists=True,
         file_okay=False,
-        dir_okay=True,
         help="Path to the folder to inject.",
     ),
 ]
