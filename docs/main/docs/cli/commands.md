@@ -1,7 +1,7 @@
 ---
 title: Commands
 sidebar_position: 1
-description: "Reference for every mosaico CLI command: sequence, topic, and extension listings, stats, streaming, and ROS/MCAP injection and extraction, with the handler format used to pipe results between them."
+description: "Reference for every mosaico CLI command: sequence, topic, and extension listings, stats, streaming, ROS/MCAP/LeRobot injection and ROS/MCAP extraction, with the handler format used to pipe results between them."
 ---
 
 The `mosaico` command line tool gives you terminal access to the platform catalog: listing and inspecting sequences and topics, and streaming raw message data, without writing any Python.
@@ -146,14 +146,14 @@ mosaico topic mcat "my_sequence/imu,1700000000000000000,1700003600000000000" | j
 
 ## `mosaico inject`
 
-Injects a ROS bag or an MCAP file into a new sequence. The server is reached through the active connection profile, except with `--dry-run`, which never connects.
+Injects a ROS bag or an MCAP file into a new sequence, or a LeRobot dataset into one sequence per episode. The server is reached through the active connection profile, except with `--dry-run`, which never connects.
 
 ### `ros`
 
 Injects a ROS 1 (`.bag`) or ROS 2 (`.mcap` / `.db3`) bag into a new sequence.
 
 ```bash
-mosaico inject ros [OPTIONS] BAG_PATH --name SEQUENCE_NAME
+mosaico inject ros --name SEQUENCE_NAME [OPTIONS] BAG_PATH
 ```
 
 | Option | Default | Description |
@@ -172,11 +172,12 @@ The bag's file name is added to the sequence metadata under the `rosbag_injectio
 #### Examples
 
 ```bash
-mosaico inject ros ./data.db3 \
+mosaico inject ros \
   --name "Test_Run_01" \
   --topics "/camera/front/*" --topics /gps/fix \
   --metadata ./metadata.json \
-  --ros-distro ros2_humble
+  --ros-distro ros2_humble \
+  ./data.db3
 ```
 
 ### `mcap`
@@ -184,7 +185,7 @@ mosaico inject ros ./data.db3 \
 Injects an MCAP file into a new sequence.
 
 ```bash
-mosaico inject mcap [OPTIONS] MCAP_PATH --name SEQUENCE_NAME
+mosaico inject mcap --name SEQUENCE_NAME [OPTIONS] MCAP_PATH
 ```
 
 Takes the same options as [`inject ros`](#ros), except `--ros-distro`, and filters by MCAP channel name with `-c`, `--channels <PATTERN>` instead of `--topics`. The file name is added to the sequence metadata under the `mcap_injection` key.
@@ -192,7 +193,36 @@ Takes the same options as [`inject ros`](#ros), except `--ros-distro`, and filte
 #### Examples
 
 ```bash
-mosaico inject mcap ./data.mcap --name "Test_Run_01" --dry-run
+mosaico inject mcap --name "Test_Run_01" --dry-run ./data.mcap
+```
+
+### `lerobot`
+
+Injects a LeRobot v3.0 dataset, one sequence per episode. Each episode becomes the sequence `<NAME>_episode_<INDEX>`, with the episode index zero-padded to 6 digits (e.g. `pusht_episode_000042`).
+
+```bash
+mosaico inject lerobot [OPTIONS] DATASET_PATH
+```
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `-n`, `--name <NAME>` | dataset folder name | Prefix of the sequence names. |
+| `-c`, `--column-names <PATTERN>` | all columns | Filter on the image and timeseries features of `meta/info.json`, glob-style. Prefix with `!` to exclude. Repeatable; patterns are evaluated in order. |
+| `--metadata <JSON\|FILE>` | | Metadata attached to every sequence, as a JSON object or the path to a JSON file. |
+| `--topic-metadata <JSON\|FILE>` | | Mapping of exact topic name (e.g. `/timeseries`, `/observation/images/front`) to metadata, as a JSON object or the path to a JSON file. |
+| `--dry-run` | | Print which columns, topics and sequences would be ingested, without connecting to the server. |
+| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
+
+Video features are not supported yet and are skipped with a warning. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+
+#### Examples
+
+```bash
+mosaico inject lerobot \
+  --name pusht \
+  --column-names 'observation.*' --column-names '!observation.images.*' \
+  --dry-run \
+  ./datasets/pusht
 ```
 
 ## `mosaico extract`
@@ -222,10 +252,11 @@ mosaico extract ros [OPTIONS] SEQUENCE_NAME
 #### Examples
 
 ```bash
-mosaico extract ros on_track_experiment \
+mosaico extract ros \
   --rosbag-path ./exports \
   --ros-distro ROS2_HUMBLE \
-  --topics "/cam/*" --topics "!/cam/debug*"
+  --topics "/cam/*" --topics "!/cam/debug*" \
+  on_track_experiment
 ```
 
 ### `mcap`
@@ -241,7 +272,7 @@ Takes `--mcap-path <PATH>` (default `.`) for the output directory, plus the same
 #### Examples
 
 ```bash
-mosaico extract mcap on_track_experiment --mcap-path ./exports --dry-run
+mosaico extract mcap --mcap-path ./exports --dry-run on_track_experiment
 ```
 
 :::note
