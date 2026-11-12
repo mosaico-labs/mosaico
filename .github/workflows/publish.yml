@@ -6,6 +6,8 @@ name: Publish release
 #   1. build: mosaicod binaries, Python SDK wheel and sdist (tested), docs, container images;
 #   2. publish: container tags on GHCR, docs on the object store and, last, the GitHub release with
 #      the notes, the wheel, the sdist and the binaries. These jobs only upload what phase 1 built.
+# A security update of an older release keeps the `latest` container tag, the online docs and the
+# latest GitHub release on the highest release.
 # A failed publish job can be retried with "Re-run failed jobs", with the same artifacts.
 #
 # Requires the variable RELEASE_PUBLIC_KEY (see release.yml) and the secrets R2_ACCOUNT_ID,
@@ -29,8 +31,15 @@ jobs:
   verify:
     name: Verify release tag
     runs-on: ubuntu-latest
+    outputs:
+      # Whether this is the highest release. A security update of an older release must not
+      # replace the `latest` container tag, the online docs and the latest GitHub release.
+      latest: ${{ steps.highest.outputs.tag == github.ref_name }}
     steps:
+      # Every tag, to compare this release with the others.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # Only tags signed with the release key are released.
       - name: Verify release tag
@@ -39,6 +48,33 @@ jobs:
           tag: ${{ github.ref_name }}
           public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
           fetch: "true"
+
+      # Versions of mosaicod and of the Python SDK.
+      - name: Read versions
+        id: versions
+        run: |
+          echo "version=$(yq -p toml -oy '.workspace.package.version' mosaicod/Cargo.toml)" >> "$GITHUB_OUTPUT"
+          echo "py_version=$(yq -p toml -oy '.project.version' mosaico-sdk-py/pyproject.toml)" >> "$GITHUB_OUTPUT"
+
+      # mosaicod and the Python SDK must have the version of the tag. A security update tagged by
+      # hand must bump both manifests first.
+      - name: Fail on version mismatch
+        if: >-
+          format('v{0}', steps.versions.outputs.version) != github.ref_name ||
+          format('v{0}', steps.versions.outputs.py_version) != github.ref_name
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.versions.outputs.version }}
+          PY_VERSION: ${{ steps.versions.outputs.py_version }}
+        run: |
+          echo "::error::Tag $TAG, but mosaicod is $VERSION and the Python SDK is $PY_VERSION."
+          exit 1
+
+      # The highest release tag, compared with this one in the job outputs.
+      - name: Find highest release
+        id: highest
+        run: |
+          echo "tag=$(git tag --list 'v*' --sort=-version:refname | grep -m1 -E '^v[0-9]+\.[0-9]+\.[0-9]+$')" >> "$GITHUB_OUTPUT"
 
   # ------------------------------------------------------------------------------------------------
   # Phase 1: build every artifact.
@@ -235,7 +271,7 @@ jobs:
 
   publish-container:
     name: Publish container
-    needs: [binaries, python-sdk, docs-main, docs-py, container]
+    needs: [verify, binaries, python-sdk, docs-main, docs-py, container]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -258,12 +294,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # Tags `X.Y.Z`, `X.Y` and `latest` (added for stable semver tags).
+      # Tags `X.Y.Z`, `X.Y` and, only for the highest release, `latest`.
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/mosaicod
+          flavor: latest=${{ needs.verify.outputs.latest }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -284,9 +321,11 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: docker buildx imagetools inspect "$IMAGE:$VERSION"
 
+  # Only the docs of the highest release are online (see docs/main/docs/dev/release_cycle.md).
   publish-docs:
     name: Publish docs
-    needs: [binaries, python-sdk, docs-main, docs-py, container]
+    needs: [verify, binaries, python-sdk, docs-main, docs-py, container]
+    if: needs.verify.outputs.latest == 'true'
     runs-on: ubuntu-latest
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -312,10 +351,12 @@ jobs:
       - name: Upload docs (Python SDK)
         run: aws s3 sync docs-py s3://mosaico-docs/python-sdk --delete --endpoint-url "$ENDPOINT" --region auto
 
-  # Last, so the release is announced only once the container and the docs are published.
+  # Last, so the release is announced only once the container and the docs are published. It also
+  # runs when the docs are skipped (security update of an older release), never after a failure.
   github-release:
     name: Publish GitHub release
-    needs: [publish-container, publish-docs]
+    needs: [verify, publish-container, publish-docs]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -372,10 +413,12 @@ jobs:
           name: python-sdk-dist
           path: dist
 
-      # The release of the tag, with the notes, the binaries, the wheel and the sdist.
+      # The release of the tag, with the notes, the binaries, the wheel and the sdist. Only the highest
+      # release is marked as latest, which `releases/latest` download links point to.
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
           files: dist/*
           fail_on_unmatched_files: true
+          make_latest: ${{ needs.verify.outputs.latest }}
