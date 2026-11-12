@@ -48,9 +48,10 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
     Every `(format name, multi_id)` pair of the file is a topic named
     `/{name}/{multi_id}`. Logged strings, parameters changed in flight and dropouts
     become the fixed-schema topics `/ulog/logging`, `/ulog/changed_parameters` and
-    `/ulog/dropouts` (see `_synthetic_topics`). pyulog loads the whole file in memory (there is no streaming
-    reader), then each accepted topic is turned into one `RecordBatch` at a time while
-    iterating, already in the Mosaico topic schema (`timestamp_ns` + payload).
+    `/ulog/dropouts` (see `_synthetic_topics`). pyulog loads the whole file in memory
+    (there is no streaming reader), then each accepted topic is turned into one
+    `RecordBatch` at a time while iterating, already in the Mosaico topic schema
+    (`timestamp_ns` + payload).
 
     Timestamps follow `_valid_rows`: rows with a zero or overflowing timestamp are
     dropped and counted. A topic left without rows, with no `timestamp` field or whose
@@ -91,7 +92,7 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
         self._serialization_formats = serialization_formats or {}
         self._ulog: Optional[ULog] = None
         """The parsed file (pyulog keeps everything in memory), lazily loaded."""
-        # ponytail: keeps the valid-row indices of every accepted topic (8 B/row)
+        # NOTE: keeps the valid-row indices of every accepted topic (8 B/row)
         self._rows: Dict[str, Tuple[np.ndarray, int, int]] = {}
         """Per accepted topic: (valid row indices sorted by time, rows with ts == 0,
         rows with an overflowing ts). Computed once in `_resolve_topic`."""
@@ -117,7 +118,7 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
         if not self._file_path.is_file():
             raise FileNotFoundError(f"ULog file not found: {self._file_path}")
 
-        # ponytail: whole file, no message_name_filter_list (it would skew dropout times)
+        # NOTE: whole file, no message_name_filter_list (it would skew dropout times)
         self._ulog = ULog(str(self._file_path))
 
         # 1) All topics of the file: one per (format name, multi_id) pair...
@@ -130,7 +131,7 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
                 prev.data = {
                     k: np.concatenate([prev.data[k], d.data[k]]) for k in prev.data
                 }
-        # ...plus the guide's fixed-schema topics (/ulog/logging, ...)
+        # ...plus the fixed-schema topics (/ulog/logging, ...)
         self._resolved_topics.update(_synthetic_topics(self._ulog))
 
         # 2) User filter: same glob helper and `!` semantics as MCAP and ROS
@@ -268,6 +269,10 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
         Mosaico -> .ulg extraction can write them back. Everything goes through
         `_json_safe`, otherwise one odd value (bytes, NaN, ...) makes the server
         reject the whole sequence.
+
+        The time range and the dropped-row counts of the ingestion stats cover the
+        accepted topics only: the rows of a rejected topic (e.g. one whose timestamps
+        are all zero) are not counted.
         """
         self._ensure_resolved()
         u = self._ulog
@@ -275,7 +280,7 @@ class ULogLoader(BaseLoader[ULogAdapterBase]):
         return _json_safe(
             {
                 "ulog_info": u.msg_info_dict,
-                # ponytail: private pyulog attributes, pinned by pyulog<1.3; needed to write back
+                # NOTE: private pyulog attributes, pinned by pyulog<1.3; needed to write back
                 "ulog_info_types": u._msg_info_dict_types,
                 "ulog_info_multiple": u.msg_info_multiple_dict,
                 "ulog_info_multiple_types": u._msg_info_multiple_dict_types,
