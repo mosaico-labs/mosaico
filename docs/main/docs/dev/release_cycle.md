@@ -56,4 +56,4 @@ Every release is identified by a single signed tag, shared by all components. We
 v0.N.S
 ```
 
-The tag triggers the release of every component: the `mosaicod` binary and container builds, the PyPI publish of the Python SDK and the docs deployment.
+The tag triggers a single release workflow. It first builds every artifact: the `mosaicod` binaries, the Python SDK wheel and sdist (tested), the docs and the container image. Only if all of them are built, it publishes them: the container image on GHCR, the docs online and a GitHub release with the release notes, the binaries, the wheel and the sdist.
