@@ -2,7 +2,7 @@ name: Full Stack
 
 on:
   push:
-    branches: ["main", "release/v*.*", "release/py/v*.*"]
+    branches: ["main"]
     paths:
       - ".github/workflows/ci.yml"
       - "mosaicod/.cargo/config.toml"
@@ -26,6 +26,7 @@ on:
       - "**/uv.lock"
       - "scripts/tests"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -52,9 +53,10 @@ jobs:
           sudo apt-get install -y libpq-dev
 
       - name: Install uv
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: "0.13.1"
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
           python-version: ${{ matrix.python-version }}
           enable-cache: true
           cache-dependency-glob: mosaico-sdk-py/uv.lock
