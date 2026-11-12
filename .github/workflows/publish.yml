@@ -326,20 +326,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      # uv installs git-cliff, which generates the release notes.
-      - name: Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version-file: mosaico-sdk-py/pyproject.toml
-          resolution-strategy: lowest
+      # The previous release: the highest release tag before this one, empty for the first release.
+      - name: Find previous release
+        id: previous
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          echo "tag=$(git tag --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -x -A1 "$TAG" | sed -n 2p)" >> "$GITHUB_OUTPUT"
+
+      # Old releases were tagged on release branches, not on main, so the notes start from where
+      # the history of the previous release meets this one.
+      - name: Find release start
+        id: start
+        if: steps.previous.outputs.tag != ''
+        env:
+          PREVIOUS: ${{ steps.previous.outputs.tag }}
+          TAG: ${{ github.ref_name }}
+        run: echo "sha=$(git merge-base "$PREVIOUS" "$TAG")" >> "$GITHUB_OUTPUT"
 
       # Release notes from the commit messages, one section per component (see .github/cliff.toml).
+      # The author of each change is the GitHub user of its PR, from the GitHub API. The first
+      # release has every commit up to its tag.
       - name: Generate release notes
+        uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4.9.1
+        with:
+          version: v2.14.2
+          config: .github/cliff.toml
+          args: >-
+            --tag ${{ github.ref_name }}
+            ${{ steps.start.outputs.sha && format('{0}..{1}', steps.start.outputs.sha, github.ref_name) || github.ref_name }}
         env:
+          OUTPUT: release-notes.md
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          uv tool install git-cliff==2.14.2
-          PATH="$(uv tool dir --bin):$PATH" .github/scripts/changelog "${GITHUB_REF_NAME}" > release-notes.md
 
       - name: Download binaries
         uses: actions/download-artifact@v8

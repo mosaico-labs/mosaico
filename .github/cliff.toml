@@ -1,4 +1,4 @@
-# git-cliff configuration for the release notes (see .github/scripts/changelog).
+# git-cliff configuration for the release notes (see .github/workflows/publish.yml).
 #
 # Commits follow the PR title convention checked by .github/workflows/pr-title.yml:
 # `type(scope): description`, with the scopes `mosaicod`, `sdk-*`, `cli` and `docs`. The notes have one
@@ -7,7 +7,7 @@
 # `components` and `titles`.
 #
 # Each change shows its author: the GitHub user of the PR, from the GitHub API (see
-# [remote.github]), or the git author name when the notes are generated offline.
+# [remote.github]), or the git author name for a commit with no GitHub user.
 
 [changelog]
 body = """
