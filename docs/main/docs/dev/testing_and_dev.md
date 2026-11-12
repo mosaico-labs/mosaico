@@ -20,7 +20,7 @@ Documentation ships with the code it describes. Every issue that changes a behav
 
 ## Developing the Daemon
 
-The development lifecycle relies on a containerized infrastructure that includes a preconfigured **PostgreSQL** instance and a **MinIO** object store.
+The development lifecycle relies on a containerized infrastructure that includes a preconfigured **PostgreSQL** instance and a **VersityGW** S3 object store.
 
 ### Environment Setup
 
