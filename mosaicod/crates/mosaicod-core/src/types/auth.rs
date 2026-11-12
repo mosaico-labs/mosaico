@@ -2,6 +2,7 @@ use super::*;
 use crate::{Error, error::PublicError, types};
 use crc32fast::Hasher;
 use std::str::FromStr;
+use subtle::ConstantTimeEq;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ApiKeyError {
@@ -46,10 +47,34 @@ pub type TokenPayload = [u8; Token::PAYLOAD_LENGTH];
 pub type TokenFingerprint = [u8; Token::FINGERPRINT_LENGTH];
 
 /// Mosaico API Key.
-#[derive(PartialEq, Debug, Clone, Copy)]
+///
+/// Equality runs in constant time (see the [`ConstantTimeEq`] impl): the payload is a
+/// secret, and an early-exit comparison would leak how many leading bytes matched.
+#[derive(Clone, Copy)]
 pub struct Token {
     payload: TokenPayload,
     fingerprint: TokenFingerprint,
+}
+
+/// Shows only the fingerprint: the payload is the secret.
+impl std::fmt::Debug for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Token")
+            .field("fingerprint", &String::from_utf8_lossy(&self.fingerprint))
+            .finish_non_exhaustive()
+    }
+}
+
+impl ConstantTimeEq for Token {
+    fn ct_eq(&self, other: &Self) -> subtle::Choice {
+        self.payload.ct_eq(&other.payload) & self.fingerprint.ct_eq(&other.fingerprint)
+    }
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other).into()
+    }
 }
 
 fn compute_fingerprint(payload: &TokenPayload) -> TokenFingerprint {
@@ -450,6 +475,32 @@ mod tests {
         let key_str = key.to_string();
 
         let _: Token = key_str.parse().expect("Error parsing API key");
+    }
+
+    #[test]
+    fn token_eq_compares_payload() {
+        let token = Token::new();
+        // Without this, an `eq` that always returned false would pass the checks below.
+        assert_eq!(token, Token::from_bytes(token.payload, token.fingerprint));
+
+        // Same fingerprint, different payload.
+        let other = Token::new();
+        let mismatched = Token::from_bytes(other.payload, token.fingerprint);
+        assert_ne!(token, mismatched);
+
+        // Same payload, different fingerprint.
+        let mismatched = Token::from_bytes(token.payload, other.fingerprint);
+        assert_ne!(token, mismatched);
+    }
+
+    /// `Debug` output can end up in logs, so it must not reveal the payload.
+    #[test]
+    fn token_debug_hides_payload() {
+        let token = Token::new();
+        assert_eq!(
+            format!("{token:?}"),
+            format!("Token {{ fingerprint: {:?}, .. }}", token.fingerprint()),
+        );
     }
 
     #[test]

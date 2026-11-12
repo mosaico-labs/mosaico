@@ -1,13 +1,59 @@
 use super::Context;
-use mosaicod_core::{error::PublicResult as Result, types};
+use mosaicod_core::{
+    error::{BoxPublicError, PublicResult as Result},
+    types,
+};
 use mosaicod_db as db;
+
+/// Why [`Handle::try_from_token`] rejected a token.
+///
+/// This is deliberately not a [`PublicError`](mosaicod_core::error::PublicError), so it
+/// cannot reach a client through `?`. Callers that answer clients must map
+/// [`TokenError::UnknownFingerprint`] and [`TokenError::PayloadMismatch`] to the same
+/// error, or a client could probe which fingerprints are registered.
+#[derive(Debug)]
+pub enum TokenError {
+    /// No key is registered under the token's fingerprint.
+    UnknownFingerprint,
+    /// A key is registered under the token's fingerprint, but its payload differs.
+    PayloadMismatch,
+    /// The lookup failed for another reason, e.g. the database is unreachable.
+    Other(BoxPublicError),
+}
 
 pub struct Handle {
     api_key: types::ApiKey,
 }
 
 impl Handle {
+    /// Authenticates a token presented by a client and returns the [`Handle`] of its key.
+    ///
+    /// The key is looked up by the token's fingerprint, then the stored token is compared
+    /// with the presented one in constant time. Expired keys are returned as well, and
+    /// the caller decides how to handle them.
+    pub async fn try_from_token(
+        context: &Context,
+        token: &types::auth::Token,
+    ) -> std::result::Result<Self, TokenError> {
+        let mut cx = context.db.connection();
+        let api_key = match db::api_key_find_by_fingerprint(&mut cx, token.fingerprint()).await {
+            Ok(api_key) => api_key,
+            Err(db::Error::NotFound) => return Err(TokenError::UnknownFingerprint),
+            Err(e) => return Err(TokenError::Other(e.into())),
+        };
+
+        if api_key.token() != token {
+            return Err(TokenError::PayloadMismatch);
+        }
+
+        Ok(Self { api_key })
+    }
+
     /// Creates an API key [`Handle`] using its fingerprint.
+    ///
+    /// This performs no authentication, since the fingerprint is public. Use it only for
+    /// administrative lookups (status, revoke, purge). Authenticate client requests with
+    /// [`Handle::try_from_token`].
     pub async fn try_from_fingerprint(context: &Context, fingerprint: &str) -> Result<Self> {
         let mut cx = context.db.connection();
         let api_key = db::api_key_find_by_fingerprint(&mut cx, fingerprint).await?;
@@ -105,5 +151,42 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn try_from_token_checks_payload(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let key = create(
+            &context,
+            types::auth::Permission::Read.into(),
+            "some text".to_owned(),
+            None,
+        )
+        .await
+        .unwrap()
+        .api_key()
+        .clone();
+        let token = key.token();
+
+        // The registered token authenticates.
+        let handle = Handle::try_from_token(&context, token).await.unwrap();
+        assert_eq!(handle.api_key().token(), token);
+
+        // The registered fingerprint with a different payload does not.
+        let other = types::auth::Token::new();
+        let mismatched = types::auth::Token::from_bytes(
+            other.payload().as_bytes().try_into().unwrap(),
+            token.fingerprint().as_bytes().try_into().unwrap(),
+        );
+        assert!(matches!(
+            Handle::try_from_token(&context, &mismatched).await,
+            Err(TokenError::PayloadMismatch)
+        ));
+
+        assert!(matches!(
+            Handle::try_from_token(&context, &other).await,
+            Err(TokenError::UnknownFingerprint)
+        ));
     }
 }
