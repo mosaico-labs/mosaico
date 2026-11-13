@@ -14,6 +14,7 @@ from mosaicolabs import (
     GPSStatus,
     Header,
     Image,
+    ImageSequenceRaw,
     Inertia,
     Joy,
     Magnetometer,
@@ -361,6 +362,22 @@ def assert_image(image: Image, ros_msg):
     assert np.array_equal(
         np.frombuffer(bytes(image.to_linear_pixels()), dtype=np.uint8), ros_msg["data"]
     )
+
+
+def assert_image_raw(image: ImageSequenceRaw, ros_msg):
+    header = ros_msg["header"]
+    stamp_ns = header["stamp"]["sec"] * 1_000_000_000 + header["stamp"]["nanosec"]
+    assert image.capture_timestamp_ns == stamp_ns
+    assert (image.frame_id or "") == header["frame_id"]
+    if "seq" in header:  # ROS 1
+        assert (image.sample_counter or 0) == header["seq"]
+
+    assert image.height == ros_msg["height"]
+    assert image.width == ros_msg["width"]
+    assert image.encoding == ros_msg["encoding"]
+    assert int(bool(image.is_bigendian)) == int(ros_msg["is_bigendian"])
+    assert image.stride == ros_msg["step"]
+    assert np.array_equal(np.frombuffer(image.data, dtype=np.uint8), ros_msg["data"])
 
 
 def assert_battery_state(battery_state: BatteryState, ros_msg):

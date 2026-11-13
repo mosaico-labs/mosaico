@@ -38,6 +38,7 @@ from .sensor_msgs import (
     MultiEchoLaserScanAdapter as MultiEchoLaserScanAdapter,
     NavSatStatusAdapter as NavSatStatusAdapter,
     NMEASentenceAdapter as NMEASentenceAdapter,
+    PngImageSequenceAdapter as PngImageSequenceAdapter,
     PointCloudAdapter as PointCloudAdapter,
     PointCloudAdapterBase as PointCloudAdapterBase,
     PressureAdapter as PressureAdapter,

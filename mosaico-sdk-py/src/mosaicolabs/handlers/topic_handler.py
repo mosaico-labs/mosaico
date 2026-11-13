@@ -28,6 +28,7 @@ from ..helpers import (
 from ..logging_config import get_logger
 from ..models.platform import Topic
 from .topic_reader import TopicDataStreamer
+from .topic_video import TopicVideo, _read_video
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -392,6 +393,58 @@ class TopicHandler:
         )
 
         return self._data_streamer_instance
+
+    def get_video(
+        self,
+        start_s: Optional[int] = None,
+        end_s: Optional[int] = None,
+    ) -> TopicVideo:
+        """
+        Retrieves the video of an image sequence topic, as MPEG-DASH.
+
+        The store optimizer turns the images of a topic of the `ImageSequence` or
+        `ImageSequenceRaw` serialization format into a lossless FFV1 video, cut into
+        a media segment per second. Until then, and for any other topic, only its
+        data can be read, with
+        [`get_data_streamer()`][mosaicolabs.handlers.TopicHandler.get_data_streamer].
+
+        Args:
+            start_s (Optional[int]): The first second of video to retrieve, 0 at the first frame.
+            end_s (Optional[int]): The **exclusive** last second of video to retrieve.
+                Set both bounds or neither: without them, the whole video is retrieved.
+
+        Returns:
+            TopicVideo: The manifest, the initialization segment and the media segments.
+
+        Raises:
+            VideoUnavailableError: If the topic is not an image sequence, or its images
+                are not a video yet.
+            ValueError: If only one bound is set, `start_s` is not less than `end_s`,
+                or `end_s` is after the video.
+            ConnectionError: If the server fails to stream the video.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient
+            from mosaicolabs.handlers import VideoUnavailableError
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                top_handler = client.topic_handler("mission_alpha", "/camera/image_raw")
+                try:
+                    # The first two seconds of video
+                    video = top_handler.get_video(start_s=0, end_s=2)
+                    Path("video.mp4").write_bytes(video.to_mp4())
+                except VideoUnavailableError:
+                    print("Not optimized yet: only the images can be read.")
+            ```
+        """
+        return _read_video(
+            connection=self._connection,
+            sequence_name=self._topic.sequence_name,
+            topic_name=self.name,
+            start_s=start_s,
+            end_s=end_s,
+        )
 
     def close(self):
         """

@@ -7,6 +7,7 @@ and distributes client resources to individual Topics.
 """
 
 import json
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import asdict, fields
 from logging import Logger
@@ -435,6 +436,17 @@ class _BaseSessionWriter(ABC):
             RuntimeError: If called outside of a `with` block.
         """
         self._check_entered()
+
+        replacement = getattr(ontology_type, "__deprecated_by__", None)
+        if replacement is not None:
+            message = (
+                f"Topic '{topic_name}': the `{ontology_type.__name__}` ontology is "
+                f"deprecated and will be removed in a future release: use "
+                f"{replacement}."
+            )
+            # Called through `SequenceWriter`/`SequenceUpdater.topic_create`: the caller's line.
+            warnings.warn(message, DeprecationWarning, stacklevel=3)
+            self._logger.warning(message)
 
         ACTION = FlightAction.TOPIC_CREATE
         if topic_name in self._topic_writers:

@@ -93,11 +93,14 @@ services:
       cleanup --time-interval 3600 --retention-duration 86400
 
   # Background maintenance: periodically rewrites small chunks into larger
-  # ones to keep query and retrieval performance up. It shares the same
-  # image and configuration as the server (via `x-mosaicod-common`) but runs
-  # the `store-optimizer` subcommand instead of `server`.
+  # ones to keep query and retrieval performance up, and turns image sequences
+  # into videos. It shares the configuration of the server (via
+  # `x-mosaicod-common`) but runs the `store-optimizer` subcommand instead of
+  # `server`, from the `mosaicod-optimizer` image: the same `mosaicod`, built
+  # with FFmpeg for the videos.
   mosaicod-store-optimizer:
     <<: *mosaicod-common
+    image: ghcr.io/mosaico-labs/mosaicod-optimizer:latest
     container_name: mosaicod-store-optimizer
     # Here we run the routine once a day (86400s).
     command: |
@@ -127,7 +130,7 @@ docker compose down -v
 
 ### Container tags
 
-`mosaicod` images provides four types of container tags.
+There are two images: `mosaicod`, and `mosaicod-optimizer`, the same `mosaicod` with FFmpeg built in (see [the `video` feature](#the-video-feature)), to run the [store optimizer](store_optimizer.md). Both provide four types of container tags.
 
 | Tag Type | Description |
 | :--- | :--- |
@@ -182,6 +185,27 @@ cargo sqlx migrate run
 # And finally you can build mosaicod 
 cargo build --release --bin mosaicod
 ```
+
+### The `video` feature
+
+The [store optimizer](store_optimizer.md) turns image sequences into videos, and the server reads back their images ([Image Sequences](retrieval.md#image-sequences)), only when `mosaicod` is built with the `video` feature, which needs [FFmpeg](https://ffmpeg.org/). It is off by default, so that `mosaicod` needs no FFmpeg; without it, the server still reads back the videos, in segments of a second. There are two ways to build it:
+
+- `video-static`, as the `mosaicod-optimizer` image is built: FFmpeg is linked into `mosaicod`, which then needs nothing of FFmpeg to run. `scripts/install-ffmpeg` builds FFmpeg with only the FFV1 codec and the MP4 format, as static libraries:
+
+  ```bash
+  # Needs a C toolchain, curl, xz, nasm, pkg-config and libclang.
+  ./scripts/install-ffmpeg /opt/ffmpeg
+
+  cd mosaicod
+  PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig SQLX_OFFLINE=true cargo build --release --bin mosaicod --features video-static
+  # On macOS, use FFMPEG_DIR=/opt/ffmpeg instead of PKG_CONFIG_PATH.
+  ```
+
+  FFmpeg's license (LGPL 2.1 or later) and where its source is are installed in `/opt/ffmpeg/share/licenses/ffmpeg`, to ship with `mosaicod`, as the image does.
+
+- `video`, for development: FFmpeg's shared libraries, as installed on the system (e.g. by Homebrew), with the FFV1 codec and the MP4 format, are needed to build and to run.
+
+If its FFmpeg lacks the FFV1 codec or the MP4 format, `mosaicod store-optimizer` logs an error at start, and leaves image sequences in the queue for an optimizer that can.
 
 ## Configuration
 

@@ -116,7 +116,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -304,7 +304,7 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -441,7 +441,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -632,7 +632,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -697,7 +697,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -837,7 +837,7 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -1040,7 +1040,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -1105,7 +1105,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()
@@ -1170,7 +1170,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection(), &[])
             .await
             .unwrap()
             .is_none()

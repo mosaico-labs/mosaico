@@ -27,6 +27,15 @@
 //! If optimizing a topic fails, it is simply dropped from the optimization queue (rather than
 //! left leased) so it gets picked up again on a future run; its original data is never modified,
 //! so a failure is always safe to retry.
+//!
+//! Topics of the `ImageSequence` and `ImageSequenceRaw` serialization formats are turned into an
+//! FFV1 video instead, in steps 3 and 4 (see `store_optimizer/image_sequence.rs`), or left as the
+//! client sent them with their issue in a notification. This needs video support (see
+//! `video_support`): an optimizer without it leaves image sequences in the optimization list,
+//! untouched, for one with it.
+
+#[cfg(feature = "video")]
+mod image_sequence;
 
 use datafusion as df;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -44,6 +53,7 @@ use mosaicod_os::local_hostname;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
 use std::cmp::max;
+use std::fmt::Write;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
@@ -57,6 +67,16 @@ const OUTPUT_FILE_FILLING_PERCENTAGE: f32 = 0.10;
 
 const MAX_LEASE_NS: i64 = 7 * 86400 * 1_000_000_000; // 7 days (in nanoseconds)
 
+/// Whether this optimizer can turn image sequences into videos: built with the `video` feature,
+/// with an FFmpeg that has what it needs (see `mosaicod_video::check_ffmpeg`). Returns FFmpeg's
+/// version if it can, why not otherwise.
+fn video_support() -> std::result::Result<String, String> {
+    #[cfg(feature = "video")]
+    return mosaicod_video::check_ffmpeg().map_err(|e| e.to_string());
+    #[cfg(not(feature = "video"))]
+    Err("built without the `video` feature".to_owned())
+}
+
 fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
     let err_msg = format!("datafusion error: {}", err);
     core::Error::internal(Some(err_msg))
@@ -65,8 +85,23 @@ fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
 #[derive(Default, Debug)]
 struct OptimizationResult {
     completed: Vec<types::TopicLocator>,
+    // String in the tuple represents the issue: these topics are left as they are, their data not
+    // being what they say (see `types::OptimizationIssue`).
+    skipped: Vec<(types::TopicLocator, String)>,
     // String in the tuple represents the error.
     failed: Vec<(types::TopicLocator, String)>,
+}
+
+/// What became of a topic given to the optimizer.
+// Only image sequences are skipped or fail without an error.
+#[cfg_attr(not(feature = "video"), allow(dead_code))]
+enum TopicOutcome {
+    /// Its data is optimized.
+    Optimized,
+    /// It is left as it is, its issue in a notification: its optimization ended.
+    Skipped(String),
+    /// It is left as it is, its failure in a notification: it is tried again on the next run.
+    Failed(String),
 }
 
 struct AcquiredTopic {
@@ -81,6 +116,10 @@ pub struct StoreOptimizer {
     // Soft threshold to split the output files.
     // The value should stay between 128MB and 512MB for best performance with object store.
     max_file_size: usize,
+    /// Why this optimizer can't turn image sequences into videos, if it can't (see
+    /// [`video_support`]): their topics are then left in the optimization list, untouched, for
+    /// an optimizer that can. Checked when the routine starts.
+    no_video: Option<String>,
     result: OptimizationResult,
 }
 
@@ -92,7 +131,21 @@ impl StoreOptimizer {
             store,
             time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
             max_file_size: DEFAULT_MAX_OUTPUT_FILE_SIZE,
+            no_video: Some("not checked yet".to_owned()),
             result: OptimizationResult::default(),
+        }
+    }
+
+    /// The serialization formats this optimizer can't optimize: their topics are left in the
+    /// optimization list for an optimizer that can.
+    fn skipped_formats(&self) -> &'static [types::Format] {
+        if self.no_video.is_some() {
+            &[
+                types::Format::ImageSequence,
+                types::Format::ImageSequenceRaw,
+            ]
+        } else {
+            &[]
         }
     }
 
@@ -179,20 +232,15 @@ impl StoreOptimizer {
         Ok(())
     }
 
-    /// Optimizes data for the given topic.
-    async fn optimize_topic(&self, acquired_topic: &AcquiredTopic) -> Result<()> {
-        debug!(
-            "Store optimization for topic {} started",
-            acquired_topic.topic_record.locator()
-        );
-
-        // Estimates the batch size considering to fill iteratively the target output file size by a percentage.
-        // If max average row size is zero or the size of a single row is greater than max_file_size, set batch_size to 1.
-        let max_avg_row_size = self.max_avg_row_size(&acquired_topic.topic_record).await?;
-        let batch_size = if max_avg_row_size == 0 {
+    /// Estimates the batch size to read `topic` with, so as to fill iteratively the target output
+    /// file size by a percentage. If max average row size is zero or the size of a single row is
+    /// greater than max_file_size, the batch size is 1.
+    async fn batch_size(&self, topic: &db::TopicRecord) -> Result<usize> {
+        let max_avg_row_size = self.max_avg_row_size(topic).await?;
+        Ok(if max_avg_row_size == 0 {
             warn!(
                 "max avg row size for topic {} is 0, clamping batch size to 1 to avoid division by zero",
-                acquired_topic.topic_record.locator()
+                topic.locator()
             );
             1
         } else {
@@ -201,8 +249,16 @@ impl StoreOptimizer {
                     / max_avg_row_size as usize,
                 1,
             )
-        };
+        })
+    }
 
+    /// Returns a DataFusion dataframe over all the Parquet chunks of the topic being optimized,
+    /// read in batches of `batch_size` rows.
+    async fn read_topic(
+        &self,
+        acquired_topic: &AcquiredTopic,
+        batch_size: usize,
+    ) -> Result<df::dataframe::DataFrame> {
         // Configure the session settings for file compaction
         let config = df::execution::config::SessionConfig::new().with_batch_size(batch_size);
 
@@ -231,12 +287,6 @@ impl StoreOptimizer {
             Err(core::Error::internal(Some(err_msg)))?
         };
 
-        // Copy metadata.json into new path in store before switch.
-        let metadata = self.store.read_bytes(pis.path_metadata()).await?;
-        self.store
-            .write_bytes(acquired_topic.opt_path_in_store.path_metadata(), metadata)
-            .await?;
-
         let input_folder = self
             .store
             .url_schema
@@ -250,7 +300,7 @@ impl StoreOptimizer {
                 core::Error::internal(Some(err_msg))
             })?;
 
-        let df = session_ctx
+        session_ctx
             .read_parquet(
                 input_folder.as_str(),
                 // Keep schema/field-level metadata (e.g. client-supplied metadata written
@@ -262,7 +312,101 @@ impl StoreOptimizer {
                     .skip_metadata(false),
             )
             .await
-            .map_err(df_to_internal_error)?;
+            .map_err(|e| df_to_internal_error(e).into())
+    }
+
+    /// Copies the topic's `metadata.json` into the new path in store, before the switch.
+    async fn copy_metadata(&self, acquired_topic: &AcquiredTopic) -> Result<()> {
+        let Some(pis) = acquired_topic.topic_record.path_in_store() else {
+            let err_msg = format!(
+                "path in store not set for topic {}",
+                acquired_topic.topic_record.locator()
+            );
+            Err(core::Error::internal(Some(err_msg)))?
+        };
+
+        let metadata = self.store.read_bytes(pis.path_metadata()).await?;
+        self.store
+            .write_bytes(acquired_topic.opt_path_in_store.path_metadata(), metadata)
+            .await?;
+
+        Ok(())
+    }
+
+    /// Optimizes data for the given topic.
+    ///
+    /// An image sequence is turned into an FFV1 video (see `store_optimizer/image_sequence.rs`),
+    /// or left as it is with its issue recorded. Every other topic has its Parquet chunks
+    /// compacted.
+    async fn optimize_topic(&self, acquired_topic: &AcquiredTopic) -> Result<TopicOutcome> {
+        debug!(
+            "Store optimization for topic {} started",
+            acquired_topic.topic_record.locator()
+        );
+
+        if acquired_topic
+            .topic_record
+            .serialization_format()
+            .is_some_and(|f| f.is_image_sequence())
+        {
+            // Never acquired then (see `skipped_formats`): compacting it would end its
+            // optimization, and it would never become a video.
+            if let Some(reason) = &self.no_video {
+                return Err(core::Error::internal(Some(format!(
+                    "BUG: image sequence {} acquired by an optimizer that can't make videos: \
+                     {reason}",
+                    acquired_topic.topic_record.locator()
+                )))
+                .into());
+            }
+            #[cfg(feature = "video")]
+            return Ok(match self.optimize_image_sequence(acquired_topic).await {
+                image_sequence::Outcome::Optimized => TopicOutcome::Optimized,
+                image_sequence::Outcome::Empty => {
+                    let mut tx = self.db.transaction().await?;
+                    db::topic_optimization_end(
+                        &mut tx,
+                        acquired_topic.topic_record.topic_id,
+                        types::Timestamp::now(),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    info!(
+                        "topic {}: no images, nothing to optimize",
+                        acquired_topic.topic_record.locator()
+                    );
+                    TopicOutcome::Optimized
+                }
+                image_sequence::Outcome::Issue(issue, message) => {
+                    let mut tx = self.db.transaction().await?;
+                    db::topic_optimization_record_issue(
+                        &mut tx,
+                        acquired_topic.topic_record.topic_id,
+                        issue,
+                        &message,
+                        types::Timestamp::now(),
+                    )
+                    .await?;
+                    tx.commit().await?;
+                    let details = format!("{issue}: {message}");
+                    if issue.is_retried() {
+                        TopicOutcome::Failed(details)
+                    } else {
+                        TopicOutcome::Skipped(details)
+                    }
+                }
+            });
+        }
+
+        self.compact_topic(acquired_topic).await?;
+        Ok(TopicOutcome::Optimized)
+    }
+
+    /// Optimizes data for the given topic, merging its Parquet chunks into bigger ones.
+    async fn compact_topic(&self, acquired_topic: &AcquiredTopic) -> Result<()> {
+        let batch_size = self.batch_size(&acquired_topic.topic_record).await?;
+        self.copy_metadata(acquired_topic).await?;
+        let df = self.read_topic(acquired_topic, batch_size).await?;
 
         // Preserve and ensure global chronological sort order.
         // Because DataFusion scans files via multiple parallel threads, sorting explicitly
@@ -355,6 +499,18 @@ impl StoreOptimizer {
             });
         }
 
+        self.complete_optimization(acquired_topic, chunk_stats)
+            .await
+    }
+
+    /// Switches the topic to its optimized data, written in its new path in store, whose chunks
+    /// are `chunk_stats`. The topic's previous folder is no longer referenced, and is deleted by
+    /// the cleanup routine.
+    async fn complete_optimization(
+        &self,
+        acquired_topic: &AcquiredTopic,
+        chunk_stats: Vec<SerializedChunk>,
+    ) -> Result<()> {
         let mut tx = self.db.transaction().await?;
 
         // Remove topic from optimization list once processed and update path_in_store inside topic record.
@@ -386,7 +542,9 @@ impl StoreOptimizer {
         let mut tx = self.db.transaction().await?;
 
         Ok(
-            if let Some(topic_to_optimize_record) = db::topic_next_to_be_optimized(&mut tx).await? {
+            if let Some(topic_to_optimize_record) =
+                db::topic_next_to_be_optimized(&mut tx, self.skipped_formats()).await?
+            {
                 // Update start_unix_tstamp and opt_path_in_store for the retrieved topic_to_optimize_record.
                 let opt_path_in_store = types::TopicPathInStore::new();
 
@@ -474,10 +632,21 @@ impl StoreOptimizer {
             };
 
             match topic_res {
-                Ok(_) => {
+                Ok(TopicOutcome::Optimized) => {
                     self.result
                         .completed
                         .push(acquired_topic.topic_record.locator());
+                }
+                Ok(TopicOutcome::Skipped(issue)) => {
+                    self.result
+                        .skipped
+                        .push((acquired_topic.topic_record.locator(), issue));
+                }
+                // In a notification on the topic, already out of the optimization list.
+                Ok(TopicOutcome::Failed(error)) => {
+                    self.result
+                        .failed
+                        .push((acquired_topic.topic_record.locator(), error));
                 }
                 Err(error) => {
                     warn!(
@@ -509,6 +678,10 @@ impl StoreOptimizer {
 
     /// Starts the optimization routine every `time_interval`.
     ///
+    /// It first checks whether it can turn image sequences into videos (see `video_support`):
+    /// if it can't, it optimizes every other topic, and leaves image sequences in the
+    /// optimization list, untouched, for an optimizer that can.
+    ///
     /// Before entering its loop, this registers the process in the instance registry (see
     /// `mosaicod ps`) and starts a background heartbeat task tied to `shutdown_notifier`.
     /// Registration failure is treated as fatal, consistent with how other DB-dependency
@@ -517,6 +690,27 @@ impl StoreOptimizer {
     /// Once the loop exits, the instance deregisters itself rather than leaving its row to be
     /// reaped later as stale, so `mosaicod ps` reflects the exit immediately.
     pub async fn run(mut self, shutdown_notifier: CancellationToken) -> Result<()> {
+        // Without video support, the image sequences are left to an optimizer with it: an error
+        // if it was built with it, and its FFmpeg lacks something.
+        self.no_video = match video_support() {
+            Ok(ffmpeg) => {
+                info!("FFmpeg found ({ffmpeg}): image sequences will be turned into videos");
+                None
+            }
+            Err(reason) => {
+                let message = format!(
+                    "image sequences can't be turned into videos ({reason}): they are left for \
+                     an optimizer that can, every other topic is optimized"
+                );
+                if cfg!(feature = "video") {
+                    error!("{message}");
+                } else {
+                    info!("{message}");
+                }
+                Some(reason)
+            }
+        };
+
         let instance = db::instance_registry_create(
             &mut self.db.connection(),
             types::InstanceKind::StoreOptimizer,
@@ -565,6 +759,13 @@ impl StoreOptimizer {
                         ));
                     }
 
+                    if self.result.skipped.len() == 1 {
+                        result_msg.push_str(", 1 topic skipped");
+                    } else if !self.result.skipped.is_empty() {
+                        let _ =
+                            write!(result_msg, ", {} topics skipped", self.result.skipped.len());
+                    }
+
                     if self.result.failed.len() == 1 {
                         result_msg.push_str(", 1 topic failed");
                     } else {
@@ -574,6 +775,21 @@ impl StoreOptimizer {
 
                     if !self.result.failed.is_empty() {
                         result_msg.push_str(&format!("\n{errors_list}"));
+                    }
+
+                    for (locator, issue) in &self.result.skipped {
+                        let _ = write!(
+                            result_msg,
+                            "\n{{\n  topic_locator: {locator},\n  skipped: {issue}\n}}"
+                        );
+                    }
+
+                    if let Some(reason) = &self.no_video {
+                        let _ = write!(
+                            result_msg,
+                            "\nimage sequences left for an optimizer that can make videos: \
+                             {reason}"
+                        );
                     }
 
                     info!("{result_msg}");
@@ -610,5 +826,14 @@ impl StoreOptimizer {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn video_support_comes_with_the_build() {
+        // With the `video` feature, as tests run, FFmpeg has what it needs.
+        assert_eq!(super::video_support().is_ok(), cfg!(feature = "video"));
     }
 }

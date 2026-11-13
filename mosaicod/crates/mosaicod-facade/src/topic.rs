@@ -8,6 +8,7 @@ use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
+use mosaicod_rw::image_sequence_video::{FRAME_INDEX_FILE, FrameIndex, VIDEO_FILE};
 use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::path;
@@ -350,7 +351,53 @@ pub async fn schema(context: &Context, locator: &types::TopicLocator) -> Result<
             db::Error::NotFound => core::Error::not_found(locator.to_string()),
             _ => e.error(),
         })?;
+
+    // An image sequence turned into a video: the schema its images were uploaded with.
+    if topic_record
+        .serialization_format()
+        .is_some_and(|f| f.is_image_sequence())
+        && let Some(path_in_store) = topic_record.path_in_store()
+        && let Some(video) =
+            image_sequence_video(context, &path_in_store.data_folder_path()).await?
+    {
+        return Ok(video.frame_index.source_schema);
+    }
+
     internal::arrow_schema(context.timeseries_querier.clone(), &topic_record).await
+}
+
+/// The video of an image sequence topic, written by the store optimizer.
+pub struct ImageSequenceVideo {
+    /// The video, in the store.
+    pub video_path: path::PathBuf,
+    /// The timestamps of its frames, and the schema of the images.
+    pub frame_index: FrameIndex,
+}
+
+/// The video of the image sequence topic whose data folder is `data_folder`, if the store
+/// optimizer turned its images into one; `None` if they are still as they were uploaded.
+pub async fn image_sequence_video(
+    context: &Context,
+    data_folder: &path::Path,
+) -> Result<Option<ImageSequenceVideo>> {
+    let video_path = data_folder.join(VIDEO_FILE);
+    if !context.store.exists(&video_path).await? {
+        return Ok(None);
+    }
+    let bytes = context
+        .store
+        .read_bytes(data_folder.join(FRAME_INDEX_FILE))
+        .await?;
+    let frame_index = FrameIndex::from_parquet(bytes).map_err(|e| {
+        core::Error::internal(Some(format!(
+            "image sequence video in {}: {e}",
+            data_folder.display()
+        )))
+    })?;
+    Ok(Some(ImageSequenceVideo {
+        video_path,
+        frame_index,
+    }))
 }
 
 /// Serializes and writes [`TopicMetadata`] to the object store.

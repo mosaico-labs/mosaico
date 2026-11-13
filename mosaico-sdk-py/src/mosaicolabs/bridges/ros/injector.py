@@ -26,7 +26,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from rich.live import Live
 from rosbags.typesys import Stores, get_typestore
@@ -239,6 +239,8 @@ class RosbagInjector:
 
         # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
         self._ignored_topics: Set[str] = set()
+        # The adapter of each created topic, chosen from its first message.
+        self._topic_adapters: Dict[str, Type[ROSAdapterBase]] = {}
         self._malformed_message_counts: Dict[str, int] = (
             dict()
         )  # Tracks malformed message counts per topic
@@ -543,6 +545,32 @@ class RosbagInjector:
 
         return _DEFAULT_TOPIC_ON_ERROR
 
+    def _skip_untranslated_first_message(
+        self, topic: str, error: Exception, ui: ProgressManager
+    ) -> bool:
+        """
+        Applies the error policy of `topic` to a message that failed to translate before the
+        topic was created on the server, as its `TopicWriter` would: returns whether the
+        message is skipped, `False` if the error must be raised (`Raise`).
+
+        With `Ignore`, the message is skipped and the topic is created by its first message
+        that translates. With `Finalize`, the topic is ignored from then on, as a topic
+        finalized at its first error. Neither reports the error to the server, as the topic
+        does not exist there.
+        """
+        policy = self._get_topic_on_error(topic)
+        if policy == TopicLevelErrorPolicy.Raise:
+            return False
+        logger.warning(
+            f"Skipping message on topic '{topic}', not created yet, due to error: '{error}'"
+        )
+        if policy == TopicLevelErrorPolicy.Finalize:
+            self._ignored_topics.add(topic)
+            ui.update_status(topic, "Fatal Error: Prematurely finalized", "red")
+        else:
+            ui.update_status(topic, "Write Error (Ignored)", "yellow")
+        return True
+
     def _process_message(
         self,
         ros_msg: ROSMessage,
@@ -594,9 +622,11 @@ class RosbagInjector:
             return
 
         # --- Adapter Resolution ---
-        adapter = (self._cfg.adapter_overrides or {}).get(
-            ros_msg.topic
-        ) or self._loader.resolve_adapter(ros_msg.topic)
+        adapter = (
+            self._topic_adapters.get(ros_msg.topic)
+            or (self._cfg.adapter_overrides or {}).get(ros_msg.topic)
+            or self._loader.resolve_adapter(ros_msg.topic)
+        )
 
         if adapter is None:
             # This should never happen, but we handle it gracefully
@@ -609,8 +639,26 @@ class RosbagInjector:
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = session_writer.get_topic_writer(ros_msg.topic)
 
+        # The first message of a topic, translated before the topic is created on the server.
+        first: Any = None
+        is_first = twriter is None
+
         # Should theoretically not be None if exists returned True
         if twriter is None:
+            # The first message chooses the adapter, and so the ontology, of the topic: e.g.
+            # ROS images with no stamp are translated into `Image` and not `ImageSequenceRaw`.
+            adapter = adapter.adapter_for_topic(ros_msg)
+
+            # A topic whose messages all fail to translate is never created, instead of
+            # being left empty on the server.
+            try:
+                first = adapter.translate(ros_msg)
+            except Exception as e:
+                if not self._skip_untranslated_first_message(ros_msg.topic, e, ui):
+                    raise
+                ui.advance_all(ros_msg.topic)
+                return
+
             # --- Schema metadata Resolution ---
             ros_version = 1 if self._cfg.ros_distro is Stores.ROS1_NOETIC else 2
             ros_meta = RosSchemaMetadata.from_dict(
@@ -638,6 +686,8 @@ class RosbagInjector:
                 ontology_type=adapter.ontology_data_type(),
                 on_error=self._get_topic_on_error(ros_msg.topic),
             )
+            if twriter is not None:
+                self._topic_adapters[ros_msg.topic] = adapter
             if twriter is None:
                 ui.update_status(ros_msg.topic, "Write Error", "red")
                 # We assume transient error and continue; strict policies are handled by Client
@@ -650,7 +700,7 @@ class RosbagInjector:
         ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
             with twriter:
                 # Convert ROS dict -> Mosaico Object -> Arrow Batch
-                twriter.push(adapter.translate(ros_msg))
+                twriter.push(first if is_first else adapter.translate(ros_msg))
             if twriter.status == TopicWriterStatus.IgnoredLastError:
                 # If writing fails (e.g. network error, validation error), update UI
                 ui.update_status(ros_msg.topic, "Write Error (Ignored)", "yellow")

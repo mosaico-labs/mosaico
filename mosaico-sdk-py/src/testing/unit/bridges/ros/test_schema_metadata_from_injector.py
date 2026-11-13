@@ -28,6 +28,10 @@ class _FakeUI:
 
 
 class _FakeAdapter:
+    @classmethod
+    def adapter_for_topic(cls, first_msg):
+        return cls
+
     @staticmethod
     def schema_metadata(typestore, msg_type, ros_version) -> Optional[dict]:
         return {"_ros_": {"msgtype": msg_type}}
@@ -35,6 +39,11 @@ class _FakeAdapter:
     @staticmethod
     def ontology_data_type():
         return "Null"
+
+    @staticmethod
+    def translate(ros_msg):
+        # The first message of a topic is translated before the topic is created.
+        return None
 
 
 class _FakeAdapterNoSchema(_FakeAdapter):

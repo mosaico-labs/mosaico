@@ -592,7 +592,7 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
             return TopicResolution.rejected(TopicStatus.MALFORMED_METADATA, str(e))
 
         factory_result = (
-            self._adapter_from_metadata_msgtype(ros_metadata)
+            self._adapter_from_metadata_msgtype(t_handler, ros_metadata)
             or self._adapter_from_ontology_tag(t_handler)
             or self._create_unmodeled_adapter(t_handler, ros_metadata)
         )
@@ -617,18 +617,21 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
         return TopicResolution.accepted(adapter, resolved_rosmsg_type)
 
     def _adapter_from_metadata_msgtype(
-        self, ros_metadata: Dict[str, Any]
+        self, t_handler: TopicHandler, ros_metadata: Dict[str, Any]
     ) -> Optional[Tuple[type[ROSAdapterBase], str]]:
         """
         Strategy 1: look up a hand-written adapter using the ``msgtype`` recorded
-        in the topic's ``_ros_`` metadata.
+        in the topic's ``_ros_`` metadata. A ROS message type can be stored with more
+        than one ontology, so the adapter then chooses the one of the topic's ontology
+        (see ``ROSAdapterBase.adapter_for_stored_topic``).
 
         Args:
+            t_handler (TopicHandler): The topic handler whose ontology tag is checked.
             ros_metadata (Dict[str, Any]): The topic's already-extracted ``_ros_`` block.
 
         Returns:
             Optional[Tuple[type[ROSAdapterBase], str]]: The ``(adapter, msgtype)`` pair if a hand-written
-                adapter is registered for ``msgtype``, otherwise ``None``.
+                adapter is registered for ``msgtype`` and the topic's ontology, otherwise ``None``.
         """
 
         msgtype: Optional[str] = ros_metadata.get("msgtype")
@@ -637,6 +640,11 @@ class MosaicoToROSLoader(MosaicoLoader[ROSAdapterBase]):
             return None
 
         adapter = ROSBridge.get_default_adapter(msgtype)
+
+        if adapter is None:
+            return None
+
+        adapter = adapter.adapter_for_stored_topic(t_handler.ontology_tag, ros_metadata)
 
         if adapter is None:
             return None

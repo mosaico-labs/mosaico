@@ -1,0 +1,18 @@
+[package]
+name = "mosaicod-image"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_image"
+
+[features]
+# Test images encoded in memory (`mosaicod_image::testing`).
+testing = []
+
+[dependencies]
+png = { workspace = true }
+thiserror = { workspace = true }

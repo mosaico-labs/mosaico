@@ -6,6 +6,11 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+# Image sequences turned into videos and read back: needs FFmpeg.
+video = ["mosaicod-task/video", "mosaicod-grpc/video", "dep:mosaicod-video"]
+# `video`, with FFmpeg linked statically.
+video-static = ["video", "mosaicod-video/ffmpeg-static"]
 
 [dependencies]
 mosaicod-config = { workspace = true }
@@ -21,6 +26,9 @@ mosaicod-marshal = { workspace = true}
 mosaicod-proto = { workspace = true }
 mosaicod-task = { workspace = true}
 mosaicod-rw = { workspace = true}
+mosaicod-image = { workspace = true, features = ["testing"] }
+mosaicod-video = { workspace = true, features = ["ffmpeg"], optional = true }
+tempfile = { workspace = true }
 
 arrow-flight = { workspace = true }
 prost = { workspace = true }

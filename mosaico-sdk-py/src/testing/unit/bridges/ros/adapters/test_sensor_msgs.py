@@ -1,4 +1,5 @@
 import math
+import re
 import sys
 from dataclasses import asdict
 
@@ -17,6 +18,9 @@ from mosaicolabs import (
     GPSStatus,
     Image,
     ImageFormat,
+    ImageSequence,
+    ImageSequenceFormat,
+    ImageSequenceRaw,
     Joy,
     Magnetometer,
     Message,
@@ -70,6 +74,7 @@ from testing.unit.bridges.ros.adapters.helper import (
     assert_gps,
     assert_gps_status,
     assert_image,
+    assert_image_raw,
     assert_imu,
     assert_joy,
     assert_laserscan,
@@ -690,6 +695,22 @@ def image_w_header(image_raw, ms_header):
 
 
 @pytest.fixture
+def image_sequence_raw():
+    # 2x2 mono16, big-endian, rows padded with 2 bytes: stride = 2 × 2 + 2 = 6 bytes/row
+    return ImageSequenceRaw(
+        capture_timestamp_ns=100_000_000_200,
+        width=2,
+        height=2,
+        stride=6,
+        encoding="mono16",
+        is_bigendian=True,
+        data=bytes([1, 2, 3, 4, 0, 0, 5, 6, 7, 8, 0, 0]),
+        frame_id="base_link",
+        sample_counter=42,
+    )
+
+
+@pytest.fixture
 def image_rosmsg(ros_header):
     return ROSMessage(
         bag_timestamp_ns=100,
@@ -710,10 +731,40 @@ def image_rosmsg(ros_header):
 
 
 class TestImageAdapter:
-    def test_translate_image_sentence(self, image_rosmsg: ROSMessage):
+    def test_translate_image(self, image_rosmsg: ROSMessage):
         ms_msg = ImageAdapter.translate(image_rosmsg)
 
-        assert_image(ms_msg.get_data(Image), image_rosmsg.data_field)
+        image = ms_msg.get_data(ImageSequenceRaw)
+        assert_image_raw(image, image_rosmsg.data_field)
+        # Captured at the stamp of its header: 100 s and 200 ns.
+        assert image.capture_timestamp_ns == 100_000_000_200
+        assert image.frame_id == "base_link"
+        assert image.sample_counter is None
+        assert ms_msg.timestamp_ns == 100
+
+    def test_translate_keeps_the_ros1_seq(self, image_rosmsg: ROSMessage):
+        image_rosmsg.data_field["header"]["seq"] = 7
+        image = ImageAdapter.translate(image_rosmsg).get_data(ImageSequenceRaw)
+        assert image.sample_counter == 7
+
+    @pytest.mark.parametrize(
+        "header",
+        [
+            None,
+            {"frame_id": "", "stamp": {"sec": 0, "nanosec": 0}},
+            # A frame, but no stamp.
+            {"frame_id": "camera", "stamp": {"sec": 0, "nanosec": 0}},
+        ],
+    )
+    def test_translate_without_stamp_raises(self, image_rosmsg: ROSMessage, header):
+        if header is None:
+            image_rosmsg.data_field.pop("header")
+        else:
+            image_rosmsg.data_field["header"] = header
+        with pytest.raises(ValueError, match="no capture time"):
+            ImageAdapter.from_dict(image_rosmsg.data_field)
+        with pytest.raises(Exception, match="no capture time"):
+            ImageAdapter.translate(image_rosmsg)
 
     def test_translate_raise_missing_required_key(self, image_rosmsg: ROSMessage):
         data = image_rosmsg.data_field
@@ -721,40 +772,160 @@ class TestImageAdapter:
         with pytest.raises(ValueError, match="missing required keys"):
             ImageAdapter.from_dict(data)
 
+    def test_adapter_for_topic_with_a_stamp(self, image_rosmsg: ROSMessage):
+        assert ImageAdapter.adapter_for_topic(image_rosmsg) is ImageAdapter
+
+    @pytest.mark.parametrize(
+        "header",
+        [None, {"frame_id": "camera", "stamp": {"sec": 0, "nanosec": 0}}],
+    )
+    def test_adapter_for_topic_without_stamp_is_image(
+        self, image_rosmsg: ROSMessage, header
+    ):
+        if header is None:
+            image_rosmsg.data_field.pop("header")
+        else:
+            image_rosmsg.data_field["header"] = header
+        adapter = ImageAdapter.adapter_for_topic(image_rosmsg)
+        assert adapter is DeprecatedImageAdapter
+        assert adapter.translate(image_rosmsg).get_data(Image) is not None
+        # The deprecated adapter keeps its own ontology.
+        assert adapter.adapter_for_topic(image_rosmsg) is DeprecatedImageAdapter
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image(
+        self, image_sequence_raw: ImageSequenceRaw, typestore: Typestore
+    ):
+        ros_msg = ImageAdapter.to_ros(
+            image_sequence_raw, typestore, "sensor_msgs/msg/Image"
+        )
+        assert_image_raw(image_sequence_raw, asdict(ros_msg))
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, image_sequence_raw: ImageSequenceRaw, typestore: Typestore
+    ):
+        image_sequence_raw.frame_id = None
+        image_sequence_raw.sample_counter = None
+        ros_msg = ImageAdapter.to_ros(
+            Message(timestamp_ns=1, data=image_sequence_raw), typestore
+        )
+        assert_image_raw(image_sequence_raw, asdict(ros_msg))
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_round_trip(self, image_rosmsg: ROSMessage, typestore: Typestore):
+        image = ImageAdapter.translate(image_rosmsg)
+        ros_msg = asdict(ImageAdapter.to_ros(image, typestore))
+
+        original = image_rosmsg.data_field
+        assert ros_msg["header"]["frame_id"] == original["header"]["frame_id"]
+        for key in ("sec", "nanosec"):
+            assert ros_msg["header"]["stamp"][key] == original["header"]["stamp"][key]
+        for key in ("height", "width", "encoding", "step"):
+            assert ros_msg[key] == original[key], key
+        assert ros_msg["is_bigendian"] == int(original["is_bigendian"])
+        assert np.array_equal(ros_msg["data"], original["data"])
+
+    def test_to_ros_invalid_rosmsg_type(self, image_sequence_raw: ImageSequenceRaw):
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {re.escape(ImageAdapter.__name__)} does not support sensor_msgs/msg/Bogus",
+        ):
+            ImageAdapter.to_ros(
+                image_sequence_raw,
+                get_typestore(Stores.LATEST),
+                "sensor_msgs/msg/Bogus",
+            )
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg, image_raw: Image):
+        for invalid in (invalid_ms_msg, image_raw):
+            with pytest.raises(TypeError):
+                ImageAdapter.to_ros(invalid, get_typestore(Stores.LATEST))
+
+
+# The deprecated `Image` variant of `ImageAdapter`.
+with pytest.warns(DeprecationWarning):
+    DeprecatedImageAdapter = ImageAdapter.using(Image)
+
+
+class TestDeprecatedImageAdapter:
+    def test_registry(self):
+        from mosaicolabs.bridges.ros import ROSBridge
+
+        # ROS images are ingested as `ImageSequenceRaw` by default.
+        assert ROSBridge.get_default_adapter("sensor_msgs/msg/Image") is ImageAdapter
+        # Each ontology is exported to ROS by the adapter that writes it.
+        assert (
+            ROSBridge.get_default_mosaico_adapter(ImageSequenceRaw.ontology_tag())
+            is ImageAdapter
+        )
+        assert (
+            ROSBridge.get_default_mosaico_adapter(Image.ontology_tag())
+            is DeprecatedImageAdapter
+        )
+
+    def test_using(self):
+        assert ImageAdapter.using(ImageSequenceRaw) is ImageAdapter
+        with pytest.warns(DeprecationWarning, match="will be removed"):
+            assert ImageAdapter.using(Image) is DeprecatedImageAdapter
+        assert DeprecatedImageAdapter.ontology_data_type() is Image
+        assert issubclass(DeprecatedImageAdapter, ImageAdapter)
+        with pytest.raises(TypeError, match="ImageSequenceRaw or Image"):
+            ImageAdapter.using(CompressedImage)
+
+    def test_translate_image(self, image_rosmsg: ROSMessage):
+        ms_msg = DeprecatedImageAdapter.translate(image_rosmsg)
+        image = ms_msg.get_data(Image)
+        assert image is not None
+        assert ms_msg.get_data(ImageSequenceRaw) is None
+        assert (image.width, image.height, image.stride) == (2, 2, 6)
+        assert image.encoding == "rgb8"
+        assert image.header is not None
+        assert image.header.frame_id == "base_link"
+        assert ms_msg.timestamp_ns == 100
+
+    @pytest.mark.parametrize(
+        "header",
+        [None, {"frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}],
+    )
+    def test_translate_image_without_stamp(self, image_rosmsg: ROSMessage, header):
+        # `Image` has no required capture time: a zero stamp is translated.
+        if header is None:
+            image_rosmsg.data_field.pop("header")
+        else:
+            image_rosmsg.data_field["header"] = header
+        assert (
+            DeprecatedImageAdapter.translate(image_rosmsg).get_data(Image) is not None
+        )
+
+    def test_to_ros_rejects_image_sequence_raw(
+        self, image_sequence_raw: ImageSequenceRaw
+    ):
+        with pytest.raises(TypeError):
+            DeprecatedImageAdapter.to_ros(
+                image_sequence_raw, get_typestore(Stores.LATEST)
+            )
+
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_raw, typestore, "sensor_msgs/msg/Image")
+        ros_msg = DeprecatedImageAdapter.to_ros(
+            image_raw, typestore, "sensor_msgs/msg/Image"
+        )
         assert_image(image_raw, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_png(self, image_png: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_png, typestore, "sensor_msgs/msg/Image")
+        ros_msg = DeprecatedImageAdapter.to_ros(
+            image_png, typestore, "sensor_msgs/msg/Image"
+        )
         assert_image(image_png, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_message(self, image_w_header: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(
+        ros_msg = DeprecatedImageAdapter.to_ros(
             image_w_header, typestore, "sensor_msgs/msg/Image"
         )
         assert_image(image_w_header, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_default_type(self, image_raw: Image, typestore: Typestore):
-        ros_msg = ImageAdapter.to_ros(image_raw, typestore)
-        assert_image(image_raw, asdict(ros_msg))
-
-    def test_to_ros_invalid_rosmsg_type(self, image_raw: Image):
-        with pytest.raises(
-            TypeError,
-            match=f"Adapter {ImageAdapter.__name__} does not support sensor_msgs/msg/Bogus",
-        ):
-            ImageAdapter.to_ros(
-                image_raw, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-            )
-
-    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
-        with pytest.raises(TypeError):
-            ImageAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
 
 
 ###############################################################################
@@ -844,6 +1015,169 @@ class TestCompressedImageAdapter:
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
             CompressedImageAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+def _png_bytes() -> bytes:
+    """A real 2x1 RGB PNG."""
+    import io
+
+    from PIL import Image as PILImage
+
+    buffer = io.BytesIO()
+    PILImage.new("RGB", (2, 1), (10, 20, 30)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def png_rosmsg(ros_header):
+    ros_header = {**ros_header, "seq": 7}
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/camera/image/compressed",
+        msg_type="sensor_msgs/msg/CompressedImage",
+        data={
+            "header": ros_header,
+            "format": "bgr8; png compressed bgr8",
+            "data": np.frombuffer(_png_bytes(), dtype=np.uint8),
+        },
+    )
+
+
+class TestCompressedImagePngAdapter:
+    """`sensor_msgs/CompressedImage` PNG topics become `ImageSequence`."""
+
+    def test_png_with_a_stamp_is_image_sequence(self, png_rosmsg: ROSMessage):
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        assert adapter is not CompressedImageAdapter
+        assert adapter.ontology_data_type() is ImageSequence
+        # One adapter for each format string.
+        assert adapter is CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+
+        ms_msg = adapter.translate(png_rosmsg)
+        image = ms_msg.get_data(ImageSequence)
+        assert image is not None
+        assert image.format == ImageSequenceFormat.PNG
+        assert image.capture_timestamp_ns == 100_000_000_200
+        assert image.frame_id == "base_link"
+        assert image.sample_counter == 7
+        assert image.data == _png_bytes()
+        assert ms_msg.timestamp_ns == 100
+
+    def test_plain_png_format(self, png_rosmsg: ROSMessage):
+        png_rosmsg.data_field["format"] = "png"
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        assert adapter.ontology_data_type() is ImageSequence
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            # A JPEG, or any lossy format.
+            {"format": "jpeg"},
+            # No format, even with the bytes of a PNG.
+            {"format": ""},
+            {"format": "bgr8; jpeg compressed bgr8"},
+            # A `compressedDepth` PNG starts with a header of its own.
+            {"format": "16UC1; compressedDepth png"},
+            # The format says png, but the bytes are not a PNG.
+            {"data": np.frombuffer(bytes(16), dtype=np.uint8)},
+            # No stamp, so no capture time.
+            {"header": {"frame_id": "base_link", "stamp": {"sec": 0, "nanosec": 0}}},
+        ],
+    )
+    def test_other_images_stay_compressed_image(self, png_rosmsg: ROSMessage, change):
+        png_rosmsg.data_field.update(change)
+        assert (
+            CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+            is CompressedImageAdapter
+        )
+
+    def test_a_png_adapter_does_not_choose_again(self, png_rosmsg: ROSMessage):
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        assert adapter.adapter_for_topic(png_rosmsg) is adapter
+
+    @pytest.mark.parametrize(
+        "change, error",
+        [
+            ({"format": "rgb8; png compressed rgb8"}, "differs from the format"),
+            ({"data": np.frombuffer(bytes(16), dtype=np.uint8)}, "not a PNG"),
+            (
+                {"header": {"frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}},
+                "no capture time",
+            ),
+        ],
+    )
+    def test_later_images_must_match_the_topic(
+        self, png_rosmsg: ROSMessage, change, error
+    ):
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        png_rosmsg.data_field.update(change)
+        with pytest.raises(ValueError, match=error):
+            adapter.from_dict(png_rosmsg.data_field)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_schema_metadata_keeps_the_format(
+        self, png_rosmsg: ROSMessage, typestore: Typestore
+    ):
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        metadata = adapter.schema_metadata(
+            typestore, "sensor_msgs/msg/CompressedImage", 2
+        )
+        assert metadata["_ros_"]["compressed_format"] == "bgr8; png compressed bgr8"
+        assert metadata["_ros_"]["msgtype"] == "sensor_msgs/msg/CompressedImage"
+        # A `CompressedImage` topic has no format string in its metadata.
+        metadata = CompressedImageAdapter.schema_metadata(
+            typestore, "sensor_msgs/msg/CompressedImage", 2
+        )
+        assert "compressed_format" not in metadata["_ros_"]
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_round_trip(self, png_rosmsg: ROSMessage, typestore: Typestore):
+        adapter = CompressedImageAdapter.adapter_for_topic(png_rosmsg)
+        image = adapter.translate(png_rosmsg)
+        ros_msg = asdict(adapter.to_ros(image, typestore))
+
+        original = png_rosmsg.data_field
+        assert ros_msg["format"] == original["format"]
+        assert np.array_equal(ros_msg["data"], original["data"])
+        assert ros_msg["header"]["frame_id"] == "base_link"
+        for key in ("sec", "nanosec"):
+            assert ros_msg["header"]["stamp"][key] == original["header"]["stamp"][key]
+        if "seq" in ros_msg["header"]:  # ROS 1
+            assert ros_msg["header"]["seq"] == 7
+
+    def test_stored_topic_exports_with_the_format_of_its_metadata(self):
+        tag = ImageSequence.ontology_tag()
+        adapter = CompressedImageAdapter.adapter_for_stored_topic(
+            tag, {"compressed_format": "rgb8; png compressed rgb8"}
+        )
+        assert adapter.ontology_data_type() is ImageSequence
+        assert adapter._ros_format == "rgb8; png compressed rgb8"
+        # Without a format string, the export writes `png`.
+        adapter = CompressedImageAdapter.adapter_for_stored_topic(tag, {})
+        assert adapter._ros_format is None
+        image = ImageSequence(
+            format=ImageSequenceFormat.PNG,
+            capture_timestamp_ns=1,
+            data=_png_bytes(),
+        )
+        assert adapter.to_ros(image, get_typestore(Stores.LATEST)).format == "png"
+        # A `CompressedImage` topic keeps `CompressedImageAdapter`.
+        assert (
+            CompressedImageAdapter.adapter_for_stored_topic(
+                CompressedImage.ontology_tag(), {}
+            )
+            is CompressedImageAdapter
+        )
+
+    def test_registry(self):
+        from mosaicolabs.bridges.ros import ROSBridge
+
+        assert (
+            ROSBridge.get_default_adapter("sensor_msgs/msg/CompressedImage")
+            is CompressedImageAdapter
+        )
+        adapter = ROSBridge.get_default_mosaico_adapter(ImageSequence.ontology_tag())
+        assert adapter.ontology_data_type() is ImageSequence
 
 
 ###############################################################################

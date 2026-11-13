@@ -9,6 +9,10 @@ license.workspace = true
 [lib]
 name = "mosaicod_grpc"
 
+[features]
+# Images read back from the videos of image sequences: needs FFmpeg.
+video = ["mosaicod-grpc-flight/video"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-grpc-common = { workspace = true }

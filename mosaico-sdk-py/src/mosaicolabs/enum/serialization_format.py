@@ -33,3 +33,26 @@ class SerializationFormat(Enum):
     (the image content) along with associated metadata (width, height, format), 
     often requiring specialized compression/decompression handling.
     """
+
+    ImageSequence = "image_sequence"
+    """
+    Represents a sequence of losslessly compressed images (PNG), each with
+    its capture time, as modeled by
+    [`ImageSequence`][mosaicolabs.models.sensors.ImageSequence]. Lossy
+    images, such as JPEG, are not supported.
+
+    The server compresses `capture_timestamp_ns` and `format`, and stores
+    `data`, already compressed, as it is. It also keeps statistics on
+    `capture_timestamp_ns` and `format`, which makes queries filtering on
+    them faster.
+    """
+
+    ImageSequenceRaw = "image_sequence_raw"
+    """
+    Represents a sequence of raw images, as a camera driver writes them
+    (e.g. a ROS `sensor_msgs/Image`), each with its capture time, as modeled
+    by [`ImageSequenceRaw`][mosaicolabs.models.sensors.ImageSequenceRaw].
+
+    The server compresses the columns describing the images and their
+    `data`, and keeps statistics on the former.
+    """

@@ -20,18 +20,32 @@ class DoPutCmd(_message.Message):
     def __init__(self, locator: _Optional[str] = ..., topic_uuid: _Optional[str] = ...) -> None: ...
 
 class GetFlightInfoCmd(_message.Message):
-    __slots__ = ["locator", "timestamp_range"]
+    __slots__ = ["image_sequence", "locator", "timestamp_range"]
+    IMAGE_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
     LOCATOR_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_RANGE_FIELD_NUMBER: _ClassVar[int]
+    image_sequence: ImageSequenceRequest
     locator: str
     timestamp_range: _time_pb2.TimestampRange
-    def __init__(self, locator: _Optional[str] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ...) -> None: ...
+    def __init__(self, locator: _Optional[str] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ..., image_sequence: _Optional[_Union[ImageSequenceRequest, _Mapping]] = ...) -> None: ...
 
 class GetSchemaCmd(_message.Message):
     __slots__ = ["locator"]
     LOCATOR_FIELD_NUMBER: _ClassVar[int]
     locator: str
     def __init__(self, locator: _Optional[str] = ...) -> None: ...
+
+class ImageSequenceRequest(_message.Message):
+    __slots__ = ["images", "video"]
+    IMAGES_FIELD_NUMBER: _ClassVar[int]
+    VIDEO_FIELD_NUMBER: _ClassVar[int]
+    images: ImagesView
+    video: VideoView
+    def __init__(self, images: _Optional[_Union[ImagesView, _Mapping]] = ..., video: _Optional[_Union[VideoView, _Mapping]] = ...) -> None: ...
+
+class ImagesView(_message.Message):
+    __slots__ = []
+    def __init__(self) -> None: ...
 
 class ListFlightsCmd(_message.Message):
     __slots__ = ["cursor", "limit", "order_by"]
@@ -92,12 +106,14 @@ class SessionAppMetadata(_message.Message):
     def __init__(self, locator: _Optional[str] = ..., created_at_ns: _Optional[int] = ..., completed_at_ns: _Optional[int] = ..., topics: _Optional[_Iterable[str]] = ..., locked: bool = ...) -> None: ...
 
 class TicketTopic(_message.Message):
-    __slots__ = ["locator", "timestamp_range"]
+    __slots__ = ["image_sequence", "locator", "timestamp_range"]
+    IMAGE_SEQUENCE_FIELD_NUMBER: _ClassVar[int]
     LOCATOR_FIELD_NUMBER: _ClassVar[int]
     TIMESTAMP_RANGE_FIELD_NUMBER: _ClassVar[int]
+    image_sequence: ImageSequenceRequest
     locator: str
     timestamp_range: _time_pb2.TimestampRange
-    def __init__(self, locator: _Optional[str] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ...) -> None: ...
+    def __init__(self, locator: _Optional[str] = ..., timestamp_range: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ..., image_sequence: _Optional[_Union[ImageSequenceRequest, _Mapping]] = ...) -> None: ...
 
 class TopicAppMetadata(_message.Message):
     __slots__ = ["completed_at_ns", "created_at_ns", "data_info", "locator", "locked", "ontology_tag", "serialization_format", "session_locator", "time_window_info", "user_metadata"]
@@ -142,6 +158,20 @@ class TopicAppMetadataTimeWindow(_message.Message):
     interval: _time_pb2.TimestampRange
     row_count: int
     def __init__(self, interval: _Optional[_Union[_time_pb2.TimestampRange, _Mapping]] = ..., row_count: _Optional[int] = ...) -> None: ...
+
+class VideoInterval(_message.Message):
+    __slots__ = ["end_s", "start_s"]
+    END_S_FIELD_NUMBER: _ClassVar[int]
+    START_S_FIELD_NUMBER: _ClassVar[int]
+    end_s: int
+    start_s: int
+    def __init__(self, start_s: _Optional[int] = ..., end_s: _Optional[int] = ...) -> None: ...
+
+class VideoView(_message.Message):
+    __slots__ = ["interval"]
+    INTERVAL_FIELD_NUMBER: _ClassVar[int]
+    interval: VideoInterval
+    def __init__(self, interval: _Optional[_Union[VideoInterval, _Mapping]] = ...) -> None: ...
 
 class SequenceOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = []

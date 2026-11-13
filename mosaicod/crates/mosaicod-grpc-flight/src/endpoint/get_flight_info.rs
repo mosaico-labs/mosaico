@@ -45,11 +45,27 @@ async fn do_get_flight_info(
     {
         Err(core::Error::bad_timestamp_range(*ts_range))?;
     }
+    cmd.image_sequence_view
+        .check_time_range(cmd.timestamp_range)?;
 
     return if let Ok(sequence_locator) = resource_name.parse::<types::SequenceLocator>() {
-        sequence_flight_info(ctx, desc, sequence_locator, cmd.timestamp_range).await
+        sequence_flight_info(
+            ctx,
+            desc,
+            sequence_locator,
+            cmd.timestamp_range,
+            cmd.image_sequence_view,
+        )
+        .await
     } else if let Ok(topic_locator) = resource_name.parse::<types::TopicLocator>() {
-        topic_flight_info(ctx, desc, topic_locator, cmd.timestamp_range).await
+        topic_flight_info(
+            ctx,
+            desc,
+            topic_locator,
+            cmd.timestamp_range,
+            cmd.image_sequence_view,
+        )
+        .await
     } else if let Ok(session_locator) = resource_name.parse::<types::SessionLocator>() {
         Err(core::Error::unsupported_locator(
             session_locator.to_string(),
@@ -60,11 +76,15 @@ async fn do_get_flight_info(
 }
 
 /// Creates flight info response for the given Sequence.
+///
+/// The tickets of its image sequence topics ask for `image_sequence_view`, those of the other
+/// topics for their data.
 async fn sequence_flight_info(
     ctx: &facade::Context,
     desc: FlightDescriptor,
     sequence_locator: types::SequenceLocator,
     timestamp_range: Option<types::TimestampRange>,
+    image_sequence_view: types::flight::ImageSequenceView,
 ) -> grpc_common::Result<FlightInfo> {
     let sequence_info = facade::sequence::info(ctx, &sequence_locator, timestamp_range).await?;
 
@@ -73,7 +93,8 @@ async fn sequence_flight_info(
     // Populate endpoints
     let endpoints = stream::iter(sequence_info.topics)
         .map(async |topic_info: facade::topic::TopicInfo| {
-            let topic_endpoint = build_topic_endpoint(topic_info, timestamp_range).await?;
+            let topic_endpoint =
+                build_topic_endpoint(topic_info, timestamp_range, image_sequence_view).await?;
             Ok::<FlightEndpoint, BoxPublicError>(topic_endpoint)
         })
         .buffer_unordered(constants::MAX_BUFFERED_FUTURES)
@@ -96,17 +117,28 @@ async fn sequence_flight_info(
 }
 
 /// Creates flight info response for the given Topic.
+///
+/// Only an image sequence topic has anything to retrieve but its data (`image_sequence_view`).
 async fn topic_flight_info(
     ctx: &Context,
     desc: FlightDescriptor,
     topic_locator: types::TopicLocator,
     timestamp_range: Option<types::TimestampRange>,
+    image_sequence_view: types::flight::ImageSequenceView,
 ) -> grpc_common::Result<FlightInfo> {
     let topic_info = facade::topic::info(ctx, &topic_locator, timestamp_range).await?;
 
+    if !is_image_sequence(&topic_info)
+        && image_sequence_view != types::flight::ImageSequenceView::Images
+    {
+        Err(core::Error::unsupported_retrieval(format!(
+            "topic {topic_locator} is not an image sequence: only its data can be retrieved"
+        )))?;
+    }
+
     // Topic's metadata are stored inside endpoint and not FlightInfo::app_metadata to replicate
     // the same behavior inside sequence_flight_info.
-    let endpoint = build_topic_endpoint(topic_info, timestamp_range).await?;
+    let endpoint = build_topic_endpoint(topic_info, timestamp_range, image_sequence_view).await?;
 
     let flight_info = FlightInfo::new()
         .with_descriptor(desc)
@@ -116,16 +148,31 @@ async fn topic_flight_info(
     Ok(flight_info)
 }
 
-/// Builds a [`FlightEndpoint`] for the given Topic.
+fn is_image_sequence(topic_info: &facade::topic::TopicInfo) -> bool {
+    topic_info
+        .metadata
+        .ontology_metadata
+        .serialization_format
+        .is_image_sequence()
+}
+
+/// Builds a [`FlightEndpoint`] for the given Topic: its ticket asks for `image_sequence_view` if
+/// it is an image sequence, for its data otherwise.
 async fn build_topic_endpoint(
     topic_info: facade::topic::TopicInfo,
     timestamp_range: Option<types::TimestampRange>,
+    image_sequence_view: types::flight::ImageSequenceView,
 ) -> grpc_common::Result<FlightEndpoint> {
     let topic_locator = topic_info.metadata.properties.locator.clone();
 
     let ticket = types::flight::TicketTopic {
         locator: topic_locator.clone(),
         timestamp_range,
+        image_sequence_view: if is_image_sequence(&topic_info) {
+            image_sequence_view
+        } else {
+            types::flight::ImageSequenceView::Images
+        },
     };
 
     let app_mdata = flight::topic_info_to_bytes(topic_info)?;

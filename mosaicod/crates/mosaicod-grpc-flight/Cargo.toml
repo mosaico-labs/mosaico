@@ -9,6 +9,11 @@ license.workspace = true
 [lib]
 name = "mosaicod_grpc_flight"
 
+[features]
+# Images read back from the videos of image sequences: needs FFmpeg. Without it, only the videos
+# are read back, in segments of a second.
+video = ["dep:mosaicod-image", "mosaicod-video/ffmpeg", "dep:tempfile"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-grpc-common = { workspace = true }
@@ -29,6 +34,9 @@ arrow = { workspace = true }
 semver = { workspace = true }
 tracing = { workspace = true }
 datafusion = { workspace = true }
+mosaicod-image = { workspace = true, optional = true }
+mosaicod-video = { workspace = true }
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"] }

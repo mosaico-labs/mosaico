@@ -14,5 +14,7 @@ mod writer;
 pub mod chunk_writer;
 pub use chunk_writer::{ChunkWriter, SerializedChunk};
 
+pub mod image_sequence_video;
+
 pub mod chunk_reader;
 pub use chunk_reader::ChunkReader;

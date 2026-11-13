@@ -5,6 +5,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    Dict,
     Optional,
     Tuple,
     Type,
@@ -122,6 +123,48 @@ class ROSAdapterBase(BridgeAdapterBase[T, "MsgType"]):
             raise Exception(f"Translation failed for {msg.topic}: {e}")
 
     # --- Custom API specific for ROS adapter
+
+    @classmethod
+    def adapter_for_topic(cls, first_msg: ROSMessage) -> Type["ROSAdapterBase"]:
+        """
+        Returns the adapter that translates a topic, given its first message.
+
+        The ontology of a topic is fixed when the topic is created, from its first
+        message: an adapter can then choose another adapter, of another ontology, that
+        translates every message of the topic. By default, it is this adapter.
+
+        Args:
+            first_msg (ROSMessage): The first message of the topic.
+
+        Returns:
+            Type[ROSAdapterBase]: The adapter of every message of the topic.
+        """
+        return cls
+
+    @classmethod
+    def adapter_for_stored_topic(
+        cls, ontology_tag: str, ros_metadata: Dict[str, Any]
+    ) -> Optional[Type["ROSAdapterBase"]]:
+        """
+        Returns the adapter that exports a stored topic to ROS, given its ontology and
+        its `_ros_` metadata, when this adapter is registered for the ROS message type
+        of the topic.
+
+        A ROS message type can be stored with more than one ontology (see
+        `adapter_for_topic`): an adapter then returns the adapter of the ontology of the
+        topic. By default, it is this adapter if the topic has its ontology, otherwise
+        `None`, so that the adapter is looked up by the ontology of the topic instead.
+
+        Args:
+            ontology_tag (str): The ontology tag of the topic.
+            ros_metadata (Dict[str, Any]): The `_ros_` metadata of the topic.
+
+        Returns:
+            Optional[Type[ROSAdapterBase]]: The adapter that exports the topic, or `None`.
+        """
+        if cls.ontology_data_type().ontology_tag() == ontology_tag:
+            return cls
+        return None
 
     @classmethod
     @abstractmethod

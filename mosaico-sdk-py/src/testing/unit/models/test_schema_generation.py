@@ -17,6 +17,8 @@ from mosaicolabs import (
     ForceTorque,
     GPSStatus,
     Image,
+    ImageSequence,
+    ImageSequenceRaw,
     Integer8,
     Integer16,
     Integer32,
@@ -33,6 +35,7 @@ from mosaicolabs import (
     Range,
     RobotJoint,
     Serializable,
+    SerializationFormat,
     String,
     Temperature,
     Transform,
@@ -812,6 +815,84 @@ def test_compressed_image_struct():
     )
 
     assert pyarrow_struct == CompressedImage.__msco_pyarrow_struct__
+
+
+def _image_sequence_field(name, type, description, nullable=False):
+    return pa.field(
+        name, type, nullable=nullable, metadata={"description": description}
+    )
+
+
+# What the ROS header of an image has besides its capture time.
+_IMAGE_SEQUENCE_ROS_FIELDS = [
+    _image_sequence_field(
+        "frame_id",
+        pa.string(),
+        "Coordinate frame of the camera, as in the ROS header.",
+        nullable=True,
+    ),
+    _image_sequence_field(
+        "sample_counter",
+        pa.uint64(),
+        "Sequence number of the image, as in the ROS 1 header (`seq`).",
+        nullable=True,
+    ),
+]
+
+
+def test_image_sequence_struct():
+    # The `image_sequence` server format refers to these columns by name.
+    pyarrow_struct = pa.struct(
+        [
+            _image_sequence_field("format", pa.string(), "The image encoding ('png')."),
+            _image_sequence_field(
+                "capture_timestamp_ns",
+                pa.int64(),
+                "Capture time, in nanoseconds since the Unix epoch.",
+            ),
+        ]
+        + _IMAGE_SEQUENCE_ROS_FIELDS
+        + [_image_sequence_field("data", pa.binary(), "The encoded image.")]
+    )
+
+    assert pyarrow_struct == ImageSequence.__msco_pyarrow_struct__
+    assert ImageSequence.__serialization_format__ == SerializationFormat.ImageSequence
+
+
+def test_image_sequence_raw_struct():
+    # The `image_sequence_raw` server format refers to these columns by name.
+    field = _image_sequence_field
+    pyarrow_struct = pa.struct(
+        [
+            field(
+                "capture_timestamp_ns",
+                pa.int64(),
+                "Capture time, in nanoseconds since the Unix epoch.",
+            ),
+            field("width", pa.uint32(), "Image width in pixels."),
+            field("height", pa.uint32(), "Image height in pixels."),
+            field("stride", pa.uint32(), "Bytes per row, its padding included."),
+            field(
+                "encoding",
+                pa.string(),
+                "Pixel encoding, as in ROS (e.g. 'bgr8', 'mono16').",
+            ),
+            field(
+                "is_bigendian",
+                pa.bool_(),
+                "True if the samples of 16 bits are big-endian: little-endian if null.",
+                nullable=True,
+            ),
+        ]
+        + _IMAGE_SEQUENCE_ROS_FIELDS
+        + [field("data", pa.binary(), "The pixels, `stride * height` bytes.")]
+    )
+
+    assert pyarrow_struct == ImageSequenceRaw.__msco_pyarrow_struct__
+    assert (
+        ImageSequenceRaw.__serialization_format__
+        == SerializationFormat.ImageSequenceRaw
+    )
 
 
 def test_gps_struct():

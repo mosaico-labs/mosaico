@@ -7,11 +7,13 @@ use futures::stream::{StreamExt, TryStreamExt};
 use mosaicod_core::constants;
 use mosaicod_core::traits;
 use object_store::{
-    ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
+    ObjectStore, ObjectStoreExt, PutPayload, WriteMultipart, aws::AmazonS3Builder,
+    local::LocalFileSystem,
 };
 use parquet::arrow::async_reader::ParquetObjectReader;
 use std::sync::Arc;
 use thiserror::Error;
+use tokio::io::AsyncReadExt;
 use tracing::trace;
 use url::Url;
 
@@ -33,6 +35,8 @@ pub enum Error {
     InvalidEndpoint(String),
     #[error("unable to create directory `{0}`: {1}")]
     DirCreationFailed(String, std::io::Error),
+    #[error("unable to read local file `{0}`: {1}")]
+    LocalFileReadFailed(String, std::io::Error),
 }
 
 impl mosaicod_core::error::PublicError for Error {
@@ -341,6 +345,19 @@ impl Store {
             .into())
     }
 
+    /// Reads the byte `ranges` of the object `path`, in order: ranges close to one another are
+    /// read with a single request.
+    pub async fn read_ranges(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        ranges: &[std::ops::Range<u64>],
+    ) -> Result<Vec<bytes::Bytes>, Error> {
+        Ok(self
+            .driver
+            .get_ranges(&to_object_path(&path), ranges)
+            .await?)
+    }
+
     pub async fn write_bytes(
         &self,
         path: impl AsRef<std::path::Path>,
@@ -352,6 +369,77 @@ impl Store {
 
         Ok(())
     }
+
+    /// Uploads the local file `local` to `path`, returning its size.
+    ///
+    /// The file is streamed in parts of [`Self::UPLOAD_PART_SIZE`] bytes (a
+    /// multipart upload on an S3-compatible store), so a large file, such as
+    /// a video, is never held in memory whole. A file of one part is written
+    /// with a single request. If the upload fails, the parts already sent are
+    /// discarded.
+    pub async fn write_from_file(
+        &self,
+        path: impl AsRef<std::path::Path>,
+        local: impl AsRef<std::path::Path>,
+    ) -> Result<u64, Error> {
+        let local = local.as_ref();
+        let read_failed = |e| Error::LocalFileReadFailed(local.display().to_string(), e);
+        let mut file = tokio::fs::File::open(local).await.map_err(read_failed)?;
+        let size = file.metadata().await.map_err(read_failed)?.len();
+
+        if size <= Self::UPLOAD_PART_SIZE as u64 {
+            let mut bytes = Vec::with_capacity(size as usize);
+            file.read_to_end(&mut bytes).await.map_err(read_failed)?;
+            self.write_bytes(path, bytes).await?;
+            return Ok(size);
+        }
+
+        let upload = self.driver.put_multipart(&to_object_path(&path)).await?;
+        let mut writer = WriteMultipart::new_with_chunk_size(upload, Self::UPLOAD_PART_SIZE);
+        let sent: Result<(), Error> = async {
+            loop {
+                // A whole part, read in a buffer of its own that the upload takes as it is,
+                // without copying it.
+                let mut part = vec![0; Self::UPLOAD_PART_SIZE];
+                let mut filled = 0;
+                while filled < part.len() {
+                    match file.read(&mut part[filled..]).await.map_err(read_failed)? {
+                        0 => break,
+                        read => filled += read,
+                    }
+                }
+                if filled == 0 {
+                    return Ok(());
+                }
+                part.truncate(filled);
+                writer
+                    .wait_for_capacity(Self::UPLOAD_MAX_PARTS_IN_FLIGHT)
+                    .await?;
+                writer.put(part.into());
+            }
+        }
+        .await;
+
+        match sent {
+            Ok(()) => {
+                writer.finish().await?;
+                Ok(size)
+            }
+            Err(e) => {
+                if let Err(abort) = writer.abort().await {
+                    trace!("unable to abort the upload of {}: {abort}", local.display());
+                }
+                Err(e)
+            }
+        }
+    }
+
+    /// Size of the parts of [`Self::write_from_file`]: S3 needs at least
+    /// 5 MiB, and at most 10000 parts (so files of up to ~156 GiB).
+    pub const UPLOAD_PART_SIZE: usize = 16 * 1024 * 1024;
+
+    /// Parts of [`Self::write_from_file`] uploaded at the same time.
+    const UPLOAD_MAX_PARTS_IN_FLIGHT: usize = 4;
 
     /// Returns a list of elements located at the given `path`.
     ///
@@ -574,6 +662,52 @@ mod test {
         assert_eq!(buffer, read_buffer);
 
         assert_eq!(store.list("", None).await.unwrap().len(), 2);
+    }
+
+    /// Checks that local files are uploaded whole, both in one request and
+    /// in several parts.
+    #[tokio::test]
+    async fn test_write_from_file() {
+        let store = testing::Store::new_random_on_tmp().unwrap();
+        let dir = tempfile::tempdir().unwrap();
+
+        for (name, size) in [
+            ("small", 1000),
+            ("one_part", Store::UPLOAD_PART_SIZE),
+            ("parts", 2 * Store::UPLOAD_PART_SIZE + 12345),
+        ] {
+            let bytes: Vec<u8> = (0..size).map(|i| (i % 251) as u8).collect();
+            let local = dir.path().join(name);
+            std::fs::write(&local, &bytes).unwrap();
+
+            let target = format!("uploads/{name}");
+            let written = store.write_from_file(&target, &local).await.unwrap();
+            assert_eq!(written, size as u64, "{name}");
+            assert!(store.read_bytes(&target).await.unwrap() == bytes, "{name}");
+        }
+
+        assert!(matches!(
+            store
+                .write_from_file("missing", dir.path().join("missing"))
+                .await,
+            Err(Error::LocalFileReadFailed(..))
+        ));
+    }
+
+    /// Checks that an object is read by ranges.
+    #[tokio::test]
+    async fn test_read_ranges() {
+        let store = testing::Store::new_random_on_tmp().unwrap();
+        let bytes: Vec<u8> = (0..3 * 1024 * 1024 + 7).map(|i| (i % 251) as u8).collect();
+        store.write_bytes("video", bytes.clone()).await.unwrap();
+
+        let ranges = store
+            .read_ranges("video", &[0..3, 10..20, 20..25])
+            .await
+            .unwrap();
+        assert_eq!(ranges[0], bytes[0..3]);
+        assert_eq!(ranges[1], bytes[10..20]);
+        assert_eq!(ranges[2], bytes[20..25]);
     }
 
     #[test]

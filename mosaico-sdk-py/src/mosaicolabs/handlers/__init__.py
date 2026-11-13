@@ -9,4 +9,9 @@ from .sequence_writer import (
 )
 from .topic_handler import TopicHandler as TopicHandler
 from .topic_reader import TopicDataStreamer as TopicDataStreamer
+from .topic_video import (
+    TopicVideo as TopicVideo,
+    VideoSegment as VideoSegment,
+    VideoUnavailableError as VideoUnavailableError,
+)
 from .topic_writer import TopicWriter as TopicWriter

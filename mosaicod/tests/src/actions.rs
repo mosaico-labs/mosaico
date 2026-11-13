@@ -268,6 +268,7 @@ pub async fn do_get(
     let ticket_payload = types::flight::TicketTopic {
         locator,
         timestamp_range: None,
+        image_sequence_view: types::flight::ImageSequenceView::Images,
     };
 
     let ticket = Ticket {
@@ -347,9 +348,21 @@ pub async fn get_flight_info(
     topic_name: &str,
     interval: Option<types::TimestampRange>,
 ) -> Result<FlightInfo, tonic::Status> {
+    get_flight_info_with_image_sequence(client, topic_name, interval, None).await
+}
+
+/// Returns flight info data for a sequence or a topic in the given interval, asking for
+/// `image_sequence` of its image sequence topics.
+pub async fn get_flight_info_with_image_sequence(
+    client: &mut Client,
+    topic_name: &str,
+    interval: Option<types::TimestampRange>,
+    image_sequence: Option<mosaicod_proto::v1::flight::ImageSequenceRequest>,
+) -> Result<FlightInfo, tonic::Status> {
     let cmd = mosaicod_proto::v1::flight::GetFlightInfoCmd {
         locator: topic_name.to_owned(),
         timestamp_range: interval.map(marshal::timestamp_range_to_proto),
+        image_sequence,
     }
     .encode_to_vec();
 

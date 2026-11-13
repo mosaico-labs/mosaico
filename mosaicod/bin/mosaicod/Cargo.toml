@@ -7,6 +7,14 @@ rust-version.workspace = true
 [[bin]]
 name = "mosaicod"
 
+[features]
+# Image sequences turned into videos, and their images read back: needs FFmpeg. Off by default,
+# so that mosaicod needs no FFmpeg.
+video = ["mosaicod-commands/video"]
+# `video`, with FFmpeg linked statically, as `scripts/install-ffmpeg` builds it: nothing of FFmpeg
+# to install to run. What the optimizer image is built with.
+video-static = ["video", "mosaicod-commands/video-static"]
+
 [dependencies]
 mosaicod-commands = { workspace = true }
 mosaicod-build = { workspace = true }

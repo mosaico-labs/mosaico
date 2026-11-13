@@ -28,6 +28,14 @@ pub enum Format {
     /// Resource format for images and dense multi-dimensional arrays.
     /// This format is optimized for storing high-dimensional data efficiently.
     Image,
+
+    /// Resource format for a sequence of losslessly compressed images (PNG),
+    /// each with its capture time.
+    ImageSequence,
+
+    /// Resource format for a sequence of raw images, as a camera driver writes
+    /// them (e.g. a ROS `sensor_msgs/Image`), each with its capture time.
+    ImageSequenceRaw,
 }
 
 impl Format {
@@ -37,7 +45,14 @@ impl Format {
             Format::Default => "default",
             Format::Ragged => "ragged",
             Format::Image => "image",
+            Format::ImageSequence => "image_sequence",
+            Format::ImageSequenceRaw => "image_sequence_raw",
         }
+    }
+
+    /// Whether it is a format of image sequences, which the store optimizer turns into videos.
+    pub fn is_image_sequence(&self) -> bool {
+        matches!(self, Format::ImageSequence | Format::ImageSequenceRaw)
     }
 }
 
@@ -49,6 +64,8 @@ impl std::str::FromStr for Format {
             "default" => Ok(Self::Default),
             "ragged" => Ok(Self::Ragged),
             "image" => Ok(Self::Image),
+            "image_sequence" => Ok(Self::ImageSequence),
+            "image_sequence_raw" => Ok(Self::ImageSequenceRaw),
             _ => Err(FormatError::unknown_format(value)),
         }
     }
@@ -78,6 +95,13 @@ mod tests {
         let image = Format::from_str("image");
         assert!(image.is_ok());
         assert_eq!(image.as_ref().unwrap(), &Format::Image);
+
+        let image_sequence = Format::from_str("image_sequence");
+        assert!(image_sequence.is_ok());
+        assert_eq!(image_sequence.as_ref().unwrap(), &Format::ImageSequence);
+
+        let raw = Format::from_str("image_sequence_raw");
+        assert_eq!(raw.as_ref().unwrap(), &Format::ImageSequenceRaw);
     }
 
     #[test]
@@ -85,5 +109,7 @@ mod tests {
         assert_eq!("ragged", Format::Ragged.to_string());
         assert_eq!("default", Format::Default.to_string());
         assert_eq!("image", Format::Image.to_string());
+        assert_eq!("image_sequence", Format::ImageSequence.to_string());
+        assert_eq!("image_sequence_raw", Format::ImageSequenceRaw.to_string());
     }
 }
