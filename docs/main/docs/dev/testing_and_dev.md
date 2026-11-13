@@ -127,6 +127,8 @@ uv sync --locked
 uv run --locked mkdocs build
 ```
 
+Both documentation sites show the version they were built from in the header. Release builds, which the docs workflow runs on a `v*` tag, show the tag. Any other build shows `development`. To preview the release label locally, set the variables GitHub Actions sets on a tag push, for example `GITHUB_REF_TYPE=tag GITHUB_REF_NAME=v0.8.0 uv run --locked mkdocs build`.
+
 ## Testing
 
 The project includes a comprehensive suite of unit and integration tests to validate functionality and prevent regressions.
