@@ -84,3 +84,5 @@ jobs:
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico extract ros --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico inject mcap --help
           uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico extract mcap --help
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico examples ls
+          uv run --isolated --no-project --with "${wheels[0]}[cli]" mosaico examples ros_injection --help
