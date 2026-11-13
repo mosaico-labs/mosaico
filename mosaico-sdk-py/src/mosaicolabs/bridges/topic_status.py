@@ -7,11 +7,12 @@ class TopicStatus(Enum):
 
     Rejection statuses are reported by the loaders' `rejected_topics` property:
 
-    * **All loaders** (`ROSLoader`, `MosaicoLoader`, `MCAPLoader`, via `BaseLoader`):
-      `FILTERED`, `UNRESOLVED_ADAPTER`.
+    * **All loaders** (`ROSLoader`, `MosaicoLoader`, `MCAPLoader`, `ULogLoader`, via
+      `BaseLoader`): `FILTERED`, `UNRESOLVED_ADAPTER`.
     * **`MosaicoLoader`** only (`MosaicoToROSLoader`, `MosaicoToMCAPLoader`):
       `MALFORMED_METADATA`, plus `NOT_IN_TYPESTORE` for `MosaicoToROSLoader`.
     * **`MCAPLoader`** only: `UNRESOLVED_DECODER`, `UNAVAILABLE_SCHEMA`.
+    * **`ULogLoader`** only: `NO_VALID_TIMESTAMP`, `EMPTY_TOPIC`.
 
     `ACCEPTED` is never reported as a rejection reason.
 
@@ -23,6 +24,8 @@ class TopicStatus(Enum):
         MALFORMED_METADATA: Enum specifying the Topic has been rejected since its bridge metadata (``_ros_`` or ``_mcap_``) is malformed.
         UNRESOLVED_DECODER: Enum specifying the Channel has been rejected since its encoding does not have an implemented decoder.
         UNAVAILABLE_SCHEMA: Enum specifying the Channel has been rejected since it does not contain any schema information.
+        NO_VALID_TIMESTAMP: Enum specifying the Topic has been rejected since it has no ``timestamp`` field, or no row with a valid timestamp.
+        EMPTY_TOPIC: Enum specifying the Topic has been rejected since it has no payload field besides its timestamp.
     """
 
     ACCEPTED = "Accepted"
@@ -45,6 +48,12 @@ class TopicStatus(Enum):
 
     UNAVAILABLE_SCHEMA = "Unavailable schema"
     """ Status indicating the Channel has been rejected since it does not contain any schema information """
+
+    NO_VALID_TIMESTAMP = "No valid timestamp"
+    """ Status indicating the Topic has been rejected since it has no 'timestamp' field, or no row with a valid timestamp """
+
+    EMPTY_TOPIC = "Empty topic"
+    """ Status indicating the Topic has been rejected since it has no payload field besides its timestamp """
 
 
 def to_color(topic_status: TopicStatus) -> str:
