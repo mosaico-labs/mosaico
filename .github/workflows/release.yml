@@ -39,7 +39,7 @@ jobs:
       next_version: ${{ steps.release.outputs.next_version }}
     steps:
       # Full history and tags, to check whether the release tag already exists.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -139,7 +139,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       # Latest main, where the version bump goes.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
