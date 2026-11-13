@@ -22,7 +22,7 @@ mosaicod-db = { workspace = true, features = ["postgres"] }
 arrow = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
 
 [dev-dependencies]
 sqlx = { workspace = true }
