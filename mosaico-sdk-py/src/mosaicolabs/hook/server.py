@@ -137,7 +137,8 @@ class HookServer:
 class _Server(ThreadingHTTPServer):
     def __init__(self, address: tuple[str, int], hook: HookServer) -> None:
         self.hook = hook
-        # Receivers run here, after the request is answered.
+        # Receivers run here, after the request is answered. The default number of
+        # threads, min(32, CPUs + 4), caps how many run at once: further events wait.
         self.pool = ThreadPoolExecutor(thread_name_prefix="mosaico-hook")
         super().__init__(address, _Handler)
 
