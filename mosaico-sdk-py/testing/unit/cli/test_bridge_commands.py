@@ -48,6 +48,7 @@ class _FakeRunner:
 
     configs: list = []
     outcome = None
+    failed_episodes: list = []
 
     def __init__(self, config):
         type(self).configs.append(config)
@@ -62,6 +63,7 @@ class _FakeRunner:
 def fake(monkeypatch):
     _FakeRunner.configs = []
     _FakeRunner.outcome = None
+    _FakeRunner.failed_episodes = []
     for module, name in [
         (ros_bridge, "RosbagInjector"),
         (ros_bridge, "ROSSequenceExtractor"),
@@ -409,6 +411,12 @@ class TestLeRobotInject:
         (cfg,) = fake.configs
         assert cfg.dry_run is True
         assert cfg.host == "localhost"
+
+    def test_failed_episodes_exit_non_zero(self, profile_env, fake, tmp_path):
+        fake.outcome = InjectionStatus.COMPLETED
+        fake.failed_episodes = [0, 3]
+        result = runner.invoke(app, ["inject", "lerobot", str(tmp_path)])
+        assert result.exit_code == 1
 
     def test_file_rejected(self, profile_env, fake, input_file):
         result = runner.invoke(app, ["inject", "lerobot", str(input_file)])

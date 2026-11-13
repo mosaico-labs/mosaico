@@ -213,7 +213,7 @@ mosaico inject lerobot [OPTIONS] DATASET_PATH
 | `--dry-run` | | Print which columns, topics and sequences would be ingested, without connecting to the server. |
 | `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
 
-Video features are not supported yet and are skipped with a warning. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+Video features are not supported yet and are skipped with a warning. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode. If any episode failed, the command exits with code 1 once every episode is processed.
 
 #### Examples
 

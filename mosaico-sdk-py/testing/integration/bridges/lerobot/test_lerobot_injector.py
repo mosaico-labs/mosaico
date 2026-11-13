@@ -54,9 +54,11 @@ def test_lerobot_injection_succeeds(mosaico_client, default_lerobot_injector_con
     """Tests that the whole ingestion pipeline works: each episode is ingested as its own
     sequence"""
 
-    status = LeRobotInjector(default_lerobot_injector_config).run()
+    injector = LeRobotInjector(default_lerobot_injector_config)
+    status = injector.run()
 
     assert status is InjectionStatus.COMPLETED
+    assert injector.failed_episodes == []
     for sequence_name in _sequence_names():
         sequence_handler = mosaico_client.sequence_handler(sequence_name)
         assert sequence_handler is not None
@@ -73,11 +75,11 @@ def test_lerobot_injection_deletes_a_failed_episode(
     root = lerobot_dataset_factory()
     lengthen_first_episode(root)
 
-    status = LeRobotInjector(
-        replace(default_lerobot_injector_config, file_path=root)
-    ).run()
+    injector = LeRobotInjector(replace(default_lerobot_injector_config, file_path=root))
+    status = injector.run()
 
     assert status is InjectionStatus.COMPLETED
+    assert injector.failed_episodes == [0]
     first_sequence, *other_sequences = _sequence_names()
     assert mosaico_client.sequence_exists(first_sequence) is False
     assert all(mosaico_client.sequence_exists(name) for name in other_sequences)
