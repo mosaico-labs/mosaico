@@ -2682,6 +2682,7 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "url",
 ]
 
 [[package]]
@@ -2696,6 +2697,7 @@ dependencies = [
  "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
+ "mosaicod-hook",
  "mosaicod-instance-registry",
  "mosaicod-os",
  "mosaicod-store",
@@ -2749,6 +2751,7 @@ dependencies = [
  "mosaicod-ext",
  "mosaicod-facade",
  "mosaicod-grpc-common",
+ "mosaicod-hook",
  "mosaicod-marshal",
  "mosaicod-query",
  "mosaicod-rw",
@@ -2757,6 +2760,24 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
+ "tracing",
+]
+
+[[package]]
+name = "mosaicod-hook"
+version = "0.8.0-dev"
+dependencies = [
+ "bytes",
+ "mosaicod-config",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-marshal",
+ "reqwest",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-util",
  "tracing",
 ]
 
@@ -4344,6 +4365,7 @@ dependencies = [
  "mosaicod-facade",
  "mosaicod-grpc",
  "mosaicod-grpc-common",
+ "mosaicod-hook",
  "mosaicod-marshal",
  "mosaicod-proto",
  "mosaicod-query",

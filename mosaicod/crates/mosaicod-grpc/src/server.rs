@@ -4,6 +4,7 @@ use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_hook as hook;
 use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
@@ -109,6 +110,7 @@ impl Server {
         let res: Result<()> = rt.block_on(async {
             let server_store = self.store.clone();
             let server_db = self.db.clone();
+            let hooks = hook::Dispatcher::spawn(server_db.clone(), shutdown.token())?;
 
             let instance = db::instance_registry_create(
                 &mut server_db.connection(),
@@ -130,7 +132,8 @@ impl Server {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown.clone())).await
+                if let Err(err) =
+                    serve(server_store, server_db, hooks, opts, Some(shutdown.clone())).await
                 {
                     error!("{}", err);
                 }
@@ -168,12 +171,13 @@ impl Server {
 pub async fn serve(
     store: store::StoreRef,
     db: db::Database,
+    hooks: hook::Dispatcher,
     opts: Options,
     shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::new(opts.host, opts.port);
 
-    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone())?;
+    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone(), hooks)?;
 
     if opts.enable_api_key_management {
         grpc_flight_svc.enable_api_key_manegement();

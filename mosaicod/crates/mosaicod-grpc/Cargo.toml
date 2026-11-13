@@ -19,6 +19,7 @@ mosaicod-os = { workspace = true }
 mosaicod-instance-registry = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-ext = { workspace = true }
+mosaicod-hook = { workspace = true }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }

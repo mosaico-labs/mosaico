@@ -36,6 +36,9 @@ pub use log::*;
 mod listing;
 pub use listing::*;
 
+mod hook;
+pub use hook::*;
+
 pub mod auth;
 pub use auth::ApiKey;
 pub use auth::ApiKeyError;
