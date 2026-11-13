@@ -21,7 +21,7 @@ Typos, broken links, similarly small changes, and dependency updates don't need 
 We value your time (and ours), so we aim to avoid unnecessary work. Even if a PR is excellent, it may not align with our internal roadmap, so any other change has to start from one of the following:
 
 - **An open, unassigned [Issue](https://github.com/mosaico-labs/mosaico/issues).** Comment on it to let everyone know you want to work on it. The first person to comment gets assigned, and only the assignee can open a Pull Request for that Issue. If the assignee stops working on it, a maintainer unassigns them and the Issue becomes available again. The maintainer who assigns you is also added as an assignee of the Issue and reviews every Pull Request that addresses it.
-- **A new [Discussion](https://github.com/mosaico-labs/mosaico/discussions/categories/issue)** describing what you'd like to change. Once the discussion is finalized, a maintainer will create a corresponding Issue.
+- **A new [Discussion](https://github.com/mosaico-labs/mosaico/discussions/categories/issue)** describing what you'd like to change. Once the discussion is finalized, a maintainer will create one or more corresponding Issues.
 
 If you'd like to contribute but don't know where to start, look for issues labeled [`good first issue`](https://github.com/mosaico-labs/mosaico/issues?q=is%3Aissue%20is%3Aopen%20label%3A%22good%20first%20issue%22).
 
