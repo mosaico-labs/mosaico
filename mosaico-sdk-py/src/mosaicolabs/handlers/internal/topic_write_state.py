@@ -31,19 +31,19 @@ def _encode_messages(objs: list[Message]):
     return dict(result)
 
 
-def _is_monotonic_increasing(arr: pa.Array) -> bool:
-    """Checks that an array is strictly increasing"""
+def _is_non_decreasing(arr: pa.Array) -> bool:
+    """Checks that an array is non-decreasing (equal consecutive values are allowed)"""
 
-    # If there is less than 2 elements, it is increasing
+    # If there is less than 2 elements, it is non-decreasing
     if len(arr) < 2:
         return True
 
-    # If contains null cannot be monotonically increasing
+    # If contains null cannot be non-decreasing
     if arr.null_count:  # nulls would otherwise be silently skipped
         return False
 
     left, right = arr[:-1], arr[1:]
-    return pc.all(pc.less(left, right)).as_py()
+    return pc.all(pc.less_equal(left, right)).as_py()
 
 
 class _TopicWriteState:
@@ -93,6 +93,33 @@ class _TopicWriteState:
         self._written_records = 0
         self._pushed_records = 0
         self._oversized_records = 0
+
+        # --- Ordering State ---
+        # The highest `timestamp_ns` accepted so far, by either `push_record()` or
+        # `push_batch()`. Since accepted timestamps are non-decreasing, it is also
+        # the last one. `None` until the first record is accepted.
+        self._last_timestamp_ns: Optional[int] = None
+
+    def _check_follows_last_timestamp(self, first_timestamp_ns: int) -> None:
+        """
+        Ensures the topic's timestamps stay non-decreasing across pushes.
+
+        Args:
+            first_timestamp_ns (int): The lowest timestamp of the records about to be
+                accepted (the first one, as they are non-decreasing among themselves).
+
+        Raises:
+            ValueError: If `first_timestamp_ns` is lower than the last accepted timestamp.
+        """
+        if (
+            self._last_timestamp_ns is not None
+            and first_timestamp_ns < self._last_timestamp_ns
+        ):
+            raise ValueError(
+                f"'timestamp_ns' must be non-decreasing across pushes on topic "
+                f"'{self.topic_name}': got {first_timestamp_ns}, lower than the last "
+                f"pushed timestamp {self._last_timestamp_ns}."
+            )
 
     def _get_record_batch(self, msgs: List[Message]) -> pa.RecordBatch:
         """
@@ -173,18 +200,23 @@ class _TopicWriteState:
         Returns:
             bool: True if the record was buffered for transmission. False if it
                 was rejected because, on its own, it exceeds `max_batch_size_bytes`
-                and therefore cannot be split any further.
+                and therefore cannot be split any further. A rejected record does
+                not take part in the ordering check of the following records.
 
         Raises:
-            ValueError: If the writer is None.
+            ValueError: If the writer is None, or if `msg.timestamp_ns` is lower than
+                the last timestamp accepted on this topic.
         """
         if self.writer is None:
             raise ValueError("write() called on uninitialized state.")
+
+        self._check_follows_last_timestamp(msg.timestamp_ns)
 
         pushed = self._push_by_bytes_size(msg)
 
         if pushed:
             self._pushed_records += 1
+            self._last_timestamp_ns = msg.timestamp_ns
         else:
             self._oversized_records += 1
 
@@ -206,8 +238,9 @@ class _TopicWriteState:
 
         Raises:
             ValueError: If the writer is None, if `data` does not match the ontology schema,
-                if `timestamp_ns` is not a null-free `int64` array as long as `data`, or if
-                the batch exceeds `max_batch_size_bytes`.
+                if `timestamp_ns` is not a null-free, non-decreasing `int64` array as long
+                as `data`, if its first value is lower than the last timestamp accepted on
+                this topic, or if the batch exceeds `max_batch_size_bytes`.
         """
         if self.writer is None:
             raise ValueError("push_batch() called on uninitialized state.")
@@ -230,10 +263,13 @@ class _TopicWriteState:
                 f"'timestamp_ns' has {len(timestamp_ns)} values, but the batch has "
                 f"{data.num_rows} rows."
             )
-        if not _is_monotonic_increasing(timestamp_ns):
+        if not _is_non_decreasing(timestamp_ns):
             raise ValueError(
-                "Some values from 'timestamp_ns' are not monotonically increasing"
+                "'timestamp_ns' must be non-decreasing: found a timestamp lower "
+                "than the previous one."
             )
+        if len(timestamp_ns) > 0:
+            self._check_follows_last_timestamp(timestamp_ns[0].as_py())
 
         batch = pa.RecordBatch.from_arrays(
             [timestamp_ns, *data.columns], schema=self.wire_schema
@@ -256,6 +292,8 @@ class _TopicWriteState:
 
         self._pushed_records += batch.num_rows
         self._written_records += batch.num_rows
+        if batch.num_rows > 0:
+            self._last_timestamp_ns = timestamp_ns[-1].as_py()
 
     def _submit_write_task(self, msgs_to_write: List[Message]):
         """
