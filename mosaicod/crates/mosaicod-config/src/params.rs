@@ -409,8 +409,12 @@ pub struct Params {
     pub store_endpoint: Param<String>,
     pub store_bucket: Param<String>,
 
-    /// Region of the S3-compatible object store. When empty, the object store client
-    /// default is used. Ignored by the local filesystem backend.
+    /// Region where the bucket is located (e.g. `eu-south-1`).
+    ///
+    /// Region is a general concept shared by many cloud storage services.
+    /// For example, an S3 store uses it to sign requests, so on AWS it must
+    /// match the region of the bucket. Ignored by the local filesystem backend.
+    /// When empty, the object store client default (`us-east-1`) is used.
     pub store_region: Param<String>,
 
     /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`]).

@@ -70,7 +70,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-store-bucket" />`MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. May only contain ASCII letters, digits, `.` and `-`, and cannot be `.` or `..`. **Required**.
 
-- <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region of the object storage service. Only used with S3-compatible endpoints, ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Must not contain whitespace, control characters or `/`. Default is an empty string.
+- <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region where the bucket is located (e.g. `eu-south-1`). Region is a general concept shared by many cloud storage services. For example, an S3 store uses it to sign requests, so on AWS it must match the region of the bucket. It is ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Must not contain whitespace, control characters or `/`. Default is an empty string.
 
 - <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Required with S3-compatible endpoints. Must not contain whitespace, control characters or `,`. Default is an empty string.
 
