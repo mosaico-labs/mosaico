@@ -1,0 +1,20 @@
+{#-
+  Override of Material's partials/source.html.
+
+  Material fetches the latest GitHub release in the browser and shows it here,
+  which isn't necessarily the version these docs were built from. Instead, show
+  config.extra.docs_version (set by hooks/docs_version.py) and skip the fetch by
+  leaving out data-md-component="source".
+-#}
+<a href="{{ config.repo_url }}" title="{{ lang.t('source') }}" class="md-source">
+  <div class="md-source__icon md-icon">
+    {% set icon = config.theme.icon.repo or "fontawesome/brands/git-alt" %}
+    {% include ".icons/" ~ icon ~ ".svg" %}
+  </div>
+  <div class="md-source__repository md-source__repository--active">
+    {{ config.repo_name }}
+    <ul class="md-source__facts">
+      <li class="md-source__fact md-source__fact--version">{{ config.extra.docs_version | e }}</li>
+    </ul>
+  </div>
+</a>

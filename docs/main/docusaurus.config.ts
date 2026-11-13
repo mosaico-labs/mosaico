@@ -2,6 +2,18 @@ import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+const repoUrl = 'https://github.com/mosaico-labs/mosaico';
+
+// Release docs are built by .github/workflows/docs.yml on a `v*` tag push,
+// where GitHub sets GITHUB_REF_TYPE=tag and GITHUB_REF_NAME to the tag.
+// Any other build (e.g. local) is labelled "development" so it can't be
+// mistaken for the official docs.
+const releaseTag =
+  process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined;
+const docsVersion = releaseTag
+  ? { label: releaseTag, href: `${repoUrl}/releases/tag/${encodeURIComponent(releaseTag)}` }
+  : { label: 'development', href: `${repoUrl}/releases` };
+
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 const config: Config = {
   title: 'Mosaico Doc',
@@ -103,7 +115,11 @@ const config: Config = {
       },
       items: [
         {
-          href: 'https://github.com/mosaico-labs/mosaico',
+          ...docsVersion,
+          position: 'right',
+        },
+        {
+          href: repoUrl,
           label: 'GitHub',
           position: 'right',
         },
