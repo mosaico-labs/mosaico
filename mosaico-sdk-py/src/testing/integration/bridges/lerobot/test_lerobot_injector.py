@@ -4,10 +4,7 @@ from typing import Iterator, List
 import pytest
 
 from mosaicolabs.bridges.base_injector import InjectionStatus
-from mosaicolabs.bridges.lerobot.injector import (
-    LeRobotInjectionConfig,
-    LeRobotInjector,
-)
+from mosaicolabs.bridges.lerobot import LeRobotInjectionConfig, LeRobotInjector
 from testing.unit.bridges.lerobot.config import (
     EPISODE_LENGTHS,
     lengthen_first_episode,

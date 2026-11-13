@@ -13,6 +13,7 @@
 - Added the **`mosaicolabs.ros_sequence_extractor`** and **`mosaicolabs.mcap_sequence_extractor`** command-line scripts, the extraction counterparts of the `mosaicolabs.ros_injector` / `mosaicolabs.mcap_injector` development scripts. ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
 - The documentation now uses the `mosaico` CLI in its command-line examples; the `mosaicolabs.*` scripts are documented as development tools.
 - Added the **`mosaico examples`** command group to the official CLI: `mosaico examples ls` lists the SDK examples and `mosaico examples <EXAMPLE>` runs one, taking its connection settings from the active profile. ([#1028](https://github.com/mosaico-labs/mosaico/issues/1028))
+- Added the **`mosaico inject lerobot`** command, which injects a LeRobot v3.0 dataset as one sequence per episode, taking its connection settings from the active profile. `LeRobotInjectionConfig`, `LeRobotInjector` and `LeRobotSchemaMetadata` can now be imported from `mosaicolabs.bridges.lerobot`. ([#1030](https://github.com/mosaico-labs/mosaico/issues/1030))
 
 
 ## [0.7.0] - 2026-10-08

@@ -2622,6 +2622,7 @@ dependencies = [
  "clap",
  "crc32fast",
  "rand 0.10.3",
+ "subtle",
  "thiserror",
  "tracing",
  "tracing-subscriber",

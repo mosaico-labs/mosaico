@@ -1,11 +1,12 @@
 use crate::error::{PublicErrorGrpcExt, Result};
-use mosaicod_core::{self as core, types};
-use mosaicod_facade as facade;
+use mosaicod_core::{self as core, error::BoxPublicError, types};
+use mosaicod_facade::{self as facade, auth::TokenError};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
 use tower::{Layer, Service};
+use tracing::warn;
 
 // Skeleton from: https://github.com/hyperium/tonic/blob/master/examples/src/tower/server.rs
 
@@ -114,17 +115,30 @@ where
                         Err(core::Error::missing_api_key())?
                     }
 
+                    // Rejects malformed tokens before any DB request.
                     let token: types::auth::Token = token.parse()?;
 
-                    let handle =
-                        facade::auth::Handle::try_from_fingerprint(&context, token.fingerprint())
-                            .await
-                            .map_err(|e| match e.error().kind() {
-                                core::error::ErrorKind::NotFound(_) => {
-                                    core::Error::unauthorized("API key does not exist.".to_string())
-                                }
-                                _ => e.error(),
-                            })?;
+                    // Both rejections get the same error, so a client cannot probe which
+                    // fingerprints are registered.
+                    let api_key_does_not_exist = || -> BoxPublicError {
+                        core::Error::unauthorized("API key does not exist.".to_string()).into()
+                    };
+                    let handle = facade::auth::Handle::try_from_token(&context, &token)
+                        .await
+                        .map_err(|e| match e {
+                            TokenError::UnknownFingerprint => api_key_does_not_exist(),
+                            TokenError::PayloadMismatch => {
+                                // Legitimate clients practically never get here: typos fail
+                                // parsing and revoked keys are unknown fingerprints. The
+                                // fingerprint is public, so logging it is safe.
+                                warn!(
+                                    fingerprint = token.fingerprint(),
+                                    "API key rejected: payload does not match the key registered under this fingerprint"
+                                );
+                                api_key_does_not_exist()
+                            }
+                            TokenError::Other(e) => e,
+                        })?;
 
                     if handle.api_key().is_expired() {
                         Err(core::Error::unauthorized("API key is expired.".to_string()))?;
