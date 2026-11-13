@@ -22,14 +22,14 @@ from ..utils.generated.imu_pb2 import Imu as ImuProtobuf
 
 
 class UnsupportedAdapter(MCAPAdapterBase[IMU, Dict]):
-    """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
+    """Custom adapter created for the Imu.proto message available at testing/unit/bridges/utils/proto/imu.proto"""
 
     schema_name = "Mosaico.invented.data"
     schema_encoding = "not-supported-encoding"
 
 
 class MyImuProtobufAdapter(MCAPAdapterBase[IMU, ImuProtobuf]):
-    """Custom adapter created for the Imu.proto message available at src/testing/unit/bridges/utils/proto/imu.proto"""
+    """Custom adapter created for the Imu.proto message available at testing/unit/bridges/utils/proto/imu.proto"""
 
     schema_name = "Mosaico.Imu"
     schema_encoding = "protobuf"
@@ -74,7 +74,7 @@ class MyImuProtobufAdapter(MCAPAdapterBase[IMU, ImuProtobuf]):
 
 
 class MyImuJsonschemaAdapter(MCAPAdapterBase[IMU, Dict]):
-    """Custom adapter created for the Imu jsonschema message available at src/testing/unit/bridges/utils/jsonschema/imu.schema.json"""
+    """Custom adapter created for the Imu jsonschema message available at testing/unit/bridges/utils/jsonschema/imu.schema.json"""
 
     schema_name = "Mosaico.Imu"
     schema_encoding = "jsonschema"
