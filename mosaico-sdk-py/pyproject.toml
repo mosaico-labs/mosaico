@@ -28,6 +28,8 @@ dependencies = [
     "click>=8.3.1,<9.0.0",
     "mcap-protobuf-support>=0.5.4,<0.7.0",
     "mcap>=1.4.0,<2.0.0",
+    # ULog bridge reads pyulog private attributes (info types): keep the minor pinned
+    "pyulog>=1.2.4,<1.3",
     # protobuf < 5.27 fails to import on Python 3.14
     "protobuf>=4.25.0; python_version < '3.14'",
     "protobuf>=5.27.0; python_version >= '3.14'",
@@ -88,6 +90,7 @@ build-backend = "uv_build"
 "mosaicolabs.ros_injector" = "mosaicolabs.bridges.ros.injector:ros_injector"
 "mosaicolabs.mcap_injector" = "mosaicolabs.bridges.mcap.injector:mcap_injector"
 "mosaicolabs.lerobot_injector" = "mosaicolabs.bridges.lerobot.injector:lerobot_injector"
+"mosaicolabs.ulog_injector" = "mosaicolabs.bridges.ulog.injector:ulog_injector"
 "mosaicolabs.ros_sequence_extractor" = "mosaicolabs.bridges.ros.sequence_extractor:ros_sequence_extractor"
 "mosaicolabs.mcap_sequence_extractor" = "mosaicolabs.bridges.mcap.sequence_extractor:mcap_sequence_extractor"
 "mosaicolabs.watchdog" = "mosaicolabs.watchdog.watchdog:main"

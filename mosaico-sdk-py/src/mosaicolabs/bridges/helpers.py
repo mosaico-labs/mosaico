@@ -5,8 +5,12 @@ from pathlib import Path
 from typing import (
     List,
     Optional,
+    Tuple,
     TypeGuard,
 )
+
+import pyarrow as pa
+import pyarrow.ipc as pa_ipc
 
 from mosaicolabs import SequenceHandler
 from mosaicolabs.logging_config import get_logger
@@ -182,3 +186,51 @@ def _filter_from_list(
             resolved_items |= match_set
 
     return list(resolved_items)
+
+
+def _max_rows_within(batch: pa.RecordBatch, max_size: int) -> int:
+    """
+    Returns the largest number of leading rows of `batch` within `max_size` bytes, measured as
+    `TopicWriter.push_batch` does (Arrow IPC size). `batch` itself must exceed `max_size`.
+
+    The size never decreases when rows are added, so the number is found by bisection: `lo`
+    rows are known to fit and `hi` rows are known not to, and the range between them is halved
+    until they are adjacent. Returns 0 if not even the first row fits.
+    """
+    lo, hi = 0, batch.num_rows
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if pa_ipc.get_record_batch_size(batch.slice(0, mid)) <= max_size:
+            lo = mid
+        else:
+            hi = mid
+    return lo
+
+
+def _fit_batch(
+    batch: pa.RecordBatch, max_size: int
+) -> Tuple[List[pa.RecordBatch], pa.RecordBatch]:
+    """
+    Cuts `batch` into batches as large as possible within `max_size` bytes (see
+    `MosaicoClient.max_batch_size_bytes`).
+
+    Returns:
+        Tuple[List[pa.RecordBatch], pa.RecordBatch]: The full batches, and the rows left
+            over, which fit within `max_size` and can be sent together with the next rows.
+            Both are slices of `batch`: no data is copied.
+
+    Raises:
+        ValueError: If a single row exceeds `max_size`.
+    """
+    full_rbs: List[pa.RecordBatch] = []
+    while pa_ipc.get_record_batch_size(batch) > max_size:
+        rows = _max_rows_within(batch, max_size)
+        if rows == 0:
+            row_size = pa_ipc.get_record_batch_size(batch.slice(0, 1))
+            raise ValueError(
+                f"Single row size {row_size} bytes > {max_size} bytes maximum allowed batch size."
+            )
+
+        full_rbs.append(batch.slice(offset=0, length=rows))
+        batch = batch.slice(offset=rows)
+    return full_rbs, batch

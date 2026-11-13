@@ -159,6 +159,9 @@ class InjectionConfigBase:
     sequence_name).topics`, the same mechanism `MosaicoLoader` already uses) before calling
     `topic_create`. A safe resume would need to check that list first and skip topics already
     present, rather than only checking the local per-process cache.
+
+    Not supported by the ULog bridge: a `.ulg` file is a whole flight, i.e. one sequence, so
+    `ULogInjector.run()` raises a `ValueError` if this is `True`.
     """
 
     host: str = "localhost"
@@ -197,6 +200,7 @@ class InjectionConfigBase:
 
     - MCAP: the original channel name (e.g. "camera/pointcloud").
     - ROS: the message type (e.g. "sensor_msgs/msg/PointCloud2").
+    - ULog: the format name (e.g. "sensor_accel"), shared by all the instances of the format.
 
     Only applies to non-adapted (unmodeled) topics. Topics whose key is not present in this
     mapping default to `SerializationFormat.Default`.

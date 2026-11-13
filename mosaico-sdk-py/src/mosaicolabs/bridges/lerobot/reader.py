@@ -24,18 +24,17 @@ size accepted by the server.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
+from typing import Any, Dict, Iterator, List, Optional, Type
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.ipc as pa_ipc
 import pyarrow.parquet as pq
 
 from mosaicolabs import CompressedImage, Header, Serializable
 from mosaicolabs.models.core import Message, resolve_ontology_class
 
-from ..helpers import _dotted_name_to_topic_name
-from .helpers import _max_rows_within, _to_timestamp_ns
+from ..helpers import _dotted_name_to_topic_name, _fit_batch
+from .helpers import _to_timestamp_ns
 from .lerobot_batch import LeRobotBatch
 from .metadata import _TIMESTAMP_COLUMN_NAME, LeRobotDatasetMeta
 
@@ -318,34 +317,6 @@ class LeRobotReader:
                 if batch.num_rows > 0:
                     yield batch
 
-    def _fit_batch(
-        self, batch: pa.RecordBatch
-    ) -> Tuple[List[pa.RecordBatch], pa.RecordBatch]:
-        """
-        Cuts `batch` into batches as large as possible within `max_batch_size_bytes`.
-
-        Returns:
-            Tuple[List[pa.RecordBatch], pa.RecordBatch]: The full batches, and the rows left
-                over, which fit within `max_batch_size_bytes` and can be sent together with the
-                next rows. Both are slices of `batch`: no data is copied.
-
-        Raises:
-            ValueError: If a single row exceeds `max_batch_size_bytes`.
-        """
-        max_size = self._max_batch_size_bytes
-        full_rbs: List[pa.RecordBatch] = []
-        while pa_ipc.get_record_batch_size(batch) > max_size:
-            rows = _max_rows_within(batch, max_size)
-            if rows == 0:
-                row_size = pa_ipc.get_record_batch_size(batch.slice(0, 1))
-                raise ValueError(
-                    f"Single row size {row_size} bytes > {max_size} bytes maximum allowed batch size."
-                )
-
-            full_rbs.append(batch.slice(offset=0, length=rows))
-            batch = batch.slice(offset=rows)
-        return full_rbs, batch
-
     # Public API functions
 
     @property
@@ -474,7 +445,7 @@ class LeRobotReader:
                 # Copies the rows: only when the episode is read in more than one batch
                 merged_rb = pa.concat_batches([pending_rb, merged_rb])
 
-            full_rbs, pending_rb = self._fit_batch(merged_rb)
+            full_rbs, pending_rb = _fit_batch(merged_rb, self._max_batch_size_bytes)
             for rb in full_rbs:
                 yield _to_lerobot_batch(
                     self.timeseries_msco_topic_name,
@@ -553,7 +524,7 @@ class LeRobotReader:
                 # Copies the rows: only when the episode is read in more than one batch
                 merged_rb = pa.concat_batches([pending_rb, merged_rb])
 
-            full_rbs, pending_rb = self._fit_batch(merged_rb)
+            full_rbs, pending_rb = _fit_batch(merged_rb, self._max_batch_size_bytes)
             for rb in full_rbs:
                 yield _to_lerobot_batch(
                     msco_topic_name or "?",
