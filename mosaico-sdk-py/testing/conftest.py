@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from functools import partial
 from pathlib import Path
 from time import time_ns
@@ -11,6 +12,7 @@ from mcap.writer import Writer as JsonschemaWriter
 from mcap_protobuf.writer import Writer as ProtobufWriter
 from pytest import FixtureRequest
 
+import mosaicolabs
 from mosaicolabs.enum.grpc_compression import GRPCCompressionAlgorithm
 from mosaicolabs.logging_config import setup_sdk_logging
 
@@ -46,6 +48,16 @@ def pytest_configure(config):
     Hook called by pytest before any tests are run.
     We use it to sync the SDK's internal logging with pytest's CLI options.
     """
+    # With `scripts/tests --wheel`, the SDK must come from the wheel, not from `src/`.
+    if os.environ.get("MOSAICO_TEST_WHEEL"):
+        src_dir = Path(__file__).resolve().parent.parent / "src"
+        sdk_file = Path(mosaicolabs.__file__).resolve()
+        if sdk_file.is_relative_to(src_dir):
+            pytest.exit(
+                f"Testing a wheel, but `mosaicolabs` was imported from {sdk_file}.",
+                returncode=1,
+            )
+
     level_str = config.getoption("--log-cli-level")
     if level_str:
         # Initialize the SDK logger
@@ -181,8 +193,7 @@ def tls_cert_path(with_tls) -> Optional[str]:
     if with_tls:
         return str(
             (
-                Path(__file__).resolve().parent
-                / "../../../mosaicod/tests/data/cert.pem"
+                Path(__file__).resolve().parent / "../../mosaicod/tests/data/cert.pem"
             ).resolve()
         )
     return None

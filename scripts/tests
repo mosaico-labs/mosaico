@@ -131,6 +131,7 @@ Options:
     --full-stack-gzip           Run full-stack tests with gzip compression enabled (requires Docker + mosaicod build)
     --full-stack-all            Run all full-stack tests (requires (Docker + mosaicod build)
     --all                       Run all tests (default)
+    --wheel <path>              Run the Python SDK tests against this wheel instead of the sources
     --help                      Show this help message
 EOF
 }
@@ -166,12 +167,26 @@ run_mosaicod_tests() {
     fi
 }
 
+# Run pytest on the Python SDK tests, with the given pytest arguments
+run_sdk_pytest() {
+    cd "${PYTHON_SDK_PATH}"
+    if [ -z "${WHEEL}" ]; then
+        # Against the sources
+        uv run --locked --extra cli pytest ./testing "$@"
+    else
+        # Against the wheel, installed in an isolated environment. MOSAICO_TEST_WHEEL makes
+        # conftest.py check that the SDK is imported from the wheel.
+        MOSAICO_TEST_WHEEL=1 uv run --isolated --no-project \
+            --with "${WHEEL}[cli]" --with pytest \
+            pytest ./testing "$@"
+    fi
+}
+
 # Run Python SDK unit tests
 run_sdk_python_tests() {
     title "python sdk (unit tests)" "-"
     install_python_deps
-    cd "${PYTHON_SDK_PATH}"
-    uv run --locked --extra cli pytest ./src/testing -k unit
+    run_sdk_pytest -k unit
 }
 
 
@@ -277,12 +292,11 @@ run_full_stack_tests() {
 
     # Run full-stack tests
     title "running full-stack tests" "." "${BLUE}"
-    cd "${PYTHON_SDK_PATH}"
-
-    uv run --locked --extra cli pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
+    run_sdk_pytest -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
 }
 
 VERBOSE=false
+WHEEL=""  # Path of the wheel to test (--wheel), empty to test the sources
 REDIRECT_TO_NULL="2>/dev/null"
 
 # Main
@@ -347,6 +361,14 @@ main() {
                 run_all=true
                 run_selected=true
                 shift
+                ;;
+            --wheel)
+                if [ ! -f "${2:-}" ]; then
+                    echo "${RED}--wheel needs the path of an existing wheel${RESET}"
+                    exit 1
+                fi
+                WHEEL=$(readlink -f "$2")
+                shift 2
                 ;;
             --help|-h)
                 show_help
