@@ -96,7 +96,7 @@ fn start(config: config::ConfigBuilder) -> Result<Option<String>> {
     Ok(None)
 }
 
-/// Entry point of a mosaicod binary: runs [`start`], prints its outcome and exits with a
+/// Entry point of a mosaicod binary: runs `start`, prints its outcome and exits with a
 /// non-zero code on error.
 pub fn run(config: config::ConfigBuilder) {
     common::pin_startup_time();
