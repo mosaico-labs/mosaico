@@ -7,7 +7,7 @@ import mosaicolabs.bridges.lerobot.injector as injector_module
 from mosaicolabs.bridges.base_injector import InjectionStatus
 from mosaicolabs.bridges.lerobot import LeRobotInjectionConfig, LeRobotInjector
 
-from .config import lengthen_first_episode
+from .config import EPISODE_LENGTHS, lengthen_first_episode
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def test_failed_episodes_lists_the_skipped_episode(offline, lerobot_dataset_fact
     lengthen_first_episode(root)
     injector = _injector(root)
 
-    assert injector.run() is InjectionStatus.COMPLETED
+    assert injector.run() is InjectionStatus.PARTIAL
     assert injector.failed_episodes == [0]
 
 
@@ -59,5 +59,16 @@ def test_failed_episodes_lists_an_episode_that_failed_to_upload(
     )
     injector = _injector(lerobot_dataset)
 
-    assert injector.run() is InjectionStatus.COMPLETED
+    assert injector.run() is InjectionStatus.PARTIAL
     assert injector.failed_episodes == [1]
+
+
+def test_run_raises_when_every_episode_fails(monkeypatch, offline, lerobot_dataset):
+    monkeypatch.setattr(
+        LeRobotInjector, "_upload_episode", lambda self, mclient, loader, ui: False
+    )
+    injector = _injector(lerobot_dataset)
+
+    with pytest.raises(RuntimeError):
+        injector.run()
+    assert injector.failed_episodes == list(range(len(EPISODE_LENGTHS)))

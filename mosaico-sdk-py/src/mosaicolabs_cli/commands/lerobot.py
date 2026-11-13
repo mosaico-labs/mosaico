@@ -77,9 +77,4 @@ def inject(
         log_level=log_level.value,
         **connection_kwargs(profile),
     )
-    injector = LeRobotInjector(config)
-    run_injector(injector)
-
-    # Some episodes failed (already logged by the injector)
-    if injector.failed_episodes:
-        raise typer.Exit(code=1)
+    run_injector(LeRobotInjector(config))

@@ -78,7 +78,7 @@ def test_lerobot_injection_deletes_a_failed_episode(
     injector = LeRobotInjector(replace(default_lerobot_injector_config, file_path=root))
     status = injector.run()
 
-    assert status is InjectionStatus.COMPLETED
+    assert status is InjectionStatus.PARTIAL
     assert injector.failed_episodes == [0]
     first_sequence, *other_sequences = _sequence_names()
     assert mosaico_client.sequence_exists(first_sequence) is False
