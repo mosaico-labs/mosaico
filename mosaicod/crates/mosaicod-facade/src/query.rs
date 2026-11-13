@@ -37,6 +37,12 @@ impl Query {
         };
         let on_topics = Arc::new(on_topics);
 
+        // A topic or sequence filter matching no topic leaves nothing to search
+        if !no_topic_filter && on_topics.is_empty() {
+            trace!("topic and sequence filters match no topic");
+            return Ok(types::SequenceTopicGroupSet::empty());
+        }
+
         if no_topic_filter {
             trace!("search unrestricted (no prior topics)");
         } else {
