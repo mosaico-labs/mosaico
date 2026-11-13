@@ -149,6 +149,14 @@ class _Server(ThreadingHTTPServer):
 
 
 class _Handler(BaseHTTPRequestHandler):
+    """
+    Handles one request from mosaicod: a POST with an event as its JSON body.
+
+    It answers as soon as the body is parsed, with 200 for an event and a 4xx for an
+    invalid body, then hands the event to the server's pool, which runs the receivers.
+    An event of a type this SDK doesn't know gets a 200 too, and is dropped.
+    """
+
     server: _Server
 
     def do_POST(self) -> None:
