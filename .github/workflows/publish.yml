@@ -16,7 +16,7 @@ name: Publish release
 on:
   push:
     tags:
-      - 'v[0-9].*.*'
+      - 'v[0-9]+.*.*'
   # To re-run it by hand: "Use workflow from" the release tag.
   workflow_dispatch:
 
