@@ -1,9 +1,8 @@
 """
 ULog schema converter: ULog `F` records -> PyArrow schemas.
 
-The ULog counterpart of `protocols/mcap/` (`McapSchemaConverter` and its protobuf /
-jsonschema / ros converters): it turns the native schema into the `pa.StructType` from
-which `resolve_ontology_class` builds the Unmodeled ontology of the topic.
+It turns the native schema into the `pa.StructType` from which `resolve_ontology_class`
+builds the Unmodeled ontology of the topic.
 
 Example, with the real `sensor_accel` format of a PX4 log:
 
@@ -38,8 +37,8 @@ class ULogSchemaConverter:
     Converts ULog message formats (the `F` records, as parsed by pyulog into
     `ULog.message_formats`) into PyArrow schemas.
 
-    ULog has a single schema encoding, so unlike `McapSchemaConverter` there is no
-    registry: the converter is a set of pure classmethods.
+    ULog has a single schema encoding, so there is no registry of converters: this is
+    a set of pure classmethods.
 
     Mapping: integer, float and bool types keep sign and width, `char` and `char[N]`
     become `pa.string()`, `T[N]` becomes `pa.list_(T, N)`, a nested format becomes a
@@ -54,7 +53,7 @@ class ULogSchemaConverter:
 
     @classmethod
     def _type(cls, formats: dict, ulog_type: str, array_size: int) -> pa.DataType:
-        """Arrow type of one field. Recursive walk, like `McapSchemaConverter._convert`."""
+        """Arrow type of one field, recursive on nested formats."""
         # char[N] is a C string: stored as text, not as a list of bytes
         if ulog_type == "char":
             return pa.string()
@@ -96,8 +95,7 @@ class ULogSchemaConverter:
         )
 
     # The two methods below keep the original schema for the future extraction
-    # (Mosaico -> .ulg), like `stringify_schema_def` does for MCAP: they are stored
-    # in the topic's `_ulog_` metadata.
+    # (Mosaico -> .ulg): they are stored in the topic's `_ulog_` metadata.
 
     @classmethod
     def format_def(cls, formats: dict, name: str) -> str:

@@ -2,11 +2,10 @@
 ULog bridge helpers.
 
 - `_valid_rows`: the timestamp policy (which rows are kept, and in which order).
-- `_to_arrow_arrays`: pyulog flat numpy columns -> nested Arrow arrays. It plays the
-  role `MCAPMsgDecoderBase._to_dict()` plays for MCAP (native data -> the shape of the
-  Unmodeled schema), but on whole columns instead of one message at a time.
-- `_chunks`: cuts a topic into the batches sent with `TopicWriter.push_batch`.
+- `_to_arrow_arrays`: pyulog flat numpy columns -> nested Arrow arrays, in the shape of
+  the Unmodeled schema.
 - `_synthetic_topics`: fixed-schema topics for the non-data ULog records.
+- `_utc_offset_ns`: the offset between the boot-relative ULog timestamps and UTC.
 - `_json_safe`: makes pyulog values acceptable as server metadata.
 """
 
@@ -14,11 +13,10 @@ import base64
 import math
 import re
 from types import SimpleNamespace
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pyarrow as pa
-import pyarrow.ipc as pa_ipc
 
 from mosaicolabs.handlers.helpers import _SUPPORTED_METADATA_KEY_CHARS
 from mosaicolabs.logging_config import get_logger
@@ -136,38 +134,6 @@ def _to_arrow_arrays(
     ]
 
 
-def _chunks(batch: pa.RecordBatch, max_bytes: int) -> Iterator[pa.RecordBatch]:
-    """
-    Splits `batch` into consecutive slices within `max_bytes`, each as large as possible.
-
-    `TopicWriter.push_batch` (from the LeRobot bridge, issue #945) sends each call as a
-    single Flight message and does not split it, so a topic is cut here. The size is the
-    Arrow IPC size, the one `push_batch` checks. As in the LeRobot bridge, the length of a
-    slice is found by bisection, since the size never decreases when rows are added.
-
-    Raises:
-        ValueError: If a single row exceeds `max_bytes` (a ULog record is at most 64 KiB).
-    """
-    while batch.num_rows:
-        if pa_ipc.get_record_batch_size(batch) <= max_bytes:
-            yield batch
-            return
-        # `lo` leading rows are known to fit, `hi` rows are known not to
-        lo, hi = 0, batch.num_rows
-        while hi - lo > 1:
-            mid = (lo + hi) // 2
-            if pa_ipc.get_record_batch_size(batch.slice(0, mid)) <= max_bytes:
-                lo = mid
-            else:
-                hi = mid
-        if lo == 0:
-            raise ValueError(
-                f"A single row exceeds the batch limit of {max_bytes} bytes."
-            )
-        yield batch.slice(0, lo)
-        batch = batch.slice(lo)
-
-
 def _synthetic(name: str, timestamps: list, columns: dict, **extra) -> SimpleNamespace:
     """
     A pyulog-`Data`-like topic whose payload is already an Arrow batch.
@@ -241,6 +207,28 @@ def _synthetic_topics(ulog) -> Dict[str, SimpleNamespace]:
     return {t: s for t, s in topics.items() if len(s.data["timestamp"])}
 
 
+def _utc_offset_ns(ulog) -> Optional[int]:
+    """
+    Returns the offset (ns) to add to the `timestamp_ns` of the log to get UTC epoch
+    nanoseconds, or `None` if the log carries no UTC time.
+
+    ULog timestamps count from the boot of the vehicle. The only absolute time of a log is
+    the GPS one: the `time_utc_usec` field of the GPS topics, sampled at `timestamp`. The
+    `time_ref_utc` info record is not it: PX4 writes there the time-zone offset configured
+    on the vehicle (`SDLOG_UTC_OFFSET`), which is kept as it is among the info records.
+    """
+    for data in ulog.data_list:
+        utc, boot = data.data.get("time_utc_usec"), data.data.get("timestamp")
+        if utc is None or boot is None:
+            continue
+        # `time_utc_usec` is 0 until the receiver knows the time
+        valid = np.flatnonzero((utc != 0) & (boot != 0))
+        if len(valid):
+            # Python ints: the difference of two numpy uint64 would wrap around
+            return (int(utc[valid[0]]) - int(boot[valid[0]])) * 1000
+    return None
+
+
 # --- Metadata sanitising ---
 # The sequence metadata is sent as JSON and validated by the server: numpy scalars,
 # bytes, NaN, NUL characters or unsupported key characters would make it reject the
@@ -249,8 +237,11 @@ def _synthetic_topics(ulog) -> Dict[str, SimpleNamespace]:
 
 def _safe_key(key: Any) -> str:
     """Replaces the characters the server rejects in metadata keys (corrupted names) with `_`."""
-    key = "".join(c if c in _SUPPORTED_METADATA_KEY_CHARS else "_" for c in str(key))
-    return re.sub("-(?=-)", "_", key) or "_"  # "--" is rejected too
+    safe = "".join(c if c in _SUPPORTED_METADATA_KEY_CHARS else "_" for c in str(key))
+    safe = re.sub("-(?=-)", "_", safe) or "_"  # "--" is rejected too
+    if safe != str(key):
+        logger.warning(f"Metadata key '{key}' is not supported: renamed to '{safe}'.")
+    return safe
 
 
 def _json_safe(value: Any) -> Any:

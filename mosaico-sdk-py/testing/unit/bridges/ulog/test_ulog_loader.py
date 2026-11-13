@@ -1,6 +1,5 @@
 import json
 import re
-from pathlib import Path
 from types import SimpleNamespace as Fmt
 
 import numpy as np
@@ -13,14 +12,13 @@ from mosaicolabs.bridges.protocols.ulog import ULogSchemaConverter
 from mosaicolabs.bridges.topic_status import TopicStatus
 from mosaicolabs.bridges.ulog import ULogLoader
 from mosaicolabs.bridges.ulog.helpers import (
-    _chunks,
     _json_safe,
     _to_arrow_arrays,
     _valid_rows,
 )
 
-ULOG_DIR = Path(__file__).resolve().parents[3] / "data" / "ulog"
-ULOG_FILES = sorted(ULOG_DIR.glob("*.ulg"))
+MAX_BATCH_SIZE_BYTES = 64 * 1024 * 1024
+"""Large enough for every topic of the generated file to fit in a single batch."""
 
 
 def _get(row: dict, path: str):
@@ -30,77 +28,207 @@ def _get(row: dict, path: str):
     return row
 
 
+def _rows(msg) -> list:
+    """All the rows of a yielded topic, its chunks put together."""
+    return pa.Table.from_batches(list(msg.data)).to_pylist()
+
+
 # --- Loader ---
 
 
-@pytest.mark.parametrize("path", ULOG_FILES, ids=lambda p: p.stem)
-def test_batches_match_pyulog(path):
+def test_batches_match_pyulog(ulog_file):
     """Every value of every accepted topic equals pyulog's flat columns."""
-    ulog = ULog(str(path))
-    with ULogLoader(path) as loader:
+    ulog = ULog(str(ulog_file))
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES) as loader:
         data_topics = [t for t in loader.resolved_topics if not t.startswith("/ulog/")]
         assert sorted(data_topics) == sorted(
-            f"/{d.name}/{d.multi_id}" for d in ulog.data_list
+            {f"/{d.name}/{d.multi_id}" for d in ulog.data_list}
         )
-        for msg, exc in loader:
-            assert exc is None
+        for msg in loader:
             if msg.topic_name.startswith("/ulog/"):  # see the synthetic topics test
                 continue
-            data = next(
-                d
+            # pyulog gives a topic subscribed twice as two sets of columns
+            parts = [
+                d.data
                 for d in ulog.data_list
                 if (d.name, d.multi_id) == (msg.message_name, msg.multi_id)
-            )
-            idx, _, _ = _valid_rows(data.data["timestamp"], msg.topic_name)
-            rows = msg.data.to_pylist()
+            ]
+            columns = {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+            idx, _, _ = _valid_rows(columns["timestamp"], msg.topic_name)
+            rows = _rows(msg)
             assert len(rows) == loader.msg_count(msg.topic_name) > 0
             assert [r["timestamp_ns"] for r in rows] == [
-                int(t) * 1000 for t in data.data["timestamp"][idx]
+                int(t) * 1000 for t in columns["timestamp"][idx]
             ]
-            for col, values in data.data.items():
+            for col, values in columns.items():
                 if col == "timestamp" or "_padding" in col:
                     continue
-                actual = [_get(r, col) for r in rows]
-                if isinstance(actual[0], str):  # char[N], see test_to_arrow_arrays
+                field = re.match(r"[^.\[]+", col).group()
+                if isinstance(rows[0][field], str):  # char[N], see test_to_arrow_arrays
                     continue
+                actual = [_get(r, col) for r in rows]
                 if isinstance(actual[0], bool):
                     values = values.astype(bool)
                 np.testing.assert_array_equal(actual, values[idx], err_msg=col)
 
 
-def test_filter_rejections_and_metadata():
-    """Rejected topics, glob filters, row counts and the bridge metadata of a real file."""
-    path = ULOG_DIR / "sample_log_small.ulg"
+def test_timestamps_are_non_decreasing(ulog_file):
+    """`timestamp_ns` never decreases within a topic, from one chunk to the next too."""
+    with ULogLoader(ulog_file, 4096) as loader:
+        for msg in loader:
+            ts = np.concatenate([b.column("timestamp_ns").to_numpy() for b in msg.data])
+            assert np.all(ts[1:] >= ts[:-1]), msg.topic_name
 
-    with ULogLoader(path) as loader:
-        assert (
-            "/test_motor/0",
-            TopicStatus.UNRESOLVED_ADAPTER,
-        ) in loader.rejected_topics
+
+def test_topic_comes_in_chunks_within_the_limit(ulog_file):
+    """A topic comes in consecutive chunks within the batch limit, without gaps."""
+    limit = 4096
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES, "/baro/1") as loader:
+        (whole,) = next(iter(loader)).data
+    with ULogLoader(ulog_file, limit, "/baro/1") as loader:
+        chunks = list(next(iter(loader)).data)
+
+    assert len(chunks) > 1
+    assert all(pa_ipc.get_record_batch_size(chunk) <= limit for chunk in chunks)
+    assert pa.Table.from_batches(chunks).equals(pa.Table.from_batches([whole]))
+
+    with ULogLoader(ulog_file, 8, "/baro/1") as loader:
+        with pytest.raises(ValueError, match="Single row"):
+            list(next(iter(loader)).data)
+
+
+def test_filter_rejections_and_metadata(ulog_file):
+    """Rejected topics, glob filters, row counts and the bridge metadata of a file."""
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES) as loader:
+        assert dict(loader.rejected_topics) == {
+            "/heartbeat/0": TopicStatus.EMPTY_TOPIC,
+            "/preflight/0": TopicStatus.NO_VALID_TIMESTAMP,
+        }
         assert loader.msg_count() == sum(loader.msg_count(t) for t in loader.topics)
         assert loader.duration > 0
-        meta = loader.sequence_metadata()
-        json.dumps(meta, allow_nan=False)
-        assert meta["ulog_info"]["sys_name"]
-        assert meta["ulog_ingestion"]["source_file"] == path.name
-        topic_meta = loader.topic_schema_metadata("/sensor_accel/1").to_dict()["_ulog_"]
-        assert topic_meta["message_name"] == "sensor_accel"
-        assert topic_meta["multi_id"] == 1
-        assert topic_meta["format_def"].startswith("sensor_accel:uint64_t timestamp;")
-        # The fixture has 3 logged strings and 1 dropout
-        assert loader.msg_count("/ulog/logging") == 3
-        assert loader.msg_count("/ulog/dropouts") == 1
 
-    with ULogLoader(path, ["/sensor_accel/*", "!/sensor_accel/2"]) as loader:
-        assert sorted(loader.topics) == ["/sensor_accel/0", "/sensor_accel/1"]
-        assert "/sensor_accel/2" in loader.filtered_topics
+        metadata = loader.sequence_metadata().to_dict()
+        json.dumps(metadata, allow_nan=False)
+        # Everything the bridge writes is under its reserved key
+        assert metadata == {
+            "_ulog_": {
+                "ulog_info": {
+                    "sys_name": "PX4",
+                    "ver_hw": "TEST",
+                    "time_ref_utc": 3600,
+                },
+                "ulog_info_types": {
+                    "sys_name": "char[3]",
+                    "ver_hw": "char[4]",
+                    "time_ref_utc": "int32_t",
+                },
+                "ulog_info_multiple": {"boot_console_output": [["first ", "second"]]},
+                "ulog_info_multiple_types": {"boot_console_output": "char[6]"},
+                "ulog_initial_parameters": {"P_INT": 1, "P_FLT": 0.25},
+                "ulog_default_parameters": {"0": {"P_INT": 0}, "1": {"P_FLT": 0.5}},
+                "ulog_ingestion": {
+                    "source_file": ulog_file.name,
+                    "file_corruption": False,
+                    "first_timestamp_ns": 50_000,
+                    "last_timestamp_ns": 19_990_000,
+                    # The row of /status/0: those of a rejected topic are not counted
+                    "rows_dropped_zero_ts": 1,
+                    "rows_dropped_overflow_ts": 0,
+                },
+                # The GPS gives 1_600_000_000_000_500 us (UTC) at 500 us since boot
+                "ulog_utc_offset_ns": 1_600_000_000_000_000_000,
+            }
+        }
+
+        assert loader.topic_schema_metadata("/status/0").to_dict() == {
+            "_ulog_": {
+                "message_name": "status",
+                "multi_id": 0,
+                "format_def": "status:uint64_t timestamp;char[4] name;bool ok;"
+                "report[2] reports;uint8_t[3] _padding0;",
+                "nested_formats": {
+                    "report": "report:uint64_t timestamp;int16_t[2] x;uint8_t[4] _padding0;"
+                },
+                "rows_dropped_zero_ts": 1,
+                "rows_dropped_overflow_ts": 0,
+            }
+        }
+
+    topics = ["/baro/*", "!/baro/1"]
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES, topics) as loader:
+        assert loader.topics == ["/baro/0"]
+        assert "/baro/1" in loader.filtered_topics
+
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES, "/baro/*") as loader:
         # Instances of the same format share one adapter (and ontology class)
-        assert loader.resolve_adapter("/sensor_accel/0") is loader.resolve_adapter(
-            "/sensor_accel/1"
-        )
+        assert loader.resolve_adapter("/baro/0") is loader.resolve_adapter("/baro/1")
 
 
-def test_resubscribed_and_synthetic_topics(monkeypatch):
+def test_rows_of_each_topic(ulog_file):
+    """
+    Nested formats, `char[N]`, `bool` and padding are rebuilt from the flat columns; a
+    row without timestamp is dropped and rows sharing one are kept; two subscriptions
+    of one (format, multi_id) are one topic.
+    """
+
+    def reports(timestamp):
+        return [
+            {"timestamp": timestamp + 1, "x": [10, -10]},
+            {"timestamp": timestamp + 2, "x": [20, -20]},
+        ]
+
+    topics = ["!/baro/1", "!/gps/0"]
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES, topics) as loader:
+        rows = {msg.topic_name: _rows(msg) for msg in loader}
+
+    assert rows == {
+        # The row without timestamp is dropped, the two at 1000 us are both kept
+        "/status/0": [
+            {
+                "timestamp_ns": 1_000_000,
+                "name": "ab",
+                "ok": True,
+                "reports": reports(1000),
+            },
+            {
+                "timestamp_ns": 1_000_000,
+                "name": "abcd",
+                "ok": False,
+                "reports": reports(1000),
+            },
+            {
+                "timestamp_ns": 2_000_000,
+                "name": "",
+                "ok": True,
+                "reports": reports(2000),
+            },
+        ],
+        # Subscribed twice, with rows at [100, 300] and [200] us
+        "/baro/0": [{"timestamp_ns": t * 1000, "p": float(t)} for t in (100, 200, 300)],
+        "/ulog/logging": [
+            {"timestamp_ns": 50_000, "level": 52, "tag": 7, "message": "tagged"},
+            {"timestamp_ns": 150_000, "level": 54, "tag": None, "message": "untagged"},
+        ],
+        # Both estimated at the last data timestamp read before them, hence equal
+        "/ulog/changed_parameters": [
+            {
+                "timestamp_ns": 200_000,
+                "name": "P_INT",
+                "value_int": 3,
+                "value_float": None,
+            },
+            {
+                "timestamp_ns": 200_000,
+                "name": "P_FLT",
+                "value_int": None,
+                "value_float": 0.5,
+            },
+        ],
+        "/ulog/dropouts": [{"timestamp_ns": 500_000, "duration_ms": 12}],
+    }
+
+
+def test_resubscribed_and_synthetic_topics(ulog_file, monkeypatch):
     """
     Two subscriptions of one (format, multi_id), e.g. appended data, are one topic;
     logged strings, changed parameters and dropouts become the `/ulog/*` topics.
@@ -126,11 +254,11 @@ def test_resubscribed_and_synthetic_topics(monkeypatch):
     )
     monkeypatch.setattr("mosaicolabs.bridges.ulog.loader.ULog", lambda _: fake)
 
-    with ULogLoader(ULOG_FILES[0]) as loader:
-        batches = {msg.topic_name: msg.data.to_pylist() for msg, _ in loader}
+    with ULogLoader(ulog_file, MAX_BATCH_SIZE_BYTES) as loader:
+        batches = {msg.topic_name: _rows(msg) for msg in loader}
         assert (
             "/ulog/dropouts",
-            TopicStatus.UNRESOLVED_ADAPTER,
+            TopicStatus.NO_VALID_TIMESTAMP,
         ) in loader.rejected_topics
         meta = loader.topic_schema_metadata("/ulog/changed_parameters").fields
         assert meta["timestamp_estimated"] and meta["format_def"] == ""
@@ -225,36 +353,6 @@ def test_to_arrow_arrays():
             ],
         },
     ]
-
-
-def test_chunks():
-    """A topic is cut into the largest slices within the limit, in order and without gaps."""
-    n_rows = 1000
-    batch = pa.RecordBatch.from_pydict(
-        {
-            "timestamp_ns": pa.array(range(n_rows), pa.int64()),
-            "message": [f"row {i}" for i in range(n_rows)],  # rows of different sizes
-        }
-    )
-    size = pa_ipc.get_record_batch_size(batch)
-    max_bytes = size // 3
-    chunks = list(_chunks(batch, max_bytes))
-
-    assert len(chunks) > 1
-    assert pa.Table.from_batches(chunks).equals(pa.Table.from_batches([batch]))
-    offset = 0
-    for chunk in chunks:
-        assert pa_ipc.get_record_batch_size(chunk) <= max_bytes
-        # As large as possible: one more row would not fit
-        if offset + chunk.num_rows < n_rows:
-            next_slice = batch.slice(offset, chunk.num_rows + 1)
-            assert pa_ipc.get_record_batch_size(next_slice) > max_bytes
-        offset += chunk.num_rows
-
-    # A topic within the limit is sent as it is
-    assert [c.num_rows for c in _chunks(batch, size)] == [n_rows]
-    with pytest.raises(ValueError, match="single row"):
-        list(_chunks(batch, 8))
 
 
 def test_json_safe():

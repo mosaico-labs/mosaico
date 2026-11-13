@@ -9,10 +9,9 @@ class ULogBridge:
     (e.g. `sensor_combined`). Topics whose format has no adapter here are stored as
     `Unmodeled` (see `UnmodeledAdapter`).
 
-    Same pattern as `MCAPBridge` (bridges/mcap/bridge.py), keyed by format name instead
-    of schema name + encoding (ULog has a single encoding). Empty for now: typed
-    adapters (e.g. `sensor_combined` -> IMU) can be added later without touching the
-    loader or the injector.
+    The format name alone is the key, since ULog has a single encoding. Empty for now:
+    typed adapters (e.g. `sensor_combined` -> IMU) can be added later without touching
+    the loader or the injector.
     """
 
     _default_adapters: Dict[str, Type[ULogAdapterBase]] = {}
@@ -26,9 +25,6 @@ class ULogBridge:
 def register_default_adapter(format_name: str):
     """
     Class decorator registering a ULog adapter for the format `format_name`.
-
-    Same as the MCAP `register_default_adapter` (duplicates are rejected); the format
-    name is passed to the decorator instead of being read from class attributes.
 
     Example:
         ```python
