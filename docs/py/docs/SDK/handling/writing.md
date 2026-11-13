@@ -75,6 +75,9 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 !!! warning "Oversized Records"
     If a single record's size alone exceeds the server's message-size limit, it cannot be split any further and is dropped rather than failing the whole upload. The writer keeps accepting subsequent records; the failure is reported to the server as a topic notification and can be inspected locally via [`TopicWriter.status`][mosaicolabs.handlers.TopicWriter.status] and [`TopicWriter.last_error`][mosaicolabs.handlers.TopicWriter.last_error].
 
+!!! warning "Timestamp Ordering"
+    The `timestamp_ns` of the records written to a topic must be non-decreasing, across both [`push()`][mosaicolabs.handlers.TopicWriter.push] and [`push_batch()`][mosaicolabs.handlers.TopicWriter.push_batch]: a record may share the timestamp of the previous one, but a lower timestamp raises a `ValueError`, handled according to the topic's [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]. Records with equal timestamps have no guaranteed relative order once stored.
+
 ```python
 # Continues from the code above...
 
