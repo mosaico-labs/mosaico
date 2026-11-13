@@ -52,7 +52,7 @@ enum Commands {
 
 /// Parses the command line, loads the configuration from the sources of `config`, and
 /// runs the requested command. Returns a message to print, e.g. `--help`.
-pub fn start(config: config::ConfigBuilder) -> Result<Option<String>> {
+fn start(config: config::ConfigBuilder) -> Result<Option<String>> {
     let mut cmd = Cli::command();
 
     cmd = cmd.long_version(mosaicod_build::version_description());

@@ -198,9 +198,10 @@ where
     T: std::str::FromStr,
     <T as FromStr>::Err: std::fmt::Display,
 {
-    Ok(raw.parse().map_err(|e| {
+    raw.parse().map_err(|e| {
         error::Error::invalid_configuration(env_name.to_owned(), format!("unable to parse: {e}"))
-    })?)
+            .into()
+    })
 }
 
 /// Reads a file's content and strips trailing newlines (`\n` or `\r\n`).

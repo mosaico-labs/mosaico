@@ -200,12 +200,13 @@ fn xdg_config_path() -> Option<PathBuf> {
 /// Reads the config file at `path`. The builder parses it, leaving each section to the
 /// source that reads it.
 pub(crate) fn read_config_file(path: &Path) -> Result<String> {
-    Ok(std::fs::read_to_string(path).map_err(|e| {
+    std::fs::read_to_string(path).map_err(|e| {
         mosaicod_core::error::Error::invalid_configuration(
             path.display().to_string(),
             e.to_string(),
         )
-    })?)
+        .into()
+    })
 }
 
 #[cfg(test)]
