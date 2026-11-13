@@ -73,7 +73,12 @@ class HookServer:
 
         return receiver
 
-    def start(self, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> None:
+    def start(
+        self,
+        host: str = "127.0.0.1",
+        port: int = DEFAULT_PORT,
+        log_level: str | None = None,
+    ) -> None:
         """
         Listens for events until interrupted, for example with Ctrl-C.
 
@@ -86,12 +91,18 @@ class HookServer:
                 another machine or container.
             port: The port to listen on. Keep it fixed, so the URL registered in
                 mosaicod stays valid across restarts.
+            log_level: If set, for example to `"DEBUG"`, it first calls
+                `setup_sdk_logging(level=log_level)`, which takes precedence over any
+                logging set up before.
 
-        It logs where it listens, and any receiver that raises. Unless logging is
-        already set up, for example with `setup_sdk_logging` or `logging.basicConfig`,
-        it first calls `setup_sdk_logging()`, which logs `INFO` and above to stderr.
+        It logs where it listens, and any receiver that raises. Unless `log_level` is
+        set or logging is already set up, for example with `setup_sdk_logging` or
+        `logging.basicConfig`, it first calls `setup_sdk_logging()`, which logs `INFO`
+        and above to stderr.
         """
-        if not _logging_configured():
+        if log_level is not None:
+            setup_sdk_logging(level=log_level.upper())
+        elif not _logging_configured():
             setup_sdk_logging(level="INFO")
 
         server = self._bind(host, port)

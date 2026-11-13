@@ -68,4 +68,4 @@ A `mosaicod` newer than the SDK can send event types this SDK version doesn't kn
 
 ### Logging
 
-`start()` logs where it listens, and any decorated function that raises. Unless logging is already set up, for example with [`setup_sdk_logging()`][mosaicolabs.logging_config.setup_sdk_logging] or `logging.basicConfig()`, it calls `setup_sdk_logging()` first, which logs to stderr.
+`start()` logs where it listens, and any decorated function that raises. Unless logging is already set up, for example with [`setup_sdk_logging()`][mosaicolabs.logging_config.setup_sdk_logging] or `logging.basicConfig()`, it calls `setup_sdk_logging()` first, which logs to stderr. To log at another level, for example to see each request, pass it to `start()`: `hook.start(log_level="DEBUG")` sets up `setup_sdk_logging(level="DEBUG")`, even if logging was already set up.

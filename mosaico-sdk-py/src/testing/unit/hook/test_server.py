@@ -190,13 +190,14 @@ def test_listening_message():
     assert "mosaicod hook create http://" in everywhere
 
 
-def start(setup: str = "") -> str:
+def start(setup: str = "", log_level: str | None = None) -> str:
     """
-    Runs `HookServer.start` in a new Python, where nothing but `setup` touches
-    logging, stops it as Ctrl-C would as soon as it listens, and returns its stderr.
+    Runs `HookServer.start` with `log_level` in a new Python, where nothing but `setup`
+    touches logging, stops it as Ctrl-C would as soon as it listens, and returns its
+    stderr.
     """
     script = setup + textwrap.dedent(
-        """
+        f"""
         from mosaicolabs.hook import HookServer
         from mosaicolabs.hook.server import _Server
 
@@ -204,7 +205,7 @@ def start(setup: str = "") -> str:
             raise KeyboardInterrupt
 
         _Server.serve_forever = serve_forever
-        HookServer().start(port=0)
+        HookServer().start(port=0, log_level={log_level!r})
         """
     )
     result = subprocess.run(
@@ -233,3 +234,15 @@ def test_start_keeps_configured_logging():
 
     assert stderr.startswith("configured: Listening on http://127.0.0.1:")
     assert "SDK Logging initialized" not in stderr
+
+
+def test_start_log_level_overrides_configured_logging():
+    stderr = start(
+        "import logging\n"
+        "logging.basicConfig(level=logging.INFO, format='configured: %(message)s')\n",
+        log_level="debug",
+    )
+
+    assert "SDK Logging initialized at level: DEBUG" in stderr
+    assert "Listening on http://127.0.0.1:" in stderr
+    assert "configured:" not in stderr
