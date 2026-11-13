@@ -206,6 +206,18 @@ class LeRobotInjector:
         self._loader: Optional[LeRobotLoader] = None
         """The loader of the dataset, lazily created by `_open_or_get_loader`."""
 
+        self._failed_episodes: List[int] = []
+        """The indexes of the episodes that failed in the last `run()`."""
+
+    @property
+    def failed_episodes(self) -> List[int]:
+        """
+        The indexes of the episodes that failed to be ingested (skipped by the validation or
+        failed while uploading) in the last `run()`. Empty before the first run, and after a
+        run where every episode was ingested.
+        """
+        return list(self._failed_episodes)
+
     def _open_or_get_loader(self, max_batch_size_bytes: int) -> LeRobotLoader:
         """Returns the loader of the dataset, created on the first call."""
         if self._loader is None:
@@ -501,23 +513,25 @@ class LeRobotInjector:
         the server.
 
         Returns:
-            InjectionStatus: `COMPLETED` once every episode is processed, even if some of them
-                failed, `CANCELLED` if the user interrupted the injection (`KeyboardInterrupt`),
-                `DRY_RUN` in dry-run mode.
+            InjectionStatus: `COMPLETED` once every episode is ingested, `PARTIAL` if some of
+                them failed (see `failed_episodes`), `CANCELLED` if the user interrupted the
+                injection (`KeyboardInterrupt`), `DRY_RUN` in dry-run mode.
 
         Raises:
+            RuntimeError: Every episode failed, so nothing was ingested (see
+                `failed_episodes`).
             Exception: Any fatal error outside of an episode (e.g. while connecting or opening
                 the dataset) is logged and then re-raised, so callers can detect failure (e.g.
                 `try`/`except` around `run()`, or a non-zero process exit code from the CLI
                 entry point).
         """
+        self._failed_episodes = []
+
         if self._cfg.dry_run:
             self._dry_run_report()
             return InjectionStatus.DRY_RUN
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
-
-        failed_episodes: List[int] = []
 
         try:
             # Context: Mosaico Client (Network Connection)
@@ -532,12 +546,13 @@ class LeRobotInjector:
                 logger.info(f"Opening LeRobot dataset: '{self._cfg.file_path}'")
 
                 lerobot_loader = self._open_or_get_loader(mclient.max_batch_size_bytes)
+                n_episodes = lerobot_loader.n_episodes
 
                 # Every episode is checked before the first upload
                 invalid_episodes = self._validate_episodes(lerobot_loader)
 
                 # Setup Progress UI: a single UI for every episode of the dataset
-                ui = LeRobotProgressManager(lerobot_loader, lerobot_loader.n_episodes)
+                ui = LeRobotProgressManager(lerobot_loader, n_episodes)
                 ui.setup()
 
                 # Main Processing Loop
@@ -555,7 +570,7 @@ class LeRobotInjector:
                         elif self._upload_episode(mclient, episode_loader, ui):
                             continue
 
-                        failed_episodes.append(episode_loader.episode_index)
+                        self._failed_episodes.append(episode_loader.episode_index)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
@@ -564,8 +579,16 @@ class LeRobotInjector:
             logger.exception(f"Fatal error during ingestion: '{e}'")
             raise
 
-        self._report_failed_episodes(failed_episodes)
+        self._report_failed_episodes(self._failed_episodes)
 
+        if self._failed_episodes:
+            # Nothing was ingested: an error, not an outcome
+            if len(self._failed_episodes) == n_episodes:
+                raise RuntimeError(
+                    f"All {n_episodes} episode(s) failed to be ingested "
+                    "(see the errors above)."
+                )
+            return InjectionStatus.PARTIAL
         return InjectionStatus.COMPLETED
 
 
@@ -714,6 +737,10 @@ def lerobot_injector():
     # Interrupted by the user while uploading: same exit code as an interrupt outside `run()`
     if status is InjectionStatus.CANCELLED:
         sys.exit(130)
+
+    # Some episodes failed (already logged): exit non-zero so calling scripts/CI can detect it
+    if status is InjectionStatus.PARTIAL:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

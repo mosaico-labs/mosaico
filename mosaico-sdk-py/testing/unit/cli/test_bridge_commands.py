@@ -410,6 +410,11 @@ class TestLeRobotInject:
         assert cfg.dry_run is True
         assert cfg.host == "localhost"
 
+    def test_partial_injection_exits_non_zero(self, profile_env, fake, tmp_path):
+        fake.outcome = InjectionStatus.PARTIAL
+        result = runner.invoke(app, ["inject", "lerobot", str(tmp_path)])
+        assert result.exit_code == 1
+
     def test_file_rejected(self, profile_env, fake, input_file):
         result = runner.invoke(app, ["inject", "lerobot", str(input_file)])
         assert result.exit_code == 2
