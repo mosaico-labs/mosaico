@@ -117,7 +117,7 @@ class LeRobotInjectionConfig(InjectionConfigBase):
         ```python
         from pathlib import Path
         from mosaicolabs.enum import SessionLevelErrorPolicy
-        from mosaicolabs.bridges.lerobot.injector import LeRobotInjectionConfig
+        from mosaicolabs.bridges.lerobot import LeRobotInjectionConfig
 
         config = LeRobotInjectionConfig(
             file_path=Path("datasets/pusht"),
@@ -177,10 +177,7 @@ class LeRobotInjector:
     Example:
         ```python
         from pathlib import Path
-        from mosaicolabs.bridges.lerobot.injector import (
-            LeRobotInjectionConfig,
-            LeRobotInjector,
-        )
+        from mosaicolabs.bridges.lerobot import LeRobotInjectionConfig, LeRobotInjector
 
         config = LeRobotInjectionConfig(file_path=Path("datasets/pusht"), sequence_name="pusht")
         injector = LeRobotInjector(config)

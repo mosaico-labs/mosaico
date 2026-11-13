@@ -6,6 +6,7 @@ from rosbags.rosbag2 import StoragePlugin
 from rosbags.typesys import Stores
 from typer.testing import CliRunner
 
+import mosaicolabs.bridges.lerobot as lerobot_bridge
 import mosaicolabs.bridges.mcap as mcap_bridge
 import mosaicolabs.bridges.ros as ros_bridge
 from mosaicolabs.bridges.base_injector import InjectionStatus
@@ -66,6 +67,7 @@ def fake(monkeypatch):
         (ros_bridge, "ROSSequenceExtractor"),
         (mcap_bridge, "MCAPInjector"),
         (mcap_bridge, "MCAPSequenceExtractor"),
+        (lerobot_bridge, "LeRobotInjector"),
     ]:
         monkeypatch.setattr(module, name, _FakeRunner)
     return _FakeRunner
@@ -348,3 +350,67 @@ class TestMcapExtract:
         result = runner.invoke(app, ["extract", "mcap", "my_seq"])
         assert result.exit_code == 1
         assert str(error) in result.output
+
+
+class TestLeRobotInject:
+    def test_defaults(self, profile_env, fake, tmp_path):
+        fake.outcome = InjectionStatus.COMPLETED
+        result = runner.invoke(app, ["inject", "lerobot", str(tmp_path)])
+        assert result.exit_code == 0, result.output
+
+        (cfg,) = fake.configs
+        assert isinstance(cfg, lerobot_bridge.LeRobotInjectionConfig)
+        assert cfg.file_path == tmp_path
+        assert cfg.sequence_name == ""
+        assert cfg.host == "bridge.test"
+        assert cfg.column_names is None
+        assert cfg.metadata == {}
+        assert cfg.topic_metadata is None
+
+    def test_options(self, profile_env, fake, tmp_path):
+        result = runner.invoke(
+            app,
+            [
+                "inject",
+                "lerobot",
+                str(tmp_path),
+                "-n",
+                "seq",
+                "-c",
+                "observation.*",
+                "--column-names",
+                "!observation.images.*",
+                "--metadata",
+                '{"driver": "alice"}',
+                "--topic-metadata",
+                '{"/timeseries": {"unit": "m"}}',
+                "--log",
+                "warning",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        (cfg,) = fake.configs
+        assert cfg.sequence_name == "seq"
+        assert cfg.column_names == ["observation.*", "!observation.images.*"]
+        assert cfg.metadata == {"driver": "alice"}
+        assert cfg.topic_metadata == {"/timeseries": {"unit": "m"}}
+        assert cfg.log_level == "WARNING"
+
+    def test_without_profile_exits(self, no_profile_env, fake, tmp_path):
+        result = runner.invoke(app, ["inject", "lerobot", str(tmp_path)])
+        assert result.exit_code == 1
+        assert fake.configs == []
+
+    def test_dry_run_needs_no_profile(self, no_profile_env, fake, tmp_path):
+        fake.outcome = InjectionStatus.DRY_RUN
+        result = runner.invoke(app, ["inject", "lerobot", str(tmp_path), "--dry-run"])
+        assert result.exit_code == 0, result.output
+        (cfg,) = fake.configs
+        assert cfg.dry_run is True
+        assert cfg.host == "localhost"
+
+    def test_file_rejected(self, profile_env, fake, input_file):
+        result = runner.invoke(app, ["inject", "lerobot", str(input_file)])
+        assert result.exit_code == 2
+        assert fake.configs == []

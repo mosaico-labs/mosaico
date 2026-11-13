@@ -68,6 +68,14 @@ InputFileArg = Annotated[
     Path,
     typer.Argument(exists=True, help="Path to the file to inject."),
 ]
+InputDirArg = Annotated[
+    Path,
+    typer.Argument(
+        exists=True,
+        file_okay=False,
+        help="Path to the folder to inject.",
+    ),
+]
 SequenceNameOpt = Annotated[
     str, typer.Option("--name", "-n", help="Name of the target sequence.")
 ]
