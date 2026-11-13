@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Instant;
+
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -9,8 +12,6 @@ use mosaicod_grpc_common as grpc_common;
 use mosaicod_hook as hook;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
-use std::sync::Arc;
-use std::time::Instant;
 use tracing::{debug, info};
 
 pub struct DoPutContext {

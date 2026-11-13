@@ -2,9 +2,10 @@
 //! `mosaicod` processes (server, cleanup, ...) are currently, or were recently, running.
 //! See `mosaicod ps`.
 
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 /// Registers a new instance, seeding its heartbeat to `now_unix_tstamp_secs`.
 ///
@@ -130,9 +131,10 @@ pub async fn instance_registry_delete_expired(
 
 #[cfg(test)]
 mod tests {
+    use sqlx::Pool;
+
     use super::*;
     use crate::core::{DatabaseType, testing};
-    use sqlx::Pool;
 
     #[sqlx::test]
     async fn test_instance_registry_register(pool: Pool<DatabaseType>) {

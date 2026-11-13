@@ -1,8 +1,10 @@
-use super::*;
+use std::time::Instant;
+
 use arrow::{array::RecordBatch, datatypes::SchemaRef};
 use mosaicod_core::{traits, types};
-use std::time::Instant;
 use tracing::debug;
+
+use super::*;
 
 pub struct SerializedChunk {
     pub path: std::path::PathBuf,

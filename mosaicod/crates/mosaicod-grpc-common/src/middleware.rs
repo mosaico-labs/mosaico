@@ -1,12 +1,14 @@
-use crate::error::{PublicErrorGrpcExt, Result};
-use mosaicod_core::{self as core, error::BoxPublicError, types};
-use mosaicod_facade::{self as facade, auth::TokenError};
 use std::{
     pin::Pin,
     task::{Context, Poll},
 };
+
+use mosaicod_core::{self as core, error::BoxPublicError, types};
+use mosaicod_facade::{self as facade, auth::TokenError};
 use tower::{Layer, Service};
 use tracing::warn;
+
+use crate::error::{PublicErrorGrpcExt, Result};
 
 // Skeleton from: https://github.com/hyperium/tonic/blob/master/examples/src/tower/server.rs
 

@@ -1,7 +1,8 @@
-use super::Error;
 use arrow::datatypes::SchemaRef;
 use mosaicod_core::types;
 use parquet::arrow::arrow_reader::{ParquetRecordBatchReader, ParquetRecordBatchReaderBuilder};
+
+use super::Error;
 
 pub enum Reader {
     /// Parquet file format: <https://parquet.apache.org/docs/file-format/>.

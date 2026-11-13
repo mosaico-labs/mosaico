@@ -1,9 +1,10 @@
 #![allow(unused_crate_dependencies)]
+use std::sync::Arc;
+
 use arrow::array::{ArrayRef, Int64Array, RecordBatch};
 use mosaicod_core::types::Uuid;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
-use std::sync::Arc;
 use tests::{self, actions, common};
 
 // ===========================================================================

@@ -1,5 +1,6 @@
-use chrono::Utc;
 use std::{env, process::Command};
+
+use chrono::Utc;
 
 fn main() {
     let opt_level = env::var("OPT_LEVEL").unwrap();

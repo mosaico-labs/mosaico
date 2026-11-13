@@ -184,13 +184,15 @@ fn extract_timestamps<'a>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use arrow::array::Int64Array;
     use arrow::array::UInt64Array;
     use arrow::datatypes::DataType;
     use arrow::datatypes::{Field, Schema};
     use futures::stream;
-    use std::sync::Arc;
+
+    use super::*;
 
     fn batch(ts: &[i64]) -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![Field::new("ts", DataType::Int64, false)]));

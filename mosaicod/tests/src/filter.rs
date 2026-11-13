@@ -1,8 +1,9 @@
 //! Builders for the protobuf query filters used in tests.
 
+use std::collections::HashMap;
+
 use mosaicod_proto::v1::query as proto_query;
 use proto_query::{Condition, Operator, value::Kind};
-use std::collections::HashMap;
 
 /// Converts a rust value into a protobuf [`proto_query::Value`].
 pub trait IntoValue {

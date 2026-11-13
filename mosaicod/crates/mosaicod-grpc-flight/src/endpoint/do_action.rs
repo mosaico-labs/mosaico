@@ -3,13 +3,14 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::actions::{misc, query as query_action, sequence, session, topic};
-use crate::flight::{DoActionStream, IntoStream};
 use mosaicod_core::{self as core, types::auth::Permissions};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_hook as hook;
 use mosaicod_marshal::{self as marshal, ActionRequest, requests, timestamp_range_from_proto};
+
+use super::actions::{misc, query as query_action, sequence, session, topic};
+use crate::flight::{DoActionStream, IntoStream};
 
 pub struct DoActionContext {
     pub inner: facade::Context,
