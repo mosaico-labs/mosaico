@@ -2,13 +2,14 @@
 //! caller), environment variables, [`crate::ConfigFile`], and hard-coded defaults, in that
 //! precedence order.
 
+use crate::builder::{ConfigSource, Env};
 use crate::config;
 use mosaicod_core::error;
 use mosaicod_core::types::{LogFormat, LogLevel};
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
 use std::num::NonZero;
-use std::{env, str::FromStr, sync::OnceLock};
+use std::str::FromStr;
 
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
 pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 512 * 1024 * 1024; // 512MiB
@@ -75,11 +76,9 @@ where
     V: ParamVisibility,
 {
     /// Precedence: `<NAME>` env var, then `file_value` (config file), then `default`.
-    /// If `ignore_env` is `true`, the environment tier is skipped entirely, as if
-    /// `<NAME>` were unset.
     pub fn optional(
         env_name: &str,
-        ignore_env: bool,
+        env: &Env,
         file_value: Option<T>,
         default: T,
     ) -> error::PublicResult<Param<T, V>>
@@ -87,9 +86,9 @@ where
         T: std::str::FromStr,
         <T as FromStr>::Err: std::fmt::Display,
     {
-        let value = match env_var(env_name, ignore_env) {
-            Ok(raw) => parse_value(env_name, &raw)?,
-            Err(_) => file_value.unwrap_or(default),
+        let value = match env.var(env_name) {
+            Some(raw) => parse_value(env_name, &raw)?,
+            None => file_value.unwrap_or(default),
         };
 
         Ok(Self {
@@ -100,20 +99,18 @@ where
     }
 
     /// Precedence: `<NAME>` env var, then `file_value` (config file); errors if neither is set.
-    /// If `ignore_env` is `true`, the environment tier is skipped entirely, as if
-    /// `<NAME>` were unset.
     pub fn required(
         env_name: &str,
-        ignore_env: bool,
+        env: &Env,
         file_value: Option<T>,
     ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
         <T as FromStr>::Err: std::fmt::Display,
     {
-        let value = match env_var(env_name, ignore_env) {
-            Ok(raw) => parse_value(env_name, &raw)?,
-            Err(_) => file_value.ok_or_else(|| {
+        let value = match env.var(env_name) {
+            Some(raw) => parse_value(env_name, &raw)?,
+            None => file_value.ok_or_else(|| {
                 error::Error::invalid_configuration(env_name.to_owned(), "missing".to_owned())
             })?,
         };
@@ -130,11 +127,9 @@ where
     /// `file_path` (a config-file-provided path to such a file).
     /// At most one of `<NAME>` or `<NAME>_FILE` may be set; setting both is an error.
     /// Precedence: `<NAME>`/`<NAME>_FILE` env, then `file_path` (config file), then `default`.
-    /// If `ignore_env` is `true`, both env forms are skipped entirely, as if neither
-    /// `<NAME>` nor `<NAME>_FILE` were set.
     pub fn optional_or_file(
         env_name: &str,
-        ignore_env: bool,
+        env: &Env,
         file_path: Option<String>,
         default: T,
     ) -> error::PublicResult<Param<T, V>>
@@ -142,7 +137,7 @@ where
         T: std::str::FromStr,
         <T as FromStr>::Err: std::fmt::Display,
     {
-        let raw = match resolve_plain_or_file(env_name, ignore_env)? {
+        let raw = match resolve_plain_or_file(env_name, env)? {
             Some(raw) => Some(raw),
             None => file_path.map(|path| read_file_trimmed(&path)).transpose()?,
         };
@@ -165,18 +160,16 @@ where
     /// Exactly one of `<NAME>` or `<NAME>_FILE` may be set; setting both is an error.
     /// Precedence: `<NAME>`/`<NAME>_FILE` env, then `file_path` (config file); errors if
     /// none of these resolve to a value.
-    /// If `ignore_env` is `true`, both env forms are skipped entirely, as if neither
-    /// `<NAME>` nor `<NAME>_FILE` were set.
     pub fn required_or_file(
         env_name: &str,
-        ignore_env: bool,
+        env: &Env,
         file_path: Option<String>,
     ) -> error::PublicResult<Param<T, V>>
     where
         T: std::str::FromStr,
         <T as FromStr>::Err: std::fmt::Display,
     {
-        let raw = match resolve_plain_or_file(env_name, ignore_env)? {
+        let raw = match resolve_plain_or_file(env_name, env)? {
             Some(raw) => raw,
             None => match file_path {
                 Some(path) => read_file_trimmed(&path)?,
@@ -205,25 +198,10 @@ where
     T: std::str::FromStr,
     <T as FromStr>::Err: std::fmt::Display,
 {
-    Ok(raw.parse().map_err(|e| {
+    raw.parse().map_err(|e| {
         error::Error::invalid_configuration(env_name.to_owned(), format!("unable to parse: {e}"))
-    })?)
-}
-
-/// Reads env var `name`, unless `ignore_env` is `true`, in which case it behaves as if
-/// the variable were unset (used to bypass the environment tier entirely, e.g. for
-/// deterministic tests — see [`ParamsLoadOptions::ignore_env`]).
-/// An empty value (e.g. `NAME=`) is treated as unset, so it falls through to the next
-/// tier instead of overriding it with an empty string.
-fn env_var(name: &str, ignore_env: bool) -> Result<String, env::VarError> {
-    if ignore_env {
-        return Err(env::VarError::NotPresent);
-    }
-
-    match env::var(name) {
-        Ok(value) if value.is_empty() => Err(env::VarError::NotPresent),
-        result => result,
-    }
+            .into()
+    })
 }
 
 /// Reads a file's content and strips trailing newlines (`\n` or `\r\n`).
@@ -237,13 +215,12 @@ fn read_file_trimmed(path: &str) -> error::PublicResult<String> {
 
 /// Resolves a value that may be set either directly via `<NAME>` or indirectly via
 /// `<NAME>_FILE` (a path to a file containing it, read and trailing-newline-trimmed).
-/// Returns `Ok(None)` if neither is set. Setting both is an error. If `ignore_env` is
-/// `true`, both forms are skipped entirely, as if neither were set.
-fn resolve_plain_or_file(name: &str, ignore_env: bool) -> error::PublicResult<Option<String>> {
+/// Returns `Ok(None)` if neither is set. Setting both is an error.
+fn resolve_plain_or_file(name: &str, env: &Env) -> error::PublicResult<Option<String>> {
     let file_env = format!("{name}_FILE");
 
-    let plain = env_var(name, ignore_env).ok();
-    let file_path = env_var(&file_env, ignore_env).ok();
+    let plain = env.var(name);
+    let file_path = env.var(&file_env);
 
     match (plain, file_path) {
         (Some(_), Some(_)) => Err(error::Error::invalid_configuration(
@@ -454,61 +431,47 @@ impl Params {
     }
 }
 
-/// Options for loading parameters from environment variables.
+/// Source of mosaicod's own parameters: the `[server]`, `[database]`, ... sections of
+/// `config.toml` and the `MOSAICOD_*` env vars. Builds [`Params`].
 #[derive(Default)]
-pub struct ParamsLoadOptions {
-    /// Avoid requiring the `MOSAICOD_DB_*` env variables.
-    pub skip_db_config: bool,
-
-    /// Skip the process-environment tier entirely for every field, resolving purely
-    /// from `config_file` and hard-coded defaults. Useful for deterministic tests that
-    /// shouldn't be affected by whatever `MOSAICOD_*` variables happen to be set in the
-    /// developer's shell or CI.
-    pub ignore_env: bool,
-
-    /// Parsed config file (third precedence tier, below env vars). Defaults to
-    /// "no config file loaded" (every field absent), which falls through unchanged.
-    pub config_file: config::ConfigFile,
+pub struct DefaultConfig {
+    skip_db_config: bool,
 }
 
-impl ParamsLoadOptions {
-    /// Load parameters with options suitable for testing
-    ///
-    /// This will skip the loading of database connection settings from the environment variables.
+impl DefaultConfig {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Doesn't require `MOSAICOD_DB_URL`.
+    #[cfg(any(test, feature = "testing"))]
     pub fn testing() -> Self {
         Self {
             skip_db_config: true,
-            ignore_env: false,
-            config_file: Default::default(),
         }
     }
 }
 
-/// Resolves and stores the global [`Params`], with precedence:
-/// env var > `config.toml` > hard-coded default for each field (or, if `config.ignore_env` is set,
-/// config file > default, bypassing the environment tier entirely).
-///
-/// Must be called once before [`params()`] is used. A second call within the same
-/// process is a no-op: its result is silently discarded and the first-loaded `Params`
-/// remains active for the rest of the process lifetime.
-pub fn load_params(config: ParamsLoadOptions) -> error::PublicResult<()> {
-    let _ = ENV.set(build_params(config)?);
+impl ConfigSource for DefaultConfig {
+    type Sections = config::ConfigFile;
+    type Output = Params;
 
-    Ok(())
+    fn build(self, sections: config::ConfigFile, env: &Env) -> error::PublicResult<Params> {
+        build_params(env, &sections, self.skip_db_config)
+    }
 }
 
-/// Builds and validates [`Params`], with precedence:
-/// env var > `config.toml` > hard-coded default for each field (or, if `config.ignore_env` is set,
-/// config file > default, bypassing the environment tier entirely).
-fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
-    let cfg = &config.config_file;
-
-    let ignore_env = config.ignore_env;
-
+/// Builds and validates [`Params`], with precedence env var > `config.toml` > hard-coded
+/// default for each field.
+fn build_params(
+    env: &Env,
+    cfg: &config::ConfigFile,
+    skip_db_config: bool,
+) -> error::PublicResult<Params> {
     // An explicit value always wins and startup only fails when nothing is set and detection fails too.
     let default_parallelism = Param::required(
         "MOSAICOD_DEFAULT_PARALLELISM",
-        ignore_env,
+        env,
         cfg.server
             .default_parallelism
             .or_else(|| std::thread::available_parallelism().ok()),
@@ -516,13 +479,13 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
 
     let grpc_max_decode_message_size = Param::optional(
         "MOSAICOD_GRPC_MAX_DECODE_MESSAGE_SIZE",
-        ignore_env,
+        env,
         cfg.server.grpc.max_decode_message_size,
         DEFAULT_GRPC_MAX_DECODE_MESSAGE_SIZE,
     )?;
     let grpc_target_encode_message_size = Param::optional(
         "MOSAICOD_GRPC_TARGET_ENCODE_MESSAGE_SIZE",
-        ignore_env,
+        env,
         cfg.server.grpc.target_encode_message_size,
         DEFAULT_GRPC_TARGET_ENCODE_MESSAGE_SIZE,
     )?;
@@ -533,44 +496,44 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
         grpc_target_encode_message_size,
         max_concurrent_chunk_queries: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES",
-            ignore_env,
+            env,
             cfg.query_engine.max_concurrent_chunk_queries,
             DEFAULT_MAX_CONCURRENT_CHUNK_QUERIES,
         )?,
         max_size_plain_list_eq: Param::optional(
             "MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ",
-            ignore_env,
+            env,
             cfg.query_engine.max_size_plain_list_eq,
             DEFAULT_MAX_SIZE_PLAIN_LIST_EQ,
         )?,
         max_db_connections: Param::optional(
             "MOSAICOD_MAX_DB_CONNECTIONS",
-            ignore_env,
+            env,
             cfg.database.max_connections,
             DEFAULT_MAX_DB_CONNECTIONS,
         )?,
         max_concurrent_writes: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_WRITES",
-            ignore_env,
+            env,
             cfg.server.max_concurrent_writes,
             default_parallelism.value,
         )?,
         default_parallelism,
         parquet_in_memory_encoding_buffer_size: Param::optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
-            ignore_env,
+            env,
             cfg.encoding.parquet_in_memory_encoding_buffer_size,
             DEFAULT_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE,
         )?,
         max_batch_size: Param::optional(
             "MOSAICOD_MAX_BATCH_SIZE",
-            ignore_env,
+            env,
             cfg.server.max_batch_size,
             DEFAULT_MAX_BATCH_SIZE,
         )?,
         query_engine_memory_pool_size: Param::optional(
             "MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE",
-            ignore_env,
+            env,
             cfg.query_engine.memory_pool_size,
             DEFAULT_QUERY_ENGINE_MEMORY_POOL_SIZE,
         )?,
@@ -578,35 +541,35 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
         // logging
         log_level: Param::optional(
             "MOSAICOD_LOG_LEVEL",
-            ignore_env,
+            env,
             cfg.logging.level,
             DEFAULT_LOG_LEVEL,
         )?,
         log_format: Param::optional(
             "MOSAICOD_LOG_FORMAT",
-            ignore_env,
+            env,
             cfg.logging.format,
             DEFAULT_LOG_FORMAT,
         )?,
 
         // server
-        host: Param::optional("MOSAICOD_HOST", ignore_env, cfg.server.host, DEFAULT_HOST)?,
-        port: Param::optional("MOSAICOD_PORT", ignore_env, cfg.server.port, DEFAULT_PORT)?,
+        host: Param::optional("MOSAICOD_HOST", env, cfg.server.host, DEFAULT_HOST)?,
+        port: Param::optional("MOSAICOD_PORT", env, cfg.server.port, DEFAULT_PORT)?,
         tls_enabled: Param::optional(
             "MOSAICOD_TLS_ENABLED",
-            ignore_env,
+            env,
             cfg.server.tls.enabled,
             DEFAULT_TLS_ENABLED,
         )?,
         gzip_enabled: Param::optional(
             "MOSAICOD_GZIP_ENABLED",
-            ignore_env,
+            env,
             cfg.server.gzip_enabled,
             DEFAULT_GZIP,
         )?,
         api_key_enabled: Param::optional(
             "MOSAICOD_API_KEY_ENABLED",
-            ignore_env,
+            env,
             cfg.server.api_key_enabled,
             DEFAULT_API_KEY_ENABLED,
         )?,
@@ -614,74 +577,71 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
         // tls
         tls_certificate_file: Param::optional(
             "MOSAICOD_TLS_CERT_FILE",
-            ignore_env,
+            env,
             cfg.server.tls.certificate_file.clone(),
             DEFAULT_TLS_CERT_FILE.to_owned(),
         )?,
         tls_private_key_file: Param::optional(
             "MOSAICOD_TLS_PRIVATE_KEY_FILE",
-            ignore_env,
+            env,
             cfg.server.tls.private_key_file.clone(),
             DEFAULT_TLS_PRIVATE_KEY_FILE.to_owned(),
         )?,
 
         // database
-        db_url: if config.skip_db_config {
-            Param::default()
-        } else {
-            Param::required("MOSAICOD_DB_URL", ignore_env, cfg.database.url.clone())?
-        },
-        db_user: if config.skip_db_config {
-            Param::default()
-        } else {
-            // Some databases do not require to specify a user for the connection.
+        db_url: if skip_db_config {
             Param::optional(
-                "MOSAICOD_DB_USER",
-                ignore_env,
-                cfg.database.user.clone(),
+                "MOSAICOD_DB_URL",
+                env,
+                cfg.database.url.clone(),
                 String::new(),
             )?
-        },
-        db_password: if config.skip_db_config {
-            Param::default()
         } else {
-            // Some databases do not require to specify a password for the connection.
-            Param::optional_or_file(
-                "MOSAICOD_DB_PASSWORD",
-                ignore_env,
-                cfg.database.password_file.clone(),
-                String::new(),
-            )?
+            Param::required("MOSAICOD_DB_URL", env, cfg.database.url.clone())?
         },
+        // Some databases do not require to specify a user for the connection.
+        db_user: Param::optional(
+            "MOSAICOD_DB_USER",
+            env,
+            cfg.database.user.clone(),
+            String::new(),
+        )?,
+        // Some databases do not require to specify a password for the connection.
+        db_password: Param::optional_or_file(
+            "MOSAICOD_DB_PASSWORD",
+            env,
+            cfg.database.password_file.clone(),
+            String::new(),
+        )?,
 
         // store
         store_endpoint: Param::optional(
             "MOSAICOD_STORE_ENDPOINT",
-            ignore_env,
+            env,
             cfg.store.endpoint.clone(),
             DEFAULT_STORE_ENDPOINT.to_owned(),
         )?,
         store_bucket: Param::optional(
             "MOSAICOD_STORE_BUCKET",
-            ignore_env,
+            env,
             cfg.store.bucket.clone(),
             DEFAULT_STORE_BUCKET.to_owned(),
         )?,
         store_region: Param::optional(
             "MOSAICOD_STORE_REGION",
-            ignore_env,
+            env,
             cfg.store.region.clone(),
             DEFAULT_STORE_REGION.to_owned(),
         )?,
         store_secret_key: Param::optional_or_file(
             "MOSAICOD_STORE_SECRET_KEY",
-            ignore_env,
+            env,
             cfg.store.secret_key_file.clone(),
             DEFAULT_STORE_SECRET_KEY.to_owned(),
         )?,
         store_access_key: Param::optional(
             "MOSAICOD_STORE_ACCESS_KEY",
-            ignore_env,
+            env,
             cfg.store.access_key.clone(),
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
         )?,
@@ -689,19 +649,19 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
         // store optimizer
         store_optimizer_memory_pool_size: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_MEMORY_POOL_SIZE",
-            ignore_env,
+            env,
             cfg.store_optimizer.memory_pool_size,
             DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE,
         )?,
         store_optimizer_time_interval: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL",
-            ignore_env,
+            env,
             cfg.store_optimizer.time_interval,
             DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL,
         )?,
         store_optimizer_max_chunk_size: Param::optional(
             "MOSAICOD_STORE_OPTIMIZER_MAX_CHUNK_SIZE",
-            ignore_env,
+            env,
             cfg.store_optimizer.max_chunk_size,
             DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE,
         )?,
@@ -709,13 +669,13 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
         // cleanup
         cleanup_time_interval: Param::optional(
             "MOSAICOD_CLEANUP_TIME_INTERVAL",
-            ignore_env,
+            env,
             cfg.cleanup.time_interval,
             DEFAULT_CLEANUP_TIME_INTERVAL,
         )?,
         cleanup_retention_duration: Param::optional(
             "MOSAICOD_CLEANUP_RETENTION_DURATION",
-            ignore_env,
+            env,
             cfg.cleanup.retention_duration,
             DEFAULT_CLEANUP_RETENTION_DURATION,
         )?,
@@ -726,10 +686,9 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
     Ok(params)
 }
 
-static ENV: OnceLock<Params> = OnceLock::new();
-
+/// mosaicod's own parameters, built by [`DefaultConfig`].
 pub fn params() -> &'static Params {
-    ENV.get().expect("parameters not initialized, please call `params::load_params()` before accessing an env variable.")
+    crate::get::<Params>()
 }
 
 /// Returns mosaicod version.
@@ -746,6 +705,7 @@ mod tests {
     use super::*;
     use crate::config;
     use mosaicod_core::error::ErrorKind;
+    use std::env;
 
     fn param<T>(value: T) -> Param<T> {
         Param {
@@ -872,7 +832,8 @@ mod tests {
         let name = "TEST_OPTIONAL_OR_FILE_PLAIN";
         unsafe { env::set_var(name, "plain-value") };
 
-        let result = Param::<String>::optional_or_file(name, false, None, "default".to_owned());
+        let result =
+            Param::<String>::optional_or_file(name, &Env::process(), None, "default".to_owned());
 
         unsafe { env::remove_var(name) };
 
@@ -888,7 +849,8 @@ mod tests {
         std::fs::write(&path, " secret-from-file\n").unwrap();
         unsafe { env::set_var(&file_env, path.to_str().unwrap()) };
 
-        let result = Param::<String>::optional_or_file(name, false, None, "default".to_owned());
+        let result =
+            Param::<String>::optional_or_file(name, &Env::process(), None, "default".to_owned());
 
         unsafe { env::remove_var(&file_env) };
         let _ = std::fs::remove_file(&path);
@@ -915,7 +877,8 @@ mod tests {
         unsafe { env::set_var(name, "plain-value") };
         unsafe { env::set_var(&file_env, "/does/not/matter") };
 
-        let result = Param::<String>::optional_or_file(name, false, None, "default".to_owned());
+        let result =
+            Param::<String>::optional_or_file(name, &Env::process(), None, "default".to_owned());
 
         unsafe { env::remove_var(name) };
         unsafe { env::remove_var(&file_env) };
@@ -930,7 +893,8 @@ mod tests {
     fn optional_or_file_falls_back_to_default_when_neither_set() {
         let name = "TEST_OPTIONAL_OR_FILE_NEITHER";
 
-        let result = Param::<String>::optional_or_file(name, false, None, "default".to_owned());
+        let result =
+            Param::<String>::optional_or_file(name, &Env::process(), None, "default".to_owned());
 
         assert_eq!(result.unwrap().value, "default");
     }
@@ -940,7 +904,7 @@ mod tests {
         let name = "TEST_REQUIRED_OR_FILE_PLAIN";
         unsafe { env::set_var(name, "plain-value") };
 
-        let result = Param::<String>::required_or_file(name, false, None);
+        let result = Param::<String>::required_or_file(name, &Env::process(), None);
 
         unsafe { env::remove_var(name) };
 
@@ -956,7 +920,7 @@ mod tests {
         std::fs::write(&path, "secret-from-file\n").unwrap();
         unsafe { env::set_var(&file_env, path.to_str().unwrap()) };
 
-        let result = Param::<String>::required_or_file(name, false, None);
+        let result = Param::<String>::required_or_file(name, &Env::process(), None);
 
         unsafe { env::remove_var(&file_env) };
         let _ = std::fs::remove_file(&path);
@@ -972,7 +936,7 @@ mod tests {
         unsafe { env::set_var(name, "plain-value") };
         unsafe { env::set_var(&file_env, "/does/not/matter") };
 
-        let result = Param::<String>::required_or_file(name, false, None);
+        let result = Param::<String>::required_or_file(name, &Env::process(), None);
 
         unsafe { env::remove_var(name) };
         unsafe { env::remove_var(&file_env) };
@@ -987,7 +951,7 @@ mod tests {
     fn required_or_file_errors_when_neither_set() {
         let name = "TEST_REQUIRED_OR_FILE_NEITHER";
 
-        let result = Param::<String>::required_or_file(name, false, None);
+        let result = Param::<String>::required_or_file(name, &Env::process(), None);
 
         assert!(matches!(
             result.unwrap_err().error().kind(),
@@ -1001,7 +965,7 @@ mod tests {
     fn optional_uses_file_value_when_env_unset() {
         let name = "TEST_OPTIONAL_FILE_VALUE";
 
-        let result = Param::<u32>::optional(name, false, Some(42), 0).unwrap();
+        let result = Param::<u32>::optional(name, &Env::process(), Some(42), 0).unwrap();
 
         assert_eq!(result.value, 42);
     }
@@ -1011,7 +975,7 @@ mod tests {
         let name = "TEST_OPTIONAL_ENV_OVER_FILE";
         unsafe { env::set_var(name, "7") };
 
-        let result = Param::<u32>::optional(name, false, Some(42), 0).unwrap();
+        let result = Param::<u32>::optional(name, &Env::process(), Some(42), 0).unwrap();
 
         unsafe { env::remove_var(name) };
 
@@ -1024,7 +988,7 @@ mod tests {
         let name = "TEST_OPTIONAL_UNPARSABLE_ENV";
         unsafe { env::set_var(name, "abc") };
 
-        let result = Param::<u32>::optional(name, false, Some(42), 0);
+        let result = Param::<u32>::optional(name, &Env::process(), Some(42), 0);
 
         unsafe { env::remove_var(name) };
 
@@ -1044,7 +1008,8 @@ mod tests {
         let name = "TEST_OPTIONAL_NON_ZERO_ZERO_ENV";
         unsafe { env::set_var(name, "0") };
 
-        let result = Param::<NonZero<usize>>::optional(name, false, None, NonZero::<usize>::MIN);
+        let result =
+            Param::<NonZero<usize>>::optional(name, &Env::process(), None, NonZero::<usize>::MIN);
 
         unsafe { env::remove_var(name) };
 
@@ -1061,9 +1026,13 @@ mod tests {
         let name = "TEST_OPTIONAL_EMPTY_ENV_OVER_CONFIG_FILE";
         unsafe { env::set_var(name, "") };
 
-        let result =
-            Param::<String>::optional(name, false, Some("value".to_owned()), String::new())
-                .unwrap();
+        let result = Param::<String>::optional(
+            name,
+            &Env::process(),
+            Some("value".to_owned()),
+            String::new(),
+        )
+        .unwrap();
 
         unsafe { env::remove_var(name) };
 
@@ -1074,7 +1043,7 @@ mod tests {
     fn optional_falls_back_to_default_when_env_and_file_unset() {
         let name = "TEST_OPTIONAL_NEITHER_ENV_NOR_FILE";
 
-        let result = Param::<u32>::optional(name, false, None, 0).unwrap();
+        let result = Param::<u32>::optional(name, &Env::process(), None, 0).unwrap();
 
         assert_eq!(result.value, 0);
     }
@@ -1083,7 +1052,7 @@ mod tests {
     fn required_uses_file_value_when_env_unset() {
         let name = "TEST_REQUIRED_FILE_VALUE";
 
-        let result = Param::<u32>::required(name, false, Some(42));
+        let result = Param::<u32>::required(name, &Env::process(), Some(42));
 
         assert_eq!(result.unwrap().value, 42);
     }
@@ -1092,7 +1061,7 @@ mod tests {
     fn required_errors_when_env_and_file_unset() {
         let name = "TEST_REQUIRED_NEITHER_ENV_NOR_FILE";
 
-        let result = Param::<u32>::required(name, false, None);
+        let result = Param::<u32>::required(name, &Env::process(), None);
 
         assert!(matches!(
             result.unwrap_err().error().kind(),
@@ -1106,7 +1075,7 @@ mod tests {
         let name = "TEST_REQUIRED_NON_ZERO_ZERO_ENV";
         unsafe { env::set_var(name, "0") };
 
-        let result = Param::<NonZero<usize>>::required(name, false, NonZero::new(4));
+        let result = Param::<NonZero<usize>>::required(name, &Env::process(), NonZero::new(4));
 
         unsafe { env::remove_var(name) };
 
@@ -1125,7 +1094,7 @@ mod tests {
 
         let result = Param::<String>::optional_or_file(
             name,
-            false,
+            &Env::process(),
             Some(path.to_str().unwrap().to_owned()),
             "default".to_owned(),
         );
@@ -1142,7 +1111,7 @@ mod tests {
 
         let result = Param::<String>::optional_or_file(
             name,
-            false,
+            &Env::process(),
             Some("/does/not/matter".to_owned()),
             "default".to_owned(),
         );
@@ -1159,7 +1128,7 @@ mod tests {
         let name = "TEST_OPTIONAL_IGNORE_ENV";
         unsafe { env::set_var(name, "7") };
 
-        let result = Param::<u32>::optional(name, true, Some(42), 0).unwrap();
+        let result = Param::<u32>::optional(name, &Env::ignored(), Some(42), 0).unwrap();
 
         unsafe { env::remove_var(name) };
 
@@ -1177,8 +1146,11 @@ mod tests {
         let path = std::env::temp_dir().join("mosaicod_test_required_or_file_ignore_env");
         std::fs::write(&path, "secret-from-config-file\n").unwrap();
 
-        let result =
-            Param::<String>::required_or_file(name, true, Some(path.to_str().unwrap().to_owned()));
+        let result = Param::<String>::required_or_file(
+            name,
+            &Env::ignored(),
+            Some(path.to_str().unwrap().to_owned()),
+        );
 
         unsafe { env::remove_var(name) };
         unsafe { env::remove_var(&file_env) };
@@ -1187,19 +1159,12 @@ mod tests {
         assert_eq!(result.unwrap().value, "secret-from-config-file");
     }
 
-    // --- load_params field mapping ---
+    // --- build_params field mapping ---
 
-    // `load_params` caches its result in a process-wide `OnceLock`, so a second call
-    // anywhere in this binary would be a silent no-op that returns the first call's
-    // values instead of its own. This must remain the only test in this file (and the
-    // only one in this crate's test binary) that calls `load_params`.
+    // `Env::ignored()` makes these deterministic regardless of ambient `MOSAICOD_*`
+    // variables set in the developer's shell or CI.
     fn params_from(config_file: config::ConfigFile) -> Params {
-        build_params(ParamsLoadOptions {
-            skip_db_config: true,
-            ignore_env: true,
-            config_file,
-        })
-        .unwrap()
+        build_params(&Env::ignored(), &config_file, true).unwrap()
     }
 
     #[test]
@@ -1240,7 +1205,7 @@ mod tests {
     }
 
     #[test]
-    fn load_params_maps_every_config_file_field_to_the_correct_param() {
+    fn build_params_maps_every_config_file_field_to_the_correct_param() {
         let password_path = std::env::temp_dir().join("mosaicod_test_load_params_db_password");
         std::fs::write(&password_path, "db-password-from-file\n").unwrap();
         let secret_key_path = std::env::temp_dir().join("mosaicod_test_load_params_secret_key");
@@ -1301,19 +1266,12 @@ mod tests {
             },
         };
 
-        // `ignore_env` makes this deterministic regardless of ambient `MOSAICOD_*`
-        // variables set in the developer's shell or CI.
-        load_params(ParamsLoadOptions {
-            skip_db_config: false,
-            ignore_env: true,
-            config_file,
-        })
-        .unwrap();
+        let p = build_params(&Env::ignored(), &config_file, false);
 
         let _ = std::fs::remove_file(&password_path);
         let _ = std::fs::remove_file(&secret_key_path);
 
-        let p = params();
+        let p = p.unwrap();
 
         assert_eq!(p.host.value, IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)));
         assert_eq!(p.port.value.get(), 1234);

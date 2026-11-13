@@ -20,4 +20,5 @@ bytes = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+mosaicod-config = { workspace = true, features = ["testing"] }
 arrow-schema = { workspace = true }

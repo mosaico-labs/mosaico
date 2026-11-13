@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_server_info() {
         // `info` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params(params::ParamsLoadOptions::testing());
+        mosaicod_config::testing::load();
 
         if let ActionResponse::Info(v) = info().unwrap() {
             println!("server info: {:?}", v);

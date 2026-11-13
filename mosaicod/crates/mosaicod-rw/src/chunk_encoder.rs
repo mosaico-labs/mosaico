@@ -193,7 +193,6 @@ mod tests {
     };
     use arrow::datatypes::Field;
     use arrow_schema::DataType;
-    use mosaicod_config::params as config_params;
     use mosaicod_core::constants;
 
     /// Helper function to create a test RecordBatch.
@@ -254,7 +253,7 @@ mod tests {
 
     #[test]
     fn chunk_writer_statistics() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let batch = create_test_batch();
         let schema = batch.schema();

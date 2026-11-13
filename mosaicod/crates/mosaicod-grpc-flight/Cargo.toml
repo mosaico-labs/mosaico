@@ -31,5 +31,6 @@ tracing = { workspace = true }
 datafusion = { workspace = true }
 
 [dev-dependencies]
+mosaicod-config = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-db = { workspace = true, features = ["testing"] }

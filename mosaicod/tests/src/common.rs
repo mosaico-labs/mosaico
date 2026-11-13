@@ -85,7 +85,7 @@ impl ServerBuilder {
 
     pub async fn build_with_store(self, store: store::testing::Store) -> Server {
         // Ensure that params are loaded
-        params::load_params(params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(

@@ -2562,13 +2562,9 @@ dependencies = [
 name = "mosaicod"
 version = "0.8.0"
 dependencies = [
- "clap",
  "mimalloc",
- "mosaicod-build",
  "mosaicod-commands",
  "mosaicod-config",
- "mosaicod-core",
- "tracing",
 ]
 
 [[package]]
@@ -2588,6 +2584,7 @@ dependencies = [
  "dotenv",
  "if-addrs",
  "iso8601",
+ "mosaicod-build",
  "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",
@@ -2610,6 +2607,7 @@ dependencies = [
  "etcetera 0.11.0",
  "mosaicod-core",
  "serde",
+ "serde-aux",
  "toml",
 ]
 
@@ -3825,6 +3823,27 @@ checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-aux"
+version = "4.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "207f67b28fe90fb596503a9bf0bf1ea5e831e21307658e177c5dfcdfc3ab8a0a"
+dependencies = [
+ "serde",
+ "serde-value",
+ "serde_json",
+]
+
+[[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float",
+ "serde",
 ]
 
 [[package]]

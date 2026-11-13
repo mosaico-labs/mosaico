@@ -64,8 +64,6 @@ pub enum ApiKey {
 }
 
 pub fn auth(auth: ApiKey) -> Result<()> {
-    common::load_env_variables(None)?;
-
     let rt = common::init_runtime()?;
 
     let store = common::init_store()?;

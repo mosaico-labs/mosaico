@@ -262,7 +262,7 @@ mod tests {
         pool: sqlx::Pool<db::DatabaseType>,
     ) {
         // `start_and_wait` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params(params::ParamsLoadOptions::testing());
+        mosaicod_config::testing::load();
 
         let test_store =
             store::testing::Store::new_random_on_tmp().expect("failed to create test store");

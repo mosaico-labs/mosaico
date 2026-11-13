@@ -6,9 +6,9 @@
 //! `store.secret_key`) are intentionally not fields here — only their `_file` path
 //! counterparts are.
 //!
-//! [`ConfigFile`] feeds into [`crate::params::Params`], the runtime configuration
-//! registry — the two are inseparable in practice, which is why they live in the same
-//! crate rather than forcing every consumer to depend on two crates for one concern.
+//! [`ConfigFile`] holds the sections read by [`crate::params::DefaultConfig`] (each field
+//! is a section) and feeds into [`crate::params::Params`]. Other [`crate::ConfigSource`]s
+//! may declare further sections of the same file.
 
 use etcetera::base_strategy::BaseStrategy;
 use mosaicod_core::error::PublicResult as Result;
@@ -19,6 +19,7 @@ use std::net::IpAddr;
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
 
+/// The sections of `config.toml` read by [`crate::params::DefaultConfig`].
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
 pub struct ConfigFile {
@@ -196,29 +197,29 @@ fn xdg_config_path() -> Option<PathBuf> {
         .map(|strategy| strategy.config_dir().join(CONFIG_FILE_RELATIVE_PATH))
 }
 
-/// Reads and parses the config file at `path`.
-pub fn load_config_file(path: &Path) -> Result<ConfigFile> {
-    let content = std::fs::read_to_string(path).map_err(|e| {
+/// Reads the config file at `path`. The builder parses it, leaving each section to the
+/// source that reads it.
+pub(crate) fn read_config_file(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).map_err(|e| {
         mosaicod_core::error::Error::invalid_configuration(
             path.display().to_string(),
             e.to_string(),
         )
-    })?;
-
-    let parsed = toml::from_str(&content).map_err(|e| {
-        mosaicod_core::error::Error::invalid_configuration(
-            path.display().to_string(),
-            e.to_string(),
-        )
-    })?;
-
-    Ok(parsed)
+        .into()
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::Mutex;
+
+    /// Reads the file at `path` into a [`ConfigFile`].
+    fn load_config_file(path: &Path) -> Result<ConfigFile> {
+        Ok(toml::from_str(&read_config_file(path)?).map_err(|e| {
+            mosaicod_core::error::Error::invalid_configuration("test".to_owned(), e.to_string())
+        })?)
+    }
 
     /// Serializes tests that mutate the shared, process-global env vars this module reads
     /// (`MOSAICOD_CONFIG_FILE`, `XDG_CONFIG_HOME`), since Rust runs tests in parallel
