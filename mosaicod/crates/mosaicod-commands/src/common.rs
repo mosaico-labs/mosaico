@@ -57,11 +57,25 @@ pub fn init_store() -> Result<store::StoreRef> {
     let secret_key = params.store_secret_key.value.clone();
     let access_key = params.store_access_key.value.clone();
 
-    if !access_key.is_empty() && !secret_key.is_empty() {
-        builder = builder.with_credentials(access_key, secret_key);
+    if !access_key.is_empty() {
+        builder = builder.with_access_key(access_key);
+    }
+    if !secret_key.is_empty() {
+        builder = builder.with_secret_key(secret_key);
     }
 
-    Ok(Arc::new(builder.build()?))
+    let store = Arc::new(builder.build()?);
+    Ok(store)
+}
+
+pub fn check_store_connectivity(
+    rt: &tokio::runtime::Runtime,
+    store: &store::StoreRef,
+) -> Result<()> {
+    let timeout =
+        std::time::Duration::from_secs(params::params().store_connection_timeout.value as u64);
+    rt.block_on(async { store.check_connectivity(timeout).await })?;
+    Ok(())
 }
 
 /// Resolves and loads the config file (if any), and builds the resulting

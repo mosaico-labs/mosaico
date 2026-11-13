@@ -72,9 +72,11 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-store-region" />`MOSAICOD_STORE_REGION`: Region where the bucket is located (e.g. `eu-south-1`). Region is a general concept shared by many cloud storage services. For example, an S3 store uses it to sign requests, so on AWS it must match the region of the bucket. It is ignored when using the local filesystem endpoint. When empty, the object store client default (`us-east-1`) is used. Must not contain whitespace, control characters or `/`. Default is an empty string.
 
-- <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Required with S3-compatible endpoints. Must not contain whitespace, control characters or `,`. Default is an empty string.
+- <Link id="mosaicod-store-access-key" />`MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Optional with S3-compatible endpoints: when omitted (along with the secret key), the daemon automatically uses AWS IAM instance profile or task role credentials. If static keys are used, both `MOSAICOD_STORE_ACCESS_KEY` and `MOSAICOD_STORE_SECRET_KEY` must be set. Must not contain whitespace, control characters or `,`. Default is an empty string.
 
-- <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Required with S3-compatible endpoints. Must not start or end with whitespace. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error. Trailing newlines in the file are ignored.
+- <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Optional with S3-compatible endpoints: when omitted (along with the access key), the daemon automatically uses AWS IAM instance profile or task role credentials. Must not start or end with whitespace. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error. Trailing newlines in the file are ignored.
+
+- <Link id="mosaicod-store-connection-timeout" />`MOSAICOD_STORE_CONNECTION_TIMEOUT`: Timeout, in seconds, for the startup store connectivity check. At startup, the daemon validates store connectivity and credentials; if the check does not complete within this period, startup aborts. Defaults to `5`.
 
 ## Cleanup
 

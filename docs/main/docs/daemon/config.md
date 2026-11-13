@@ -123,6 +123,7 @@ The table below maps each config key to the [environment variable](env.md) it co
 | `store.region` | [`MOSAICOD_STORE_REGION`](env.md#mosaicod-store-region) |
 | `store.access_key` | [`MOSAICOD_STORE_ACCESS_KEY`](env.md#mosaicod-store-access-key) |
 | `store.secret_key_file` | [`MOSAICOD_STORE_SECRET_KEY_FILE`](env.md#mosaicod-store-secret-key) |
+| `store.connection_timeout` | [`MOSAICOD_STORE_CONNECTION_TIMEOUT`](env.md#mosaicod-store-connection-timeout) |
 | `query_engine.memory_pool_size` | [`MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE`](env.md#mosaicod-query-engine-memory-pool-size) |
 | `query_engine.max_concurrent_chunk_queries` | [`MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES`](env.md#mosaicod-max-concurrent-chunk-queries) |
 | `query_engine.max_size_plain_list_eq` | [`MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ`](env.md#mosaicod-max-size-plain-list-eq) |

@@ -29,6 +29,7 @@ pub const DEFAULT_STORE_BUCKET: &str = "";
 pub const DEFAULT_STORE_REGION: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
+pub const DEFAULT_STORE_CONNECTION_TIMEOUT: u32 = 5;
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 pub const DEFAULT_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const DEFAULT_PORT: NonZero<u16> = NonZero::new(6726).unwrap();
@@ -421,6 +422,11 @@ pub struct Params {
     pub store_secret_key: Param<String, Hidden>,
 
     pub store_access_key: Param<String>,
+
+    /// Store connection timeout, in seconds.
+    ///
+    /// Defaults to 5 seconds.
+    pub store_connection_timeout: Param<u32>,
 }
 
 impl Params {
@@ -685,6 +691,12 @@ fn build_params(config: ParamsLoadOptions) -> error::PublicResult<Params> {
             cfg.store.access_key.clone(),
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
         )?,
+        store_connection_timeout: Param::optional(
+            "MOSAICOD_STORE_CONNECTION_TIMEOUT",
+            ignore_env,
+            cfg.store.connection_timeout,
+            DEFAULT_STORE_CONNECTION_TIMEOUT,
+        )?,
 
         // store optimizer
         store_optimizer_memory_pool_size: Param::optional(
@@ -801,6 +813,7 @@ mod tests {
             store_region: param(DEFAULT_STORE_REGION.to_owned()),
             store_secret_key: param_hidden(DEFAULT_STORE_SECRET_KEY.to_owned()),
             store_access_key: param(DEFAULT_STORE_ACCESS_KEY.to_owned()),
+            store_connection_timeout: param(DEFAULT_STORE_CONNECTION_TIMEOUT),
             store_optimizer_memory_pool_size: param(DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE),
             store_optimizer_time_interval: param(DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL),
             store_optimizer_max_chunk_size: param(DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE),
@@ -1282,6 +1295,7 @@ mod tests {
                 region: Some("eu-south-1".to_owned()),
                 access_key: Some("access-key".to_owned()),
                 secret_key_file: Some(secret_key_path.to_str().unwrap().to_owned()),
+                connection_timeout: Some(15),
             },
             query_engine: config::QueryEngineConfig {
                 memory_pool_size: Some(1000),
@@ -1349,6 +1363,7 @@ mod tests {
         assert_eq!(p.store_region.value, "eu-south-1");
         assert_eq!(p.store_access_key.value, "access-key");
         assert_eq!(p.store_secret_key.value, "secret-key-from-file");
+        assert_eq!(p.store_connection_timeout.value, 15);
 
         assert_eq!(p.query_engine_memory_pool_size.value, 1000);
         assert_eq!(p.max_concurrent_chunk_queries.value.get(), 2);
