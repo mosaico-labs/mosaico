@@ -390,14 +390,23 @@ class TopicWriter:
             [`MosaicoClient.max_batch_size_bytes`][mosaicolabs.comm.MosaicoClient.max_batch_size_bytes],
             and batches close to that limit make the most efficient use of storage.
 
+        Note: Timestamp Ordering
+            Within a batch, `timestamp_ns` must be non-decreasing: consecutive records may
+            share the same timestamp, but a timestamp lower than the previous one is rejected.
+            Ordering is not checked across different batches. Records with equal timestamps
+            have no guaranteed relative order once stored, since the storage optimizer sorts
+            each topic by timestamp with a non-stable sort.
+
         Args:
-            timestamp_ns (pa.Array): The `int64` record timestamps in nanoseconds, one per row of `data`.
+            timestamp_ns (pa.Array): The non-decreasing `int64` record timestamps in nanoseconds,
+                one per row of `data`.
             data (pa.RecordBatch): The payload columns, whose schema must match the ontology schema
                 of the topic (the fields of `__msco_pyarrow_struct__`, in the same order).
 
         Raises:
             ValueError: If `data` does not match the ontology schema, if `timestamp_ns` is not a
-                null-free `int64` array as long as `data`, or if the batch is too large.
+                null-free, non-decreasing `int64` array as long as `data`, or if the batch is
+                too large.
             Exception: If the transmission fails.
 
         Example:

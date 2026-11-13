@@ -31,19 +31,19 @@ def _encode_messages(objs: list[Message]):
     return dict(result)
 
 
-def _is_monotonic_increasing(arr: pa.Array) -> bool:
-    """Checks that an array is strictly increasing"""
+def _is_non_decreasing(arr: pa.Array) -> bool:
+    """Checks that an array is non-decreasing (equal consecutive values are allowed)"""
 
-    # If there is less than 2 elements, it is increasing
+    # If there is less than 2 elements, it is non-decreasing
     if len(arr) < 2:
         return True
 
-    # If contains null cannot be monotonically increasing
+    # If contains null cannot be non-decreasing
     if arr.null_count:  # nulls would otherwise be silently skipped
         return False
 
     left, right = arr[:-1], arr[1:]
-    return pc.all(pc.less(left, right)).as_py()
+    return pc.all(pc.less_equal(left, right)).as_py()
 
 
 class _TopicWriteState:
@@ -206,8 +206,8 @@ class _TopicWriteState:
 
         Raises:
             ValueError: If the writer is None, if `data` does not match the ontology schema,
-                if `timestamp_ns` is not a null-free `int64` array as long as `data`, or if
-                the batch exceeds `max_batch_size_bytes`.
+                if `timestamp_ns` is not a null-free, non-decreasing `int64` array as long
+                as `data`, or if the batch exceeds `max_batch_size_bytes`.
         """
         if self.writer is None:
             raise ValueError("push_batch() called on uninitialized state.")
@@ -230,9 +230,10 @@ class _TopicWriteState:
                 f"'timestamp_ns' has {len(timestamp_ns)} values, but the batch has "
                 f"{data.num_rows} rows."
             )
-        if not _is_monotonic_increasing(timestamp_ns):
+        if not _is_non_decreasing(timestamp_ns):
             raise ValueError(
-                "Some values from 'timestamp_ns' are not monotonically increasing"
+                "'timestamp_ns' must be non-decreasing: found a timestamp lower "
+                "than the previous one."
             )
 
         batch = pa.RecordBatch.from_arrays(

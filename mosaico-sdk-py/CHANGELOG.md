@@ -10,6 +10,10 @@
 - The documentation now uses the `mosaico` CLI in its command-line examples; the `mosaicolabs.*` scripts are documented as development tools.
 - Added the **`mosaico inject lerobot`** command, which injects a LeRobot v3.0 dataset as one sequence per episode, taking its connection settings from the active profile. `LeRobotInjectionConfig`, `LeRobotInjector` and `LeRobotSchemaMetadata` can now be imported from `mosaicolabs.bridges.lerobot`. ([#1030](https://github.com/mosaico-labs/mosaico/issues/1030))
 
+### Bug Fixes
+
+- **`TopicWriter.push_batch` now accepts equal consecutive timestamps**: `timestamp_ns` must be non-decreasing within a batch instead of strictly increasing, so batches with records sharing a timestamp are no longer rejected. Records with equal timestamps have no guaranteed relative order once stored. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
+
 
 ## [0.7.0] - 2026-10-08
 
