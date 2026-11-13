@@ -40,7 +40,7 @@ arrow-schema = { version = "58.1.0", default-features = false }
 parquet = { version = "58.1.0", default-features = false, features = ["arrow", "async", "object_store", "zstd", "simdutf8"] }
 datafusion = { version = "54.0.0", default-features = false, features = ["parquet", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.6", default-features = false, features = ["router", "transport", "codegen", "tls-ring", "gzip"] }
-object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
+object_store = { version = "0.14.2", default-features = false, features = ["aws", "fs"] }
 
 base64 = { version = "0.23.1", default-features = false }
 bincode = { version = "2.0.1", default-features = false, features = ["alloc", "derive", "serde"] }
