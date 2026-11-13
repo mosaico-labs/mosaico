@@ -1,0 +1,90 @@
+name: PR Issue Link
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: write # to read the issues closed by the PR, then comment on and close it
+  issues: read # to read their labels and assignees
+
+jobs:
+  require-assigned-issue:
+    name: "Require an assigned good first issue"
+    runs-on: ubuntu-latest
+    # Only PRs opened from an external fork are checked. Internal bots (e.g. Dependabot) push
+    # their branches to this repository, so they are skipped like every non-fork PR.
+    # Maintainers opening a PR from their own fork are exempt too.
+    if: >-
+      github.event.pull_request.head.repo.full_name != github.repository
+      && !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    env:
+      # The contributor who opened the PR
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+      # Label the linked issue must have
+      LABEL: good first issue
+    # The fork code is never checked out: this job only reads PR metadata through the API.
+    steps:
+      - name: Check the author is assigned to a linked good first issue
+        id: check
+        env:
+          # Token used by `gh` to call the GitHub API
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Repository and PR to inspect
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Issues the PR closes (`Closes #123`), with their labels and assignees
+          QUERY: |
+            query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                pullRequest(number: $number) {
+                  closingIssuesReferences(first: 10) {
+                    nodes {
+                      labels(first: 20) { nodes { name } }
+                      assignees(first: 20) { nodes { login } }
+                    }
+                  }
+                }
+              }
+            }
+        run: |
+          # `true` if one closed issue has the label and is assigned to the PR author, `false` otherwise
+          assigned=$(gh api graphql \
+            -f query="$QUERY" \
+            -f owner="$OWNER" \
+            -f repo="$REPO" \
+            -F number="$PR_NUMBER" \
+            --jq 'any(.data.repository.pullRequest.closingIssuesReferences.nodes[];
+              any(.labels.nodes[]; .name == env.LABEL)
+              and any(.assignees.nodes[]; .login == env.AUTHOR)
+            )')
+
+          # Expose the result to the next step
+          echo "assigned=$assigned" >> "$GITHUB_OUTPUT"
+
+      - name: Close the PR if no assigned good first issue is linked
+        if: steps.check.outputs.assigned != 'true'
+        env:
+          # Token used by `gh` to comment on and close the PR
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PR to close
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Message explaining how to make the PR valid
+          comment="Thanks for your contribution!
+
+          External PRs must close a \`$LABEL\` issue assigned to their author. To submit this change:
+
+          1. Look for the \`$LABEL\` issue your change addresses.
+          2. Get assigned to it.
+          3. Add \`Closes #<issue number>\` to the PR description, then reopen this PR."
+
+          # Explain why on the PR, then close it
+          gh pr close "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --comment "$comment"
+
+          # Also fail the check, so the reason is visible in the PR checks
+          echo "::error::External PRs must close a \"$LABEL\" issue assigned to @$AUTHOR (e.g. \`Closes #123\`)."
+          exit 1
