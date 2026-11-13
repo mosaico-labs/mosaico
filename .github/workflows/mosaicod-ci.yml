@@ -39,7 +39,8 @@ jobs:
       - name: Backend Lint
         working-directory: mosaicod
         run: |
-          cargo fmt -- --check
+          rustup toolchain install nightly --profile minimal -c rustfmt
+          cargo +nightly fmt -- --check
           cargo clippy -- -D warnings
           RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items
 

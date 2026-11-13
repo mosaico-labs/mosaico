@@ -1,6 +1,7 @@
-use crate::Error;
 use mosaicod_core::types;
 pub use mosaicod_proto::v1::core::Format;
+
+use crate::Error;
 
 pub(crate) fn format_to_proto(value: types::Format) -> Format {
     match value {

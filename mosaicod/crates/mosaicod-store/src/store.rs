@@ -2,6 +2,8 @@
 //! with S3-compatible object storage services providing
 //! essential CRUD (Create, Read, Update, Delete) methods for byte-level data access.
 
+use std::sync::Arc;
+
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
 use futures::stream::{StreamExt, TryStreamExt};
 use mosaicod_core::constants;
@@ -10,7 +12,6 @@ use object_store::{
     ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
 };
 use parquet::arrow::async_reader::ParquetObjectReader;
-use std::sync::Arc;
 use thiserror::Error;
 use tracing::trace;
 use url::Url;
@@ -482,9 +483,11 @@ impl traits::AsyncWriteToPath for Store {
 /// This is useful for integration tests that need a real store instance.
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
-    use super::*;
     use std::ops::Deref;
+
     use tracing::error;
+
+    use super::*;
 
     #[derive(Clone)]
     pub struct Store {

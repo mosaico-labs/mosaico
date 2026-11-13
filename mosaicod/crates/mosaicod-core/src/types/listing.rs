@@ -4,8 +4,9 @@
 //! sequence the client received. The next page starts strictly *after* that
 //! key, so no server-side state is needed and any instance can serve any page.
 
-use super::{SequenceLocator, Timestamp};
 use std::num::NonZeroU32;
+
+use super::{SequenceLocator, Timestamp};
 
 /// Sort order used when listing sequences. Ordering is always ascending.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

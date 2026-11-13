@@ -1,9 +1,10 @@
 //! Hooks: HTTP endpoints that mosaicod sends an event to.
 
-use crate::Context;
 use mosaicod_core::error::PublicError;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
+
+use crate::Context;
 
 /// Registers a hook.
 ///
@@ -68,11 +69,13 @@ pub async fn delete(context: &Context, ids: &[i32]) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use mosaicod_core::error::ErrorKind;
     use mosaicod_query as query;
     use mosaicod_store as store;
-    use std::sync::Arc;
+
+    use super::*;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);

@@ -1,4 +1,7 @@
 #![allow(unused_crate_dependencies)]
+use std::sync::Arc;
+
+use arrow::array::ArrayRef;
 use arrow::array::{
     BooleanArray, BooleanBuilder, Float64Array, Int64Array, Int64Builder, ListBuilder, RecordBatch,
     StringArray, StringBuilder,
@@ -7,11 +10,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
 use mosaicod_proto::v1::query as proto_query;
 use proto_query::Aggregator;
-use std::sync::Arc;
 use tests::{actions, common, filter};
 use tonic::Code;
-
-use arrow::array::ArrayRef;
 
 /// Builds a [`RecordBatch`] with a list column (list of i64) used to test filters
 /// (equal, at least on, all) against list-typed ontology columns.

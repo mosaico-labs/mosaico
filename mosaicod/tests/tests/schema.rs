@@ -1,12 +1,13 @@
 #![allow(unused_crate_dependencies)]
 
 //! Schema related testing functions
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_core::constants;
 use mosaicod_db as db;
-use std::collections::HashMap;
-use std::sync::Arc;
 use tests::{self, actions, common};
 
 /// Regression test for a bug where client-supplied schema/field metadata (e.g. from a

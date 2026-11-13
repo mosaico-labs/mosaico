@@ -1,8 +1,10 @@
+use std::str::FromStr;
+
+use crc32fast::Hasher;
+use subtle::ConstantTimeEq;
+
 use super::*;
 use crate::{Error, error::PublicError, types};
-use crc32fast::Hasher;
-use std::str::FromStr;
-use subtle::ConstantTimeEq;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ApiKeyError {

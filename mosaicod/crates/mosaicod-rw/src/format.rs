@@ -5,6 +5,8 @@
 //! configurations. Each format variant has its own strategy that defines compression settings,
 //! file extensions, and reading options.
 
+use std::sync::Arc;
+
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
 use datafusion::prelude::*;
@@ -15,7 +17,6 @@ use parquet::{
     file::properties::{EnabledStatistics, WriterProperties, WriterVersion},
     schema::types::ColumnPath,
 };
-use std::sync::Arc;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Format Properties Traits

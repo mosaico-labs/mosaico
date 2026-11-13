@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 pub async fn column_get_or_create(
     exec: &mut impl AsExec,

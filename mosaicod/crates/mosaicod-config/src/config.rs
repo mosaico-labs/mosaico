@@ -10,14 +10,15 @@
 //! registry — the two are inseparable in practice, which is why they live in the same
 //! crate rather than forcing every consumer to depend on two crates for one concern.
 
-use etcetera::base_strategy::BaseStrategy;
-use mosaicod_core::error::PublicResult as Result;
-use mosaicod_core::types::{LogFormat, LogLevel};
-use serde::Deserialize;
 use std::env;
 use std::net::IpAddr;
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
+
+use etcetera::base_strategy::BaseStrategy;
+use mosaicod_core::error::PublicResult as Result;
+use mosaicod_core::types::{LogFormat, LogLevel};
+use serde::Deserialize;
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, default)]
@@ -217,8 +218,9 @@ pub fn load_config_file(path: &Path) -> Result<ConfigFile> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Mutex;
+
+    use super::*;
 
     /// Serializes tests that mutate the shared, process-global env vars this module reads
     /// (`MOSAICOD_CONFIG_FILE`, `XDG_CONFIG_HOME`), since Rust runs tests in parallel

@@ -1,14 +1,16 @@
-use crate::{common, print};
+use std::net::IpAddr;
+use std::num::NonZero;
+use std::thread;
+
 use clap::Args;
 use mosaicod_config::params;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
-use std::net::IpAddr;
-use std::num::NonZero;
-use std::thread;
 use tracing::{debug, info};
+
+use crate::{common, print};
 
 #[derive(Args, Debug)]
 pub struct Server {

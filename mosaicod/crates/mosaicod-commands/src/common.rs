@@ -1,11 +1,12 @@
 //! Common functions shared between multiple commands.
 
+use std::sync::Arc;
+use std::sync::OnceLock;
+
 use mosaicod_config::{self as config, params};
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use std::sync::Arc;
-use std::sync::OnceLock;
 
 /// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
@@ -95,8 +96,9 @@ pub fn load_env_variables(config_path: Option<&std::path::Path>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Mutex;
+
+    use super::*;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 

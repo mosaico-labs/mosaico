@@ -284,10 +284,11 @@ impl Cleanup {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use mosaicod_core::types;
     use mosaicod_store as store;
     use rand::seq::IteratorRandom;
+
+    use super::*;
 
     struct TestContext {
         db: db::testing::Database,

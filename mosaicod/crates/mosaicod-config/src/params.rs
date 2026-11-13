@@ -2,13 +2,15 @@
 //! caller), environment variables, [`crate::ConfigFile`], and hard-coded defaults, in that
 //! precedence order.
 
-use crate::config;
-use mosaicod_core::error;
-use mosaicod_core::types::{LogFormat, LogLevel};
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr};
 use std::num::NonZero;
 use std::{env, str::FromStr, sync::OnceLock};
+
+use mosaicod_core::error;
+use mosaicod_core::types::{LogFormat, LogLevel};
+
+use crate::config;
 
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
 pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 512 * 1024 * 1024; // 512MiB
@@ -748,9 +750,10 @@ pub fn user_agent() -> String {
 
 #[cfg(test)]
 mod tests {
+    use mosaicod_core::error::ErrorKind;
+
     use super::*;
     use crate::config;
-    use mosaicod_core::error::ErrorKind;
 
     fn param<T>(value: T) -> Param<T> {
         Param {

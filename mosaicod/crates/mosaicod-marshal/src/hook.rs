@@ -1,8 +1,9 @@
 //! JSON projection of [`types::HookEvent`]: the body mosaicod `POST`s to hooks.
 
-use super::{Error, JsonMetadataBlob};
 use mosaicod_core::types;
 use serde::Serialize;
+
+use super::{Error, JsonMetadataBlob};
 
 /// The body of a hook request:
 ///
@@ -82,8 +83,9 @@ struct JsonSessionUploaded {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     fn event_id() -> types::Uuid {
         "0b6f2c1e-4f1a-4c8e-9a43-2d7e5b1f6a90".parse().unwrap()

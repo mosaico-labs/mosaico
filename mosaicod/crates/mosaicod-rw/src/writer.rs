@@ -1,10 +1,11 @@
-use crate::ToParquetProperties;
+use std::sync::Arc;
 
-use super::Error;
 use arrow::datatypes::Schema;
 use mosaicod_core::types;
 use parquet::arrow::ArrowWriter;
-use std::sync::Arc;
+
+use super::Error;
+use crate::ToParquetProperties;
 
 pub struct ParquetWriter(ArrowWriter<Vec<u8>>);
 

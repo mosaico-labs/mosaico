@@ -1,3 +1,5 @@
+use std::net::{IpAddr, SocketAddr};
+
 use mosaicod_config::params;
 use mosaicod_core::{error::PublicResult as Result, types, types::auth::Permissions};
 use mosaicod_db as db;
@@ -8,7 +10,6 @@ use mosaicod_hook as hook;
 use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
-use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -252,10 +253,11 @@ pub async fn serve(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration as StdDuration;
+
+    use super::*;
 
     /// If the flight service fails on its very first attempt to start (e.g. because of an
     /// invalid bind address), `start_and_wait` must still join both the flight and the cleanup

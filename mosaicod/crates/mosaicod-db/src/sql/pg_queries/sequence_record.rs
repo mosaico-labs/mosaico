@@ -1,6 +1,7 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 /// Find a sequence given its id.
 pub async fn sequence_find_by_id(
@@ -279,14 +280,15 @@ pub async fn sequence_create(
 
 #[cfg(test)]
 mod tests {
+    use mosaicod_core::types::MetadataBlob;
+    use mosaicod_marshal as marshal;
+    use sqlx::Pool;
+
     use super::*;
     use crate::{
         UNREGISTERED,
         core::{DatabaseType, testing},
     };
-    use mosaicod_core::types::MetadataBlob;
-    use mosaicod_marshal as marshal;
-    use sqlx::Pool;
 
     #[sqlx::test]
     async fn test_create_without_metadata(pool: Pool<DatabaseType>) {
