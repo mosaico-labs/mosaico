@@ -38,7 +38,8 @@ class InjectionStatus(Enum):
     Outcome of an injector's `run()`.
 
     Errors are not a status: `run()` logs and re-raises them, so callers detect a failure
-    through the exception.
+    through the exception. A failure that prevents any data from being injected is raised;
+    `PARTIAL` reports a run that injected only part of the input.
     """
 
     COMPLETED = "completed"
@@ -47,6 +48,10 @@ class InjectionStatus(Enum):
     CANCELLED = "cancelled"
     """The user interrupted the injection (`KeyboardInterrupt`, e.g. Ctrl-C) before it
     completed."""
+
+    PARTIAL = "partial"
+    """Only part of the input was injected: some units (e.g. LeRobot episodes) failed and
+    were not written."""
 
     DRY_RUN = "dry_run"
     """`dry_run` was set: the file was only analysed and nothing was written to the server."""
