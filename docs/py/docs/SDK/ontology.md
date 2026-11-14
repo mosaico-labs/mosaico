@@ -49,7 +49,7 @@ These structures define spatial relationships and the movement states of objects
 | Module | Classes | Purpose |
 | --- | --- | --- |
 | **Points & Vectors** | [`Vector2d/3d/4d`][mosaicolabs.models.data.geometry.Vector2d], [`Point2d/3d`][mosaicolabs.models.data.geometry.Point2d] | Fundamental spatial directions and locations. |
-| **Rotations** | [`Quaternion`][mosaicolabs.models.data.geometry.Quaternion] | Compact, singularity-free 3D orientation (). |
+| **Rotations** | [`Quaternion`][mosaicolabs.models.data.geometry.Quaternion] | Compact, singularity-free 3D orientation. |
 | **Spatial State** | [`Pose`][mosaicolabs.models.data.geometry.Pose], [`Transform`][mosaicolabs.models.data.geometry.Transform] | Absolute positions or relative coordinate frame shifts. |
 | **Motion** | [`Velocity`][mosaicolabs.models.data.kinematics.Velocity], [`Acceleration`][mosaicolabs.models.data.kinematics.Acceleration] | Linear and angular movement rates (Twists and Accels). |
 | **Aggregated State** | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | An atomic snapshot combining Pose, Velocity, and Acceleration. |
@@ -67,7 +67,7 @@ High-level models representing physical hardware devices and their processed out
 | **Vision** | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage], [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo], [`ROI`][mosaicolabs.models.data.ROI] | Raw pixels, encoded streams (JPEG/H264), calibration, and regions of interest. |
 | **Environment** | [`Temperature`][mosaicolabs.models.sensors.Temperature], [`Pressure`][mosaicolabs.models.sensors.Pressure], [`Range`][mosaicolabs.models.sensors.Range] | Thermal readings (K), pressure (Pa), and distance intervals (m). |
 | **Dynamics** | [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque] | 3D force and torque vectors for load sensing. |
-| **Magnetic** | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | Magnetic field vectors measured in microTesla (). |
+| **Magnetic** | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | Magnetic field vectors measured in microTesla. |
 | **Robotics** | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | States (position, velocity, effort) for index-aligned actuator arrays. |
 
 #### Futures
@@ -179,7 +179,8 @@ For list fields, `MosaicoType` exposes a [`list_()`][mosaicolabs.models.core.Mos
 An optional `list_size` parameter produces a fixed-size list (`pa.list_(type, size)`), omitting it yields a variable-length list.
 
 ```python
-from mosaicolabs import MosaicoField, MosaicoField, Serializable
+from mosaicolabs import MosaicoField, MosaicoType, Serializable, Vector2d, Vector3d
+from typing import list
 
 class MyOntology(Serializable):
     # Variable-length list of float32
@@ -395,7 +396,7 @@ class DetectionOntology(Serializable):
  
     # The quaternion struct as a whole is optional in this ontology,
     # but its internal fields remain required when it is present.
-    orientation: Optional[QuaternionOntology] = MosaicoField(nullable=True, default=None)
+    orientation: Optional[Quaternion] = MosaicoField(nullable=True, default=None)
 ```
 
 ## Architecture
@@ -435,7 +436,7 @@ Notice that `timestamp_ns` is **not** the sensor measurement time: it is the tim
 
 So a `Message` carries two timestamps at different levels:
 
-1. **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
+1. **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic within the Sequence).
 2. **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
 
 **Example:** a LiDAR captures a scan at `timestamp = 1200.5` (seconds since the sensor booted, in its `Header`). The DDS publishes it a few milliseconds later, and Mosaico stamps the envelope with `timestamp_ns = 8423000000` on the Sequence's monotonic clock. The first value says *when the world was measured*; the second says *when the data entered the system*.
@@ -719,7 +720,7 @@ The following table illustrates how the proxy flattens complex hierarchies into 
 | --- | --- | --- | --- | --- |
 | `IMU.acceleration.x` | `IMU.Q.acceleration.x` | `float` | **Numeric** | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 | `GPS.status.hdop` | `GPS.Q.status.hdop` | `float` | **Numeric** | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-| `IMU.frame_id` | `IMU.Q.frame_id` | `str` | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+| `IMU.header.frame_id` | `IMU.Q.header.frame_id` | `str` | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 | `GPS.covariance_type` | `GPS.Q.covariance_type` | `int` | **Numeric** | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
 ### Practical Usage
