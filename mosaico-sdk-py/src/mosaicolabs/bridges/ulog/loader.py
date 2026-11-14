@@ -68,9 +68,10 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
 
     Time: the ULog `timestamp` counts microseconds since the boot of the vehicle, not
     since the Unix epoch, and it is stored as it is (in nanoseconds) in `timestamp_ns`.
-    Every flight therefore starts near zero, and time-based queries across sequences are
-    meaningless. When the log carries a GPS time, the offset to UTC is stored in the
-    sequence metadata (`utc_offset_ns`, see `sequence_metadata`).
+    Every flight therefore starts near zero, and time-based queries need to consider
+    this local characteristic of times. However, these queries are still valid
+    ('N nanoseconds since beginning'). When the log carries a GPS time, the offset to
+    UTC is stored in the sequence metadata (`utc_offset_ns`, see `sequence_metadata`).
 
     Timestamps follow `_valid_rows`: rows with a zero or overflowing timestamp are
     dropped and counted. A topic with no `timestamp` field, or left without rows, is
@@ -283,7 +284,7 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
     def _iter_batches(self, topic: str, data: ULog.Data) -> Iterator[pa.RecordBatch]:
         """
         Yields the valid rows of a topic, in time order, one chunk at a time: only the
-        rows of the chunk are copied out of the pyulog columns, so the extra memory stays
+        rows of the chunk are copied out of the pyulog columns, so the extra copy stays
         within `max_batch_size_bytes`.
         """
         idx = self._rows[topic].idx

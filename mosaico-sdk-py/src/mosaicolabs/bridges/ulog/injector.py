@@ -80,9 +80,9 @@ class ULogInjector:
 
     Time: the ULog `timestamp` counts microseconds since the boot of the vehicle, not
     since the Unix epoch, and it is stored as it is (in nanoseconds) in `timestamp_ns`.
-    Every sequence therefore starts near zero: its times are local to the sequence, and
-    time-based queries need to take this into account. They are still valid, as
-    "N nanoseconds since the beginning". When the log carries a GPS time, the offset to
+    Every sequence therefore starts near zero, and time-based queries need to consider
+    this local characteristic of times. However, these queries are still valid
+    ('N nanoseconds since beginning'). When the log carries a GPS time, the offset to
     UTC is stored in the sequence metadata, as `utc_offset_ns` of the `_ulog_` block.
 
     Example:
