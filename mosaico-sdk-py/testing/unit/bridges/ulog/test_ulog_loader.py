@@ -112,21 +112,21 @@ def test_filter_rejections_and_metadata(ulog_file):
         # Everything the bridge writes is under its reserved key
         assert metadata == {
             "_ulog_": {
-                "ulog_info": {
+                "info": {
                     "sys_name": "PX4",
                     "ver_hw": "TEST",
                     "time_ref_utc": 3600,
                 },
-                "ulog_info_types": {
+                "info_types": {
                     "sys_name": "char[3]",
                     "ver_hw": "char[4]",
                     "time_ref_utc": "int32_t",
                 },
-                "ulog_info_multiple": {"boot_console_output": [["first ", "second"]]},
-                "ulog_info_multiple_types": {"boot_console_output": "char[6]"},
-                "ulog_initial_parameters": {"P_INT": 1, "P_FLT": 0.25},
-                "ulog_default_parameters": {"0": {"P_INT": 0}, "1": {"P_FLT": 0.5}},
-                "ulog_ingestion": {
+                "info_multiple": {"boot_console_output": [["first ", "second"]]},
+                "info_multiple_types": {"boot_console_output": "char[6]"},
+                "initial_parameters": {"P_INT": 1, "P_FLT": 0.25},
+                "default_parameters": {"0": {"P_INT": 0}, "1": {"P_FLT": 0.5}},
+                "ingestion": {
                     "source_file": ulog_file.name,
                     "file_corruption": False,
                     "first_timestamp_ns": 50_000,
@@ -136,7 +136,7 @@ def test_filter_rejections_and_metadata(ulog_file):
                     "rows_dropped_overflow_ts": 0,
                 },
                 # The GPS gives 1_600_000_000_000_500 us (UTC) at 500 us since boot
-                "ulog_utc_offset_ns": 1_600_000_000_000_000_000,
+                "utc_offset_ns": 1_600_000_000_000_000_000,
             }
         }
 

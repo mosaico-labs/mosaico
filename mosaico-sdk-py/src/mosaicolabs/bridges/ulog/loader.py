@@ -70,7 +70,7 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
     since the Unix epoch, and it is stored as it is (in nanoseconds) in `timestamp_ns`.
     Every flight therefore starts near zero, and time-based queries across sequences are
     meaningless. When the log carries a GPS time, the offset to UTC is stored in the
-    sequence metadata (`ulog_utc_offset_ns`, see `sequence_metadata`).
+    sequence metadata (`utc_offset_ns`, see `sequence_metadata`).
 
     Timestamps follow `_valid_rows`: rows with a zero or overflowing timestamp are
     dropped and counted. A topic with no `timestamp` field, or left without rows, is
@@ -167,6 +167,7 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
                 prev.data = {
                     k: np.concatenate([prev.data[k], d.data[k]]) for k in prev.data
                 }
+                d.data = {}  # its rows now live in `prev`
         # ...plus the fixed-schema topics (/ulog/logging, ...)
         self._resolved_topics.update(_synthetic_topics(self._ulog))
 
@@ -338,7 +339,7 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
         reserved `_ulog_` key: info, info multiple (with their types), initial and default
         parameters, ingestion stats and, when the log carries a GPS time, the UTC offset.
 
-        `ulog_utc_offset_ns`, added to a `timestamp_ns` of the sequence (which counts from
+        `utc_offset_ns`, added to a `timestamp_ns` of the sequence (which counts from
         the boot of the vehicle), gives UTC epoch nanoseconds (see `_utc_offset_ns`). The
         `time_ref_utc` info record is not that offset: PX4 writes there the time-zone
         offset, in seconds, configured on the vehicle.
@@ -355,16 +356,16 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
         u = self._ulog
         first, last = self._time_range_ns()
         fields = {
-            "ulog_info": u.msg_info_dict,
+            "info": u.msg_info_dict,
             # NOTE: private pyulog attributes, pinned by pyulog<1.3; needed to write back
-            "ulog_info_types": u._msg_info_dict_types,
-            "ulog_info_multiple": u.msg_info_multiple_dict,
-            "ulog_info_multiple_types": u._msg_info_multiple_dict_types,
-            "ulog_initial_parameters": u.initial_parameters,
-            "ulog_default_parameters": {t: u.get_default_parameters(t) for t in (0, 1)}
+            "info_types": u._msg_info_dict_types,
+            "info_multiple": u.msg_info_multiple_dict,
+            "info_multiple_types": u._msg_info_multiple_dict_types,
+            "initial_parameters": u.initial_parameters,
+            "default_parameters": {t: u.get_default_parameters(t) for t in (0, 1)}
             if u.has_default_parameters
             else {},
-            "ulog_ingestion": {
+            "ingestion": {
                 "source_file": self._file_path.name,
                 "file_corruption": u.file_corruption,
                 "first_timestamp_ns": first,
@@ -376,7 +377,7 @@ class ULogLoader(AdaptedLoader[ULogAdapterBase]):
             },
         }
         if self._utc_offset_ns is not None:
-            fields["ulog_utc_offset_ns"] = self._utc_offset_ns
+            fields["utc_offset_ns"] = self._utc_offset_ns
         return ULogSequenceMetadata(**_json_safe(fields))
 
     def topic_schema_metadata(self, topic: str) -> ULogSchemaMetadata:

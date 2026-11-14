@@ -7,7 +7,7 @@ from typing import Any, ClassVar, Dict, Type, TypeVar
 
 import pyarrow as pa
 
-from mosaicolabs.models.core import Serializable
+from mosaicolabs.models.core import Message, Serializable
 
 from ..base_schema_metadata import BaseSchemaMetadata
 from ..bridge_adapter_base import BridgeAdapterBase
@@ -65,6 +65,13 @@ class ULogAdapterBase(BridgeAdapterBase[OntologyT, dict]):
     @abstractmethod
     def translate_batch(cls, batch: pa.RecordBatch, **kwargs: Any) -> pa.RecordBatch:
         """Translates a batch of rows of the topic into the ontology schema."""
+
+    # Required by BridgeAdapterBase: ULog rows are translated in batches
+    @classmethod
+    def translate(cls, msg, **kwargs) -> Message:
+        raise NotImplementedError(
+            f"{cls.__name__}: ULog rows are translated with `translate_batch`."
+        )
 
     # Required by BridgeAdapterBase: writing `.ulg` files is not supported
     @classmethod

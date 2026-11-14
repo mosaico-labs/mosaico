@@ -113,10 +113,7 @@ def test_ulog_injection(mosaico_client, ulog_config, monkeypatch):
         assert seq is not None
         assert sorted(seq.topics) == sorted(expected)
         assert "/ulog/logging" in seq.topics
-        assert (
-            seq.user_metadata["_ulog_"]["ulog_ingestion"]["source_file"]
-            == ulog_file.name
-        )
+        assert seq.user_metadata["_ulog_"]["ingestion"]["source_file"] == ulog_file.name
 
         for topic, (n_rows, ulog_meta) in expected.items():
             t_handler = seq.get_topic_handler(topic)
