@@ -392,6 +392,36 @@ pub async fn topic_chunk_max_avg_row_size(
     Ok(res.max_row_size)
 }
 
+/// Returns the timestamp range covered by the chunks recorded for a topic: from the
+/// smallest `first_sample_timestamp_ns` to the largest `last_sample_timestamp_ns`.
+///
+/// The bounds of each chunk are the minimum and maximum sample timestamps of its rows,
+/// stored when the chunk is recorded. Returns `None` if the topic has no chunks.
+pub async fn topic_chunks_timestamp_range(
+    exec: &mut impl AsExec,
+    topic_id: i32,
+) -> Result<Option<types::TimestampRange>, Error> {
+    let res = sqlx::query!(
+        r#"SELECT
+            MIN(first_sample_timestamp_ns) as first_sample_timestamp_ns,
+            MAX(last_sample_timestamp_ns) as last_sample_timestamp_ns
+        FROM chunk_t
+        WHERE topic_id = $1"#,
+        topic_id
+    )
+    .fetch_one(exec.as_exec())
+    .await?;
+
+    Ok(
+        match (res.first_sample_timestamp_ns, res.last_sample_timestamp_ns) {
+            (Some(first), Some(last)) => {
+                Some(types::TimestampRange::between(first.into(), last.into()))
+            }
+            _ => None,
+        },
+    )
+}
+
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
 pub async fn topic_get_stats(
     exec: &mut impl AsExec,
