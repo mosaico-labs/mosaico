@@ -4,14 +4,16 @@ name: Publish release
 # for a security update). It runs in two phases, so a release is published only if every artifact
 # could be built:
 #   1. build: mosaicod binaries, Python SDK wheel and sdist (tested), docs, container images;
-#   2. publish: container tags on GHCR, docs on the object store and, last, the GitHub release with
-#      the notes, the wheel, the sdist and the binaries. These jobs only upload what phase 1 built.
+#   2. publish: container tags on GHCR, Python SDK on PyPI, docs on the object store and, last, the
+#      GitHub release with the notes, the wheel, the sdist and the binaries. These jobs only upload
+#      what phase 1 built.
 # A security update of an older release keeps the `latest` container tag, the online docs and the
 # latest GitHub release on the highest release.
 # A failed publish job can be retried with "Re-run failed jobs", with the same artifacts.
 #
 # Requires the variable RELEASE_PUBLIC_KEY (see release.yml) and the secrets R2_ACCOUNT_ID,
-# R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY for the docs.
+# R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY for the docs. PyPI needs no secret: the `mosaicolabs`
+# project trusts this workflow (Trusted Publishing) when it runs in the `pypi` environment.
 
 on:
   push:
@@ -35,6 +37,7 @@ jobs:
       # Whether this is the highest release. A security update of an older release must not
       # replace the `latest` container tag, the online docs and the latest GitHub release.
       latest: ${{ steps.highest.outputs.tag == github.ref_name }}
+      version: ${{ steps.versions.outputs.version }}
     steps:
       # Every tag, to compare this release with the others.
       - uses: actions/checkout@v7
@@ -322,6 +325,32 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: docker buildx imagetools inspect "$IMAGE:$VERSION"
 
+  # A PyPI release can never be replaced, so PyPI gets exactly the wheel and sdist tested in phase 1.
+  # Security updates of older releases are published too: pip picks the highest version anyway.
+  publish-pypi:
+    name: Publish Python SDK (PyPI)
+    needs: [verify, binaries, python-sdk, docs-main, docs-py, container]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/mosaicolabs/${{ needs.verify.outputs.version }}
+    permissions:
+      contents: read
+      id-token: write # Trusted Publishing, no API token
+    steps:
+      - name: Download Python SDK
+        uses: actions/download-artifact@v8
+        with:
+          name: python-sdk-dist
+          path: dist
+
+      # Also uploads the attestations of the files. `skip-existing` lets "Re-run failed jobs" go
+      # past the files that were already uploaded.
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          skip-existing: true
+
   # Only the docs of the highest release are online (see docs/main/docs/dev/release_cycle.md).
   publish-docs:
     name: Publish docs
@@ -352,11 +381,12 @@ jobs:
       - name: Upload docs (Python SDK)
         run: aws s3 sync docs-py s3://mosaico-docs/python-sdk --delete --endpoint-url "$ENDPOINT" --region auto
 
-  # Last, so the release is announced only once the container and the docs are published. It also
-  # runs when the docs are skipped (security update of an older release), never after a failure.
+  # Last, so the release is announced only once the container, the Python SDK and the docs are
+  # published. It also runs when the docs are skipped (security update of an older release), never
+  # after a failure.
   github-release:
     name: Publish GitHub release
-    needs: [verify, publish-container, publish-docs]
+    needs: [verify, publish-container, publish-pypi, publish-docs]
     if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
