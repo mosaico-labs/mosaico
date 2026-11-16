@@ -34,17 +34,13 @@ prost = { workspace = true }
 tonic = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
-tokio-util = { workspace = true }
 serde_json = { workspace = true }
-serde = { workspace = true }
 rand = { workspace = true }
 futures = { workspace = true }
 arrow = { workspace = true, features = ["prettyprint"] }
 url = { workspace = true }
-tower = { workspace = true }
 ulid = { workspace = true }
 chrono = { workspace = true }
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }
-tracing-subscriber = { workspace = true }

@@ -32,7 +32,8 @@ From the repository root you can run the integration test crate with:
 cargo test -p tests
 ```
 
-To run only the tests of one file, filter by its module name:
+To run only the tests of one file, filter by its **module name**, which is the
+file name without `.rs`. For example, for the tests in `tests/tests/auth.rs`:
 
 ```bash
 cargo test -p tests auth::
