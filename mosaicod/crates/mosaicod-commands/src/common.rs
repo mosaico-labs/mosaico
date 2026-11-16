@@ -72,8 +72,9 @@ pub fn check_store_connectivity(
     rt: &tokio::runtime::Runtime,
     store: &store::StoreRef,
 ) -> Result<()> {
-    let timeout =
-        std::time::Duration::from_secs(params::params().store_connection_timeout.value as u64);
+    let timeout = std::time::Duration::from_secs(
+        params::params().store_connection_timeout.value.get() as u64,
+    );
     rt.block_on(async { store.check_connectivity(timeout).await })?;
     Ok(())
 }

@@ -76,7 +76,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-store-secret-key" />`MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Optional with S3-compatible endpoints: when omitted (along with the access key), the daemon automatically uses AWS IAM instance profile or task role credentials. Must not start or end with whitespace. Default is an empty string. May also be provided via `MOSAICOD_STORE_SECRET_KEY_FILE`, set to the path of a file containing the secret key, instead of setting it directly; setting both `MOSAICOD_STORE_SECRET_KEY` and `MOSAICOD_STORE_SECRET_KEY_FILE` is an error. Trailing newlines in the file are ignored.
 
-- <Link id="mosaicod-store-connection-timeout" />`MOSAICOD_STORE_CONNECTION_TIMEOUT`: Timeout, in seconds, for the startup store connectivity check. At startup, the daemon validates store connectivity and credentials; if the check does not complete within this period, startup aborts. Defaults to `5`.
+- <Link id="mosaicod-store-connection-timeout" />`MOSAICOD_STORE_CONNECTION_TIMEOUT`: Timeout, in seconds, for the startup store connectivity check. At startup, the daemon validates store connectivity and credentials; if the check does not complete within this period, startup aborts. Must be greater than `0`. Defaults to `5`.
 
 ## Cleanup
 

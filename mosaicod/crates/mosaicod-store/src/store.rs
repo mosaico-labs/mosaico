@@ -19,7 +19,7 @@ use url::Url;
 pub enum Error {
     #[error("storage backend error")]
     BackendError(#[from] object_store::Error),
-    #[error("{0}")]
+    #[error("missing {0}: access key and secret key must be set together")]
     MissingCredentials(String),
     #[error("the provided bucket `{0}` is not valid")]
     InvalidBucket(String),

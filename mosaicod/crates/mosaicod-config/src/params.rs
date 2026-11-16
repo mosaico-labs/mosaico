@@ -29,7 +29,7 @@ pub const DEFAULT_STORE_BUCKET: &str = "";
 pub const DEFAULT_STORE_REGION: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
-pub const DEFAULT_STORE_CONNECTION_TIMEOUT: u32 = 5;
+pub const DEFAULT_STORE_CONNECTION_TIMEOUT: NonZero<u32> = NonZero::new(5).unwrap();
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 pub const DEFAULT_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const DEFAULT_PORT: NonZero<u16> = NonZero::new(6726).unwrap();
@@ -426,7 +426,7 @@ pub struct Params {
     /// Store connection timeout, in seconds.
     ///
     /// Defaults to 5 seconds.
-    pub store_connection_timeout: Param<u32>,
+    pub store_connection_timeout: Param<NonZero<u32>>,
 }
 
 impl Params {
@@ -1295,7 +1295,7 @@ mod tests {
                 region: Some("eu-south-1".to_owned()),
                 access_key: Some("access-key".to_owned()),
                 secret_key_file: Some(secret_key_path.to_str().unwrap().to_owned()),
-                connection_timeout: Some(15),
+                connection_timeout: NonZero::new(15),
             },
             query_engine: config::QueryEngineConfig {
                 memory_pool_size: Some(1000),
@@ -1363,7 +1363,7 @@ mod tests {
         assert_eq!(p.store_region.value, "eu-south-1");
         assert_eq!(p.store_access_key.value, "access-key");
         assert_eq!(p.store_secret_key.value, "secret-key-from-file");
-        assert_eq!(p.store_connection_timeout.value, 15);
+        assert_eq!(p.store_connection_timeout.value.get(), 15);
 
         assert_eq!(p.query_engine_memory_pool_size.value, 1000);
         assert_eq!(p.max_concurrent_chunk_queries.value.get(), 2);
