@@ -1,5 +1,6 @@
 import json
 import math
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -9,15 +10,18 @@ from mosaicolabs.bridges.lerobot.metadata import (
     LeRobotDatasetMeta,
     LeRobotEpisode,
     LeRobotFeature,
-    LeRobotSchemaMetadata,
+    LeRobotInfo,
 )
+from mosaicolabs.bridges.lerobot.schema_metadata import LeRobotSchemaMetadata
 
 from .config import (
     ACTION_COLUMN_NAME,
+    DATA_PATH,
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     FPS,
     STATE_COLUMN_NAME,
+    TASK,
 )
 
 
@@ -96,7 +100,7 @@ def test_schema_metadata_accepts_the_metadata_of_every_episode(
 
     for episode in meta.episodes_map.values():
         lerobot_meta = LeRobotSchemaMetadata(
-            info=meta.info, stats=meta.stats, episode=episode.to_dict()
+            info=meta.info.to_dict(), stats=meta.stats, episode=episode.to_dict()
         )
 
         features = lerobot_meta.to_dict()["_lerobot_"]["info"]["features"]
@@ -120,12 +124,12 @@ def test_episode_from_row():
         "observation.state": {"mean": [0.5, 1.5], "count": [10]},
         "action": {"max": [1.0, 2.0]},
     }
-    assert episode.extra == {"videos/observation.images.side/file_index": 4}
 
 
 def test_episode_to_dict_nests_the_column_names():
     episode = LeRobotEpisode.from_row(_episode_row())
 
+    # The `videos/...` column of the row is not read: video features are not supported yet
     assert episode.to_dict() == {
         "episode_index": 3,
         "tasks": ["Pick up the cube"],
@@ -134,7 +138,6 @@ def test_episode_to_dict_nests_the_column_names():
         "dataset_from_index": 20,
         "dataset_to_index": 30,
         "meta": {"episodes": {"chunk_index": 0, "file_index": 2}},
-        "videos": {"observation.images.side": {"file_index": 4}},
         "stats": {
             "observation.state": {"mean": [0.5, 1.5], "count": [10]},
             "action": {"max": [1.0, 2.0]},
@@ -150,6 +153,14 @@ def test_episode_requires_its_columns():
         LeRobotEpisode.from_row(row)
 
 
+def test_episode_drop_features_removes_their_stats():
+    episode = LeRobotEpisode.from_row(_episode_row())
+
+    episode.drop_features(["action", "unknown"])
+
+    assert set(episode.stats) == {"observation.state"}
+
+
 # --- LeRobotFeature ---
 
 
@@ -159,18 +170,75 @@ def test_feature_to_dict():
     )
 
     assert feature.shape == (2,)
+    # As in `meta/info.json`: no `key`, no `info` if not set
     assert feature.to_dict() == {
-        "key": "action",
         "dtype": "float32",
         "shape": [2],
         "names": ["x", "y"],
-        "info": None,
     }
 
 
 def test_feature_requires_a_dtype():
     with pytest.raises(ValueError, match="has no 'dtype'"):
         LeRobotFeature.from_dict("action", {"shape": [2]})
+
+
+# --- LeRobotInfo ---
+
+
+def test_info_round_trips_info_json(lerobot_dataset):
+    info_json = json.loads((lerobot_dataset / "meta" / "info.json").read_text())
+
+    info = LeRobotInfo.from_dict(info_json)
+
+    assert (info.fps, info.data_path, info.video_path) == (FPS, DATA_PATH, None)
+    assert [f.key for f in info.features] == DATA_SCHEMA.names
+    assert info.to_dict() == info_json
+
+
+def test_info_without_its_optional_keys(lerobot_dataset):
+    info_json = json.loads((lerobot_dataset / "meta" / "info.json").read_text())
+    del info_json["robot_type"], info_json["video_path"]
+
+    info = LeRobotInfo.from_dict(info_json)
+
+    assert (info.robot_type, info.video_path) == (None, None)
+
+
+def test_info_requires_its_keys(lerobot_dataset):
+    info_json = json.loads((lerobot_dataset / "meta" / "info.json").read_text())
+    del info_json["data_path"]
+
+    with pytest.raises(ValueError, match=r"missing the required keys \['data_path'\]"):
+        LeRobotInfo.from_dict(info_json)
+
+
+def test_info_rejects_an_unsupported_version():
+    with pytest.raises(ValueError, match="Unsupported LeRobot dataset version 'v2.1'"):
+        LeRobotInfo.from_dict({"codebase_version": "v2.1"})
+
+
+def test_info_compatible_with_one_differing_only_in_feature_info(lerobot_dataset):
+    """The `info` of a feature describes it, not its data (e.g. its video encoding)."""
+    info = LeRobotDatasetMeta.load(lerobot_dataset).info
+    features = [replace(f, info={"note": "other"}) for f in info.features]
+
+    info.check_compatible(replace(info, features=features))
+
+
+@pytest.mark.parametrize(
+    "change, error",
+    [
+        (lambda info: {"fps": info.fps + 1}, "fps"),
+        (lambda info: {"robot_type": "other_robot"}, "robot type"),
+        (lambda info: {"features": info.features[1:]}, "differing features"),
+    ],
+)
+def test_info_incompatible(lerobot_dataset, change, error):
+    info = LeRobotDatasetMeta.load(lerobot_dataset).info
+
+    with pytest.raises(ValueError, match=error):
+        info.check_compatible(replace(info, **change(info)))
 
 
 # --- LeRobotDatasetMeta.load ---
@@ -182,13 +250,15 @@ def test_load(lerobot_dataset):
     assert meta.codebase_version == "v3.0"
     assert meta.fps == FPS
     assert meta.n_episodes == len(EPISODE_LENGTHS)
-    assert list(meta.features) == DATA_SCHEMA.names
+    assert [f.key for f in meta.features] == DATA_SCHEMA.names
     assert meta.stats is not None
     assert set(meta.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
     # Episodes 0 and 1 are in the first episodes file, episode 2 in the second one
     assert meta.episode_indexes == [0, 1, 2]
     assert [e.length for e in meta.episodes_map.values()] == EPISODE_LENGTHS
     assert [e.data_file_index for e in meta.episodes_map.values()] == [0, 0, 1]
+    # `meta/tasks.parquet` is indexed by task, in task index order
+    assert meta.tasks == [TASK]
 
 
 def test_load_without_stats_json(lerobot_dataset_factory):
@@ -196,3 +266,37 @@ def test_load_without_stats_json(lerobot_dataset_factory):
     meta = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_stats_json=False))
 
     assert meta.stats is None
+
+
+# --- LeRobotDatasetMeta.from_data ---
+
+
+def test_from_data_sorts_the_episodes(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    episodes = list(reversed(meta.episodes_map.values()))
+
+    created = LeRobotDatasetMeta.from_data(meta.root, meta.info, episodes, meta.tasks)
+
+    assert created.episode_indexes == meta.episode_indexes
+
+
+def test_from_data_rejects_an_episode_defined_twice(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    episodes = [*meta.episodes_map.values(), meta.episodes_map[0]]
+
+    with pytest.raises(ValueError, match="Episode 0 is defined more than once"):
+        LeRobotDatasetMeta.from_data(meta.root, meta.info, episodes, meta.tasks)
+
+
+# --- LeRobotDatasetMeta.drop_features ---
+
+
+def test_drop_features_removes_them_from_info_and_episodes(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+
+    meta.drop_features([ACTION_COLUMN_NAME])
+
+    assert ACTION_COLUMN_NAME not in [f.key for f in meta.features]
+    assert STATE_COLUMN_NAME in [f.key for f in meta.features]
+    for episode in meta.episodes_map.values():
+        assert set(episode.stats) == {STATE_COLUMN_NAME}
