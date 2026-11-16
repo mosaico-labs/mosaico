@@ -183,8 +183,53 @@ mod internal {
             format!("${}", current_idx)
         }
 
-        fn fmt_clause(&self, subfield: &str) -> String {
-            format!("$.{}", subfield)
+        /// Builds a JSONPath from a dotted user metadata key (e.g. `a.task_*.b[0]`).
+        ///
+        /// Member names are quoted, so keys containing `-` or spaces are valid. A name
+        /// containing `*` (other than the `*` / `**` JSONPath wildcards) is matched
+        /// against the object keys via `keyvalue()` + `like_regex`; the `type()` guard
+        /// skips non-object values, on which `keyvalue()` would raise an error.
+        /// Array accessors (`[...]`) are kept.
+        fn fmt_clause(&self, subfield: &str) -> Result<String, query::Error> {
+            use std::fmt::Write as _;
+
+            let mut path = String::from("$");
+            for segment in subfield.split('.') {
+                // Separate the key name from any array index that follows it,
+                // e.g. `b[0]` becomes `b` and `[0]`, while `b` stays `b` with no index.
+                let (name, accessors) =
+                    segment.split_at(segment.find('[').unwrap_or(segment.len()));
+
+                let _ = match name {
+                    // Nothing between two dots: just ignore it.
+                    // e.g. `a..b` -> `$."a"."b"`
+                    "" => Ok(()),
+                    // `*` and `**` already mean "any key" in JSONPath, so they are
+                    // used as they are.
+                    // e.g. `a.*` -> `$."a".*`
+                    "*" | "**" => write!(path, ".{name}"),
+                    // A partial wildcard: JSONPath can't match key names by pattern,
+                    // so manual parsing.
+                    // e.g. `task_*` -> `$ ? (@.type() == "object").keyvalue()
+                    //                     ? (@.key like_regex "^task_.*$").value`
+                    _ if name.contains('*') => {
+                        let regex = query::wildcard_to_posix_regex(name)
+                            .map_err(|e| query::regex_to_query_error(e, subfield.to_owned()))?;
+                        write!(
+                            path,
+                            r#" ? (@.type() == "object").keyvalue() ? (@.key like_regex "{regex}").value"#
+                        )
+                    }
+                    // A regular key. The quotes let it contain characters such as `-`
+                    // or spaces.
+                    // e.g. `my task` -> `$."my task"`
+                    _ => write!(path, r#"."{name}""#),
+                };
+
+                // Put the array index back after the key, outside the quotes.
+                path.push_str(accessors);
+            }
+            Ok(path)
         }
     }
 
@@ -201,7 +246,7 @@ mod internal {
                 return Err(query::Error::unsupported_op(field.to_owned()));
             }
 
-            let field = &self.fmt_clause(field);
+            let field = &self.fmt_clause(field)?;
 
             let r = match op {
                 query::Op::Eq(v) => {
@@ -461,7 +506,7 @@ mod tests {
 
         let found = qr.clauses.iter().any(|c| {
             c.contains(
-                r#"jsonb_path_exists(topic.user_metadata, '$.imu.acceleration.x ? (@ == $val0 || @ == $val1 || @ == $val2)', jsonb_build_object('val0', $1, 'val1', $2, 'val2', $3))"#,
+                r#"jsonb_path_exists(topic.user_metadata, '$."imu"."acceleration"."x" ? (@ == $val0 || @ == $val1 || @ == $val2)', jsonb_build_object('val0', $1, 'val1', $2, 'val2', $3))"#,
             )
         });
         assert!(found, "in clause not found in {:?}", qr.clauses);
@@ -494,13 +539,15 @@ mod tests {
         dbg!(&qr);
 
         let ex_found = qr.clauses.iter().any(|c| {
-            c.contains(r#"COALESCE(jsonb_path_exists(topic.user_metadata, '$.accuracy_m'), false)"#)
+            c.contains(
+                r#"COALESCE(jsonb_path_exists(topic.user_metadata, '$."accuracy_m"'), false)"#,
+            )
         });
         assert!(ex_found, "ex clause not found in {:?}", qr.clauses);
 
         let nex_found = qr.clauses.iter().any(|c| {
             c.contains(
-                r#"COALESCE(NOT jsonb_path_exists(topic.user_metadata, '$.other_field'), true)"#,
+                r#"COALESCE(NOT jsonb_path_exists(topic.user_metadata, '$."other_field"'), true)"#,
             )
         });
         assert!(nex_found, "nex clause not found in {:?}", qr.clauses);
@@ -532,8 +579,39 @@ mod tests {
         assert!(found, "match clause not found in {:?}", qr.clauses);
         assert_eq!(
             qr.values[0],
-            query::Value::Text("$.vehicle.name ? (@ like_regex \"^truck$\")".to_owned())
+            query::Value::Text("$.\"vehicle\".\"name\" ? (@ like_regex \"^truck$\")".to_owned())
         );
+    }
+
+    #[test]
+    fn user_metadata_key_quoting_and_wildcards() {
+        let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([
+            ("my task.task_*.b-1[0]".to_owned(), query::Op::Ex),
+            ("a..b".to_owned(), query::Op::Ex),
+            ("a.*".to_owned(), query::Op::Ex),
+        ]);
+
+        let placeholder = query::Placeholder::new();
+        let mut jqc = JsonQueryCompiler::new(placeholder);
+        let fmt = jqc.with_field("topic.user_metadata".to_owned());
+
+        let mut cc = ClausesCompiler::new();
+        for (k, v) in mdata {
+            cc = cc.expr(&k, v, fmt);
+        }
+        let qr = cc.compile().expect("problem building query");
+
+        for path in [
+            r#"'$."my task" ? (@.type() == "object").keyvalue() ? (@.key like_regex "^task_.*$").value."b-1"[0]'"#,
+            r#"'$."a"."b"'"#,
+            r#"'$."a".*'"#,
+        ] {
+            assert!(
+                qr.clauses.iter().any(|c| c.contains(path)),
+                "{path} not found in {:?}",
+                qr.clauses
+            );
+        }
     }
 
     #[test]
@@ -562,7 +640,7 @@ mod tests {
         dbg!(&qr);
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.1 ? (@ == $val)', jsonb_build_object('val', $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$."my"."custom"."field"."1" ? (@ == $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
@@ -575,7 +653,7 @@ mod tests {
         }
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.2 ? (@ != $val)', jsonb_build_object('val', $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$."my"."custom"."field"."2" ? (@ != $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
