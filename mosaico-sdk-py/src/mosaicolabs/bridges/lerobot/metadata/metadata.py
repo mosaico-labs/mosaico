@@ -6,13 +6,15 @@ This module reads the `meta/` folder of a LeRobot v3.0 dataset and exposes it as
 - `LeRobotFeature` (`feature.py`): one entry of the `features` dict of `meta/info.json`.
 - `LeRobotEpisode` (`episode.py`): one row of the `meta/episodes/chunk-XXX/file-XXX.parquet` files.
 - `LeRobotInfo` (`info.py`): the content of `meta/info.json`.
-- `LeRobotDatasetMeta`: the whole `meta/` folder (`info.json`, the optional `stats.json`, the
-  tasks and the episodes), read from a dataset folder (`load`) or created from its content
-  (`from_data`).
+- `LeRobotStats` (`stats.py`): the stats of a feature, in an episode or in the dataset.
+- `LeRobotDatasetMeta`: the whole `meta/` folder (`info.json`, the tasks and the episodes),
+  read from a dataset folder (`load`) or written to one (`dump`). The stats of an episode
+  are those it was read with, or computed from the data files when it has none, and
+  `stats.json` is combined from them, when requested (see `stats.py`).
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -22,10 +24,13 @@ import pyarrow.parquet as pq
 
 from .episode import LeRobotEpisode
 from .feature import LeRobotFeature
+from .helpers import _flatten
 from .info import LeRobotInfo
+from .stats import LeRobotStats, compute_episode_stats
 
 _META_DIR = "meta"
 _EPISODES_DIR = "episodes"
+_EPISODES_FILE = "chunk-{chunk_index:03d}/file-{file_index:03d}.parquet"
 _INFO_FILE = "info.json"
 _STATS_FILE = "stats.json"
 _TASKS_FILE = "tasks.parquet"
@@ -42,6 +47,15 @@ def _load_json_object(path: Path) -> Dict[str, Any]:
             f"`{type(content).__name__}`."
         )
     return content
+
+
+def _write_parquet(rows: List[Dict[str, Any]], path: Path) -> None:
+    """Writes `rows` as a parquet file, with the columns of every row (a missing value is null)."""
+    columns = list(dict.fromkeys(key for row in rows for key in row))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(
+        pa.table({col: [row.get(col) for row in rows] for col in columns}), path
+    )
 
 
 @dataclass(frozen=True)
@@ -62,8 +76,39 @@ class LeRobotDatasetMeta:
     episodes_map: Dict[int, LeRobotEpisode]
     """The dataset episodes, keyed by episode index."""
 
-    stats: Optional[Dict[str, Any]] = None
-    """The content of `meta/stats.json`, or `None` if the dataset has no `stats.json`."""
+    @property
+    def stats(self) -> Optional[Dict[str, Any]]:
+        """
+        The content of `meta/stats.json`: the stats of the dataset, combined from those of its
+        episodes, or `None` if no feature has stats.
+
+        A feature is combined over the episodes that have stats for it, and a feature without
+        any (e.g. a `string`) is left out, as LeRobot does.
+
+        Raises:
+            ValueError: If the stats of a feature in an episode are missing or not feasible
+                (see `LeRobotStats.from_dict`), or of different shapes in two episodes.
+            RuntimeError: If the data file of an episode holds no row of it.
+            FileNotFoundError: If the data file of an episode is missing.
+            pa.ArrowInvalid: If the data file of an episode is not a readable parquet file.
+        """
+        episodes_stats = [
+            self.get_or_compute_episode_stats(i) for i in self.episode_indexes
+        ]
+
+        dataset_stats: Dict[str, Dict[str, List]] = {}
+        for feature in self.features:
+            # The stats of the feature in each episode that has them
+            feature_stats = [
+                LeRobotStats.from_dict(ep_stats[feature.key])
+                for ep_stats in episodes_stats
+                if feature.key in ep_stats
+            ]
+            if feature_stats:
+                aggregated = LeRobotStats.aggregate(feature_stats)
+                dataset_stats[feature.key] = aggregated.to_dict()
+
+        return dataset_stats or None
 
     @property
     def features(self) -> List[LeRobotFeature]:
@@ -94,8 +139,9 @@ class LeRobotDatasetMeta:
     def column_names(self) -> List[str]:
         """
         The data columns read by the bridge: the image and timeseries features. The `timestamp`
-        column (the time of every message) and the video features (stored in separate video
-        files, not supported yet) are excluded.
+        column (the time of every message), the position of the frames (`index`,
+        `frame_index` and `episode_index`, rebuilt on export) and the video features (stored
+        in separate video files, not supported yet) are excluded.
         """
         return [
             feature.key
@@ -165,6 +211,37 @@ class LeRobotDatasetMeta:
         episode = self.episodes_map.get(episode_index)
         return episode.length if episode is not None else 0
 
+    def get_or_compute_episode_stats(
+        self, episode_index: int
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Returns the stats of an episode: those it holds (e.g. read from `meta/episodes`) or,
+        if it has none, those computed from its rows in its data file, which must then be
+        complete and closed.
+
+        Args:
+            episode_index (int): The episode index.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: By feature with stats, its stats.
+
+        Raises:
+            KeyError: If the episode is not defined in `meta/episodes`.
+            RuntimeError: If the data file holds no row of the episode.
+            FileNotFoundError: If the data file of the episode is missing.
+            pa.ArrowInvalid: If the data file is not a readable parquet file (e.g. still being
+                written).
+        """
+        episode = self.episodes_map[episode_index]
+        if not episode.stats:
+            data_path = self.get_parquet_file(episode_index)
+            stats = compute_episode_stats(data_path, episode_index, self.features)
+            # A new episode: the one replaced can be shared (e.g. with a loader)
+            episode = replace(episode, stats=stats)
+            self.episodes_map[episode_index] = episode
+
+        return episode.stats
+
     def drop_features(self, to_drop: List[str]):
         """
         Removes the given features from the dataset metadata: from `info` and from the stats of
@@ -198,7 +275,7 @@ class LeRobotDatasetMeta:
         meta_dir = Path(root) / _META_DIR
         # `info.json` is parsed, and its version checked, before reading the episodes, whose
         # layout differs in other versions
-        info, stats = cls._load_meta_json(meta_dir)
+        info = cls._load_info(meta_dir)
 
         episodes_files = sorted((meta_dir / _EPISODES_DIR).rglob("*.parquet"))
         if not episodes_files:
@@ -213,7 +290,7 @@ class LeRobotDatasetMeta:
         ]
         tasks = pd.read_parquet(meta_dir / _TASKS_FILE).index.tolist()
 
-        return cls.from_data(root, info, episodes, tasks, stats)
+        return cls.from_data(root, info, episodes, tasks)
 
     @classmethod
     def from_data(
@@ -222,7 +299,6 @@ class LeRobotDatasetMeta:
         info: LeRobotInfo,
         episodes: List[LeRobotEpisode],
         tasks: List[str],
-        stats: Optional[Dict[str, Any]] = None,
     ) -> "LeRobotDatasetMeta":
         """
         Creates the metadata of a LeRobot dataset from its content, without reading any file.
@@ -232,7 +308,6 @@ class LeRobotDatasetMeta:
             info (LeRobotInfo): The content of `meta/info.json`.
             episodes (List[LeRobotEpisode]): The episodes of the dataset.
             tasks (List[str]): The dataset tasks, in task index order.
-            stats (Optional[Dict[str, Any]]): The content of `meta/stats.json`, if any.
 
         Returns:
             LeRobotDatasetMeta: The dataset metadata.
@@ -254,27 +329,71 @@ class LeRobotDatasetMeta:
             info=info,
             tasks=tasks,
             episodes_map=dict(sorted(episodes_map.items())),
-            stats=stats,
         )
 
-    @staticmethod
-    def _load_meta_json(
-        meta_dir: Path,
-    ) -> Tuple[LeRobotInfo, Optional[Dict[str, Any]]]:
+    def dump(self) -> None:
         """
-        Loads the JSON files of the `meta/` folder: `info.json` (required) and `stats.json`
-        (optional, as in LeRobot).
+        Writes the `meta/` folder of the dataset under `root`, as `load` reads it:
+
+        - `info.json`, and `stats.json` if `stats` is not `None`;
+        - `tasks.parquet`: `tasks`, indexed by task as LeRobot reads them;
+        - the episodes parquet files, each episode in the one given by its
+          `meta/episodes/chunk_index` and `meta/episodes/file_index` (0 if not set), with
+          its stats (see `get_or_compute_episode_stats`).
+
+        The stats of the episodes without any are computed from their data files, which must
+        then be complete and closed (see `get_or_compute_episode_stats`). Existing files are overwritten.
+
+        Raises:
+            ValueError: If the stats of a feature in an episode are missing or not feasible.
+            RuntimeError: If the data file of an episode holds no row of it.
+            FileNotFoundError: If the data file of an episode is missing.
+            pa.ArrowInvalid: If the data file of an episode is not a readable parquet file.
+        """
+        meta_dir = self.root / _META_DIR
+        meta_dir.mkdir(parents=True, exist_ok=True)
+
+        (meta_dir / _INFO_FILE).write_text(json.dumps(self.info.to_dict(), indent=4))
+        # Also fills in the stats of the episodes without any, written below
+        stats = self.stats
+        if stats is not None:
+            (meta_dir / _STATS_FILE).write_text(json.dumps(stats, indent=4))
+
+        pd.DataFrame(
+            {"task_index": range(len(self.tasks))},
+            index=pd.Index(self.tasks, name="task"),
+        ).to_parquet(meta_dir / _TASKS_FILE)
+
+        # The `meta/episodes` rows, grouped by the episodes file holding them
+        files: Dict[Tuple[int, int], List[Dict[str, Any]]] = {}
+        for episode in self.episodes_map.values():
+            chunk_index = episode.meta_episodes_chunk_index or 0
+            file_index = episode.meta_episodes_file_index or 0
+            files.setdefault((chunk_index, file_index), []).append(
+                _flatten(episode.to_dict(), sep="/")
+            )
+
+        for (chunk_index, file_index), rows in files.items():
+            file_name = _EPISODES_FILE.format(
+                chunk_index=chunk_index, file_index=file_index
+            )
+            _write_parquet(rows, meta_dir / _EPISODES_DIR / file_name)
+
+    @staticmethod
+    def _load_info(meta_dir: Path) -> LeRobotInfo:
+        """
+        Loads `meta/info.json`. `meta/stats.json` is not read: the stats of the dataset are
+        combined from those of its episodes.
 
         Args:
             meta_dir (Path): The `meta/` folder of the dataset.
 
         Returns:
-            Tuple[LeRobotInfo, Optional[Dict[str, Any]]]: The parsed `info.json`, and the
-                `stats.json` content or `None` if the dataset has no `stats.json`.
+            LeRobotInfo: The parsed `info.json`.
 
         Raises:
             FileNotFoundError: If `meta_dir` or `meta/info.json` is missing.
-            ValueError: If a file does not hold a JSON object, or `info.json` is not a supported
+            ValueError: If `info.json` does not hold a JSON object, or is not a supported
                 LeRobot info (see `LeRobotInfo.from_dict`).
         """
         if not meta_dir.is_dir():
@@ -283,9 +402,4 @@ class LeRobotDatasetMeta:
         info_path = meta_dir / _INFO_FILE
         if not info_path.is_file():
             raise FileNotFoundError(f"'{info_path}' not found.")
-        info = LeRobotInfo.from_dict(_load_json_object(info_path))
-
-        stats_path = meta_dir / _STATS_FILE
-        stats = _load_json_object(stats_path) if stats_path.is_file() else None
-
-        return info, stats
+        return LeRobotInfo.from_dict(_load_json_object(info_path))
