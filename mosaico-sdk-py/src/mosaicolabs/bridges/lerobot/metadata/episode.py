@@ -2,6 +2,7 @@
 The episodes of a LeRobot dataset: the rows of the `meta/episodes/chunk-XXX/file-XXX.parquet`
 files.
 """
+from pygments.unistring import No
 
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
@@ -108,6 +109,16 @@ class LeRobotEpisode:
                 stats.setdefault(feature, {})[stat] = value
 
         return cls(tasks=list(fields.pop("tasks") or []), stats=stats, **fields)
+
+    def drop_features(self, to_drop:List[str]):
+        """
+        Removes the stats of the given features from the episode. Unknown features are ignored.
+
+        Args:
+            to_drop (List[str]): The names of the features to drop.
+        """
+        for key in to_drop:
+            self.stats.pop(key, None) 
 
     @classmethod
     def from_dict(cls, ep_dict: Dict[str, Any]) -> "LeRobotEpisode":

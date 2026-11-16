@@ -241,7 +241,20 @@ class LeRobotDatasetMeta:
             self.episodes_map[episode_index] = episode
 
         return episode.stats
+    def drop_features(self, to_drop:List[str]):
+        """
+        Removes the given features from the dataset metadata: from `info` and from the stats of
+        every episode. Unknown features are ignored.
 
+        Args:
+            to_drop (List[str]): The names of the features to drop.
+        """
+
+        self.info.drop_features(to_drop)
+        
+        for ep in self.episodes_map.values():
+            ep.drop_features(to_drop)
+            
     @classmethod
     def load(cls, root: Path) -> "LeRobotDatasetMeta":
         """
