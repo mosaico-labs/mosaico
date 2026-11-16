@@ -2765,7 +2765,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-hook"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "bytes",
  "mosaicod-config",

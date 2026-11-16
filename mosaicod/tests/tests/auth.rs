@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 use mosaicod_core::types::{self, auth::Permission};
 use mosaicod_db as db;
 use mosaicod_proto::v1::query as proto_query;

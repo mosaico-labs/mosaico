@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 // use arrow::util::pretty::print_batches;
 use arrow::{array::RecordBatch, compute::BatchCoalescer};
 use mosaicod_core::types;

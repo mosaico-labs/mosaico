@@ -5,6 +5,12 @@ edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
+autotests = false
+
+# All the integration tests are compiled into a single binary, see `tests/main.rs`.
+[[test]]
+name = "integration"
+path = "tests/main.rs"
 
 
 [dependencies]

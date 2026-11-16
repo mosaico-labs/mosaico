@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 //! Schema related testing functions
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};

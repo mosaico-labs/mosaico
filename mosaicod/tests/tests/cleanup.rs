@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
