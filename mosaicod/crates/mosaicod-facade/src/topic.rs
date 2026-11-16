@@ -465,6 +465,7 @@ pub async fn writer(
         topic_locator: locator,
         ontology_tag,
         writer,
+        timestamp_range: None,
         context,
     })
 }
@@ -590,13 +591,41 @@ pub struct HandleWriter {
     /// The underlying writer handling the actual data operations.
     writer: rw::ChunkWriter<Arc<store::Store>>,
 
-    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process.
+    /// Timestamp range covered by the chunks written so far, `None` if no chunk has been written.
+    ///
+    /// A topic is written by a single [`HandleWriter`], so this is the range of the whole topic
+    /// when [`HandleWriter::finalize`] is called.
+    timestamp_range: Option<types::TimestampRange>,
+
+    /// Context used to finalize topic data at the end of write process.
     context: Context,
 }
 
 impl HandleWriter {
     pub fn ontology_tag(&self) -> &str {
         &self.ontology_tag
+    }
+
+    /// Writes a [`RecordBatch`](arrow::array::RecordBatch) to the topic and returns the
+    /// serialized chunk.
+    ///
+    /// The timestamp bounds of the chunk are added to the topic timestamp range, which is
+    /// stored when the topic is finalized.
+    pub async fn write(&mut self, batch: arrow::array::RecordBatch) -> Result<rw::SerializedChunk> {
+        let chunk = self.writer.write(batch).await?;
+
+        let first = chunk.metadata.first_sample_timestamp_ns;
+        let last = chunk.metadata.last_sample_timestamp_ns;
+        let range = match self.timestamp_range {
+            Some(range) => types::TimestampRange::between(
+                range.start.as_i64().min(first).into(),
+                range.end.as_i64().max(last).into(),
+            ),
+            None => types::TimestampRange::between(first.into(), last.into()),
+        };
+        self.timestamp_range = Some(range);
+
+        Ok(chunk)
     }
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
@@ -617,13 +646,11 @@ impl HandleWriter {
 
         let topic_locator = topic_record.locator();
 
-        // The range is taken from the bounds of the chunks recorded in the database, in this
-        // transaction, and not from the data files: an object store listing can miss a chunk
-        // that has just been written, which made the range partial or unbounded (#1103).
-        // ts_range is unbounded only if no chunk has been recorded (only empty batches have
+        // The range is taken from the bounds of the chunks written by this writer.
+        // `ts_range` is unbounded only if no chunk has been written (only empty batches have
         // been sent).
-        let ts_range = db::topic_chunks_timestamp_range(&mut tx, topic_record.topic_id)
-            .await?
+        let ts_range = self
+            .timestamp_range
             .unwrap_or_else(types::TimestampRange::unbounded);
 
         db::topic_update_index_timestamp_range(&mut tx, &topic_locator, ts_range).await?;
@@ -669,12 +696,6 @@ impl std::ops::Deref for HandleWriter {
 
     fn deref(&self) -> &Self::Target {
         &self.writer
-    }
-}
-
-impl std::ops::DerefMut for HandleWriter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.writer
     }
 }
 
