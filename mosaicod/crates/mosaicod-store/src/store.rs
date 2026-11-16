@@ -148,13 +148,13 @@ pub struct Builder {
     /// The access key for the storage bucket.
     ///
     /// If not provided, `object_store` will attempt to resolve credentials
-    /// from the environment or the EC2/ECS instance role (IAM).
+    /// from the EC2 instance role (IAM).
     pub access_key: Option<String>,
 
     /// The secret key of the storage bucket.
     ///
     /// If not provided, `object_store` will attempt to resolve credentials
-    /// from the environment or the EC2/ECS instance role (IAM).
+    /// from the EC2 instance role (IAM).
     pub secret_key: Option<String>,
 }
 

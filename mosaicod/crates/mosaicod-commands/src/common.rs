@@ -75,7 +75,7 @@ pub fn check_store_connectivity(
     let timeout = std::time::Duration::from_secs(
         params::params().store_connection_timeout.value.get() as u64,
     );
-    rt.block_on(async { store.check_connectivity(timeout).await })?;
+    rt.block_on(store.check_connectivity(timeout))?;
     Ok(())
 }
 
