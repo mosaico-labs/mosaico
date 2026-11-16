@@ -29,11 +29,12 @@ pub struct StoreOptimizer {
 
 /// Run the store optimization routine.
 pub fn store_optimization(args: StoreOptimizer) -> Result<()> {
-    info!("startup store");
-    let store = common::init_store()?;
-
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
+
+    info!("startup store");
+    let store = common::init_store()?;
+    common::check_store_connectivity(&rt, &store)?;
 
     let params = params::params();
 

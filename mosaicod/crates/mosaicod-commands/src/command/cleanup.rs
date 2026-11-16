@@ -27,11 +27,12 @@ pub struct Cleanup {
 
 /// Run the store cleanup routine.
 pub fn cleanup(args: Cleanup) -> Result<()> {
-    info!("startup store");
-    let store = common::init_store()?;
-
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
+
+    info!("startup store");
+    let store = common::init_store()?;
+    common::check_store_connectivity(&rt, &store)?;
 
     let params = params::params();
 
