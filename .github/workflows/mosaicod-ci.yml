@@ -27,9 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           components: rustfmt, clippy
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.2
@@ -57,9 +56,7 @@ jobs:
           echo "Disk after cleanup:"; df -h /
 
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
+      - uses: dtolnay/rust-toolchain@stable
 
       - name: Install System Dependencies (Linux)
         run: |
