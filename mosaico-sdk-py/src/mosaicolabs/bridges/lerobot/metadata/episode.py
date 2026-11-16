@@ -109,7 +109,7 @@ class LeRobotEpisode:
 
         return cls(tasks=list(fields.pop("tasks") or []), stats=stats, **fields)
 
-    def drop_features(self, to_drop:List[str]):
+    def drop_features(self, to_drop: List[str]):
         """
         Removes the stats of the given features from the episode. Unknown features are ignored.
 
@@ -117,7 +117,7 @@ class LeRobotEpisode:
             to_drop (List[str]): The names of the features to drop.
         """
         for key in to_drop:
-            self.stats.pop(key, None) 
+            self.stats.pop(key, None)
 
     @classmethod
     def from_dict(cls, ep_dict: Dict[str, Any]) -> "LeRobotEpisode":

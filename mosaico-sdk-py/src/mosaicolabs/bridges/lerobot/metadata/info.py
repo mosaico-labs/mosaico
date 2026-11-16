@@ -167,7 +167,8 @@ class LeRobotInfo:
                 f"Current info has robot type '{self.robot_type}' while the other has "
                 f"'{other_info.robot_type}'."
             )
-    def drop_features(self, to_drop:List[str]):
+
+    def drop_features(self, to_drop: List[str]):
         """
         Removes the given features from `features`. Unknown features are ignored.
 
@@ -175,8 +176,6 @@ class LeRobotInfo:
             to_drop (List[str]): The names of the features to drop.
         """
         self.features[:] = [f for f in self.features if f.key not in to_drop]
-
-
 
     def get_path_to_data(self, root: Path, chunk_index: int, file_index: int) -> Path:
         """

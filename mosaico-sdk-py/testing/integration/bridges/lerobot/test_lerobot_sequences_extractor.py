@@ -6,7 +6,7 @@ Integration tests of the LeRobot dataset extraction: the example dataset is inge
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -24,14 +24,24 @@ from mosaicolabs.bridges.lerobot.sequences_extractor import (
     LeRobotSequencesExtractor,
 )
 from mosaicolabs.comm import MosaicoClient
-from testing.unit.bridges.lerobot.config import EPISODE_LENGTHS
+from testing.unit.bridges.lerobot.config import ACTION_COLUMN_NAME, EPISODE_LENGTHS
 
 SEQUENCE_PREFIX = "lerobot_extraction"
 
-SEQUENCE_NAMES = [
-    f"{SEQUENCE_PREFIX}_episode_{episode_index:06d}"
-    for episode_index in range(len(EPISODE_LENGTHS))
-]
+FILTERED_SEQUENCE_PREFIX = "lerobot_extraction_filtered"
+"""The prefix of the sequences ingested without the `action` column."""
+
+
+def _sequence_names(prefix: str) -> List[str]:
+    """The sequences the episodes of the example dataset are ingested as with `prefix`, in
+    episode order."""
+    return [
+        f"{prefix}_episode_{episode_index:06d}"
+        for episode_index in range(len(EPISODE_LENGTHS))
+    ]
+
+
+SEQUENCE_NAMES = _sequence_names(SEQUENCE_PREFIX)
 """The sequences the episodes of the example dataset are ingested as, in episode order."""
 
 MISSING_SEQUENCE_NAME = f"{SEQUENCE_PREFIX}_missing"
@@ -40,20 +50,60 @@ EXPORTED_DATA_FILE = Path("data/chunk-000/file-000.parquet")
 """The data file of the exported dataset, holding all its episodes."""
 
 
-def _delete_sequences(host, port, api_key_manage, tls_cert_path):
+def _delete_sequences(sequence_names, host, port, api_key_manage, tls_cert_path):
     with MosaicoClient.connect(
         host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_manage
     ) as client:
-        for sequence_name in SEQUENCE_NAMES:
+        for sequence_name in sequence_names:
             if client.sequence_exists(sequence_name):
                 client.sequence_delete(sequence_name)
 
 
+def _ingested_sequences(
+    prefix: str,
+    column_names: Optional[List[str]],
+    host,
+    port,
+    api_key_manage,
+    with_tls,
+    tls_cert_path,
+    lerobot_dataset,
+) -> Iterator[List[str]]:
+    """Ingests the example LeRobot dataset as the sequences of `prefix`, keeping the columns
+    selected by `column_names` (all if None). The sequences are deleted before ingesting and
+    after the caller is done with them."""
+    sequence_names = _sequence_names(prefix)
+    _delete_sequences(sequence_names, host, port, api_key_manage, tls_cert_path)
+
+    status = LeRobotInjector(
+        LeRobotInjectionConfig(
+            file_path=lerobot_dataset,
+            sequence_name=prefix,
+            column_names=column_names,
+            host=host,
+            port=port,
+            mosaico_api_key=api_key_manage,
+            tls_cert_path=tls_cert_path,
+            enable_tls=with_tls,
+        )
+    ).run()
+    assert status is InjectionStatus.COMPLETED
+
+    yield sequence_names
+
+    _delete_sequences(sequence_names, host, port, api_key_manage, tls_cert_path)
+
+
 def _original_data(root: Path, schema: pa.Schema) -> pa.Table:
-    """The rows of the data files of a dataset, in episode order, with the types of `schema`."""
+    """The rows of the data files of a dataset, in episode order, with the columns and types of
+    `schema`."""
     meta = LeRobotDatasetMeta.load(root)
     data_files = dict.fromkeys(meta.get_parquet_file(i) for i in meta.episode_indexes)
-    return pa.concat_tables(pq.read_table(f) for f in data_files).cast(schema)
+    return (
+        pa.concat_tables(pq.read_table(f) for f in data_files)
+        .select(schema.names)
+        .cast(schema)
+    )
 
 
 def _episode_rows(table: pa.Table, episode_index: int) -> pa.Table:
@@ -66,24 +116,34 @@ def ingested_sequences(
 ) -> Iterator[List[str]]:
     """Ingests the example LeRobot dataset, whose sequences are deleted before and after the
     tests of the module."""
-    _delete_sequences(host, port, api_key_manage, tls_cert_path)
+    yield from _ingested_sequences(
+        SEQUENCE_PREFIX,
+        None,
+        host,
+        port,
+        api_key_manage,
+        with_tls,
+        tls_cert_path,
+        lerobot_dataset,
+    )
 
-    status = LeRobotInjector(
-        LeRobotInjectionConfig(
-            file_path=lerobot_dataset,
-            sequence_name=SEQUENCE_PREFIX,
-            host=host,
-            port=port,
-            mosaico_api_key=api_key_manage,
-            tls_cert_path=tls_cert_path,
-            enable_tls=with_tls,
-        )
-    ).run()
-    assert status is InjectionStatus.COMPLETED
 
-    yield SEQUENCE_NAMES
-
-    _delete_sequences(host, port, api_key_manage, tls_cert_path)
+@pytest.fixture(scope="module")
+def ingested_filtered_sequences(
+    host, port, api_key_manage, with_tls, tls_cert_path, lerobot_dataset
+) -> Iterator[List[str]]:
+    """Ingests the example LeRobot dataset without its `action` column, whose sequences are
+    deleted before and after the tests of the module."""
+    yield from _ingested_sequences(
+        FILTERED_SEQUENCE_PREFIX,
+        [f"!{ACTION_COLUMN_NAME}"],
+        host,
+        port,
+        api_key_manage,
+        with_tls,
+        tls_cert_path,
+        lerobot_dataset,
+    )
 
 
 @pytest.fixture
@@ -117,6 +177,30 @@ def test_extraction_recreates_the_dataset(extractor_config, lerobot_dataset):
 
     # `task_index` included: it is rebuilt from the `task` of each frame (see `LeRobotWriter`)
     exported = pq.read_table(saving_path / EXPORTED_DATA_FILE)
+    assert exported.equals(_original_data(lerobot_dataset, exported.schema))
+
+
+def test_extraction_of_a_filtered_ingestion_recreates_the_filtered_dataset(
+    extractor_config, ingested_filtered_sequences, lerobot_dataset
+):
+    """Tests that exporting the sequences ingested without a column recreates the ingested
+    dataset without that column: in its metadata (features and episode stats) and in its rows"""
+    config = replace(extractor_config, sequence_names=ingested_filtered_sequences)
+    saving_path = config.saving_path
+
+    meta = LeRobotSequencesExtractor(config).run()
+
+    assert LeRobotDatasetMeta.load(saving_path) == meta
+    assert [e.length for e in meta.episodes_map.values()] == EPISODE_LENGTHS
+    original_meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    assert [f.key for f in meta.info.features] == [
+        f.key for f in original_meta.info.features if f.key != ACTION_COLUMN_NAME
+    ]
+    for episode in meta.episodes_map.values():
+        assert ACTION_COLUMN_NAME not in episode.stats
+
+    exported = pq.read_table(saving_path / EXPORTED_DATA_FILE)
+    assert ACTION_COLUMN_NAME not in exported.column_names
     assert exported.equals(_original_data(lerobot_dataset, exported.schema))
 
 
