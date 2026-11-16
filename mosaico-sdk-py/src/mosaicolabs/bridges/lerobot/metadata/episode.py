@@ -2,7 +2,6 @@
 The episodes of a LeRobot dataset: the rows of the `meta/episodes/chunk-XXX/file-XXX.parquet`
 files.
 """
-from pygments.unistring import No
 
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
