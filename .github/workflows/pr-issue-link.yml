@@ -15,9 +15,12 @@ jobs:
     # Only PRs opened from an external fork are checked. Internal bots (e.g. Dependabot) push
     # their branches to this repository, so they are skipped like every non-fork PR.
     # Maintainers opening a PR from their own fork are exempt too.
+    # Maintainers can exempt an external PR (e.g. a typo fix) by adding the `skip-issue-link`
+    # label and reopening it. Only users with triage access can add labels.
     if: >-
       github.event.pull_request.head.repo.full_name != github.repository
       && !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      && !contains(github.event.pull_request.labels.*.name, 'skip-issue-link')
     env:
       # The contributor who opened the PR
       AUTHOR: ${{ github.event.pull_request.user.login }}
@@ -78,7 +81,7 @@ jobs:
 
           1. Look for the \`$LABEL\` issue your change addresses.
           2. Get assigned to it.
-          3. Add \`Closes #<issue number>\` to the PR description, then reopen this PR."
+          3. Add \`Closes #<issue number>\` to this PR description, then comment here asking a maintainer to reopen it."
 
           # Explain why on the PR, then close it
           gh pr close "$PR_NUMBER" \

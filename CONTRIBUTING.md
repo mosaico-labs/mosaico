@@ -16,6 +16,11 @@ If you have found a bug please open a new [Discussion](https://github.com/mosaic
 
 Typos, broken links, similarly small changes, and dependency updates don't need any prior coordination: open a Pull Request directly.
 
+A bot automatically closes external Pull Requests that don't link an assigned Issue. A maintainer reviews these small fixes and reopens the Pull Request if it's accepted.
+
+> [!NOTE]
+> **For maintainers:** to accept an external Pull Request without a linked Issue, add the `skip-issue-link` label and reopen it. The check then skips that Pull Request, even after new pushes or edits.
+
 ### Everything else
 
 We value your time (and ours), so we aim to avoid unnecessary work. Even if a PR is excellent, it may not align with our internal roadmap, so any other change has to start from one of the following:
