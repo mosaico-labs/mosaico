@@ -553,6 +553,31 @@ mod tests {
     }
 
     #[test]
+    fn test_ontology_filter_rejects_sqli_payload() {
+        for bad in [
+            "t.x' OR 1=1 OR 'true",
+            "t.x'",
+            "t.x;",
+            "t.x--",
+            "t.x y",
+            "t.x\\y",
+        ] {
+            let result = ontology_filter_from_proto(proto_query::OntologyFilter {
+                predicates: vec![proto_query::OntologyPredicate {
+                    field: bad.to_owned(),
+                    aggregator: None,
+                    condition: Some(int_condition(proto_query::Operator::Eq, 500)),
+                }],
+            });
+
+            assert!(
+                result.is_err(),
+                "`{bad}` should be rejected before reaching the SQL builders"
+            );
+        }
+    }
+
+    #[test]
     fn test_aggregator_accepts_supported_predicates() {
         use proto_query::{Aggregator, Operator};
 

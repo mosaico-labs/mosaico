@@ -337,6 +337,11 @@ fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
     }
 }
 
+/// Returns true if `key` contains only ASCII alphanumerics and underscores.
+fn valid_key(key: &str) -> bool {
+    !key.is_empty() && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyField {
     tag: String,
@@ -351,6 +356,9 @@ impl OntologyField {
         if ontology_tag.is_empty() {
             return Err(super::Error::bad_field(v));
         }
+        if !valid_key(ontology_tag) {
+            return Err(super::Error::bad_field(v));
+        }
         let tag = ontology_tag.to_owned();
         let raw_segments: Vec<&str> = field_part.split('.').collect();
 
@@ -360,7 +368,7 @@ impl OntologyField {
         for (i, segment) in raw_segments.iter().enumerate() {
             let (name, specifier) =
                 parse_segment(segment).map_err(|_| super::Error::bad_field(v.clone()))?;
-            if name.is_empty() {
+            if name.is_empty() || !valid_key(&name) {
                 return Err(super::Error::bad_field(v));
             }
 
@@ -701,6 +709,52 @@ mod tests {
     #[test]
     fn ontology_field_with_empty_parts_is_error() {
         for bad in [".x", "imu.", "imu..x", "imu.acc.", "imu.[?]", "imu.acc.[0]"] {
+            assert!(
+                OntologyField::try_new(bad.into()).is_err(),
+                "`{bad}` should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn ontology_field_accepts_valid_keys() {
+        for good in [
+            "image.info.height",
+            "imu.acceleration.x",
+            "tag.value",
+            "image.width[0]",
+            "image.info[?]",
+            "image.data[!]",
+            "_tag._field",
+            "1tag.x",
+            "tag.1field",
+        ] {
+            assert!(
+                OntologyField::try_new(good.into()).is_ok(),
+                "`{good}` should be accepted"
+            );
+        }
+    }
+
+    #[test]
+    fn ontology_field_rejects_sql_metacharacters() {
+        for bad in [
+            "t.x' OR 1=1 OR 'true",
+            "t.x'",
+            "t.x;",
+            "t.x--",
+            "t.x y",
+            "t.x\"y",
+            "t.x\\y",
+            "t.x[0]'",
+            "t.x[0] OR 1=1",
+            "t.x.y'",
+            "ta g.x",
+            "tag.field-name",
+            "tag.field name",
+            "t.x/*",
+            "t.x*/",
+        ] {
             assert!(
                 OntologyField::try_new(bad.into()).is_err(),
                 "`{bad}` should be rejected"
