@@ -112,6 +112,9 @@ TopicMetadataOpt = Annotated[
 SequenceNameArg = Annotated[
     str, typer.Argument(help="Name of the Mosaico sequence to extract.")
 ]
+SequenceNamesArg = Annotated[
+    List[str], typer.Argument(help="Name of the Mosaico sequences to extract.")
+]
 StartTimestampOpt = Annotated[
     Optional[int],
     typer.Option(
