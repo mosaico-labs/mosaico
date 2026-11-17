@@ -1,4 +1,3 @@
-#![allow(unused_crate_dependencies)]
 use mosaicod_db as db;
 use tests::{self, actions, common};
 

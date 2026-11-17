@@ -1,4 +1,3 @@
-#![allow(unused_crate_dependencies)]
 use arrow::array::{
     BooleanArray, BooleanBuilder, Float64Array, Int64Array, Int64Builder, ListBuilder, RecordBatch,
     StringArray, StringBuilder,

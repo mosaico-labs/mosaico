@@ -1,4 +1,3 @@
-#![allow(unused_crate_dependencies)]
 use arrow_flight::FlightInfo;
 use mosaicod_db as db;
 use mosaicod_proto::v1::flight as proto_flight;

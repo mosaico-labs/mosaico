@@ -1,4 +1,3 @@
-#![allow(unused_crate_dependencies)]
 use arrow::array::{ArrayRef, Int64Array, RecordBatch};
 use mosaicod_core::types::Uuid;
 use mosaicod_db as db;

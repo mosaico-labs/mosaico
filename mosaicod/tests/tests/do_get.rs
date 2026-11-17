@@ -1,4 +1,3 @@
-#![allow(unused_crate_dependencies)]
 use arrow_flight::Ticket;
 use mosaicod_core::types;
 use mosaicod_db as db;

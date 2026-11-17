@@ -1,5 +1,3 @@
-#![allow(unused_crate_dependencies)]
-
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_core::constants;

@@ -9,7 +9,12 @@ tests/
 ├── Cargo.toml        # test crate metadata
 ├── src/              # test helper modules and library code
 └── tests/            # integration test files
+    └── main.rs       # single entry point, declares every test file as a module
 ```
+
+All the test files are compiled into a single binary named `integration`, so the
+tests are linked only once. A new test file must be declared as a module in
+`tests/main.rs`, otherwise it is not compiled.
 
 ## Test helpers in `src/`
 
@@ -25,4 +30,11 @@ From the repository root you can run the integration test crate with:
 
 ```bash
 cargo test -p tests
+```
+
+To run only the tests of one file, filter by its **module name**, which is the
+file name without `.rs`. For example, for the tests in `tests/tests/auth.rs`:
+
+```bash
+cargo test -p tests auth::
 ```
