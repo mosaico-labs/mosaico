@@ -188,7 +188,7 @@ main() {
     cargo build --profile "$MOSAICOD_BUILD_PROFILE" --bin mosaicod
 
     if $ENABLE_API_KEY; then
-        API_KEY=$(RUST_LOG="" "./target/$MOSAICOD_BUILD_TARGET/mosaicod" api-key create -p manage)
+        API_KEY=$(RUST_LOG="" "./target/$MOSAICOD_BUILD_TARGET/mosaicod" api-key create -p "read|write|delete")
 
 cat << EOF 
     ##################################################################
