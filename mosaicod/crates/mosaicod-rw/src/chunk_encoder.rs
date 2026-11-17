@@ -1,8 +1,10 @@
-use super::{Error, writer::Writer};
+use std::sync::Arc;
+
 use arrow::{array::RecordBatch, datatypes::Schema, datatypes::SchemaRef};
 use mosaicod_core::types;
 use mosaicod_ext;
-use std::sync::Arc;
+
+use super::{Error, writer::Writer};
 
 /// Metadata about a finalized chunk, including size and row count.
 #[derive(Debug, Clone)]
@@ -187,7 +189,6 @@ impl InMemoryChunkEncoder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use arrow::array::{
         ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray, StructArray,
     };
@@ -195,6 +196,8 @@ mod tests {
     use arrow_schema::DataType;
     use mosaicod_config::params as config_params;
     use mosaicod_core::constants;
+
+    use super::*;
 
     /// Helper function to create a test RecordBatch.
     /// This provides a schema with numeric, string, and nested struct types,

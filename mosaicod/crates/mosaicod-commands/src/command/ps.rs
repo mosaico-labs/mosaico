@@ -1,8 +1,9 @@
-use crate::{common, print};
 use clap::Args;
 use mosaicod_config::params;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
+
+use crate::{common, print};
 
 #[derive(Args, Debug)]
 pub struct Ps {

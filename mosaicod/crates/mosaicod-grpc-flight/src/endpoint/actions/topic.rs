@@ -7,6 +7,7 @@ use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob, TopicLocator},
 };
+use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{self as marshal, ActionResponse, requests};
@@ -16,7 +17,6 @@ use tokio_stream::wrappers::ReceiverStream;
 use tracing::{info, trace, warn};
 
 use crate::flight::DoActionStream;
-use mosaicod_ext as ext;
 
 const MAX_BUFFER_CHANNEL_SIZE: usize = 128;
 

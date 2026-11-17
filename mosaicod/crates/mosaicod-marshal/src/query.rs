@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use mosaicod_proto::v1::query as proto_query;
 use mosaicod_query::{self as query, IsSupportedOp};
-use std::collections::HashMap;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Values

@@ -23,9 +23,11 @@
 //!     It represents the complete set of criteria required to match a specific resource.
 //!
 
-use crate::Aggregator;
-use mosaicod_core::types;
 use std::{collections::HashMap, collections::hash_map::Entry};
+
+use mosaicod_core::types;
+
+use crate::Aggregator;
 
 /// Floating point value type alias.
 pub type Float = f64;

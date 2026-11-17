@@ -1,3 +1,9 @@
+use std::convert::Into;
+use std::fs;
+use std::net::{IpAddr, Ipv4Addr, TcpListener};
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_config::params;
 use mosaicod_core::types;
@@ -8,11 +14,6 @@ use mosaicod_grpc_common as grpc_common;
 use mosaicod_hook as hook;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use std::convert::Into;
-use std::fs;
-use std::net::{IpAddr, Ipv4Addr, TcpListener};
-use std::sync::Arc;
-use std::sync::Mutex;
 use tonic::service::interceptor;
 
 /// This lock prevents a race condition between releasing the TCP listener (used to find a

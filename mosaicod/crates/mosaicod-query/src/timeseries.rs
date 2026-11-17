@@ -4,7 +4,10 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
-use super::{Error, IndexSpecifier, OntologyField, OntologyPredicateGroup, Op, Value};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -23,10 +26,9 @@ use mosaicod_config::params as config_params;
 use mosaicod_core::{constants, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
 use tracing::trace;
+
+use super::{Error, IndexSpecifier, OntologyField, OntologyPredicateGroup, Op, Value};
 
 pub type TimeseriesEngineRef = Arc<TimeseriesEngine>;
 
@@ -837,11 +839,12 @@ fn value_to_df_expr(v: Value) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Range;
-    use super::*;
     use mosaicod_core::traits::AsyncWriteToPath;
     use mosaicod_ext::arrow;
     use mosaicod_store as store;
+
+    use super::super::Range;
+    use super::*;
 
     async fn write_dummy_file(store: &store::Store, file_path: &str) {
         let batch = arrow::testing::dummy_batch(7, 10000, 5, 1, 1);

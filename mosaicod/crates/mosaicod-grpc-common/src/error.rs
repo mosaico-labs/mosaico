@@ -26,6 +26,7 @@ where
 {
     fn grpc_code(&self) -> tonic::Code {
         use core::error::ErrorKind;
+
         use tonic::Code;
 
         let err = self.as_ref().error();

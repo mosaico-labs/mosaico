@@ -121,8 +121,9 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::num::NonZero;
+
+    use super::*;
 
     // No CLI flag below has a `default_value`/`default_value_t` — every one of them must
     // parse to `None` when unset, so `args.x.unwrap_or(params.x.value)` (in `start()` and

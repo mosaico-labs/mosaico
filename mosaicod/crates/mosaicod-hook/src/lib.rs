@@ -4,14 +4,15 @@
 //! every [`Dispatcher`]. Events are dropped when the queue is full, when a hook keeps failing
 //! after the last retry, and on shutdown.
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use bytes::Bytes;
 use mosaicod_config::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use reqwest::StatusCode;
-use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::{Semaphore, mpsc};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
@@ -271,9 +272,10 @@ pub mod testing;
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use super::*;
     use crate::testing::{Receiver, Reply};
-    use std::time::Instant;
 
     fn test_policy() -> Policy {
         Policy {

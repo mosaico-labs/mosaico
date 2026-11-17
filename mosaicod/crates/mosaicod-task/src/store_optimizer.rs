@@ -28,6 +28,9 @@
 //! left leased) so it gets picked up again on a future run; its original data is never modified,
 //! so a failure is always safe to retry.
 
+use std::cmp::max;
+use std::sync::Arc;
+
 use datafusion as df;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::GreedyMemoryPool;
@@ -43,8 +46,6 @@ use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
-use std::cmp::max;
-use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 

@@ -1,4 +1,5 @@
-use crate::endpoint;
+use std::sync::Arc;
+
 use arrow_flight::{
     Action as FlightAction, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PollInfo, PutResult, SchemaResult, Ticket,
@@ -14,9 +15,10 @@ use mosaicod_hook as hook;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use std::sync::Arc;
 use tonic::{Request, Response, Status, Streaming};
 use tracing::error;
+
+use crate::endpoint;
 
 pub struct Service {
     store: store::StoreRef,

@@ -1,4 +1,5 @@
-use crate::common;
+use std::sync::Arc;
+
 use clap::Subcommand;
 use colored::Colorize;
 use mosaicod_config::params;
@@ -6,7 +7,8 @@ use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
-use std::sync::Arc;
+
+use crate::common;
 
 #[derive(Subcommand, Debug)]
 pub enum Hook {
