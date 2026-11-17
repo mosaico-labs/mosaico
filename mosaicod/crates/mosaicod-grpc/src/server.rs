@@ -191,6 +191,13 @@ pub async fn serve(
     if !opts.enable_api_key_management {
         auth_layer = auth_layer.with_permission_passthrough(Permissions::all());
     }
+    // The RPC metrics layer wraps the auth layer, so rejected calls are measured too.
+    #[cfg(feature = "telemetry")]
+    let layer = tower::ServiceBuilder::new()
+        .layer(mosaicod_telemetry::RpcLayer::new())
+        .layer(auth_layer)
+        .into_inner();
+    #[cfg(not(feature = "telemetry"))]
     let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
 
     let mut builder = TonicServer::builder();

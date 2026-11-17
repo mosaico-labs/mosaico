@@ -7,11 +7,16 @@ rust-version.workspace = true
 [[bin]]
 name = "mosaicod"
 
+[features]
+# Exports metrics and traces over OTLP, configured with the standard `OTEL_*` variables.
+telemetry = ["dep:mosaicod-telemetry", "mosaicod-commands/telemetry"]
+
 [dependencies]
 mosaicod-commands = { workspace = true }
 mosaicod-build = { workspace = true }
 mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
+mosaicod-telemetry = { workspace = true, optional = true }
 
 clap = { workspace = true }
 mimalloc = { workspace = true }

@@ -1,0 +1,39 @@
+# Loki in monolithic mode, with its chunks and index in the `obs-logs` bucket.
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+  storage:
+    s3:
+      endpoint: store:7090
+      region: us-east-1
+      bucketnames: obs-logs
+      access_key_id: admin
+      secret_access_key: password
+      insecure: true
+      s3forcepathstyle: true
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: s3
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  allow_structured_metadata: true
+
+pattern_ingester:
+  enabled: false

@@ -1,0 +1,65 @@
+# Local counterpart of the Collector agent in the design. On Kubernetes, logs come from the
+# `filelog` receiver tailing /var/log/pods. Here they arrive from the Docker `fluentd`
+# logging driver, and the kubelet and kube-state-metrics receivers have no equivalent.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  fluentforward:
+    endpoint: 0.0.0.0:24224
+
+processors:
+  batch: {}
+  # The logging driver does not carry OpenTelemetry resource attributes, so the logs get
+  # the same identity mosaicod uses for its metrics and traces.
+  resource/mosaicod-logs:
+    attributes:
+      - key: service.name
+        value: mosaicod
+        action: upsert
+      - key: service.instance.id
+        value: mosaicod-1
+        action: upsert
+      - key: deployment.environment
+        value: local
+        action: upsert
+  # mosaicod writes one JSON object per line: turn its fields into log attributes.
+  transform/parse-json:
+    error_mode: ignore
+    log_statements:
+      - context: log
+        statements:
+          - set(body, attributes["log"]) where attributes["log"] != nil
+          - delete_key(attributes, "log")
+          - merge_maps(attributes, ParseJSON(body), "upsert") where IsMatch(body, "^\\{")
+
+exporters:
+  otlphttp/mimir:
+    endpoint: http://mimir:9009/otlp
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+service:
+  telemetry:
+    logs:
+      level: warn
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/mimir]
+    logs:
+      receivers: [fluentforward]
+      processors: [resource/mosaicod-logs, transform/parse-json, batch]
+      exporters: [otlphttp/loki]
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/tempo]

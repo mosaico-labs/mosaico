@@ -1,0 +1,26 @@
+apiVersion: 1
+
+datasources:
+  - name: Mimir
+    uid: mimir
+    type: prometheus
+    url: http://mimir:9009/prometheus
+    isDefault: true
+
+  - name: Loki
+    uid: loki
+    type: loki
+    url: http://loki:3100
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        filterByTraceID: false
+        customQuery: true
+        query: '{service_name="mosaicod"}'
+      serviceMap:
+        datasourceUid: mimir

@@ -1,0 +1,29 @@
+# Tempo in monolithic mode, with its blocks in the `obs-traces` bucket.
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+ingester:
+  # Flush blocks to the bucket quickly, so a local run reaches object storage.
+  max_block_duration: 1m
+
+storage:
+  trace:
+    backend: s3
+    s3:
+      endpoint: store:7090
+      region: us-east-1
+      bucket: obs-traces
+      access_key: admin
+      secret_key: password
+      insecure: true
+      forcepathstyle: true
+    wal:
+      path: /var/tempo/wal

@@ -32,6 +32,7 @@ mosaicod-os = { path = "crates/mosaicod-os" }
 mosaicod-proto = { path = "crates/mosaicod-proto" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
+mosaicod-telemetry = { path = "crates/mosaicod-telemetry" }
 
 # Arrow stack dependencies
 arrow = { version = "58.1.0", default-features = false, features = ["prettyprint", "ipc_compression"] }
@@ -96,6 +97,14 @@ filetime = { version = "0.2.27", default-features = false }
 # Used to implement middlewares in mosaicod-server crate
 tower = { version = "0.5.3", default-features = false }
 http = { version = "1.4.0", default-features = false }
+http-body = { version = "1.0.1", default-features = false }
+pin-project-lite = { version = "0.2.17", default-features = false }
+
+# Telemetry (mosaicod-telemetry)
+opentelemetry = { version = "0.33.0", default-features = false, features = ["trace", "metrics"] }
+opentelemetry_sdk = { version = "0.33.0", default-features = false, features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"] }
+tracing-opentelemetry = { version = "0.34.0", default-features = false }
 
 [profile.release]
 strip = true    # Strip symbols from binary

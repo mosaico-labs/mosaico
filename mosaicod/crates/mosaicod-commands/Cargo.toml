@@ -6,6 +6,9 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+telemetry = ["mosaicod-grpc/telemetry"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }

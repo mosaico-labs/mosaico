@@ -1,0 +1,175 @@
+# Local version of the "mosaicod Observability on Kubernetes" design.
+#
+# mosaicod (built with the `telemetry` feature) sends metrics and traces over OTLP to the
+# OpenTelemetry Collector, and its JSON logs reach the Collector through the Docker
+# `fluentd` logging driver. The Collector routes metrics to Mimir, logs to Loki and traces
+# to Tempo, which store their blocks in an S3 bucket. Grafana queries all three.
+#
+# Every service maps to one Kubernetes workload (or one ECS task) of the design.
+#
+#   docker-compose -f docker/deployment-telemetry/compose.yml up -d --build
+#   uv run --with pyarrow docker/deployment-telemetry/check.py
+#   docker-compose -f docker/deployment-telemetry/compose.yml down -v
+name: "mosaico-deployment-telemetry"
+
+services:
+  database:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mosaico
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # One S3 store for everything, with the mosaico data bucket separate from the three
+  # observability buckets. The design uses MinIO, which no longer publishes Docker images, so
+  # VersityGW, the gateway the devel stack uses, simulates it here. With the posix
+  # backend a bucket is a top-level directory, so `store-buckets` creates them up front.
+  store-buckets:
+    image: busybox:1.37.0
+    command: ["mkdir", "-p", "/data/store/mosaico", "/data/store/obs-metrics", "/data/store/obs-logs", "/data/store/obs-traces"]
+    volumes:
+      - store_data:/data/store
+
+  store:
+    image: ghcr.io/versity/versitygw:latest
+    environment:
+      ROOT_ACCESS_KEY: admin
+      ROOT_SECRET_KEY: password
+      VGW_PORT: ":7090"
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARGS: /data/store
+      VGW_HEALTH: "/health"
+    ports:
+      - "127.0.0.1:7090:7090" # S3 API, used by check.py to list the buckets
+    volumes:
+      - store_data:/data/store
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7090/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      store-buckets:
+        condition: service_completed_successfully
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol/config.yml:ro
+    ports:
+      # The Docker daemon connects to the fluentd receiver from the host network.
+      - "127.0.0.1:24224:24224"
+    depends_on:
+      - mimir
+      - loki
+      - tempo
+
+  mimir:
+    image: grafana/mimir:2.15.0
+    user: root
+    command: ["-config.file=/etc/mimir/config.yml"]
+    ports:
+      - "127.0.0.1:9009:9009"
+    volumes:
+      - ./mimir.yml:/etc/mimir/config.yml:ro
+      - mimir_data:/data
+    depends_on:
+      store:
+        condition: service_healthy
+
+  loki:
+    image: grafana/loki:3.4.2
+    user: root
+    command: ["-config.file=/etc/loki/config.yml"]
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    depends_on:
+      store:
+        condition: service_healthy
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    user: root
+    command: ["-config.file=/etc/tempo/config.yml"]
+    ports:
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./tempo.yml:/etc/tempo/config.yml:ro
+      - tempo_data:/var/tempo
+    depends_on:
+      store:
+        condition: service_healthy
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - mimir
+      - loki
+      - tempo
+
+  mosaicod:
+    build:
+      context: ../..
+      dockerfile: docker/dockerfiles/Dockerfile.mosaicod
+      args:
+        FEATURES: telemetry
+    image: mosaicod:telemetry
+    command: ["server"]
+    environment:
+      MOSAICOD_HOST: 0.0.0.0
+      MOSAICOD_LOG_FORMAT: json
+      MOSAICOD_DB_URL: postgresql://database:5432/mosaico
+      MOSAICOD_DB_USER: postgres
+      MOSAICOD_DB_PASSWORD: password
+      MOSAICOD_STORE_ENDPOINT: http://store:7090
+      MOSAICOD_STORE_BUCKET: mosaico
+      MOSAICOD_STORE_ACCESS_KEY: admin
+      MOSAICOD_STORE_SECRET_KEY: password
+      # The same variables the Kubernetes Deployment sets.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: mosaicod
+      OTEL_RESOURCE_ATTRIBUTES: service.instance.id=mosaicod-1,deployment.environment=local
+      # Shorter than the 60s default, so metrics show up quickly.
+      OTEL_METRIC_EXPORT_INTERVAL: "5000"
+    ports:
+      - "127.0.0.1:6726:6726"
+    logging:
+      driver: fluentd
+      options:
+        fluentd-address: 127.0.0.1:24224
+        # Start even if the Collector is not listening yet, and buffer until it is.
+        fluentd-async: "true"
+        tag: mosaicod
+    depends_on:
+      database:
+        condition: service_healthy
+      store:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  store_data:
+  mimir_data:
+  loki_data:
+  tempo_data:

@@ -82,8 +82,24 @@ fn start() -> Result<Option<String>> {
     let log_format = args.log_format.unwrap_or(params.log_format.value);
     let log_level = args.log_level.unwrap_or(params.log_level.value);
 
+    // Only long-running commands export telemetry, CLI commands such as `ps` stay quiet.
+    // The guard flushes pending metrics and spans when it goes out of scope, after the
+    // command returned (and outside its tokio runtime).
+    #[cfg(feature = "telemetry")]
+    let telemetry = match args.cmd {
+        Commands::Server(_) | Commands::Cleanup(_) | Commands::StoreOptimizer(_) => {
+            mosaicod_telemetry::Telemetry::from_env(env!("CARGO_PKG_VERSION"))
+                .map_err(|e| mosaicod_core::Error::internal(Some(e.to_string())))?
+        }
+        _ => mosaicod_telemetry::Telemetry::disabled(),
+    };
+    #[cfg(feature = "telemetry")]
+    let extra_log_layer = telemetry.tracing_layer();
+    #[cfg(not(feature = "telemetry"))]
+    let extra_log_layer = None;
+
     print::set_colors(log_format);
-    types::init_logger(log_format, log_level);
+    types::init_logger(log_format, log_level, extra_log_layer);
 
     debug!("{:#?}", params);
 

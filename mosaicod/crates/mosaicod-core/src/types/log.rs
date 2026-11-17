@@ -62,32 +62,27 @@ impl std::str::FromStr for LogFormat {
     }
 }
 
-pub fn init_logger(format: LogFormat, level: LogLevel) {
-    use tracing_subscriber::prelude::*;
+/// An additional `tracing` layer installed next to the log output, e.g. the OpenTelemetry
+/// layer from `mosaicod-telemetry`. It carries its own filter, independent from the log level.
+pub type ExtraLogLayer =
+    Box<dyn tracing_subscriber::Layer<tracing_subscriber::Registry> + Send + Sync>;
+
+pub fn init_logger(format: LogFormat, level: LogLevel, extra: Option<ExtraLogLayer>) {
+    use tracing_subscriber::{fmt, prelude::*};
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()));
 
-    match format {
-        LogFormat::Json => tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(tracing::Level::TRACE)
-            .json()
-            .finish()
-            .with(filter)
-            .init(),
-        LogFormat::Pretty => tracing_subscriber::FmtSubscriber::builder()
-            .with_target(false)
-            .with_ansi(true)
-            .with_max_level(tracing::Level::TRACE)
-            .finish()
-            .with(filter)
-            .init(),
-        LogFormat::Plain => tracing_subscriber::FmtSubscriber::builder()
-            .with_target(false)
-            .with_ansi(false)
-            .with_max_level(tracing::Level::TRACE)
-            .finish()
-            .with(filter)
-            .init(),
-    }
+    // The filter only applies to the log output, so extra layers can see spans and events
+    // that are not printed.
+    let output = match format {
+        LogFormat::Json => fmt::layer().json().boxed(),
+        LogFormat::Pretty => fmt::layer().with_target(false).with_ansi(true).boxed(),
+        LogFormat::Plain => fmt::layer().with_target(false).with_ansi(false).boxed(),
+    };
+
+    tracing_subscriber::registry()
+        .with(extra)
+        .with(output.with_filter(filter))
+        .init();
 }

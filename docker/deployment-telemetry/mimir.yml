@@ -1,0 +1,58 @@
+# Mimir in monolithic mode, with its blocks in the `obs-metrics` bucket.
+multitenancy_enabled: false
+
+server:
+  http_listen_port: 9009
+  log_level: warn
+
+common:
+  storage:
+    backend: s3
+    s3:
+      endpoint: store:7090
+      region: us-east-1
+      access_key_id: admin
+      secret_access_key: password
+      insecure: true
+      bucket_name: obs-metrics
+      bucket_lookup_type: path
+
+blocks_storage:
+  storage_prefix: blocks
+  tsdb:
+    dir: /data/tsdb
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+
+ruler_storage:
+  storage_prefix: ruler
+
+alertmanager_storage:
+  storage_prefix: alertmanager
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: inmemory
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+limits:
+  # Keep the resource attributes that identify the instance as labels.
+  promote_otel_resource_attributes: "service.instance.id,deployment.environment"
