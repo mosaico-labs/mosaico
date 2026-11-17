@@ -1,16 +1,17 @@
 name: PR Title
 
 on:
-  pull_request_target:
-    types: [opened, edited, reopened, synchronize]
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
 
 permissions:
   pull-requests: read # to fetch the current PR title
-  statuses: write # required by `wip` to set the commit status
 
 jobs:
   validate-title:
     name: "Validate PR title"
+    # Drafts cannot be merged, so the title is checked once the PR is ready for review
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     steps:
       - id: lint
@@ -35,8 +36,6 @@ jobs:
             docs
             cli
           requireScope: false
-          # `[WIP] <title>` skips the validation and keeps the check pending, for drafts
-          wip: true
           subjectPattern: ^(?![A-Z]).+(?<!\.)$
           subjectPatternError: |
             The description "{subject}" in PR title "{title}" must start with a lowercase letter
