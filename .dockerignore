@@ -1,0 +1,7 @@
+# The build context is the repo root, see docker/dockerfiles/Dockerfile.mosaicod.
+# Keep local build output and tooling out of it.
+.git
+**/target
+**/.venv
+**/node_modules
+**/__pycache__

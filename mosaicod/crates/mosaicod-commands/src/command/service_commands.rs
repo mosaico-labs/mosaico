@@ -21,4 +21,8 @@ impl Execute for ServiceCommands {
             Self::StoreOptimizer(cmd) => cmd.execute(ctx),
         }
     }
+
+    fn exports_telemetry(&self) -> bool {
+        true
+    }
 }

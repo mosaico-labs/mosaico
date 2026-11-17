@@ -9,6 +9,10 @@ license.workspace = true
 [lib]
 name = "mosaicod_grpc"
 
+[features]
+# Measures every gRPC call with OpenTelemetry metrics and spans.
+telemetry = ["dep:mosaicod-telemetry"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-grpc-common = { workspace = true }
@@ -20,6 +24,7 @@ mosaicod-instance-registry = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-ext = { workspace = true }
 mosaicod-hook = { workspace = true }
+mosaicod-telemetry = { workspace = true, optional = true }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }

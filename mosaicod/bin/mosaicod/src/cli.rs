@@ -49,6 +49,15 @@ impl Execute for Commands {
             Self::Hook(cmd) => cmd.execute(ctx),
         }
     }
+
+    fn exports_telemetry(&self) -> bool {
+        match self {
+            Self::Service(cmd) => cmd.exports_telemetry(),
+            Self::Utility(cmd) => cmd.exports_telemetry(),
+            Self::ApiKey(cmd) => cmd.exports_telemetry(),
+            Self::Hook(cmd) => cmd.exports_telemetry(),
+        }
+    }
 }
 
 #[cfg(test)]

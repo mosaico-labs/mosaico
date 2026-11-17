@@ -45,6 +45,12 @@ pub struct Context {
 /// command it holds.
 pub trait Execute {
     fn execute(self, ctx: &Context) -> Result<()>;
+
+    /// Whether the command exports telemetry. Only the long-running commands do, so CLI
+    /// commands such as `ps` stay quiet.
+    fn exports_telemetry(&self) -> bool {
+        false
+    }
 }
 
 /// The parsed command line of a mosaicod binary, handed to [`start`]: its global flags
@@ -61,7 +67,12 @@ pub trait CommandLine {
 pub fn start(config: config::ConfigBuilder, cli: impl CommandLine) -> ExitCode {
     let (args, command) = cli.into_parts();
 
-    match init(config, &args).and_then(|ctx| command.execute(&ctx)) {
+    // The telemetry guard lives until the command returns, then flushes pending metrics,
+    // spans and logs when it goes out of scope, outside the tokio runtime of the command.
+    let res = init(config, &args, command.exports_telemetry())
+        .and_then(|(ctx, _telemetry)| command.execute(&ctx));
+
+    match res {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             print::error(e);
@@ -70,9 +81,20 @@ pub fn start(config: config::ConfigBuilder, cli: impl CommandLine) -> ExitCode {
     }
 }
 
+/// Keeps the OpenTelemetry providers alive while the command runs.
+#[cfg(feature = "telemetry")]
+type TelemetryGuard = mosaicod_telemetry::Telemetry;
+#[cfg(not(feature = "telemetry"))]
+type TelemetryGuard = ();
+
 /// Prepares the process to run a command: pins the startup time, loads the configuration
-/// from the sources of `config` and sets up the logger.
-fn init(config: config::ConfigBuilder, args: &GlobalArgs) -> Result<Context> {
+/// from the sources of `config`, sets up telemetry when `telemetry` is true, and sets up
+/// the logger.
+fn init(
+    config: config::ConfigBuilder,
+    args: &GlobalArgs,
+    telemetry: bool,
+) -> Result<(Context, TelemetryGuard)> {
     common::pin_startup_time();
 
     common::load_config(config, args.config.as_deref())?;
@@ -81,12 +103,29 @@ fn init(config: config::ConfigBuilder, args: &GlobalArgs) -> Result<Context> {
     let log_format = args.log_format.unwrap_or(params.log_format.value);
     let log_level = args.log_level.unwrap_or(params.log_level.value);
 
+    #[cfg(feature = "telemetry")]
+    let guard = if telemetry {
+        mosaicod_telemetry::Telemetry::from_env(env!("CARGO_PKG_VERSION"))
+            .map_err(|e| mosaicod_core::Error::internal(Some(e.to_string())))?
+    } else {
+        mosaicod_telemetry::Telemetry::disabled()
+    };
+    #[cfg(feature = "telemetry")]
+    let (extra_log_layer, export_log_layer) = (guard.tracing_layer(), guard.logs_layer());
+    #[cfg(not(feature = "telemetry"))]
+    let (guard, extra_log_layer, export_log_layer) = {
+        let _ = telemetry;
+        ((), None, None)
+    };
+
     print::set_colors(log_format);
-    types::init_logger(log_format, log_level);
+    types::init_logger(log_format, log_level, extra_log_layer, export_log_layer);
 
     debug!("{:#?}", params);
 
-    Ok(Context {
+    let ctx = Context {
         is_json_output: matches!(log_format, types::LogFormat::Json),
-    })
+    };
+
+    Ok((ctx, guard))
 }

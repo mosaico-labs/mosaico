@@ -62,32 +62,45 @@ impl std::str::FromStr for LogFormat {
     }
 }
 
-pub fn init_logger(format: LogFormat, level: LogLevel) {
-    use tracing_subscriber::prelude::*;
+/// An additional `tracing` layer installed next to the log output, e.g. the OpenTelemetry
+/// layer from `mosaicod-telemetry`. It carries its own filter, independent from the log level.
+pub type ExtraLogLayer =
+    Box<dyn tracing_subscriber::Layer<tracing_subscriber::Registry> + Send + Sync>;
 
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()));
+/// Installs the global `tracing` subscriber.
+///
+/// `extra` is installed with its own filter, independent from the log level. `export`
+/// sends the log lines somewhere else too, e.g. over OTLP, so it gets the same filter as
+/// the log output and receives exactly the lines that are printed. The output on stdout
+/// always stays, so the lines survive a crash or an unreachable destination.
+pub fn init_logger(
+    format: LogFormat,
+    level: LogLevel,
+    extra: Option<ExtraLogLayer>,
+    export: Option<ExtraLogLayer>,
+) {
+    use tracing_subscriber::{fmt, prelude::*};
 
-    match format {
-        LogFormat::Json => tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(tracing::Level::TRACE)
-            .json()
-            .finish()
-            .with(filter)
-            .init(),
-        LogFormat::Pretty => tracing_subscriber::FmtSubscriber::builder()
-            .with_target(false)
-            .with_ansi(true)
-            .with_max_level(tracing::Level::TRACE)
-            .finish()
-            .with(filter)
-            .init(),
-        LogFormat::Plain => tracing_subscriber::FmtSubscriber::builder()
-            .with_target(false)
-            .with_ansi(false)
-            .with_max_level(tracing::Level::TRACE)
-            .finish()
-            .with(filter)
-            .init(),
-    }
+    // The filter only applies to the log output, so extra layers can see spans and events
+    // that are not printed.
+    let output = match format {
+        LogFormat::Json => fmt::layer().json().boxed(),
+        LogFormat::Pretty => fmt::layer().with_target(false).with_ansi(true).boxed(),
+        LogFormat::Plain => fmt::layer().with_target(false).with_ansi(false).boxed(),
+    };
+
+    let mut layers: Vec<ExtraLogLayer> = Vec::new();
+    layers.extend(extra);
+    layers.extend(export.map(|layer| layer.with_filter(log_filter(level)).boxed()));
+
+    tracing_subscriber::registry()
+        .with(layers)
+        .with(output.with_filter(log_filter(level)))
+        .init();
+}
+
+/// Returns the filter of the log output: `RUST_LOG` if set, the given level otherwise.
+fn log_filter(level: LogLevel) -> tracing_subscriber::EnvFilter {
+    tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()))
 }

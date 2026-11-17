@@ -6,6 +6,10 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[features]
+# Exports the telemetry of the service commands over OTLP, see `start`.
+telemetry = ["dep:mosaicod-telemetry", "mosaicod-grpc/telemetry"]
+
 [dependencies]
 mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
@@ -15,6 +19,7 @@ mosaicod-facade = { workspace = true }
 mosaicod-grpc = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-task = { workspace = true }
+mosaicod-telemetry = { workspace = true, optional = true }
 
 clap = { workspace = true }
 tokio-util = { workspace = true }
