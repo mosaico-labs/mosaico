@@ -71,6 +71,9 @@ class LeRobotExtractorConfig:
     sequence_names: List[str]
     """The sequences to export, one episode each, in episode order."""
 
+    dataset_name: str = "LeRobotDataset"
+    """Name the dataset will get and will be attached to saving_path"""
+
     host: str = "localhost"
     """The hostname of the Mosaico server."""
 
@@ -263,7 +266,7 @@ class LeRobotSequencesExtractor:
                 `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
-        saving_path = self._cfg.saving_path
+        saving_path = self._cfg.saving_path / self._cfg.dataset_name
         if saving_path.exists() and not self._cfg.overwrite:
             raise FileExistsError(
                 f"Impossible to save to '{saving_path}' since it already exists. "

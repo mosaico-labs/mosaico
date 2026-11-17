@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -10,10 +11,13 @@ from mosaicolabs_cli.utils.bridge import (
     LogLevel,
     LogLevelOpt,
     MetadataOpt,
+    OverwriteOpt,
+    SequenceNamesArg,
     TopicMetadataOpt,
     connection_kwargs,
     parse_json_option,
     require_profile,
+    run_extractor,
     run_injector,
 )
 
@@ -78,3 +82,39 @@ def inject(
         **connection_kwargs(profile),
     )
     run_injector(LeRobotInjector(config))
+
+
+def extract(
+    ctx: typer.Context,
+    sequence_names: SequenceNamesArg,
+    rosbag_path: Annotated[
+        Path,
+        typer.Option(
+            "--saving-path",
+            "--saving_path",
+            help="Directory where to save the LeRobot dataset.",
+        ),
+    ] = Path("."),
+    overwrite: OverwriteOpt = False,
+    log_level: LogLevelOpt = LogLevel.INFO,
+) -> None:
+    """
+    Extract a sequence from Mosaico and encode it as a rosbag.
+
+    The bag is written under <ROSBAG_PATH>/<SEQUENCE_NAME>.
+    """
+    profile = require_profile(ctx)
+
+    from mosaicolabs.bridges.lerobot import (
+        LeRobotExtractorConfig,
+        LeRobotSequencesExtractor,
+    )
+
+    config = LeRobotExtractorConfig(
+        saving_path=rosbag_path,
+        sequence_names=sequence_names,
+        overwrite=overwrite,
+        log_level=log_level.value,
+        **connection_kwargs(profile),
+    )
+    run_extractor(LeRobotSequencesExtractor(config))

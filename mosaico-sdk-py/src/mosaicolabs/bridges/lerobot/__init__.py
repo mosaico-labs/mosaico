@@ -3,3 +3,7 @@ from .injector import (
     LeRobotInjector as LeRobotInjector,
 )
 from .schema_metadata import LeRobotSchemaMetadata as LeRobotSchemaMetadata
+from .sequences_extractor import (
+    LeRobotExtractorConfig as LeRobotExtractorConfig,
+    LeRobotSequencesExtractor as LeRobotSequencesExtractor,
+)
