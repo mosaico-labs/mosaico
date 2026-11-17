@@ -80,9 +80,17 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
     )
 }
 
-/// Condition matching the column of the ontology field `field` (`<tag>.<path>`),
-/// binding tag and path to the placeholders `ptag` and `ppath`.
-/// Returns the condition and the values to bind, in placeholder order.
+/// Builds the SQL condition matching the column of an ontology field.
+///
+/// Splits `field` (`<tag>.<path>`) at the first `.` and binds the tag to `ptag`
+/// and the path to `ppath`. Returns the condition on `__column__` and the values
+/// to bind, in placeholder order.
+///
+/// ```ignore
+/// let (cond, values) = column_match("imu.acceleration.x", "$1", "$2");
+/// // cond:   "__column__.ontology_tag = $1 AND __column__.column_name = $2"
+/// // values: [Text("imu"), Text("acceleration.x")]
+/// ```
 pub(super) fn column_match(field: &str, ptag: &str, ppath: &str) -> (String, Vec<query::Value>) {
     let (tag, path) = field.split_once('.').unwrap_or((field, ""));
     (
