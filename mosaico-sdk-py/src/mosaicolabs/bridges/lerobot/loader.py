@@ -130,6 +130,7 @@ class LeRobotLoader(BaseLoader):
 
         for col_name in self._resolved_topics:
             if col_name not in matched_columns:
+                metadata.drop_features([col_name])
                 self._reject(col_name, TopicStatus.FILTERED)
 
         if not matched_columns:

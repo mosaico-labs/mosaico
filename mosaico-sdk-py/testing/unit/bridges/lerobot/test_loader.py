@@ -15,8 +15,8 @@ from .config import (
     COLUMN_NAMES,
     DATA_PATH,
     EPISODE_LENGTHS,
-    INDEX_COLUMN_NAMES,
     STATE_COLUMN_NAME,
+    TASK_INDEX_COLUMN_NAME,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
 )
@@ -71,12 +71,13 @@ def test_loader_loads_every_column_by_default(loader):
         ("observation.images.*", CAMERA_COLUMN_NAMES),
         (["observation.images.*"], CAMERA_COLUMN_NAMES),
         (["*", "!observation.images.*"], TIMESERIES_COLUMN_NAMES),
-        (["!observation.*"], [ACTION_COLUMN_NAME, *INDEX_COLUMN_NAMES]),
+        (["!observation.*"], [ACTION_COLUMN_NAME, TASK_INDEX_COLUMN_NAME]),
         # With an inclusion pattern, the selection starts from no column
         (["!observation.*", STATE_COLUMN_NAME], [STATE_COLUMN_NAME]),
+        # The position of the frames is not ingested
         (
             [ACTION_COLUMN_NAME, "*_index"],
-            [ACTION_COLUMN_NAME, "frame_index", "episode_index", "task_index"],
+            [ACTION_COLUMN_NAME, TASK_INDEX_COLUMN_NAME],
         ),
     ],
 )
