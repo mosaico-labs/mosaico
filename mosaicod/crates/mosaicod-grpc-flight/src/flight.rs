@@ -5,7 +5,7 @@ use arrow_flight::{
     decode::FlightDataDecoder, flight_service_server::FlightService,
 };
 use futures::{StreamExt, TryStreamExt, stream::BoxStream};
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core as core;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
@@ -31,7 +31,7 @@ impl Service {
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
                 store.clone(),
-                params::params().query_engine_memory_pool_size.value,
+                default::params().query_engine_memory_pool_size.value,
             )
             .map_err(|e| e.to_string())?,
         );
@@ -42,7 +42,7 @@ impl Service {
             ts_gw,
             api_key_management: false,
             concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
-                params::params().max_concurrent_writes.value.get(),
+                default::params().max_concurrent_writes.value.get(),
             )),
         })
     }

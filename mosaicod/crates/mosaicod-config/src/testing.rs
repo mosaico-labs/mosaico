@@ -1,7 +1,7 @@
 //! Helpers for tests, here and in the crates depending on this one, enabled by the
 //! `testing` feature.
 
-use crate::{ConfigBuilder, builder::CONFIG, params::DefaultConfig};
+use crate::{ConfigBuilder, builder::CONFIG, default::DefaultConfig};
 
 /// Sets a configuration made of [`DefaultConfig::testing`], unless one is already set.
 pub fn load() {

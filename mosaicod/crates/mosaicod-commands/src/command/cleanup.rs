@@ -1,6 +1,6 @@
-use crate::common;
+use crate::{Context, Execute, common};
 use clap::Args;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
@@ -9,6 +9,7 @@ use std::thread;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
+/// Run the store cleanup routine.
 #[derive(Args, Debug)]
 pub struct Cleanup {
     /// Minimum interval, in seconds, that must pass between a cleanup run and the next one.
@@ -25,20 +26,26 @@ pub struct Cleanup {
     pub retention_duration: Option<u32>,
 }
 
+impl Execute for Cleanup {
+    fn execute(self, _ctx: &Context) -> Result<()> {
+        cleanup(self)
+    }
+}
+
 /// Run the store cleanup routine.
-pub fn cleanup(args: Cleanup) -> Result<()> {
+fn cleanup(args: Cleanup) -> Result<()> {
     info!("startup store");
     let store = common::init_store()?;
 
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
 
-    let params = params::params();
+    let params = default::params();
 
     let db_config = db::Config {
         db_url: params.db_url.value.parse().map_err(|_| {
             core::Error::invalid_configuration(
-                params::params().db_url.env.clone(),
+                params.db_url.env.clone(),
                 "unable to parse".to_owned(),
             )
         })?,

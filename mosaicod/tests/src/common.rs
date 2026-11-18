@@ -1,5 +1,5 @@
 use arrow_flight::flight_service_client::FlightServiceClient;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
@@ -90,7 +90,7 @@ impl ServerBuilder {
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
                 (*store).clone(),
-                params::params().query_engine_memory_pool_size.value,
+                default::params().query_engine_memory_pool_size.value,
             )
             .unwrap(),
         );

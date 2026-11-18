@@ -10,7 +10,7 @@
 //!
 //! The result is set once per process with [`set_config`] and read with [`get`].
 
-use crate::config;
+use crate::file;
 use mosaicod_core::error::{self, PublicResult as Result};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
@@ -43,7 +43,11 @@ pub trait ConfigSource: 'static {
 
 /// The environment tier of the configuration, which records every variable read from it.
 pub struct Env {
+    /// If set, [`Env::var`] returns `None` for every variable, as if none were set.
     ignore: bool,
+
+    /// The names of the variables read so far, set or not: [`ConfigBuilder::build`] uses
+    /// them to check that no two sources read the same variable.
     read: RefCell<BTreeSet<String>>,
 }
 
@@ -127,7 +131,7 @@ impl ConfigBuilder {
     /// While building, it fails with an internal error if two sources read the same env var.
     pub fn build(self, file: Option<&Path>) -> Result<Config> {
         let (content, origin) = match file {
-            Some(path) => (config::read_config_file(path)?, path.display().to_string()),
+            Some(path) => (file::read_config_file(path)?, path.display().to_string()),
             None => (String::new(), "config file".to_owned()),
         };
 
@@ -150,11 +154,11 @@ impl ConfigBuilder {
                 ))))?;
             }
 
-            set_owner(
+            claim(
                 &mut sections,
                 declared.iter().copied(),
                 source.name(),
-                "section",
+                KeyKind::Section,
             )?;
 
             if let Some(other) = outputs.insert(source.output_type(), source.name()) {
@@ -197,7 +201,7 @@ impl ConfigBuilder {
             let own = toml::Spanned::new(file.span(), own);
             let value = source.build(own, &content, &origin, &env)?;
 
-            set_owner(&mut env_vars, env.read.into_inner(), name, "env var")?;
+            claim(&mut env_vars, env.read.into_inner(), name, KeyKind::EnvVar)?;
             values.insert(output, value);
         }
 
@@ -205,19 +209,36 @@ impl ConfigBuilder {
     }
 }
 
-/// Records that `source` owns each of `keys`, sections or env vars (`kind` names which,
-/// for the error message). `owners` maps every key assigned so far to its source.
+/// What a key read by a source is, named in the error message of a clash.
+enum KeyKind {
+    /// A top level section of `config.toml`.
+    Section,
+    /// An env var.
+    EnvVar,
+}
+
+impl std::fmt::Display for KeyKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Section => "section",
+            Self::EnvVar => "env var",
+        })
+    }
+}
+
+/// Records that `source` reads `keys`, sections or env vars (`kind` says which, for the
+/// error message). `claimed` maps every key read so far to the source that reads it.
 ///
-/// Fails if another source already owns a key: the same setting would otherwise be read
+/// Fails if another source already claimed a key: the same setting would otherwise be read
 /// by two sources, each giving it its own meaning.
-fn set_owner<K: Ord + std::fmt::Display>(
-    owners: &mut BTreeMap<K, &'static str>,
+fn claim<K: Ord + std::fmt::Display>(
+    claimed: &mut BTreeMap<K, &'static str>,
     keys: impl IntoIterator<Item = K>,
     source: &'static str,
-    kind: &str,
+    kind: KeyKind,
 ) -> Result<()> {
     for key in keys {
-        match owners.entry(key) {
+        match claimed.entry(key) {
             Entry::Vacant(entry) => {
                 entry.insert(source);
             }
@@ -348,7 +369,7 @@ impl<S: ConfigSource> DynConfigSource for S {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::params::{DefaultConfig, Params};
+    use crate::default::{ConfigFile, DefaultConfig, Params};
     use mosaicod_core::error::ErrorKind;
     use serde::Deserialize;
 
@@ -492,7 +513,7 @@ mod tests {
         }
 
         assert_eq!(
-            serde_introspect::<config::ConfigFile>(),
+            serde_introspect::<ConfigFile>(),
             [
                 "server",
                 "database",

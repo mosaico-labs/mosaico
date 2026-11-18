@@ -2,8 +2,15 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use mosaicod_config::{ConfigBuilder, params::DefaultConfig};
+mod cli;
 
-fn main() {
-    mosaicod_commands::run(ConfigBuilder::new().add_conf(DefaultConfig::new()));
+use clap::Parser;
+use cli::Cli;
+use mosaicod_config::{ConfigBuilder, default::DefaultConfig};
+use std::process::ExitCode;
+
+fn main() -> ExitCode {
+    let config = ConfigBuilder::new().add_conf(DefaultConfig::new());
+
+    mosaicod_commands::start(config, Cli::parse())
 }

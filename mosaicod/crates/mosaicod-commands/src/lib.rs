@@ -2,5 +2,5 @@ pub mod command;
 pub mod common;
 pub mod print;
 
-mod cli;
-pub use cli::run;
+mod start;
+pub use start::{CommandLine, Context, Execute, GlobalArgs, start};

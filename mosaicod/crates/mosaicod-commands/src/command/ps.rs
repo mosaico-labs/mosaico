@@ -1,9 +1,10 @@
-use crate::{common, print};
+use crate::{Context, Execute, common, print};
 use clap::Args;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 
+/// List registered mosaicod instances (server, cleanup) and cleanup routine status.
 #[derive(Args, Debug)]
 pub struct Ps {
     /// Also show instances with a "dead" status. By default these are hidden.
@@ -15,17 +16,23 @@ pub struct Ps {
     verbose: bool,
 }
 
+impl Execute for Ps {
+    fn execute(self, _ctx: &Context) -> Result<()> {
+        ps(self)
+    }
+}
+
 /// Lists registered `mosaicod` instances (servers, cleanup routines, and store optimizers) and
 /// summarizes the cleanup routine's current status.
-pub fn ps(args: Ps) -> Result<()> {
+fn ps(args: Ps) -> Result<()> {
     let rt = common::init_runtime()?;
 
-    let params = params::params();
+    let params = default::params();
 
     let db_config = db::Config {
         db_url: params.db_url.value.parse().map_err(|_| {
             core::Error::invalid_configuration(
-                params::params().db_url.env.clone(),
+                params.db_url.env.clone(),
                 "unable to parse".to_owned(),
             )
         })?,

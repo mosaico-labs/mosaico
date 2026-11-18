@@ -1,6 +1,6 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
@@ -74,7 +74,7 @@ impl Query {
                 );
 
                 let ts_engine = ts_gw.clone();
-                let max_concurrent = params::params().max_concurrent_chunk_queries.value.get();
+                let max_concurrent = default::params().max_concurrent_chunk_queries.value.get();
                 let semaphore = Arc::new(Semaphore::new(max_concurrent));
                 let mut search_jobs = FuturesUnordered::new();
 

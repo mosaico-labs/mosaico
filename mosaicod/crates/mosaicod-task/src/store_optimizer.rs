@@ -33,7 +33,7 @@ use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::GreedyMemoryPool;
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use futures::StreamExt;
-use mosaicod_config::params as config_params;
+use mosaicod_config::default;
 use mosaicod_core::{
     self as core, constants, error::PublicResult as Result, traits::AsyncWriteToPath, types,
 };
@@ -209,9 +209,7 @@ impl StoreOptimizer {
         let mut builder =
             RuntimeEnvBuilder::new().with_object_store_registry(self.store.registry());
 
-        let memory_pool_size = config_params::params()
-            .store_optimizer_memory_pool_size
-            .value;
+        let memory_pool_size = default::params().store_optimizer_memory_pool_size.value;
         if memory_pool_size != 0 {
             builder = builder
                 .with_memory_pool(Arc::new(GreedyMemoryPool::new(memory_pool_size)))

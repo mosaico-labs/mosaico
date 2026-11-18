@@ -1,6 +1,6 @@
 //! Common functions shared between multiple commands.
 
-use mosaicod_config::{self as config, params};
+use mosaicod_config::{self as config, default};
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_store as store;
@@ -10,7 +10,7 @@ use std::sync::OnceLock;
 /// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
 
-pub fn pin_startup_time() {
+pub(crate) fn pin_startup_time() {
     STARTUP_TIME
         .set(std::time::Instant::now())
         .expect("Startup time already set");
@@ -39,7 +39,7 @@ pub fn init_runtime() -> Result<tokio::runtime::Runtime> {
 }
 
 pub fn init_store() -> Result<store::StoreRef> {
-    let params = params::params();
+    let params = default::params();
 
     let endpoint_url: url::Url = params.store_endpoint.value.parse().map_err(|_| {
         core::Error::invalid_configuration(
@@ -69,7 +69,7 @@ pub fn init_store() -> Result<store::StoreRef> {
 /// `config_path` is the explicit `--config` CLI override, if any; otherwise the search
 /// order is `MOSAICOD_CONFIG_FILE` env var > `$XDG_CONFIG_HOME/mosaicod/config.toml` (or
 /// `~/.config/mosaicod/config.toml`) > `/etc/mosaicod/config.toml` > no config file.
-pub fn load_config(
+pub(crate) fn load_config(
     builder: config::ConfigBuilder,
     config_path: Option<&std::path::Path>,
 ) -> Result<()> {
@@ -83,7 +83,7 @@ fn build_config(
 ) -> Result<config::Config> {
     let config = builder.build(config::resolve_config_path(config_path)?.as_deref())?;
 
-    if config.get::<params::Params>().is_none() {
+    if config.get::<default::Params>().is_none() {
         Err(core::Error::internal(Some(
             "no config source builds mosaicod's parameters: add `DefaultConfig::new()` \
              to the `ConfigBuilder`"
@@ -134,7 +134,7 @@ mod tests {
     }
 
     fn default_config() -> config::ConfigBuilder {
-        config::ConfigBuilder::new().add_conf(params::DefaultConfig::testing())
+        config::ConfigBuilder::new().add_conf(default::DefaultConfig::testing())
     }
 
     #[test]
@@ -150,7 +150,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
 
         let config = result.unwrap();
-        let params = config.get::<params::Params>().unwrap();
+        let params = config.get::<default::Params>().unwrap();
         assert_eq!(
             params.host.value,
             "10.0.0.5".parse::<std::net::IpAddr>().unwrap()
@@ -182,8 +182,8 @@ mod tests {
         let _ = std::fs::remove_dir_all(&xdg_dir);
 
         let config = result.unwrap();
-        let params = config.get::<params::Params>().unwrap();
-        assert_eq!(params.host.value, params::DEFAULT_HOST);
+        let params = config.get::<default::Params>().unwrap();
+        assert_eq!(params.host.value, default::DEFAULT_HOST);
     }
 
     #[test]

@@ -2562,9 +2562,12 @@ dependencies = [
 name = "mosaicod"
 version = "0.8.0-dev"
 dependencies = [
+ "clap",
  "mimalloc",
+ "mosaicod-build",
  "mosaicod-commands",
  "mosaicod-config",
+ "mosaicod-core",
 ]
 
 [[package]]
@@ -2584,7 +2587,6 @@ dependencies = [
  "dotenv",
  "if-addrs",
  "iso8601",
- "mosaicod-build",
  "mosaicod-config",
  "mosaicod-core",
  "mosaicod-db",

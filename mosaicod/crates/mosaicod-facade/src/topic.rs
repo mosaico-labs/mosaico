@@ -1,7 +1,7 @@
 use super::{Context, Error};
 use arrow::datatypes::SchemaRef;
 
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::error::PublicError;
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
@@ -212,8 +212,8 @@ pub(super) mod internal {
 
     /// Computes the optimal batch size based on topic statistics from the database.
     /// The computed batch size is clamped between 1 and
-    /// [`params::Params::max_batch_size`], so topics whose rows are larger
-    /// than [`params::Params::grpc_target_encode_message_size`] still stream at least
+    /// [`default::Params::max_batch_size`], so topics whose rows are larger
+    /// than [`default::Params::grpc_target_encode_message_size`] still stream at least
     /// one row per batch instead of a degenerate batch size of 0.
     ///
     /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
@@ -235,7 +235,7 @@ pub(super) mod internal {
             ))?;
         }
 
-        let params = params::params();
+        let params = default::params();
 
         // Guard in case of average 0 to avoid panic
         let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
