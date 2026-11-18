@@ -19,6 +19,7 @@ pub struct CleanupStats {
     executed: bool,
     marked_folders: Vec<String>,
     deleted_folders: Vec<String>,
+    unmarked_folders: Vec<String>,
     // First string is the folder, second is the error.
     failed_folders: Vec<(String, String)>,
 }
@@ -28,6 +29,7 @@ enum ActionPerformed {
     None,
     Marked,
     Deleted,
+    Unmarked,
 }
 
 /// This is the entry point to create, configure and run a cleanup routine.
@@ -108,9 +110,10 @@ impl Cleanup {
                 Ok(stats) => {
                     if stats.executed {
                         info!(
-                            "Cleanup completed. {} items marked as ready to be deleted. {} items deleted. {} items failed",
+                            "Cleanup completed. {} items marked as ready to be deleted. {} items deleted. {} items unmarked. {} items failed",
                             stats.marked_folders.len(),
                             stats.deleted_folders.len(),
+                            stats.unmarked_folders.len(),
                             stats.failed_folders.len()
                         );
                     } else {
@@ -206,6 +209,9 @@ impl Cleanup {
                     ActionPerformed::Marked => {
                         stats.marked_folders.push(folder);
                     }
+                    ActionPerformed::Unmarked => {
+                        stats.unmarked_folders.push(folder);
+                    }
                     ActionPerformed::None => {
                         // Do nothing.
                     }
@@ -249,7 +255,7 @@ impl Cleanup {
             // fresh retention period.
             if self.find_db_reference(folder).await? {
                 self.store.delete(&to_delete_marker_file_path).await?;
-                return Ok(ActionPerformed::None);
+                return Ok(ActionPerformed::Unmarked);
             }
 
             // Marker exists. Check if it's expired.
@@ -842,6 +848,7 @@ mod tests {
 
         assert!(stats.marked_folders.is_empty());
         assert!(stats.deleted_folders.is_empty());
+        assert_eq!(stats.unmarked_folders.len(), 1);
         assert!(stats.failed_folders.is_empty());
         assert!(
             context
@@ -887,6 +894,7 @@ mod tests {
             .await
             .unwrap();
         assert!(stats.deleted_folders.is_empty());
+        assert_eq!(stats.unmarked_folders.len(), 1);
         assert!(
             context
                 .store
@@ -972,6 +980,7 @@ mod tests {
 
         assert_eq!(stats.deleted_folders.len(), 1);
         assert!(stats.marked_folders.is_empty());
+        assert!(stats.unmarked_folders.is_empty());
         assert!(stats.failed_folders.is_empty());
         assert!(
             !context
