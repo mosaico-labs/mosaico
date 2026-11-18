@@ -236,23 +236,17 @@ impl Cleanup {
         folder: &str,
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<ActionPerformed> {
-        // The marker path is joined with the object store's own `/` separator
-        // instead of `std::path`'s: on Windows the latter inserts a `\`, which
-        // the local driver encodes as `%5C`, turning the marker into a flat
-        // file in the store root instead of a file inside the folder.
+        // Store paths always use '/' as the separator.
         let to_delete_marker_file_path =
             std::path::PathBuf::from(format!("{folder}/{TO_DELETE_MARKER_FILE_NAME}"));
 
         let file_meta = self.store.meta(&to_delete_marker_file_path).await?;
 
         if let Some(meta) = file_meta {
-            // A marked folder can be in use again: the first pass may have run
-            // before the database finished loading its data, or the same folder
-            // may have been re-registered by a later import. Trust the live
-            // record, not the marker, and remove the marker with it: a folder
-            // that keeps an expired marker would be deleted on the spot once
-            // its record goes away, instead of getting a full retention period
-            // again (#1038).
+            // The first pass can mark a folder before its record is loaded.
+            // Drop the marker if a record is there now: keeping it would
+            // delete the folder as soon as the record goes away, without a
+            // fresh retention period.
             if self.find_db_reference(folder).await? {
                 self.store.delete(&to_delete_marker_file_path).await?;
                 return Ok(ActionPerformed::None);
@@ -769,11 +763,7 @@ mod tests {
         }));
     }
 
-    /// Joins a store folder and a file name into an object path.
-    ///
-    /// The components are always separated by `/` and never by the platform's
-    /// `std::path` separator: on Windows the local driver encodes a `\` as
-    /// `%5C`, which would turn the path into a flat file in the store root.
+    /// Joins a store folder and a file name with '/'.
     fn store_path(folder: impl AsRef<std::path::Path>, file_name: &str) -> std::path::PathBuf {
         std::path::PathBuf::from(format!("{}/{file_name}", folder.as_ref().to_string_lossy()))
     }
@@ -820,10 +810,8 @@ mod tests {
         (pis, marker_disk_path)
     }
 
-    /// A folder that was marked while its database record did not load yet must
-    /// survive a cleanup once the record is there again, even if its marker has
-    /// already expired. The stale marker is removed with it, so the folder does
-    /// not carry an expired one (see [`test_record_removal_restarts_retention`]).
+    /// A folder marked before its record loaded survives once the record is
+    /// there again, even with an expired marker. The marker is dropped.
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn test_marked_folder_with_record_again_is_not_deleted(
         pool: sqlx::Pool<db::DatabaseType>,
@@ -870,10 +858,8 @@ mod tests {
         );
     }
 
-    /// Once the record of a marked folder goes away, the folder must get a full
-    /// retention period again before it is deleted: it must not be deleted on
-    /// the spot because the marker it had kept from before the record existed
-    /// had already expired.
+    /// Once a marked folder's record is removed, it gets a full retention
+    /// period again instead of being deleted on the expired marker.
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn test_record_removal_restarts_retention(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
@@ -965,8 +951,7 @@ mod tests {
         );
     }
 
-    /// A marked folder that still has no record in the database is deleted once
-    /// its marker expires, as it was before the re-check existed.
+    /// A marked folder with no record is still deleted when its marker expires.
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn test_expired_marker_without_record_is_deleted(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
