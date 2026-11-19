@@ -90,6 +90,7 @@ pub async fn cleanup_log_close(
     cleanup_id: i32,
     end_unix_tstamp_secs: i64,
     marked_folders: &Vec<String>,
+    unmarked_folders: &Vec<String>,
     deleted_folders: &Vec<String>,
     failed_folders: &Vec<(String, String)>,
 ) -> Result<bool, Error> {
@@ -99,10 +100,11 @@ pub async fn cleanup_log_close(
     );
     let res = sqlx::query!(
         "UPDATE cleanup_log_t
-         SET end_unix_tstamp_secs = $1, marked_folders = $2, deleted_folders = $3, failed_folders = $4
-         WHERE cleanup_id = $5 AND end_unix_tstamp_secs IS NULL",
+         SET end_unix_tstamp_secs = $1, marked_folders = $2, unmarked_folders = $3, deleted_folders = $4, failed_folders = $5
+         WHERE cleanup_id = $6 AND end_unix_tstamp_secs IS NULL",
         end_unix_tstamp_secs,
         serde_json::to_value(marked_folders)?,
+        serde_json::to_value(unmarked_folders)?,
         serde_json::to_value(deleted_folders)?,
         serde_json::to_value(failed_folders)?,
         cleanup_id,
@@ -130,6 +132,7 @@ mod tests {
         assert_eq!(start_ts, rrecord.start_unix_tstamp_secs);
         assert!(rrecord.end_unix_tstamp_secs.is_none());
         assert!(rrecord.marked_folders().is_empty());
+        assert!(rrecord.unmarked_folders().is_empty());
         assert!(rrecord.deleted_folders().is_empty());
         assert!(rrecord.failed_folders().is_empty());
         assert!(rrecord.instance_id.is_none());
@@ -212,6 +215,7 @@ mod tests {
                 end_unix_ts,
                 &vec![],
                 &vec![],
+                &vec![],
                 &vec![]
             )
             .await
@@ -246,6 +250,7 @@ mod tests {
                 &mut cx,
                 record.cleanup_id,
                 end_unix_ts,
+                &vec![],
                 &vec![],
                 &vec![],
                 &vec![]
