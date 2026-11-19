@@ -128,10 +128,14 @@ class LeRobotLoader(BaseLoader):
             self._resolved_topics, self._requested_columns
         )
 
+        rejected: List[str] = []
         for col_name in self._resolved_topics:
             if col_name not in matched_columns:
-                metadata.drop_features([col_name])
+                rejected.append(col_name)
                 self._reject(col_name, TopicStatus.FILTERED)
+
+        if rejected:
+            self._meta = metadata.drop_features(rejected)
 
         if not matched_columns:
             raise RuntimeError(
@@ -144,7 +148,7 @@ class LeRobotLoader(BaseLoader):
             self._reader = LeRobotReader(
                 self._file_path,
                 self._max_batch_size_bytes,
-                metadata,
+                self._meta,
                 self._accepted_topics,
             )
 

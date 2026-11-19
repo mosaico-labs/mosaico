@@ -126,7 +126,12 @@ def test_schema_metadata_accepts_the_metadata_of_every_episode(
 
     for episode in meta.episodes_map.values():
         lerobot_meta = LeRobotSchemaMetadata(
-            info=meta.info.to_dict(), episode=episode.to_dict()
+            info=meta.info.to_dict(),
+            episode={
+                "length": episode.length,
+                "tasks": episode.tasks,
+                "stats": episode.stats,
+            },
         )
 
         stats = lerobot_meta.to_dict()["_lerobot_"]["episode"]["stats"]
@@ -140,7 +145,7 @@ def test_schema_metadata_restore_gives_the_fields_back(
     meta = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_video=with_video))
     fields = {
         "info": meta.info.to_dict(),
-        "episode": meta.episodes_map[0].to_dict(),
+        "episode": meta.episodes_map[0].to_row(),
         "source_file": "example",
     }
 
@@ -177,22 +182,23 @@ def test_episode_from_row():
     }
 
 
-def test_episode_to_dict_nests_the_column_names():
+def test_episode_to_row():
     episode = LeRobotEpisode.from_row(_episode_row())
 
     # The `videos/...` column of the row is not read: video features are not supported yet
-    assert episode.to_dict() == {
+    assert episode.to_row() == {
         "episode_index": 3,
         "tasks": ["Pick up the cube"],
         "length": 10,
-        "data": {"chunk_index": 0, "file_index": 1},
+        "data/chunk_index": 0,
+        "data/file_index": 1,
         "dataset_from_index": 20,
         "dataset_to_index": 30,
-        "meta": {"episodes": {"chunk_index": 0, "file_index": 2}},
-        "stats": {
-            "observation.state": {"mean": [0.5, 1.5], "count": [10]},
-            "action": {"max": [1.0, 2.0]},
-        },
+        "meta/episodes/chunk_index": 0,
+        "meta/episodes/file_index": 2,
+        "stats/observation.state/mean": [0.5, 1.5],
+        "stats/observation.state/count": [10],
+        "stats/action/max": [1.0, 2.0],
     }
 
 
