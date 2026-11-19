@@ -227,6 +227,7 @@ impl Cleanup {
             cleanup_log.cleanup_id,
             chrono::Utc::now().timestamp(),
             &stats.marked_folders,
+            &stats.unmarked_folders,
             &stats.deleted_folders,
             &stats.failed_folders,
         )
