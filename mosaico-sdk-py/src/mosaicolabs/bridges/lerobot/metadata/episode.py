@@ -3,7 +3,7 @@ The episodes of a LeRobot dataset: the rows of the `meta/episodes/chunk-XXX/file
 files.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, ClassVar, Dict, List, Optional
 
 from .helpers import _unflatten
@@ -50,8 +50,8 @@ class LeRobotEpisode:
 
     stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     """
-    The per-feature statistics of the episode (`stats/<feature>/<stat>`) columns, 
-    or none if not known yet: they are then computed from the data file.
+    The per-feature statistics of the episode (the `stats/<feature>/<stat>` columns), empty if
+    not known yet: they are then computed from the data file.
     """
 
     _REQUIRED_COLUMNS: ClassVar[Dict[str, str]] = {
@@ -107,17 +107,49 @@ class LeRobotEpisode:
                 feature, _, stat = col[len(_STATS_COLUMN_PREFIX) :].rpartition("/")
                 stats.setdefault(feature, {})[stat] = value
 
-        return cls(tasks=list(fields.pop("tasks") or []), stats=stats, **fields)
+        return cls(stats=stats, **fields)
 
-    def drop_features(self, to_drop: List[str]):
+    def to_row(self) -> Dict[str, Any]:
         """
-        Removes the stats of the given features from the episode. Unknown features are ignored.
+        Returns the episode as a row of the `meta/episodes/*.parquet` files: the opposite of
+        `from_row`. The optional columns are only set if not `None`, and the stats are
+        flattened into `stats/<feature>/<stat>` columns.
+
+        Returns:
+            Dict[str, Any]: The row, as `pyarrow.Table.from_pylist()` takes it.
+        """
+        row: Dict[str, Any] = {
+            col: getattr(self, attr) for col, attr in self._REQUIRED_COLUMNS.items()
+        }
+        row.update(
+            {
+                col: getattr(self, attr)
+                for col, attr in self._OPTIONAL_COLUMNS.items()
+                if getattr(self, attr) is not None
+            }
+        )
+        for feature_key, feature_stats in self.stats.items():
+            for stat, value in feature_stats.items():
+                row[f"{_STATS_COLUMN_PREFIX}{feature_key}/{stat}"] = value
+        return row
+
+    def drop_features(self, to_drop: List[str]) -> "LeRobotEpisode":
+        """
+        Returns a copy of the episode without the stats of the given features. Unknown features
+        are ignored, and this episode is left unchanged.
 
         Args:
             to_drop (List[str]): The names of the features to drop.
+
+        Returns:
+            LeRobotEpisode: The episode without the stats of the given features.
         """
-        for key in to_drop:
-            self.stats.pop(key, None)
+        return replace(
+            self,
+            stats={
+                key: value for key, value in self.stats.items() if key not in to_drop
+            },
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """
