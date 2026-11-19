@@ -14,11 +14,11 @@ common:
       store: inmemory
   storage:
     s3:
-      endpoint: store:7090
+      endpoint: telemetry-store:7091
       region: us-east-1
       bucketnames: obs-logs
-      access_key_id: admin
-      secret_access_key: password
+      access_key_id: telemetry
+      secret_access_key: telemetry-password
       insecure: true
       s3forcepathstyle: true
 

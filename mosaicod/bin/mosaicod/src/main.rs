@@ -94,12 +94,12 @@ fn start() -> Result<Option<String>> {
         _ => mosaicod_telemetry::Telemetry::disabled(),
     };
     #[cfg(feature = "telemetry")]
-    let extra_log_layer = telemetry.tracing_layer();
+    let (extra_log_layer, export_log_layer) = (telemetry.tracing_layer(), telemetry.logs_layer());
     #[cfg(not(feature = "telemetry"))]
-    let extra_log_layer = None;
+    let (extra_log_layer, export_log_layer) = (None, None);
 
     print::set_colors(log_format);
-    types::init_logger(log_format, log_level, extra_log_layer);
+    types::init_logger(log_format, log_level, extra_log_layer, export_log_layer);
 
     debug!("{:#?}", params);
 

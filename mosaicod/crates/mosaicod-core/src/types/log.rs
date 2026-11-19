@@ -67,11 +67,19 @@ impl std::str::FromStr for LogFormat {
 pub type ExtraLogLayer =
     Box<dyn tracing_subscriber::Layer<tracing_subscriber::Registry> + Send + Sync>;
 
-pub fn init_logger(format: LogFormat, level: LogLevel, extra: Option<ExtraLogLayer>) {
+/// Installs the global `tracing` subscriber.
+///
+/// `extra` is installed with its own filter, independent from the log level. `export`
+/// sends the log lines somewhere else too, e.g. over OTLP, so it gets the same filter as
+/// the log output and receives exactly the lines that are printed. The output on stdout
+/// always stays, so the lines survive a crash or an unreachable destination.
+pub fn init_logger(
+    format: LogFormat,
+    level: LogLevel,
+    extra: Option<ExtraLogLayer>,
+    export: Option<ExtraLogLayer>,
+) {
     use tracing_subscriber::{fmt, prelude::*};
-
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()));
 
     // The filter only applies to the log output, so extra layers can see spans and events
     // that are not printed.
@@ -81,8 +89,18 @@ pub fn init_logger(format: LogFormat, level: LogLevel, extra: Option<ExtraLogLay
         LogFormat::Plain => fmt::layer().with_target(false).with_ansi(false).boxed(),
     };
 
+    let mut layers: Vec<ExtraLogLayer> = Vec::new();
+    layers.extend(extra);
+    layers.extend(export.map(|layer| layer.with_filter(log_filter(level)).boxed()));
+
     tracing_subscriber::registry()
-        .with(extra)
-        .with(output.with_filter(filter))
+        .with(layers)
+        .with(output.with_filter(log_filter(level)))
         .init();
+}
+
+/// Returns the filter of the log output: `RUST_LOG` if set, the given level otherwise.
+fn log_filter(level: LogLevel) -> tracing_subscriber::EnvFilter {
+    tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()))
 }

@@ -9,10 +9,10 @@ common:
   storage:
     backend: s3
     s3:
-      endpoint: store:7090
+      endpoint: telemetry-store:7091
       region: us-east-1
-      access_key_id: admin
-      secret_access_key: password
+      access_key_id: telemetry
+      secret_access_key: telemetry-password
       insecure: true
       bucket_name: obs-metrics
       bucket_lookup_type: path

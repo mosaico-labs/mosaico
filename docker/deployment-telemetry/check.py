@@ -24,7 +24,7 @@ MOSAICOD = "grpc://127.0.0.1:6726"
 MIMIR = "http://127.0.0.1:9009"
 LOKI = "http://127.0.0.1:3100"
 TEMPO = "http://127.0.0.1:3200"
-STORE = "http://127.0.0.1:7090"
+STORE = "http://127.0.0.1:7091"  # the telemetry store
 TIMEOUT_S = 120
 # The volumes outlive previous runs, so every check only counts what this run produced:
 # the unknown action carries RUN_ID into the error log, and objects and traces must be
@@ -112,8 +112,8 @@ FLUSH = {
 }
 
 STORE_FS = fs.S3FileSystem(
-    access_key="admin",
-    secret_key="password",
+    access_key="telemetry",
+    secret_key="telemetry-password",
     endpoint_override=STORE,
     region="us-east-1",
 )

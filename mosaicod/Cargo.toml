@@ -101,9 +101,10 @@ http-body = { version = "1.0.1", default-features = false }
 pin-project-lite = { version = "0.2.17", default-features = false }
 
 # Telemetry (mosaicod-telemetry)
-opentelemetry = { version = "0.33.0", default-features = false, features = ["trace", "metrics"] }
-opentelemetry_sdk = { version = "0.33.0", default-features = false, features = ["trace", "metrics"] }
-opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics"] }
+opentelemetry = { version = "0.33.0", default-features = false, features = ["trace", "metrics", "logs"] }
+opentelemetry_sdk = { version = "0.33.0", default-features = false, features = ["trace", "metrics", "logs"] }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "reqwest-blocking-client", "trace", "metrics", "logs"] }
+opentelemetry-appender-tracing = { version = "0.33.1", default-features = false }
 tracing-opentelemetry = { version = "0.34.0", default-features = false }
 
 [profile.release]

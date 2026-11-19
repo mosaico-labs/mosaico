@@ -1,7 +1,8 @@
 # mosaicod (built with the `telemetry` feature) sends metrics and traces over OTLP to the
 # OpenTelemetry Collector, and its JSON logs reach the Collector through the Docker
 # `fluentd` logging driver. The Collector routes metrics to Mimir, logs to Loki and traces
-# to Tempo, which store their blocks in an S3 bucket. Grafana queries all three.
+# to Tempo, which store their blocks in a telemetry S3 store, separate from the S3 store
+# of the mosaico data. Grafana queries all three.
 #
 # Every service maps to one Kubernetes workload (or one ECS task) of the design.
 #
@@ -25,15 +26,17 @@ services:
       timeout: 5s
       retries: 12
 
-  # One S3 store for everything, with the mosaico data bucket separate from the three
-  # telemetry buckets. It is VersityGW, the same S3 gateway as the devel stack. With the
-  # posix backend a bucket is a top-level directory, so `store-buckets` creates them up
-  # front.
+  # Two separate S3 stores, as in the design, where both live outside the cluster: `store`
+  # holds the mosaico data, and `telemetry-store` holds the blocks of Mimir, Loki and
+  # Tempo, with its own credentials. Both are VersityGW, the same S3 gateway as the devel
+  # stack. With the posix backend a bucket is a top-level directory, so `store-buckets`
+  # creates them up front.
   store-buckets:
     image: busybox:1.37.0
-    command: ["mkdir", "-p", "/data/store/mosaico", "/data/store/obs-metrics", "/data/store/obs-logs", "/data/store/obs-traces"]
+    command: ["mkdir", "-p", "/data/store/mosaico", "/data/telemetry-store/obs-metrics", "/data/telemetry-store/obs-logs", "/data/telemetry-store/obs-traces"]
     volumes:
       - store_data:/data/store
+      - telemetry_store_data:/data/telemetry-store
 
   store:
     image: ghcr.io/versity/versitygw:latest
@@ -44,12 +47,32 @@ services:
       VGW_BACKEND: posix
       VGW_BACKEND_ARGS: /data/store
       VGW_HEALTH: "/health"
-    ports:
-      - "127.0.0.1:7090:7090" # S3 API, used by check.py to list the buckets
     volumes:
       - store_data:/data/store
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7090/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      store-buckets:
+        condition: service_completed_successfully
+
+  telemetry-store:
+    image: ghcr.io/versity/versitygw:latest
+    environment:
+      ROOT_ACCESS_KEY: telemetry
+      ROOT_SECRET_KEY: telemetry-password
+      VGW_PORT: ":7091"
+      VGW_BACKEND: posix
+      VGW_BACKEND_ARGS: /data/telemetry-store
+      VGW_HEALTH: "/health"
+    ports:
+      - "127.0.0.1:7091:7091" # S3 API, used by check.py to list the buckets
+    volumes:
+      - telemetry_store_data:/data/telemetry-store
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7091/health"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -80,7 +103,7 @@ services:
       - ./mimir.yml:/etc/mimir/config.yml:ro
       - mimir_data:/data
     depends_on:
-      store:
+      telemetry-store:
         condition: service_healthy
 
   loki:
@@ -93,7 +116,7 @@ services:
       - ./loki.yml:/etc/loki/config.yml:ro
       - loki_data:/loki
     depends_on:
-      store:
+      telemetry-store:
         condition: service_healthy
 
   tempo:
@@ -106,7 +129,7 @@ services:
       - ./tempo.yml:/etc/tempo/config.yml:ro
       - tempo_data:/var/tempo
     depends_on:
-      store:
+      telemetry-store:
         condition: service_healthy
 
   grafana:
@@ -148,6 +171,10 @@ services:
       OTEL_RESOURCE_ATTRIBUTES: service.instance.id=mosaicod-1,deployment.environment=local
       # Shorter than the 60s default, so metrics show up quickly.
       OTEL_METRIC_EXPORT_INTERVAL: "5000"
+      # Uncomment to also push the logs over OTLP. The logging driver keeps sending them
+      # too, so every line then reaches Loki twice: on Kubernetes the agent skips the
+      # mosaico log files instead.
+      # OTEL_LOGS_EXPORTER: otlp
     ports:
       - "127.0.0.1:6726:6726"
     logging:
@@ -168,6 +195,7 @@ services:
 volumes:
   postgres_data:
   store_data:
+  telemetry_store_data:
   mimir_data:
   loki_data:
   tempo_data:

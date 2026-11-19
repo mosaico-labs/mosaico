@@ -18,11 +18,11 @@ storage:
   trace:
     backend: s3
     s3:
-      endpoint: store:7090
+      endpoint: telemetry-store:7091
       region: us-east-1
       bucket: obs-traces
-      access_key: admin
-      secret_key: password
+      access_key: telemetry
+      secret_key: telemetry-password
       insecure: true
       forcepathstyle: true
     wal:

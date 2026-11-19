@@ -59,6 +59,12 @@ service:
       receivers: [fluentforward]
       processors: [resource/mosaicod-logs, transform/parse-json, batch]
       exporters: [otlphttp/loki]
+    # The optional logs over OTLP (`OTEL_LOGS_EXPORTER=otlp`) already carry their resource
+    # and structured fields, so they skip the processors of the logging driver path.
+    logs/otlp:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]
     traces:
       receivers: [otlp]
       processors: [batch]

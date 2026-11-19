@@ -1,12 +1,14 @@
 //! OpenTelemetry support for `mosaicod`.
 //!
 //! This crate exports metrics and traces over OTLP (HTTP/protobuf) to an OpenTelemetry
-//! Collector. Logs are not exported here, they keep going to stdout and are collected by the
-//! platform (e.g. the Collector `filelog` receiver on Kubernetes).
+//! Collector. By default logs are not exported here: they go to stdout and are collected by
+//! the platform (e.g. the Collector `filelog` receiver on Kubernetes). With
+//! `OTEL_LOGS_EXPORTER=otlp` they are also exported over OTLP, next to metrics and traces,
+//! and the Collector should then stop reading them from stdout.
 //!
 //! It provides two pieces:
 //!
-//! * [`Telemetry`], which sets up the meter and tracer providers from the standard
+//! * [`Telemetry`], which sets up the meter, tracer and logger providers from the standard
 //!   `OTEL_*` environment variables, installs them globally and flushes them on shutdown.
 //!   Telemetry is disabled when no OTLP endpoint is configured, so `mosaicod` behaves as
 //!   before unless explicitly opted in.
