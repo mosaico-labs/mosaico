@@ -767,6 +767,7 @@ mod tests {
             x.failed_folders().is_empty()
                 && x.deleted_folders().is_empty()
                 && x.marked_folders().is_empty()
+                && x.unmarked_folders().is_empty()
         }));
     }
 
