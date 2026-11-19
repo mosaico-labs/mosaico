@@ -6,7 +6,7 @@ files.
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional
 
-from .helpers import _flatten, _unflatten
+from .helpers import _unflatten
 
 _STATS_COLUMN_PREFIX = "stats/"
 
@@ -50,7 +50,7 @@ class LeRobotEpisode:
 
     stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     """
-    The per-feature statistics of the episode (`stats/<feature>/<stat>` columns, 
+    The per-feature statistics of the episode (`stats/<feature>/<stat>`) columns, 
     or none if not known yet: they are then computed from the data file.
     """
 
@@ -118,25 +118,6 @@ class LeRobotEpisode:
         """
         for key in to_drop:
             self.stats.pop(key, None)
-
-    @classmethod
-    def from_dict(cls, ep_dict: Dict[str, Any]) -> "LeRobotEpisode":
-        """
-        Creates a `LeRobotEpisode` from its `to_dict()` form (e.g. the `episode` of the `_lerobot_`
-        metadata, restored by `LeRobotSchemaMetadata.restore`): the nested information is
-        flattened back into the `/`-separated column names of a `meta/episodes` row (e.g.
-        `data` / `chunk_index` -> `data/chunk_index`), then parsed by `from_row`.
-
-        Args:
-            ep_dict (Dict[str, Any]): The episode information, as returned by `to_dict()`.
-
-        Returns:
-            LeRobotEpisode: The parsed episode.
-
-        Raises:
-            ValueError: If a required column is missing.
-        """
-        return cls.from_row(_flatten(ep_dict, "/"))
 
     def to_dict(self) -> Dict[str, Any]:
         """
