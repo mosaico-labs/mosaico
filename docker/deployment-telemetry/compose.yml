@@ -38,9 +38,9 @@ services:
       - store_data:/data/store
       - telemetry_store_data:/data/telemetry-store
 
-  store:
+  store: &versitygw
     image: ghcr.io/versity/versitygw:latest
-    environment:
+    environment: &versitygw-env
       ROOT_ACCESS_KEY: admin
       ROOT_SECRET_KEY: password
       VGW_PORT: ":7090"
@@ -59,26 +59,16 @@ services:
         condition: service_completed_successfully
 
   telemetry-store:
-    image: ghcr.io/versity/versitygw:latest
+    <<: *versitygw
     environment:
+      <<: *versitygw-env
       ROOT_ACCESS_KEY: telemetry
       ROOT_SECRET_KEY: telemetry-password
-      VGW_PORT: ":7091"
-      VGW_BACKEND: posix
       VGW_BACKEND_ARGS: /data/telemetry-store
-      VGW_HEALTH: "/health"
     ports:
-      - "127.0.0.1:7091:7091" # S3 API, used by check.py to list the buckets
+      - "127.0.0.1:7091:7090" # S3 API, used by check.py to list the buckets
     volumes:
       - telemetry_store_data:/data/telemetry-store
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7091/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    depends_on:
-      store-buckets:
-        condition: service_completed_successfully
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.120.0

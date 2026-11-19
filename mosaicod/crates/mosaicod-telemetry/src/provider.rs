@@ -52,9 +52,9 @@ pub enum Error {
 
 /// Owns the OpenTelemetry providers of the process.
 ///
-/// Dropping it (or calling [`Telemetry::shutdown`]) flushes pending metrics, spans and logs. It
-/// must be created and dropped outside of any tokio runtime, since the OTLP HTTP client is
-/// blocking and runs its exports on dedicated background threads.
+/// Dropping it flushes pending metrics, spans and logs. It must be created and dropped
+/// outside of any tokio runtime, since the OTLP HTTP client is blocking and runs its exports
+/// on dedicated background threads.
 #[derive(Default)]
 pub struct Telemetry {
     tracer_provider: Option<SdkTracerProvider>,
@@ -74,19 +74,17 @@ impl Telemetry {
     /// `OTEL_EXPORTER_OTLP_ENDPOINT` or through the signal specific
     /// `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS}_ENDPOINT`. Logs also need
     /// `OTEL_LOGS_EXPORTER=otlp`, since by default they only go to stdout.
-    /// `OTEL_SDK_DISABLED=true` disables everything. The resource is built from `OTEL_SERVICE_NAME` and
-    /// `OTEL_RESOURCE_ATTRIBUTES`, plus `service.version`.
+    /// `OTEL_SDK_DISABLED=true` disables everything. The resource is built from
+    /// `OTEL_SERVICE_NAME` and `OTEL_RESOURCE_ATTRIBUTES`, plus `service.version`.
     pub fn from_env(service_version: &str) -> Result<Self, Error> {
-        if env_flag(OTEL_SDK_DISABLED) {
+        if env_is(OTEL_SDK_DISABLED, "true") {
             return Ok(Self::disabled());
         }
 
-        let traces_enabled =
-            env_set(OTEL_EXPORTER_OTLP_ENDPOINT) || env_set(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT);
-        let metrics_enabled =
-            env_set(OTEL_EXPORTER_OTLP_ENDPOINT) || env_set(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT);
+        let traces_enabled = endpoint_set(OTEL_EXPORTER_OTLP_TRACES_ENDPOINT);
+        let metrics_enabled = endpoint_set(OTEL_EXPORTER_OTLP_METRICS_ENDPOINT);
         let logs_enabled = env_is(OTEL_LOGS_EXPORTER, OTLP_LOGS_EXPORTER)
-            && (env_set(OTEL_EXPORTER_OTLP_ENDPOINT) || env_set(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT));
+            && endpoint_set(OTEL_EXPORTER_OTLP_LOGS_ENDPOINT);
 
         if !traces_enabled && !metrics_enabled && !logs_enabled {
             return Ok(Self::disabled());
@@ -153,13 +151,6 @@ impl Telemetry {
         Ok(telemetry)
     }
 
-    /// Returns `true` if at least one signal is exported.
-    pub fn is_enabled(&self) -> bool {
-        self.tracer_provider.is_some()
-            || self.meter_provider.is_some()
-            || self.logger_provider.is_some()
-    }
-
     /// Returns the `tracing` layer that turns spans into OpenTelemetry spans, if traces are
     /// enabled.
     ///
@@ -173,8 +164,13 @@ impl Telemetry {
             .with_target("mosaico", tracing::Level::INFO)
             .with_target(RPC_SPAN_TARGET, tracing::Level::INFO);
 
+        // Thread attributes mean little for async tasks that move between worker threads,
+        // and `busy_ns`/`idle_ns` read the clock on every poll. Both cost allocations on
+        // every span, so they are left out.
         let layer = tracing_opentelemetry::layer()
             .with_tracer(provider.tracer(METER_NAME))
+            .with_threads(false)
+            .with_tracked_inactivity(false)
             .with_filter(filter);
 
         Some(Box::new(layer))
@@ -190,18 +186,19 @@ impl Telemetry {
     pub fn logs_layer(&self) -> Option<ExtraLogLayer> {
         let provider = self.logger_provider.as_ref()?;
 
-        let filter = LOGS_EXCLUDED_TARGETS.iter().fold(
-            Targets::new().with_default(LevelFilter::TRACE),
-            |f, target| f.with_target(*target, LevelFilter::OFF),
-        );
+        let filter = Targets::new()
+            .with_default(LevelFilter::TRACE)
+            .with_targets(LOGS_EXCLUDED_TARGETS.map(|target| (target, LevelFilter::OFF)));
 
         let layer = OpenTelemetryTracingBridge::new(provider).with_filter(filter);
 
         Some(Box::new(layer))
     }
+}
 
-    /// Flushes and shuts down the providers. Calling it more than once is a no-op.
-    pub fn shutdown(&mut self) {
+impl Drop for Telemetry {
+    /// Flushes and shuts down the providers.
+    fn drop(&mut self) {
         if let Some(provider) = self.meter_provider.take()
             && let Err(e) = provider.shutdown()
         {
@@ -220,12 +217,6 @@ impl Telemetry {
         {
             tracing::warn!("failed to shut down the OpenTelemetry logger provider: {e}");
         }
-    }
-}
-
-impl Drop for Telemetry {
-    fn drop(&mut self) {
-        self.shutdown();
     }
 }
 
@@ -257,12 +248,14 @@ fn check_protocol(var: &'static str) -> Result<(), Error> {
     }
 }
 
-fn env_set(var: &str) -> bool {
-    std::env::var(var).is_ok_and(|v| !v.trim().is_empty())
+/// Returns `true` if the OTLP endpoint is set, either for every signal or through the
+/// given signal specific variable.
+fn endpoint_set(signal_var: &str) -> bool {
+    env_set(OTEL_EXPORTER_OTLP_ENDPOINT) || env_set(signal_var)
 }
 
-fn env_flag(var: &str) -> bool {
-    env_is(var, "true")
+fn env_set(var: &str) -> bool {
+    std::env::var(var).is_ok_and(|v| !v.trim().is_empty())
 }
 
 fn env_is(var: &str, value: &str) -> bool {
@@ -276,7 +269,6 @@ mod tests {
     #[test]
     fn disabled_has_no_layer() {
         let telemetry = Telemetry::disabled();
-        assert!(!telemetry.is_enabled());
         assert!(telemetry.tracing_layer().is_none());
         assert!(telemetry.logs_layer().is_none());
     }

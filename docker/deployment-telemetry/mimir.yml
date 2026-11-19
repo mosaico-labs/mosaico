@@ -9,7 +9,7 @@ common:
   storage:
     backend: s3
     s3:
-      endpoint: telemetry-store:7091
+      endpoint: telemetry-store:7090
       region: us-east-1
       access_key_id: telemetry
       secret_access_key: telemetry-password

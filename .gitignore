@@ -16,3 +16,6 @@ env/
 .DS_Store
 Thumbs.db
 mosaico/.env
+
+# Python bytecode, e.g. from docker/deployment-telemetry/check.py
+__pycache__/

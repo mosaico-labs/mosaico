@@ -8,14 +8,16 @@ use crate::{METER_NAME, RPC_SPAN_TARGET};
 use http::{HeaderMap, Request, Response};
 use http_body::{Body, Frame, SizeHint};
 use opentelemetry::{
-    KeyValue, global,
+    KeyValue, StringValue, global,
     metrics::{Histogram, Meter, UpDownCounter},
     propagation::Extractor,
     trace::TraceContextExt as _,
 };
 use std::{
+    fmt,
     future::Future,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll, ready},
     time::Instant,
 };
@@ -80,8 +82,7 @@ impl RpcLayer {
         Self::with_meter(&global::meter(METER_NAME))
     }
 
-    /// Creates the layer recording on the given meter.
-    pub fn with_meter(meter: &Meter) -> Self {
+    fn with_meter(meter: &Meter) -> Self {
         Self {
             instruments: Instruments::new(meter),
         }
@@ -130,15 +131,15 @@ where
         let span = tracing::info_span!(
             target: RPC_SPAN_TARGET,
             "rpc",
-            otel.name = span_name(service, method),
+            otel.name = %SpanName(service, method),
             otel.kind = "server",
             otel.status_code = tracing::field::Empty,
-            rpc.system = "grpc",
-            // Recorded when the call ends, with the same values as the metric.
-            rpc.service = tracing::field::Empty,
-            rpc.method = tracing::field::Empty,
             rpc.grpc.status_code = tracing::field::Empty,
         );
+        // Set directly on the OpenTelemetry span, unlike `tracing` fields, which copy every
+        // string value. `rpc.service` and `rpc.method` are set when the call ends, with the
+        // same values as the metric.
+        span.set_attribute("rpc.system", "grpc");
 
         // Continue the client trace, if the request carries a `traceparent` header.
         let parent =
@@ -147,8 +148,8 @@ where
 
         let guard = CallGuard::start(
             self.instruments.clone(),
-            service.to_owned(),
-            method.to_owned(),
+            shared(service),
+            shared(method),
             span,
         );
 
@@ -178,11 +179,7 @@ where
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
-
-        let span = this.guard.as_ref().map(|g| g.span.clone());
-        let _enter = span.as_ref().map(Span::enter);
-
-        let result = ready!(this.inner.poll(cx));
+        let result = ready!(in_span(this.guard, || this.inner.poll(cx)));
         let mut guard = this.guard.take();
 
         Poll::Ready(match result {
@@ -230,11 +227,7 @@ impl<B: Body> Body for RpcBody<B> {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         let this = self.project();
-
-        let span = this.guard.as_ref().map(|g| g.span.clone());
-        let _enter = span.as_ref().map(Span::enter);
-
-        let result = ready!(this.inner.poll_frame(cx));
+        let result = ready!(in_span(this.guard, || this.inner.poll_frame(cx)));
 
         match &result {
             Some(Ok(frame)) => {
@@ -266,18 +259,31 @@ impl<B: Body> Body for RpcBody<B> {
     }
 }
 
+/// Runs `f` inside the span of the call, if it is still tracked.
+fn in_span<R>(guard: &Option<CallGuard>, f: impl FnOnce() -> R) -> R {
+    match guard {
+        Some(guard) => guard.span.in_scope(f),
+        None => f(),
+    }
+}
+
 /// Tracks one call and records it when dropped.
 struct CallGuard {
     instruments: Instruments,
     start: Instant,
-    service: String,
-    method: String,
+    service: StringValue,
+    method: StringValue,
     code: Option<i64>,
     span: Span,
 }
 
 impl CallGuard {
-    fn start(instruments: Instruments, service: String, method: String, span: Span) -> Self {
+    fn start(
+        instruments: Instruments,
+        service: StringValue,
+        method: StringValue,
+        span: Span,
+    ) -> Self {
         instruments
             .active
             .add(1, &[KeyValue::new("rpc.system", "grpc")]);
@@ -309,16 +315,14 @@ impl Drop for CallGuard {
             // requested path is renamed like the metric. Recording `otel.name` would not
             // work: the OpenTelemetry span already exists, and it only takes `update_name`.
             self.span.context().span().update_name(OTHER);
-            (OTHER.to_owned(), OTHER.to_owned())
+            (StringValue::from(OTHER), StringValue::from(OTHER))
         } else {
-            (
-                std::mem::take(&mut self.service),
-                std::mem::take(&mut self.method),
-            )
+            (self.service.clone(), self.method.clone())
         };
 
-        self.span.record("rpc.service", service.as_str());
-        self.span.record("rpc.method", method.as_str());
+        // Cheap clones: the strings are reference counted.
+        self.span.set_attribute("rpc.service", service.clone());
+        self.span.set_attribute("rpc.method", method.clone());
 
         let attributes = [
             KeyValue::new("rpc.system", "grpc"),
@@ -350,12 +354,26 @@ fn split_path(path: &str) -> (&str, &str) {
 }
 
 /// Span name following the OpenTelemetry gRPC conventions: `{service}/{method}`, or
-/// [`OTHER`] when the method is unknown.
-fn span_name(service: &str, method: &str) -> String {
-    if service == OTHER {
-        OTHER.to_owned()
+/// [`OTHER`] when the method is unknown. Written straight into the span name, with no
+/// intermediate `String`.
+struct SpanName<'a>(&'a str, &'a str);
+
+impl fmt::Display for SpanName<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SpanName(OTHER, _) => f.write_str(OTHER),
+            SpanName(service, method) => write!(f, "{service}/{method}"),
+        }
+    }
+}
+
+/// Reference-counted copy of a path segment, shared by the span and the metric. [`OTHER`]
+/// is static and needs no allocation.
+fn shared(segment: &str) -> StringValue {
+    if segment == OTHER {
+        StringValue::from(OTHER)
     } else {
-        format!("{service}/{method}")
+        StringValue::from(Arc::<str>::from(segment))
     }
 }
 
@@ -496,8 +514,11 @@ mod tests {
 
     #[test]
     fn span_names() {
-        assert_eq!(span_name("svc.Flight", "DoGet"), "svc.Flight/DoGet");
-        assert_eq!(span_name(OTHER, OTHER), OTHER);
+        assert_eq!(
+            SpanName("svc.Flight", "DoGet").to_string(),
+            "svc.Flight/DoGet"
+        );
+        assert_eq!(SpanName(OTHER, OTHER).to_string(), OTHER);
     }
 
     #[test]
@@ -628,6 +649,11 @@ mod tests {
 
         tracer_provider.force_flush().unwrap();
         let spans = span_exporter.get_finished_spans().unwrap();
+        assert!(spans.iter().all(|span| {
+            span.attributes
+                .iter()
+                .any(|kv| kv.key.as_str() == "rpc.system" && kv.value.as_str() == "grpc")
+        }));
         let summary: Vec<(String, String)> = spans
             .iter()
             .map(|span| {

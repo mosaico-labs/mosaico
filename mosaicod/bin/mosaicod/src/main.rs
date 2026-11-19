@@ -83,7 +83,7 @@ fn start() -> Result<Option<String>> {
     let log_level = args.log_level.unwrap_or(params.log_level.value);
 
     // Only long-running commands export telemetry, CLI commands such as `ps` stay quiet.
-    // The guard flushes pending metrics and spans when it goes out of scope, after the
+    // The guard flushes pending metrics, spans and logs when it goes out of scope, after the
     // command returned (and outside its tokio runtime).
     #[cfg(feature = "telemetry")]
     let telemetry = match args.cmd {

@@ -18,7 +18,7 @@ storage:
   trace:
     backend: s3
     s3:
-      endpoint: telemetry-store:7091
+      endpoint: telemetry-store:7090
       region: us-east-1
       bucket: obs-traces
       access_key: telemetry
