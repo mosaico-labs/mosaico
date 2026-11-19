@@ -680,14 +680,6 @@ impl HandleWriter {
     }
 }
 
-impl std::ops::Deref for HandleWriter {
-    type Target = rw::ChunkWriter<Arc<store::Store>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.writer
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
