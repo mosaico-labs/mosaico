@@ -691,14 +691,6 @@ impl HandleWriter {
     }
 }
 
-impl std::ops::Deref for HandleWriter {
-    type Target = rw::ChunkWriter<Arc<store::Store>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.writer
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use mosaicod_core::{self as core, types::NotificationType};
