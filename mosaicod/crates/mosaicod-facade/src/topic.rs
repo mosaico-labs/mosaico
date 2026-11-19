@@ -963,8 +963,6 @@ mod tests {
         );
     }
 
-    // --- Finalization and timestamp range (#1103) ---
-
     /// Like [`test_context`], but also returns the temporary store, which must be kept alive
     /// by the test, so the test can manipulate the data files on disk.
     fn test_context_with_store(
