@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const repoUrl = 'https://github.com/mosaico-labs/mosaico';
 
-// Release docs are built by .github/workflows/docs.yml on a `v*` tag push,
+// Release docs are built by .github/workflows/publish.yml on a `v*` tag push,
 // where GitHub sets GITHUB_REF_TYPE=tag and GITHUB_REF_NAME to the tag.
 // Any other build (e.g. local) is labelled "development" so it can't be
 // mistaken for the official docs.

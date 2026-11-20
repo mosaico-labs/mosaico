@@ -1,7 +1,7 @@
 """
 MkDocs hook: sets config.extra.docs_version to the version these docs are built from.
 
-Release docs are built by .github/workflows/docs.yml on a `v*` tag push, where
+Release docs are built by .github/workflows/publish.yml on a `v*` tag push, where
 GitHub sets GITHUB_REF_TYPE=tag and GITHUB_REF_NAME to the tag. Any other build
 (e.g. local) is labelled "development" so it can't be mistaken for the official
 docs. overrides/partials/source.html shows it in the header.
