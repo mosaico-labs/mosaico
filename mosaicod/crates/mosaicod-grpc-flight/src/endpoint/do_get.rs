@@ -6,7 +6,7 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{self as core};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
@@ -71,7 +71,7 @@ pub async fn do_get(
     // If our value is below the default we keep the default.
     let max_flight_data_size = usize::max(
         GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
-        params::params().grpc_target_encode_message_size.value,
+        default::params().grpc_target_encode_message_size.value,
     );
 
     debug!(

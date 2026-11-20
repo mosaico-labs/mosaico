@@ -22,7 +22,7 @@ use datafusion::functions_nested::expr_fn::{
 };
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
-use mosaicod_config::params as config_params;
+use mosaicod_config::default;
 use mosaicod_core::{constants, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
@@ -400,7 +400,7 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Expr, Err
         scalar => return Ok(arr.eq(value_to_df_expr(scalar))),
     };
 
-    let max = config_params::params().max_size_plain_list_eq.value.get();
+    let max = default::params().max_size_plain_list_eq.value.get();
     if len > max {
         return Err(Error::list_too_large(field_name.to_owned(), max));
     }
@@ -864,7 +864,7 @@ mod tests {
     /// range.
     #[tokio::test]
     async fn timeseries_range() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 
@@ -903,7 +903,7 @@ mod tests {
     /// replacement for both.
     #[tokio::test]
     async fn count_and_timestamp_range_matches_separate_calls() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 
