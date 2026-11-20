@@ -19,6 +19,7 @@ from .config import (
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     FPS,
+    POSITION_COLUMN_NAMES,
     STATE_COLUMN_NAME,
     TASK,
 )
@@ -143,9 +144,15 @@ def test_schema_metadata_restore_gives_the_fields_back(
     lerobot_dataset_factory, with_video
 ):
     meta = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_video=with_video))
+    episode = meta.episodes_map[0]
+    # What the injector attaches to the sequence of the episode
     fields = {
         "info": meta.info.to_dict(),
-        "episode": meta.episodes_map[0].to_row(),
+        "episode": {
+            "length": episode.length,
+            "tasks": episode.tasks,
+            "stats": episode.stats,
+        },
         "source_file": "example",
     }
 
@@ -368,7 +375,7 @@ def test_drop_features_removes_them_from_info_and_episodes(lerobot_dataset):
     assert ACTION_COLUMN_NAME not in [f.key for f in dropped.features]
     assert STATE_COLUMN_NAME in [f.key for f in dropped.features]
     for episode in dropped.episodes_map.values():
-        assert set(episode.stats) == {STATE_COLUMN_NAME}
+        assert set(episode.stats) == {STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
 
 
 def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
@@ -381,4 +388,8 @@ def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
     assert meta == LeRobotDatasetMeta.load(lerobot_dataset)
     assert ACTION_COLUMN_NAME in [f.key for f in meta.features]
     for episode in meta.episodes_map.values():
-        assert set(episode.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+        assert set(episode.stats) == {
+            ACTION_COLUMN_NAME,
+            STATE_COLUMN_NAME,
+            *POSITION_COLUMN_NAMES,
+        }

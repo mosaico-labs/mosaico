@@ -148,8 +148,7 @@ class LeRobotFeature:
     def is_timeseries(self) -> bool:
         """
         Whether the feature is a timeseries: neither an image, a video, the timestamp, nor the
-        position of the frame (`index`, `frame_index` and `episode_index`), which is rebuilt
-        when the episodes are exported (see `LeRobotWriter`).
+        position of the frame (`index`, `frame_index` and `episode_index`), which is rebuilt on export.
         """
         return (
             not self.is_image()

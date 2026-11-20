@@ -162,7 +162,7 @@ TASKS = ["Pick up the cube", "Place the cube"]
 
 def test_task_indexes_to_tasks_takes_the_task_at_each_index():
     """A task index is the row of its task in `meta/tasks.parquet`."""
-    converted = _task_indexes_to_tasks(pa.array([1, 0, 1], pa.int64()), TASKS)
+    converted = _task_indexes_to_tasks(pa.array([1, 0, 1], pa.int64()), pa.array(TASKS))
 
     assert converted.type == pa.string()
     assert converted.to_pylist() == [TASKS[1], TASKS[0], TASKS[1]]
@@ -171,7 +171,7 @@ def test_task_indexes_to_tasks_takes_the_task_at_each_index():
 @pytest.mark.parametrize("task_index", [len(TASKS), -1])
 def test_task_indexes_to_tasks_rejects_an_index_not_in_the_tasks(task_index):
     with pytest.raises(ValueError, match="meta/tasks.parquet"):
-        _task_indexes_to_tasks(pa.array([0, task_index], pa.int64()), TASKS)
+        _task_indexes_to_tasks(pa.array([0, task_index], pa.int64()), pa.array(TASKS))
 
 
 # --- _adapt_image_rb_to_schema ---

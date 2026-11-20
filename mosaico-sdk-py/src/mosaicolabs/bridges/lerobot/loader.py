@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import (
+    Any,
+    Dict,
     Generator,
     Iterator,
     List,
@@ -120,22 +122,22 @@ class LeRobotLoader(BaseLoader):
             logger.warning(
                 f"Skipping video features {video_columns}: video files are not supported yet."
             )
+            metadata = metadata.drop_features(video_columns)
 
-        # Resolved topics are all the columns from the .parquet (except timestamp and videos)
+        # Resolved topics are all the columns from the .parquet (except for:
+        # timestamp, index, frame_index, episode_index, and videos)
         self._resolved_topics = metadata.column_names
 
         matched_columns = _filter_from_list(
             self._resolved_topics, self._requested_columns
         )
 
-        rejected: List[str] = []
-        for col_name in self._resolved_topics:
-            if col_name not in matched_columns:
-                rejected.append(col_name)
-                self._reject(col_name, TopicStatus.FILTERED)
+        rejected = [c for c in self._resolved_topics if c not in matched_columns]
+        for col_name in rejected:
+            self._reject(col_name, TopicStatus.FILTERED)
 
         if rejected:
-            self._meta = metadata.drop_features(rejected)
+            metadata = metadata.drop_features(rejected)
 
         if not matched_columns:
             raise RuntimeError(
@@ -143,6 +145,7 @@ class LeRobotLoader(BaseLoader):
             )
 
         self._accepted_topics = matched_columns
+        self._meta = metadata
 
         try:
             self._reader = LeRobotReader(
@@ -279,6 +282,35 @@ class LeRobotEpisodeLoader:
     def episode_index(self) -> int:
         """The episode index."""
         return self._episode_index
+
+    @property
+    def tasks(self) -> List[str]:
+        """The episode tasks"""
+        return self.episode_metadata.tasks
+
+    @property
+    def length(self) -> int:
+        """The episode length"""
+        return self.episode_metadata.length
+
+    @property
+    def stats(self) -> Dict[str, Dict[str, Any]]:
+        """
+        The episode stats after removing: the filtered features, index, frame_index,
+        episode_index and timestamp.
+        """
+
+        injected_columns = (
+            self._reader.cameras_column_names + self._reader.timeseries_column_names
+        )
+
+        reduced_stats = {
+            k: v
+            for k, v in self.episode_metadata.stats.items()
+            if k in injected_columns
+        }
+
+        return reduced_stats
 
     @property
     def n_rows(self) -> int:
