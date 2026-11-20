@@ -447,7 +447,7 @@ jobs:
       # The release of the tag, with the notes, the binaries, the wheel and the sdist. Only the highest
       # release is marked as latest, which `releases/latest` download links point to.
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
           files: dist/*
