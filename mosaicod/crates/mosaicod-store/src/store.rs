@@ -11,7 +11,6 @@ use mosaicod_core::traits;
 use object_store::{
     ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
 };
-use parquet::arrow::async_reader::ParquetObjectReader;
 use thiserror::Error;
 use tracing::trace;
 use url::Url;
@@ -480,10 +479,6 @@ impl Store {
             .await?;
 
         Ok(())
-    }
-
-    pub fn parquet_reader(&self, path: impl AsRef<std::path::Path>) -> ParquetObjectReader {
-        ParquetObjectReader::new(self.driver.clone(), to_object_path(path))
     }
 
     /// Checks store connectivity and authorization by executing a probe listing against the root.

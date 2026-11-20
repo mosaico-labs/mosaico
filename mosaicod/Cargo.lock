@@ -2832,7 +2832,6 @@ dependencies = [
  "futures",
  "mosaicod-core",
  "object_store",
- "parquet",
  "thiserror",
  "tokio",
  "tracing",
