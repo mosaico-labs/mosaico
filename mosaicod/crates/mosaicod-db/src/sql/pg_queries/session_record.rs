@@ -54,7 +54,9 @@ pub async fn session_find_by_id(
         rowlock2str(row_locking)
     );
 
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    // SAFETY: the only dynamic part of `query` is the fixed string returned by
+    // `rowlock2str`, so it contains no user input. The id is bound as a parameter.
+    let res = sqlx::query_as::<_, schema::SessionRecord>(sqlx::AssertSqlSafe(query))
         .bind(id)
         .fetch_one(exe.as_exec())
         .await?;
@@ -75,7 +77,9 @@ pub async fn session_find_by_uuid(
         rowlock2str(row_locking)
     );
 
-    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+    // SAFETY: the only dynamic part of `query` is the fixed string returned by
+    // `rowlock2str`, so it contains no user input. The uuid is bound as a parameter.
+    let res = sqlx::query_as::<_, schema::SessionRecord>(sqlx::AssertSqlSafe(query))
         .bind(uuid.as_ref())
         .fetch_one(exe.as_exec())
         .await?;
