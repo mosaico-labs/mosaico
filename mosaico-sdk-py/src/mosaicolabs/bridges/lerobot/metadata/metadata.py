@@ -24,7 +24,6 @@ import pyarrow.parquet as pq
 
 from .episode import LeRobotEpisode
 from .feature import LeRobotFeature
-from .helpers import _flatten
 from .info import LeRobotInfo
 from .stats import LeRobotStats, compute_episode_stats
 
@@ -379,9 +378,7 @@ class LeRobotDatasetMeta:
         for episode in self.episodes_map.values():
             chunk_index = episode.meta_episodes_chunk_index or 0
             file_index = episode.meta_episodes_file_index or 0
-            files.setdefault((chunk_index, file_index), []).append(
-                _flatten(episode.to_dict(), sep="/")
-            )
+            files.setdefault((chunk_index, file_index), []).append(episode.to_row())
 
         for (chunk_index, file_index), rows in files.items():
             file_name = _EPISODES_FILE.format(

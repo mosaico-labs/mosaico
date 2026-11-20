@@ -353,7 +353,11 @@ def test_load(lerobot_dataset):
     assert meta.n_episodes == len(EPISODE_LENGTHS)
     assert [f.key for f in meta.features] == DATA_SCHEMA.names
     assert meta.stats is not None
-    assert set(meta.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+    assert set(meta.stats) == {
+        ACTION_COLUMN_NAME,
+        STATE_COLUMN_NAME,
+        *POSITION_COLUMN_NAMES,
+    }
     # Episodes 0 and 1 are in the first episodes file, episode 2 in the second one
     assert meta.episode_indexes == [0, 1, 2]
     assert [e.length for e in meta.episodes_map.values()] == EPISODE_LENGTHS
@@ -422,7 +426,7 @@ def test_stats_combine_those_of_the_episodes(lerobot_dataset):
     stats = LeRobotDatasetMeta.load(lerobot_dataset).stats
 
     assert stats is not None
-    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
     every_frame = range(sum(EPISODE_LENGTHS))
     for key, value in (
         (ACTION_COLUMN_NAME, action_value),
@@ -444,7 +448,7 @@ def test_get_or_compute_episode_stats_returns_those_of_the_episode(
     stats = meta.get_or_compute_episode_stats(0)
 
     assert stats == meta.episodes_map[0].stats
-    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
 
 
 def test_get_or_compute_episode_stats_of_an_unknown_episode(lerobot_dataset):
