@@ -4,7 +4,10 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
-use super::{Error, IndexSpecifier, OntologyField, OntologyPredicateGroup, Op, Value};
+use std::collections::HashMap;
+use std::path::Path;
+use std::sync::Arc;
+
 use arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -19,14 +22,13 @@ use datafusion::functions_nested::expr_fn::{
 };
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
-use mosaicod_config::params as config_params;
+use mosaicod_config::default;
 use mosaicod_core::{constants, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
-use std::collections::HashMap;
-use std::path::Path;
-use std::sync::Arc;
 use tracing::trace;
+
+use super::{Error, IndexSpecifier, OntologyField, OntologyPredicateGroup, Op, Value};
 
 pub type TimeseriesEngineRef = Arc<TimeseriesEngine>;
 
@@ -398,7 +400,7 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Expr, Err
         scalar => return Ok(arr.eq(value_to_df_expr(scalar))),
     };
 
-    let max = config_params::params().max_size_plain_list_eq.value.get();
+    let max = default::params().max_size_plain_list_eq.value.get();
     if len > max {
         return Err(Error::list_too_large(field_name.to_owned(), max));
     }
@@ -837,11 +839,12 @@ fn value_to_df_expr(v: Value) -> Expr {
 
 #[cfg(test)]
 mod tests {
-    use super::super::Range;
-    use super::*;
     use mosaicod_core::traits::AsyncWriteToPath;
     use mosaicod_ext::arrow;
     use mosaicod_store as store;
+
+    use super::super::Range;
+    use super::*;
 
     async fn write_dummy_file(store: &store::Store, file_path: &str) {
         let batch = arrow::testing::dummy_batch(7, 10000, 5, 1, 1);
@@ -861,7 +864,7 @@ mod tests {
     /// range.
     #[tokio::test]
     async fn timeseries_range() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 
@@ -900,7 +903,7 @@ mod tests {
     /// replacement for both.
     #[tokio::test]
     async fn count_and_timestamp_range_matches_separate_calls() {
-        config_params::load_params(config_params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let file_path = "dummy_file.parquet";
 

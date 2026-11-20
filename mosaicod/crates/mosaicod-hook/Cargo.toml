@@ -1,0 +1,33 @@
+[package]
+name = "mosaicod-hook"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_hook"
+
+[features]
+testing = ["tokio/io-util", "tokio/net", "dep:serde_json"]
+
+[dependencies]
+mosaicod-config = { workspace = true }
+mosaicod-core = { workspace = true }
+mosaicod-db = { workspace = true, features = ["postgres"] }
+mosaicod-marshal = { workspace = true }
+
+bytes = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "sync", "time"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "sync", "time"] }

@@ -1,13 +1,15 @@
-use mosaicod_config::params;
+use std::net::{IpAddr, SocketAddr};
+
+use mosaicod_config::default;
 use mosaicod_core::{error::PublicResult as Result, types, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_hook as hook;
 use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
-use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -109,6 +111,7 @@ impl Server {
         let res: Result<()> = rt.block_on(async {
             let server_store = self.store.clone();
             let server_db = self.db.clone();
+            let hooks = hook::Dispatcher::spawn(server_db.clone(), shutdown.token())?;
 
             let instance = db::instance_registry_create(
                 &mut server_db.connection(),
@@ -130,7 +133,8 @@ impl Server {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown.clone())).await
+                if let Err(err) =
+                    serve(server_store, server_db, hooks, opts, Some(shutdown.clone())).await
                 {
                     error!("{}", err);
                 }
@@ -168,12 +172,13 @@ impl Server {
 pub async fn serve(
     store: store::StoreRef,
     db: db::Database,
+    hooks: hook::Dispatcher,
     opts: Options,
     shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::new(opts.host, opts.port);
 
-    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone())?;
+    let mut grpc_flight_svc = grpc_flight::Service::try_new(store, db.clone(), hooks)?;
 
     if opts.enable_api_key_management {
         grpc_flight_svc.enable_api_key_manegement();
@@ -220,8 +225,8 @@ pub async fn serve(
     // outgoing (retrieval) messages, tying it to a value that can be lowered later
     // would risk making previously-accepted, already-stored data unretrievable.
     flight_svc = flight_svc
-        .max_decoding_message_size(params::params().grpc_max_decode_message_size.value)
-        .max_encoding_message_size(params::GRPC_MSG_MAX_SIZE_BYTES);
+        .max_decoding_message_size(default::params().grpc_max_decode_message_size.value)
+        .max_encoding_message_size(default::GRPC_MSG_MAX_SIZE_BYTES);
 
     if opts.gzip {
         flight_svc = flight_svc
@@ -248,10 +253,11 @@ pub async fn serve(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration as StdDuration;
+
+    use super::*;
 
     /// If the flight service fails on its very first attempt to start (e.g. because of an
     /// invalid bind address), `start_and_wait` must still join both the flight and the cleanup
@@ -261,8 +267,8 @@ mod tests {
     async fn test_start_and_wait_joins_all_tasks_on_first_failure(
         pool: sqlx::Pool<db::DatabaseType>,
     ) {
-        // `start_and_wait` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params(params::ParamsLoadOptions::testing());
+        // `start_and_wait` reads `default::params()` internally, so it must be initialized first.
+        mosaicod_config::testing::load();
 
         let test_store =
             store::testing::Store::new_random_on_tmp().expect("failed to create test store");

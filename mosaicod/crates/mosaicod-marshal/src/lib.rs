@@ -6,6 +6,9 @@ pub use metadata::*;
 mod metadata_file;
 pub use metadata_file::*;
 
+mod hook;
+pub use hook::*;
+
 mod format;
 pub use format::*;
 

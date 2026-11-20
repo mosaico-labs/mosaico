@@ -1,4 +1,7 @@
 #![allow(unused_crate_dependencies)]
+use std::sync::Arc;
+
+use arrow::array::ArrayRef;
 use arrow::array::{
     BooleanArray, BooleanBuilder, Float64Array, Int64Array, Int64Builder, ListBuilder, RecordBatch,
     StringArray, StringBuilder,
@@ -7,11 +10,8 @@ use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
 use mosaicod_proto::v1::query as proto_query;
 use proto_query::Aggregator;
-use std::sync::Arc;
 use tests::{actions, common, filter};
 use tonic::Code;
-
-use arrow::array::ArrayRef;
 
 /// Builds a [`RecordBatch`] with a list column (list of i64) used to test filters
 /// (equal, at least on, all) against list-typed ontology columns.
@@ -4601,6 +4601,75 @@ async fn test_ontology_aggregator_rejected_by_clusterize(pool: sqlx::Pool<db::Da
     .await
     .unwrap_err();
     assert_eq!(err.code(), Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+/// A topic or sequence filter matching no topic restricts the ontology search to no
+/// topic, with regular and with aggregated predicates.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_empty_topic_filter_matches_nothing(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_empty_topic_filter";
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3])),
+            ("topic_b", int_batch(20_000, &[1, 2, 3])),
+        ],
+    )
+    .await;
+
+    let topic_filter = |name: &str| proto_query::Filter {
+        topic: Some(proto_query::TopicFilter {
+            name: Some(filter::eq(name)),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let sequence_filter = |name: &str| proto_query::Filter {
+        sequence: Some(proto_query::SequenceFilter {
+            name: Some(filter::eq(name)),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let all = vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")];
+
+    // (filter, expected topics): a filter matching no topic, and one matching all
+    // of them to check that the ontology predicates are still applied
+    let cases = [
+        ("topic /missing", topic_filter("/missing"), vec![]),
+        ("sequence missing", sequence_filter("missing"), vec![]),
+        ("sequence", sequence_filter(seq), all),
+    ];
+
+    for (label, base, expected) in cases {
+        for (aggr, cond) in [
+            (None, filter::ge(2)),
+            (Some(Aggregator::Max), filter::eq(3)),
+            (Some(Aggregator::Count), filter::eq(3)),
+        ] {
+            let query = proto_query::Filter {
+                ontology: Some(proto_query::OntologyFilter {
+                    predicates: vec![proto_query::OntologyPredicate {
+                        field: "mock.value".to_owned(),
+                        aggregator: aggr.map(|a| a as i32),
+                        condition: Some(cond),
+                    }],
+                }),
+                ..base.clone()
+            };
+            let mut locs = topic_locators(&actions::query(&mut client, query).await.unwrap());
+            locs.sort();
+            assert_eq!(locs, expected, "{label} ({aggr:?})");
+        }
+    }
 
     server.shutdown().await;
 }

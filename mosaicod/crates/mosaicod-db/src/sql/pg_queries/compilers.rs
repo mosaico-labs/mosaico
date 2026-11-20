@@ -374,9 +374,11 @@ mod internal {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mosaicod_query::{ClausesCompiler, Op};
     use std::collections::HashMap;
+
+    use mosaicod_query::{ClausesCompiler, Op};
+
+    use super::*;
 
     #[test]
     fn unsupported_op() {

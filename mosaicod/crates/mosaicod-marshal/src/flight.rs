@@ -1,8 +1,9 @@
-use super::{Error, JsonMetadataBlob, metadata};
 use mosaicod_core::types;
 use mosaicod_core::types::TopicLocator;
 use mosaicod_proto::v1::flight as proto_flight;
 use prost::Message;
+
+use super::{Error, JsonMetadataBlob, metadata};
 
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD

@@ -32,5 +32,7 @@ pub use query::*;
 
 pub mod auth;
 
+pub mod hook;
+
 mod context;
 pub use context::Context;

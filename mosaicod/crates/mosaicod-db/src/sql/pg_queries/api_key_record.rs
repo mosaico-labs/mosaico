@@ -1,5 +1,6 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
+
+use crate::{Error, core::AsExec, sql::schema};
 
 fn convert(record: schema::ApiKeyRecord) -> Result<types::ApiKey, Error> {
     record

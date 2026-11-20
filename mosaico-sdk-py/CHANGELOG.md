@@ -15,6 +15,11 @@
 - Added the **`mosaico examples`** command group to the official CLI: `mosaico examples ls` lists the SDK examples and `mosaico examples <EXAMPLE>` runs one, taking its connection settings from the active profile. ([#1028](https://github.com/mosaico-labs/mosaico/issues/1028))
 - Added the **`mosaico inject lerobot`** command, which injects a LeRobot v3.0 dataset as one sequence per episode, taking its connection settings from the active profile. `LeRobotInjectionConfig`, `LeRobotInjector` and `LeRobotSchemaMetadata` can now be imported from `mosaicolabs.bridges.lerobot`. ([#1030](https://github.com/mosaico-labs/mosaico/issues/1030))
 
+### Bug Fixes
+
+- **`TopicWriter.push_batch` now accepts equal consecutive timestamps**: `timestamp_ns` must be non-decreasing within a batch instead of strictly increasing, so batches with records sharing a timestamp are no longer rejected. Records with equal timestamps have no guaranteed relative order once stored. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
+- **`TopicWriter` now enforces non-decreasing timestamps across pushes**: a record passed to `push()`, or the first record of a batch passed to `push_batch()`, whose `timestamp_ns` is lower than the last one accepted on the topic now raises a `ValueError`. Previously `push()` had no ordering check, and `push_batch()` only checked within a single batch. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
+
 
 ## [0.7.0] - 2026-10-08
 

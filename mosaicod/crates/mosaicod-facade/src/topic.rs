@@ -1,7 +1,8 @@
-use super::{Context, Error};
-use arrow::datatypes::SchemaRef;
+use std::path;
+use std::sync::Arc;
 
-use mosaicod_config::params;
+use arrow::datatypes::SchemaRef;
+use mosaicod_config::default;
 use mosaicod_core::error::PublicError;
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
@@ -10,9 +11,9 @@ use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
-use std::path;
-use std::sync::Arc;
 use tracing::{trace, warn};
+
+use super::{Context, Error};
 
 /// Define topic metadata type containing JSON user metadata.
 pub type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
@@ -26,9 +27,10 @@ pub struct TopicStreamingReadParams {
 }
 
 pub(super) mod internal {
-    use super::*;
     use mosaicod_core::error::PublicError;
     use mosaicod_core::types::TopicTimeWindowInfo;
+
+    use super::*;
 
     /// Creates [`TopicMetadata`] associated to the given `topic_record`.
     pub async fn metadata(
@@ -212,8 +214,8 @@ pub(super) mod internal {
 
     /// Computes the optimal batch size based on topic statistics from the database.
     /// The computed batch size is clamped between 1 and
-    /// [`params::Params::max_batch_size`], so topics whose rows are larger
-    /// than [`params::Params::grpc_target_encode_message_size`] still stream at least
+    /// [`default::Params::max_batch_size`], so topics whose rows are larger
+    /// than [`default::Params::grpc_target_encode_message_size`] still stream at least
     /// one row per batch instead of a degenerate batch size of 0.
     ///
     /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
@@ -235,7 +237,7 @@ pub(super) mod internal {
             ))?;
         }
 
-        let params = params::params();
+        let params = default::params();
 
         // Guard in case of average 0 to avoid panic
         let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
@@ -623,7 +625,9 @@ impl HandleWriter {
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
     /// consolidated (e.g. metadata, timestamp bounds).
-    pub async fn finalize(self) -> Result<()> {
+    ///
+    /// Returns the topic's metadata.
+    pub async fn finalize(self) -> Result<TopicMetadata> {
         // 1. Update topic record in database.
         let mut tx = self.context.db.transaction().await?;
 
@@ -674,11 +678,11 @@ impl HandleWriter {
         metadata_write_to_store(
             &self.context,
             path_in_store.path_metadata().as_path(),
-            metadata,
+            metadata.clone(),
         )
         .await?;
 
-        Ok(())
+        Ok(metadata)
     }
 }
 
@@ -698,10 +702,11 @@ impl std::ops::DerefMut for HandleWriter {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{sequence, session};
     use mosaicod_core::{self as core, types::NotificationType};
     use mosaicod_query as query;
+
+    use super::*;
+    use crate::{sequence, session};
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);

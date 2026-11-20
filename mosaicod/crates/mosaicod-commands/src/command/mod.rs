@@ -12,3 +12,12 @@ pub use api_key::*;
 
 mod ps;
 pub use ps::*;
+
+mod hook;
+pub use hook::*;
+
+mod service_commands;
+pub use service_commands::*;
+
+mod utility_commands;
+pub use utility_commands::*;

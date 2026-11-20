@@ -5,17 +5,18 @@
 //! configurations. Each format variant has its own strategy that defines compression settings,
 //! file extensions, and reading options.
 
+use std::sync::Arc;
+
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
 use datafusion::prelude::*;
-use mosaicod_config::params as config_params;
+use mosaicod_config::default;
 use mosaicod_core::{constants, traits::AsExtension, types};
 use parquet::{
     basic::{Compression, ZstdLevel},
     file::properties::{EnabledStatistics, WriterProperties, WriterVersion},
     schema::types::ColumnPath,
 };
-use std::sync::Arc;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Format Properties Traits
@@ -65,7 +66,7 @@ pub trait ParquetFormatProperties: FormatProperties {
     /// will affect the final peak memory footprint.
     fn buffer_capacity(&self) -> usize {
         // (cabba) NOTE: not tuned yet :)
-        ((config_params::params()
+        ((default::params()
             .parquet_in_memory_encoding_buffer_size
             .value as f64)
             * 1.1) as usize
@@ -191,7 +192,7 @@ impl ParquetFormatProperties for ImageFormatProperties {
 
     fn buffer_capacity(&self) -> usize {
         // (cabba) NOTE: not tuned yet :)
-        ((config_params::params()
+        ((default::params()
             .parquet_in_memory_encoding_buffer_size
             .value as f64)
             * 1.3) as usize

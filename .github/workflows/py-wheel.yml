@@ -1,0 +1,112 @@
+name: Python SDK Wheel
+
+# Builds the Python SDK once, then tests the built wheel on every supported Python version, so the
+# files that are tested are the files that get released. Called by the Publish release workflow,
+# which attaches the tested wheel and sdist (artifact `python-sdk-dist`) to the GitHub release.
+# Started by hand, it checks the wheel of another branch, e.g. a security update before tagging it.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
+
+      - name: Build wheel and sdist
+        run: uv build mosaico-sdk-py --out-dir dist
+
+      # The later jobs use these files instead of building them again.
+      - name: Upload distribution
+        uses: actions/upload-artifact@v7
+        with:
+          name: python-sdk-dist
+          path: dist/
+          if-no-files-found: error
+
+  test-wheel:
+    name: "Test wheel (Py ${{ matrix.python-version }})"
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    env:
+      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      # The full-stack tests build mosaicod from the same commit.
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: mosaico-sdk-py/pyproject.toml
+          resolution-strategy: lowest
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: python-sdk-dist
+          path: dist
+
+      # Path of the wheel, for the following steps.
+      - name: Find wheel
+        id: wheel
+        run: echo "path=$(ls dist/mosaicolabs-*.whl)" >> "$GITHUB_OUTPUT"
+
+      - name: Unit tests
+        env:
+          WHEEL: ${{ steps.wheel.outputs.path }}
+        run: ./scripts/tests --sdk-python --wheel "$WHEEL"
+
+      - name: Full-stack tests
+        env:
+          WHEEL: ${{ steps.wheel.outputs.path }}
+        run: ./scripts/tests --full-stack-all --wheel "$WHEEL"
+
+      # The SDK must be importable without the optional `cli` dependencies.
+      - name: Import without extras
+        env:
+          WHEEL: ${{ steps.wheel.outputs.path }}
+        run: |
+          uv venv .venv-core
+          uv pip install --python .venv-core "$WHEEL"
+          .venv-core/bin/python -c 'import mosaicolabs'
+
+      - name: CLI smoke tests
+        env:
+          WHEEL: ${{ steps.wheel.outputs.path }}
+        run: |
+          uv venv .venv-cli
+          uv pip install --python .venv-cli "$WHEEL[cli]"
+          source .venv-cli/bin/activate
+          mosaico --help
+          mosaicolabs.examples --help
+          mosaicolabs.ros_injector --help
+          mosaicolabs.ros_sequence_extractor --help
+          mosaicolabs.mcap_sequence_extractor --help
+          mosaico inject ros --help
+          mosaico extract ros --help
+          mosaico inject mcap --help
+          mosaico extract mcap --help

@@ -2,7 +2,7 @@ name: Release
 
 # Weekly release (see docs/main/docs/dev/release_cycle.md). Started by hand from the Actions tab on
 # `main`: it tests the current commit, tags it as `v0.N.0` with a signed tag and bumps `main` to
-# `0.(N+1).0`. The tag push then triggers the release workflows of every component.
+# `0.(N+1).0`. The tag push then triggers the Publish release workflow (publish.yml).
 #
 # Requires the secrets:
 #   RELEASE_APP_ID, RELEASE_APP_PRIVATE_KEY   GitHub App allowed to push to `main`. Pushes made with
@@ -39,7 +39,7 @@ jobs:
       next_version: ${{ steps.release.outputs.next_version }}
     steps:
       # Full history and tags, to check whether the release tag already exists.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -130,7 +130,7 @@ jobs:
       # The commit the run started from, the one tested by the CI jobs.
       SHA: ${{ github.sha }}
     steps:
-      # The App token can push to main, and its pushes trigger the release workflows.
+      # The App token can push to main, and its pushes trigger the Publish release workflow.
       - name: Generate GitHub App token
         id: app-token
         uses: actions/create-github-app-token@v2
@@ -139,7 +139,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
       # Latest main, where the version bump goes.
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -148,7 +148,7 @@ jobs:
       # Sign the tag and the bump commit with the signing subkey of the release key (the secret holds
       # only the subkeys, so the action must not use the primary key).
       - name: Import release GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
@@ -171,7 +171,7 @@ jobs:
       - name: Tag release
         run: git tag -s "v$VERSION" -m "Mosaico v$VERSION" "$SHA"
 
-      # The release workflows only build tags signed with the release key: check it before pushing.
+      # The Publish release workflow only builds tags signed with the release key: check it first.
       - name: Verify release tag
         uses: ./.github/actions/verify-release-tag
         with:

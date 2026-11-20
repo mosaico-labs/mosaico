@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Instant;
+
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -6,15 +9,15 @@ use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
+use mosaicod_hook as hook;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
-use std::sync::Arc;
-use std::time::Instant;
 use tracing::{debug, info};
 
 pub struct DoPutContext {
     pub inner: facade::Context,
     pub concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
+    pub dispatcher: hook::Dispatcher,
 }
 
 impl std::ops::Deref for DoPutContext {
@@ -150,12 +153,14 @@ async fn do_put_topic_data(
     }
 
     let time = Instant::now();
-    writer.finalize().await?;
+    let metadata = writer.finalize().await?;
     debug!(
         target = "topic finalization",
         finalize_ms = time.elapsed().as_millis()
     );
 
+    ctx.dispatcher
+        .emit(types::HookEvent::TopicUploaded(metadata));
     Ok(())
 }
 
