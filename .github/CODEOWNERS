@@ -1,30 +1,36 @@
 # Code owners for mosaico.
+#
+# Roles:
+#   @cabba      mosaicod maintainer (daemon, Docker images, daemon docs)
+#   @fdicorato  Python SDK maintainer (SDK, Python docs, pre-commit hooks)
+#   @aartoni    Dependency maintainer (lock files and package manifests)
+#   @Luni-4     CI and repository automation maintainer (.github)
 
 # Fallback: root files (README.md, LICENSE, CONTRIBUTING.md, .gitignore)
 # and anything not listed below
-*                           @cabba @fdicorato
+*                                @cabba @fdicorato
 
-/mosaicod/           @cabba
-/mosaicod/Cargo.lock @cabba @aartoni
-/mosaicod/Cargo.toml @cabba @aartoni
+/mosaicod/                       @cabba
+/mosaicod/Cargo.lock             @cabba @aartoni
+/mosaicod/Cargo.toml             @cabba @aartoni
 
-/docker/ @cabba
+/docker/                         @cabba
 
-/mosaico-sdk-py/               @fdicorato
-/mosaico-sdk-py/uv.lock        @fdicorato @aartoni
-/mosaico-sdk-py/pyproject.toml @fdicorato @aartoni
+/mosaico-sdk-py/                 @fdicorato
+/mosaico-sdk-py/uv.lock          @fdicorato @aartoni
+/mosaico-sdk-py/pyproject.toml   @fdicorato @aartoni
 
-/.pre-commit-config.yaml @fdicorato
+/.pre-commit-config.yaml         @fdicorato
 
-/docs/                       @cabba @fdicorato
-/docs/main/docs/daemon/      @cabba
-/docs/main/package-lock.json @cabba @aartoni
+/docs/                           @cabba @fdicorato
+/docs/main/docs/daemon/          @cabba
+/docs/main/package-lock.json     @cabba @aartoni
 
-/docs/py/        @fdicorato
-/docs/py/uv.lock @fdicorato @aartoni
+/docs/py/                        @fdicorato
+/docs/py/uv.lock                 @fdicorato @aartoni
 
-/logo/    @cabba @fdicorato
-/scripts/ @cabba @fdicorato
-/proto/   @cabba @fdicorato
+/logo/                           @cabba @fdicorato
+/scripts/                        @cabba @fdicorato
+/proto/                          @cabba @fdicorato
 
-/.github/ @cabba @Luni-4
+/.github/                        @cabba @Luni-4
