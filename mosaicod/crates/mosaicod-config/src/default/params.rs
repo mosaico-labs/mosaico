@@ -1,10 +1,12 @@
 //! [`Params`], mosaicod's own parameters, and the defaults they fall back to.
 
-use crate::param::{Hidden, Param};
-use mosaicod_core::error;
-use mosaicod_core::types::{LogFormat, LogLevel};
 use std::net::{IpAddr, Ipv4Addr};
 use std::num::NonZero;
+
+use mosaicod_core::error;
+use mosaicod_core::types::{LogFormat, LogLevel};
+
+use crate::param::{Hidden, Param};
 
 pub const GRPC_MSG_MIN_SIZE_BYTES: usize = 4 * 1024 * 1024; // 4MiB. Default grpc message size.
 pub const GRPC_MSG_MAX_SIZE_BYTES: usize = 512 * 1024 * 1024; // 512MiB
@@ -246,9 +248,10 @@ pub fn user_agent() -> String {
 
 #[cfg(test)]
 mod tests {
+    use mosaicod_core::error::ErrorKind;
+
     use super::*;
     use crate::builder::Env;
-    use mosaicod_core::error::ErrorKind;
 
     fn param<T, V>(value: T) -> Param<T, V>
     where

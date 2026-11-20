@@ -1,9 +1,10 @@
 //! [`DefaultConfig`], the [`ConfigSource`] of mosaicod's own parameters.
 
+use mosaicod_core::error;
+
 use super::*;
 use crate::builder::{ConfigSource, Env};
 use crate::param::Param;
-use mosaicod_core::error;
 
 /// Source of mosaicod's own parameters: the `[server]`, `[database]`, ... sections of
 /// `config.toml` and the `MOSAICOD_*` env vars. Builds [`Params`].
@@ -264,10 +265,12 @@ fn build_params(env: &Env, cfg: &ConfigFile, skip_db_config: bool) -> error::Pub
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mosaicod_core::types::{LogFormat, LogLevel};
     use std::net::{IpAddr, Ipv4Addr};
     use std::num::NonZero;
+
+    use mosaicod_core::types::{LogFormat, LogLevel};
+
+    use super::*;
 
     // --- build_params field mapping ---
 

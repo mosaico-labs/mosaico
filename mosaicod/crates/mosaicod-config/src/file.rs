@@ -1,10 +1,11 @@
 //! Finds and reads `config.toml`. Its sections are read by the [`crate::ConfigSource`]s
 //! that declare them.
 
-use etcetera::base_strategy::BaseStrategy;
-use mosaicod_core::error::PublicResult as Result;
 use std::env;
 use std::path::{Path, PathBuf};
+
+use etcetera::base_strategy::BaseStrategy;
+use mosaicod_core::error::PublicResult as Result;
 
 /// Name of the `mosaicod`-specific config directory/file under a config root
 /// (`$XDG_CONFIG_HOME`, `~/.config`, or `/etc`).
@@ -79,8 +80,9 @@ pub(crate) fn read_config_file(path: &Path) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Mutex;
+
+    use super::*;
 
     /// Serializes tests that mutate the shared, process-global env vars this module reads
     /// (`MOSAICOD_CONFIG_FILE`, `XDG_CONFIG_HOME`), since Rust runs tests in parallel

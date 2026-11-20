@@ -2,10 +2,12 @@
 //! `config.toml` and a default, in that precedence order. Reusable by any
 //! [`crate::ConfigSource`].
 
-use crate::builder::Env;
-use mosaicod_core::error;
 use std::marker::PhantomData;
 use std::str::FromStr;
+
+use mosaicod_core::error;
+
+use crate::builder::Env;
 
 /// Marker trait for parameters visibility.
 pub trait ParamVisibility {}
@@ -216,10 +218,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mosaicod_core::error::ErrorKind;
     use std::env;
     use std::num::NonZero;
+
+    use mosaicod_core::error::ErrorKind;
+
+    use super::*;
 
     // SAFETY: each test below uses its own dedicated env var name, so concurrent
     // test threads never observe or mutate each other's variables.

@@ -1,7 +1,8 @@
-use super::{Cleanup, Server, StoreOptimizer};
-use crate::{Context, Execute};
 use clap::Subcommand;
 use mosaicod_core::error::PublicResult as Result;
+
+use super::{Cleanup, Server, StoreOptimizer};
+use crate::{Context, Execute};
 
 /// The commands that run a mosaicod service: the server and its background routines.
 /// A binary adds them to its own commands with `#[command(flatten)]`.

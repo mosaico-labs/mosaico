@@ -9,10 +9,11 @@
 //!
 //! Other [`crate::ConfigSource`]s may declare further sections of the same file.
 
-use mosaicod_core::types::{LogFormat, LogLevel};
-use serde::Deserialize;
 use std::net::IpAddr;
 use std::num::NonZero;
+
+use mosaicod_core::types::{LogFormat, LogLevel};
+use serde::Deserialize;
 
 /// The sections of `config.toml` read by [`super::DefaultConfig`].
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
@@ -136,10 +137,12 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::path::{Path, PathBuf};
+
+    use mosaicod_core::error::PublicResult as Result;
+
     use super::*;
     use crate::file::read_config_file;
-    use mosaicod_core::error::PublicResult as Result;
-    use std::path::{Path, PathBuf};
 
     /// Reads the file at `path` into a [`ConfigFile`].
     fn load_config_file(path: &Path) -> Result<ConfigFile> {

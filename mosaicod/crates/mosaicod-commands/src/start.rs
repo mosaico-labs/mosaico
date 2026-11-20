@@ -6,13 +6,15 @@
 //! parsed command line to [`start`] through [`CommandLine`]. Every command implements
 //! [`Execute`].
 
-use crate::{common, print};
+use std::process::ExitCode;
+
 use clap::Args;
 use mosaicod_config::{self as config, default};
 use mosaicod_core::error::PublicResult as Result;
 use mosaicod_core::types;
-use std::process::ExitCode;
 use tracing::debug;
+
+use crate::{common, print};
 
 /// The flags every mosaicod binary accepts, to add to its CLI with `#[command(flatten)]`.
 #[derive(Args, Debug)]

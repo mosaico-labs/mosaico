@@ -10,16 +10,18 @@
 //!
 //! The result is set once per process with [`set_config`] and read with [`get`].
 
-use crate::file;
-use mosaicod_core::error::{self, PublicResult as Result};
-use serde::Deserialize;
-use serde::de::DeserializeOwned;
-use serde_aux::serde_introspection::serde_introspect;
 use std::any::{Any, TypeId, type_name};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap, btree_map::Entry};
 use std::path::Path;
 use std::sync::OnceLock;
+
+use mosaicod_core::error::{self, PublicResult as Result};
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde_aux::serde_introspection::serde_introspect;
+
+use crate::file;
 
 /// A set of configuration parameters, added to a [`ConfigBuilder`] with
 /// [`ConfigBuilder::add_conf`].
@@ -368,10 +370,11 @@ impl<S: ConfigSource> DynConfigSource for S {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::default::{ConfigFile, DefaultConfig, Params};
     use mosaicod_core::error::ErrorKind;
     use serde::Deserialize;
+
+    use super::*;
+    use crate::default::{ConfigFile, DefaultConfig, Params};
 
     /// A source with its own `[extra]` section and `MOSAICOD_EXTRA_LEVEL` env var.
     struct ExtraSource;
