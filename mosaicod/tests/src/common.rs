@@ -3,6 +3,7 @@ use std::fs;
 use std::net::{IpAddr, Ipv4Addr, TcpListener};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_config::params;
@@ -12,8 +13,10 @@ use mosaicod_facade as facade;
 use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_hook as hook;
+use mosaicod_instance_registry::InstanceHeartbeat;
 use mosaicod_query as query;
 use mosaicod_store as store;
+use tokio::sync::watch;
 use tonic::service::interceptor;
 
 /// This lock prevents a race condition between releasing the TCP listener (used to find a
@@ -45,6 +48,7 @@ pub struct ServerBuilder {
     tls: Option<grpc::TlsConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
+    heartbeat_interval: Option<Duration>,
 }
 
 impl ServerBuilder {
@@ -56,11 +60,19 @@ impl ServerBuilder {
             tls: None,
             db,
             enable_api_key: false,
+            heartbeat_interval: None,
         }
     }
 
     pub fn enable_api_key(mut self) -> Self {
         self.enable_api_key = true;
+        self
+    }
+
+    /// Registers the server in the instance registry and sends a heartbeat every `interval`,
+    /// which drives readiness as in `mosaicod server`. Without it, readiness stays `SERVING`.
+    pub fn with_heartbeat(mut self, interval: Duration) -> Self {
+        self.heartbeat_interval = Some(interval);
         self
     }
 
@@ -121,13 +133,36 @@ impl ServerBuilder {
         let db = self.db;
         let hooks = hook::Dispatcher::spawn(db.clone(), shutdown.token()).unwrap();
 
+        let db_reachable = match self.heartbeat_interval {
+            Some(interval) => {
+                let instance = db::instance_registry_create(
+                    &mut db.connection(),
+                    types::InstanceKind::Server,
+                    "localhost",
+                    std::process::id() as i32,
+                    chrono::Utc::now().timestamp(),
+                    false,
+                )
+                .await
+                .unwrap();
+
+                let heartbeat = InstanceHeartbeat::new((*db).clone(), instance.instance_id)
+                    .with_interval(interval);
+                let db_reachable = heartbeat.db_reachable();
+                tokio::spawn(heartbeat.run(shutdown.token()));
+                db_reachable
+            }
+            None => watch::channel(true).1,
+        };
+
         let flight_server_handle = tokio::task::spawn({
             let shutdown = shutdown.clone();
             let store = (*store).clone();
             let db = db.clone();
 
             async move {
-                if let Err(err) = grpc::serve(store, db, hooks, opts, Some(shutdown.clone())).await
+                if let Err(err) =
+                    grpc::serve(store, db, hooks, opts, db_reachable, Some(shutdown.clone())).await
                 {
                     panic!("flight server error: {}", err);
                 }

@@ -7,11 +7,14 @@ use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_hook as hook;
-use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_instance_registry::InstanceHeartbeat;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
+use tokio::sync::watch;
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
+
+use crate::health;
 
 /// Mosaico server.
 /// Handles incoming requests and manages the database and store.
@@ -96,8 +99,9 @@ impl Server {
     /// Before serving requests, this registers the process in the instance registry (see
     /// `mosaicod ps`) and starts a background heartbeat task tied to the server's shutdown
     /// notifier. Registration failure is treated as fatal, consistent with how other
-    /// DB-dependency failures are handled at startup. Once the server has stopped, the instance
-    /// deregisters itself rather than leaving its row to be reaped later as stale.
+    /// DB-dependency failures are handled at startup. The heartbeat also drives the readiness
+    /// health status (see [`health::READINESS_SERVICE`]). Once the server has stopped, the
+    /// instance deregisters itself rather than leaving its row to be reaped later as stale.
     ///
     /// This method startup a Tokio runtime to handle async operations.
     pub fn start_and_wait<F>(&mut self, rt: tokio::runtime::Runtime, on_start: F) -> Result<()>
@@ -124,17 +128,22 @@ impl Server {
             )
             .await?;
 
-            let handle_heartbeat = rt.spawn(instance_heartbeat_loop(
-                server_db.clone(),
-                instance.instance_id,
-                shutdown.token(),
-            ));
+            let heartbeat = InstanceHeartbeat::new(server_db.clone(), instance.instance_id);
+            let db_reachable = heartbeat.db_reachable();
+            let handle_heartbeat = rt.spawn(heartbeat.run(shutdown.token()));
 
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) =
-                    serve(server_store, server_db, hooks, opts, Some(shutdown.clone())).await
+                if let Err(err) = serve(
+                    server_store,
+                    server_db,
+                    hooks,
+                    opts,
+                    db_reachable,
+                    Some(shutdown.clone()),
+                )
+                .await
                 {
                     error!("{}", err);
                 }
@@ -169,11 +178,14 @@ impl Server {
 
 /// Configures all gRPC services and start to serve requests.
 /// This function is blocking until a shutdown signal is received, if configured.
+///
+/// `db_reachable` drives the readiness health status, see [`health::READINESS_SERVICE`].
 pub async fn serve(
     store: store::StoreRef,
     db: db::Database,
     hooks: hook::Dispatcher,
     opts: Options,
+    db_reachable: watch::Receiver<bool>,
     shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = SocketAddr::new(opts.host, opts.port);
@@ -235,13 +247,19 @@ pub async fn serve(
         info!("gzip compression for gRPC requests is enabled");
     }
 
-    let server = builder.layer(layer).add_service(flight_svc);
+    let (health, health_svc) = health::Health::start(db_reachable).await;
+
+    let server = builder
+        .layer(layer)
+        .add_service(flight_svc)
+        .add_service(health_svc);
 
     if let Some(shutdown_notifier) = shutdown {
         server
-            .serve_with_shutdown(addr, async {
+            .serve_with_shutdown(addr, async move {
                 shutdown_notifier.wait_for_shutdown().await;
                 debug!("received shutdown notification");
+                health.shutdown().await;
             })
             .await?;
     } else {
