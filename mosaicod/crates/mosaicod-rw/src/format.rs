@@ -51,7 +51,6 @@ pub trait ParquetFormatProperties: FormatProperties {
         let parquet_format = ParquetFormat::default().with_skip_metadata(false);
 
         ListingOptions::new(Arc::new(parquet_format))
-            .with_collect_stat(true)
             .with_file_extension(format!(".{}", self.as_extension()))
             .with_file_sort_order(vec![vec![
                 // null_first set to FALSE to match datafusion ASC ordering while retrieving data.
