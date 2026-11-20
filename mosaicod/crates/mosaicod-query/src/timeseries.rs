@@ -83,6 +83,8 @@ impl TimeseriesEngine {
         let mut conf = SessionConfig::new()
             // Reduce the number of partition used to avoid management overhead
             .with_target_partitions(1)
+            // Collect per-file statistics (moved from `ListingOptions` to the session config)
+            .with_collect_statistics(true)
             // Parquet specific optimizations
             .set_bool("datafusion.execution.parquet.pushdown_filters", true)
             .set_bool("datafusion.execution.parquet.reorder_filters", true);
