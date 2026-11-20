@@ -65,7 +65,16 @@ CAMERA_COLUMN_NAMES = ["observation.images.front", "observation.images.wrist"]
 VIDEO_COLUMN_NAME = "observation.images.side"
 """The video feature declared by `with_video`, which has no data column."""
 TIMESTAMP_COLUMN_NAME = "timestamp"
-POSITION_COLUMN_NAMES = ["frame_index", "episode_index", "index"]
+
+FRAME_INDEX_COLUMN_NAME = "frame_index"
+EPISODE_INDEX_COLUMN_NAME = "episode_index"
+INDEX_COLUMN_NAME = "index"
+
+POSITION_COLUMN_NAMES = [
+    FRAME_INDEX_COLUMN_NAME,
+    EPISODE_INDEX_COLUMN_NAME,
+    INDEX_COLUMN_NAME,
+]
 """The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
 TASK_INDEX_COLUMN_NAME = "task_index"
 TASK_COLUMN_NAME = "task"
@@ -148,6 +157,20 @@ def image_value(index: int, camera_column_name: str) -> bytes:
 
 
 # ----- Dataset -----
+
+
+def _scalar_stats(values: List[float] | List[int]) -> Dict[str, List[Any]]:
+    """The LeRobot statistics of a scalar feature (shape `(1,)`) over `values`, without the
+    quantiles (as the LeRobot versions before them wrote them)."""
+    mean = sum(values) / len(values)
+    return {
+        "min": [min(values)],
+        "max": [max(values)],
+        "mean": [mean],
+        # Divided by n, as LeRobot does
+        "std": [math.sqrt(sum((value - mean) ** 2 for value in values) / len(values))],
+        "count": [len(values)],
+    }
 
 
 def _vector_stats(values: List[List[float]]) -> Dict[str, List[Any]]:
@@ -300,6 +323,20 @@ def make_lerobot_dataset(
             episode_row.update(
                 {f"stats/{column_name}/{stat}": val for stat, val in stats.items()}
             )
+
+        for column_name, value in (
+            (
+                FRAME_INDEX_COLUMN_NAME,
+                list(range(0, length)),
+            ),
+            (EPISODE_INDEX_COLUMN_NAME, [episode_index] * length),
+            (INDEX_COLUMN_NAME, list(range(start, start + length))),
+        ):
+            stats = _scalar_stats(value)
+            episode_row.update(
+                {f"stats/{column_name}/{stat}": val for stat, val in stats.items()}
+            )
+
         episode_rows.setdefault(file_index, []).append(episode_row)
 
         start += length

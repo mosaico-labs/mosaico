@@ -112,8 +112,11 @@ class LeRobotDatasetMeta:
 
     @property
     def features(self) -> List[LeRobotFeature]:
-        """The dataset features, in the order of `features` in `meta/info.json`."""
-        return self.info.features
+        """
+        The dataset features, in the order of `features` in `meta/info.json`. This is a copy:
+        `drop_features` returns the metadata without the given features.
+        """
+        return list(self.info.features)
 
     @property
     def codebase_version(self) -> str:
@@ -242,19 +245,26 @@ class LeRobotDatasetMeta:
 
         return episode.stats
 
-    def drop_features(self, to_drop: List[str]):
+    def drop_features(self, to_drop: List[str]) -> "LeRobotDatasetMeta":
         """
-        Removes the given features from the dataset metadata: from `info` and from the stats of
-        every episode. Unknown features are ignored.
+        Returns a copy of the dataset metadata without the given features: removed from `info`
+        and from the stats of every episode. Unknown features are ignored, and this metadata is
+        left unchanged, so that it can be shared.
 
         Args:
             to_drop (List[str]): The names of the features to drop.
+
+        Returns:
+            LeRobotDatasetMeta: The dataset metadata without the given features.
         """
-
-        self.info.drop_features(to_drop)
-
-        for ep in self.episodes_map.values():
-            ep.drop_features(to_drop)
+        return replace(
+            self,
+            info=self.info.drop_features(to_drop),
+            episodes_map={
+                index: episode.drop_features(to_drop)
+                for index, episode in self.episodes_map.items()
+            },
+        )
 
     @classmethod
     def load(cls, root: Path) -> "LeRobotDatasetMeta":
