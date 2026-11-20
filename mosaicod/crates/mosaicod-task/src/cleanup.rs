@@ -3,7 +3,7 @@
 
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
-use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_instance_registry::InstanceHeartbeat;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
 use tokio_util::sync::CancellationToken;
@@ -95,11 +95,10 @@ impl Cleanup {
         // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
         // the caller may still be relying on for other purposes.
         let heartbeat_shutdown = shutdown_notifier.child_token();
-        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
-            self.db.clone(),
-            instance.instance_id,
-            heartbeat_shutdown.clone(),
-        ));
+        let heartbeat_handle = tokio::spawn(
+            InstanceHeartbeat::new(self.db.clone(), instance.instance_id)
+                .run(heartbeat_shutdown.clone()),
+        );
 
         loop {
             let cleanup_res = self.try_cleanup(&shutdown_notifier).await;

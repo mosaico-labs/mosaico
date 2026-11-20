@@ -4,6 +4,9 @@
 //! and the event broker service (`mosaicod-grpc-broker`) into a single runnable
 //! server process. It owns the [`Server`] struct that binds both services to their
 //! configured addresses and coordinates graceful shutdown through a shared
-//! [`ShutdownNotifier`](mosaicod_grpc_common::ShutdownNotifier).
+//! [`ShutdownNotifier`](mosaicod_grpc_common::ShutdownNotifier). Alongside them it serves the
+//! gRPC health checking protocol (see [`health`]).
+pub mod health;
+
 mod server;
 pub use server::*;

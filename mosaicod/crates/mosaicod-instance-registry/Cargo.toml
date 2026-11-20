@@ -9,10 +9,13 @@ license.workspace = true
 [lib]
 name = "mosaicod_instance_registry"
 
+[features]
+testing = []
+
 [dependencies]
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 chrono = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["macros", "sync", "time"] }
 tokio-util = { workspace = true }
 tracing = { workspace = true }

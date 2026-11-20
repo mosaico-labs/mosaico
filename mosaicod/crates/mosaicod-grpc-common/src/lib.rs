@@ -2,8 +2,8 @@
 //!
 //! Provides the building blocks that every service crate depends on:
 //! - [`middleware`] — Tower [`AuthLayer`](middleware::AuthLayer) that validates
-//!   `mosaico-api-key-token` headers and injects [`AuthContext`](middleware::AuthContext)
-//!   into request extensions.
+//!   `mosaico-api-key-token` headers (except on the gRPC health checking methods) and injects
+//!   [`AuthContext`](middleware::AuthContext) into request extensions.
 //! - [`Error`] / [`Result`] — server-level error type with mapping to
 //!   [`tonic::Status`] codes via [`PublicErrorGrpcExt`].
 //! - [`ShutdownNotifier`] — thin wrapper around a [`CancellationToken`](tokio_util::sync::CancellationToken)
