@@ -30,3 +30,5 @@ list. Usernames are case-insensitive.
 - @Razepriv
 - @Manulpatel
 - @m23ayou2
+- @cmdr-chara
+
