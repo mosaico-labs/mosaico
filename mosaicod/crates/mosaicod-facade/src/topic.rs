@@ -169,10 +169,19 @@ pub(super) mod internal {
             total_row_count: stats.total_row_count,
         };
 
-        let time_window_info = if let Some(time_window) = time_window {
-            Some(time_window_info(ts_engine, topic_record, time_window).await?)
-        } else {
-            None
+        let time_window_info = match time_window {
+            // A do_put sets path_in_store before writing the first chunk: querying the (still
+            // empty) data folder would fail, so return an empty window instead.
+            // A chunk is recorded only after its file is written, so chunks_count > 0 guarantees
+            // at least one data file.
+            Some(_) if stats.chunks_count == 0 => Some(TopicTimeWindowInfo {
+                row_count: 0,
+                timestamp_range: types::TimestampRange::unbounded(),
+            }),
+            Some(time_window) => {
+                Some(time_window_info(ts_engine, topic_record, time_window).await?)
+            }
+            None => None,
         };
 
         Ok(TopicInfo {
@@ -907,6 +916,68 @@ mod tests {
                 .await
                 .unwrap()
                 .is_empty()
+        );
+    }
+
+    /// A topic whose upload has started (path_in_store set) but has no chunks yet must report an
+    /// empty time window instead of failing, both for topic and sequence ranged info requests.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_info_ranged_without_chunks(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
+        sequence::try_create(&context, &seq_locator, None)
+            .await
+            .unwrap();
+        let (_, session_uuid) = session::try_create(&context, seq_locator.clone())
+            .await
+            .unwrap();
+
+        let topic_locator = "test_sequence/test_topic"
+            .parse::<types::TopicLocator>()
+            .unwrap();
+        try_create(
+            &context,
+            &topic_locator,
+            &session_uuid,
+            dummy_ontology_metadata(),
+        )
+        .await
+        .unwrap();
+
+        // Simulate the start of a do_put: path_in_store is set, no chunk is written yet.
+        let topic_record = db::topic_find_by_locator(&mut context.db.connection(), &topic_locator)
+            .await
+            .unwrap();
+        assert!(
+            db::topic_update_path_in_store_if_null(
+                &mut context.db.connection(),
+                topic_record.topic_id,
+                types::TopicPathInStore::new(),
+            )
+            .await
+            .unwrap()
+        );
+
+        let window = types::TimestampRange::between(0.into(), 1_000.into());
+
+        let info = super::info(&context, &topic_locator, Some(window))
+            .await
+            .expect("ranged topic info must not fail without chunks");
+        assert_eq!(info.data_info.total_chunks, 0);
+        assert_eq!(info.time_window_info.unwrap().row_count, 0);
+
+        let seq_info = sequence::info(&context, &seq_locator, Some(window))
+            .await
+            .expect("ranged sequence info must not fail without chunks");
+        assert_eq!(seq_info.topics.len(), 1);
+        assert_eq!(
+            seq_info.topics[0]
+                .time_window_info
+                .as_ref()
+                .unwrap()
+                .row_count,
+            0
         );
     }
 }
