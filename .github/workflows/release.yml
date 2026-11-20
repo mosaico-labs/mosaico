@@ -148,7 +148,7 @@ jobs:
       # Sign the tag and the bump commit with the signing subkey of the release key (the secret holds
       # only the subkeys, so the action must not use the primary key).
       - name: Import release GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
