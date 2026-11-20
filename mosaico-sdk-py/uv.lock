@@ -496,6 +496,7 @@ dependencies = [
     { name = "pyarrow", version = "25.0.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pyarrow", version = "26.0.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pydantic" },
+    { name = "pyulog" },
     { name = "rich" },
     { name = "rosbags" },
     { name = "typing-extensions" },
@@ -528,6 +529,7 @@ requires-dist = [
     { name = "protobuf", marker = "python_full_version >= '3.14'", specifier = ">=5.27.0" },
     { name = "pyarrow", specifier = ">=22.0.0" },
     { name = "pydantic", specifier = ">=2.12.5,<3.0.0" },
+    { name = "pyulog", specifier = ">=1.2.4,<1.3" },
     { name = "rich", specifier = ">=14.3.3,<16.0.0" },
     { name = "rosbags", specifier = ">=0.11.2,<0.12.0" },
     { name = "tomli", marker = "python_full_version < '3.11' and extra == 'cli'", specifier = ">=2.0.0,<3.0.0" },
@@ -1388,6 +1390,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/14/21/d83d6ef28c4c912c4bb4d1dcf591f7b8c6bde87b9c66f9f454677314e16d/pytz-2026.5.tar.gz", hash = "sha256:fa23724b9c486543b9ff54a327ee7569ac83ade54bb9afd0fc18676620401c86", size = 318572, upload-time = "2026-10-04T02:37:58.719Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/ef/c66110d46fb800dda0bf33164182dfadabe26a90e4476844d502a23dca8e/pytz-2026.5-py2.py3-none-any.whl", hash = "sha256:e658af3757f9e26a9d25dd2aff38335acd92bc9104f890a894b2c1ba28311b03", size = 506342, upload-time = "2026-10-04T02:37:56.814Z" },
+]
+
+[[package]]
+name = "pyulog"
+version = "1.2.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/42/8f/0bbe7c1531c930e3cfb720e2e4454ebc77aaa74b2fd741db205f27b6f778/pyulog-1.2.4.tar.gz", hash = "sha256:fb0edfde4d545ba46f0f6fb508630547aa02a627a793371e08deff2e2689eba7", size = 131815, upload-time = "2026-08-06T09:53:10.062Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/f4/b25b45c2bce6706b4dd0afaf95bb91938f9c48606436ca5054e604e8462f/pyulog-1.2.4-py3-none-any.whl", hash = "sha256:6830f2c2649a77b00c318a3e519fe87badc8c5f45b8c21cf17a279600d5f3db6", size = 52310, upload-time = "2026-08-06T09:53:08.453Z" },
 ]
 
 [[package]]
