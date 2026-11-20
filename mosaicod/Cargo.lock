@@ -378,7 +378,7 @@ checksum = "82f6aeea286b8eb4dd3431a1be1b59d290ace00f5bfd8e2a159bc2a05e2c1667"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -462,12 +462,6 @@ name = "base64ct"
 version = "1.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
-
-[[package]]
-name = "beef"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 
 [[package]]
 name = "bigdecimal"
@@ -598,9 +592,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.7"
+version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa8876b300ab35ba921adea3dfd70157a46249b33f95c9084ae5709785478946"
+checksum = "844c5c0b65be192cb68d570cca1b21a6444431d24e39c084dc0336177015337c"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -620,14 +614,14 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.6.7"
+version = "4.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9c751b79415d4e559e3d1fcf128e09e720eb673a06d26cf6f392d37d75b66e0"
+checksum = "b4c174f11f949b9ca8c60580925e282b9cbd5454750e506f08648b2038080cd7"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -738,9 +732,9 @@ checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
 
 [[package]]
 name = "crc32fast"
-version = "1.5.2"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01a7799fd6b852db0e61728dde9a204c423b44d689dbd432522543614b490e78"
+checksum = "2b929dd2a135771f40afabd1073f85eed59c800b7c61901e5c254270497dad64"
 dependencies = [
  "cfg-if",
 ]
@@ -1485,7 +1479,7 @@ checksum = "c6232dd377dcc64799954cbd3a9bb882e9cdc1308ccd87b1c098f1fb2eaf82a8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -1564,9 +1558,9 @@ checksum = "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
 
 [[package]]
 name = "filetime"
-version = "0.2.29"
+version = "0.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
+checksum = "e1255e7a9f1902190d4c10a75f2f7f495d3d3ce13e9ba26e6c48683a0f4dbed7"
 dependencies = [
  "cfg-if",
  "libc",
@@ -1710,7 +1704,7 @@ checksum = "9fb9654ba8355388abeb8dcb4fc62f511300867002afc858860463bdd9fe0c44"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -2390,36 +2384,11 @@ checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
 
 [[package]]
 name = "logos"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff472f899b4ec2d99161c51f60ff7075eeb3097069a36050d8037a6325eb8154"
-dependencies = [
- "logos-derive 0.15.1",
-]
-
-[[package]]
-name = "logos"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb2c55a318a87600ea870ff8c2012148b44bf18b74fad48d0f835c38c7d07c5f"
 dependencies = [
- "logos-derive 0.16.1",
-]
-
-[[package]]
-name = "logos-codegen"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "192a3a2b90b0c05b27a0b2c43eecdb7c415e29243acc3f89cc8247a5b693045c"
-dependencies = [
- "beef",
- "fnv",
- "lazy_static",
- "proc-macro2",
- "quote",
- "regex-syntax",
- "rustc_version",
- "syn 2.0.119",
+ "logos-derive",
 ]
 
 [[package]]
@@ -2438,20 +2407,11 @@ dependencies = [
 
 [[package]]
 name = "logos-derive"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "605d9697bcd5ef3a42d38efc51541aa3d6a4a25f7ab6d1ed0da5ac632a26b470"
-dependencies = [
- "logos-codegen 0.15.1",
-]
-
-[[package]]
-name = "logos-derive"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d3a9855747c17eaf4383823f135220716ab49bea5fbea7dd42cc9a92f8aa31"
 dependencies = [
- "logos-codegen 0.16.1",
+ "logos-codegen",
 ]
 
 [[package]]
@@ -2560,7 +2520,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "clap",
  "mimalloc",
@@ -2572,14 +2532,14 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-build"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "chrono",
 ]
 
 [[package]]
 name = "mosaicod-commands"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2604,7 +2564,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-config"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "etcetera 0.11.0",
  "mosaicod-core",
@@ -2615,13 +2575,14 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-core"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "bytes",
  "chrono",
  "clap",
  "crc32fast",
- "rand 0.10.3",
+ "rand 0.10.4",
+ "subtle",
  "thiserror",
  "tracing",
  "tracing-subscriber",
@@ -2632,7 +2593,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-db"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "mosaicod-core",
@@ -2648,7 +2609,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-ext"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "arrow-cast",
@@ -2664,7 +2625,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-facade"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "futures",
@@ -2681,11 +2642,12 @@ dependencies = [
  "tokio",
  "tracing",
  "ulid",
+ "url",
 ]
 
 [[package]]
 name = "mosaicod-grpc"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow-flight",
  "chrono",
@@ -2695,6 +2657,7 @@ dependencies = [
  "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
+ "mosaicod-hook",
  "mosaicod-instance-registry",
  "mosaicod-os",
  "mosaicod-store",
@@ -2707,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-grpc-broker"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "http",
  "mosaicod-core",
@@ -2722,7 +2685,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-grpc-common"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "http",
  "mosaicod-core",
@@ -2736,7 +2699,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-grpc-flight"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "arrow-flight",
@@ -2748,6 +2711,7 @@ dependencies = [
  "mosaicod-ext",
  "mosaicod-facade",
  "mosaicod-grpc-common",
+ "mosaicod-hook",
  "mosaicod-marshal",
  "mosaicod-query",
  "mosaicod-rw",
@@ -2760,8 +2724,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-hook"
+version = "0.8.0"
+dependencies = [
+ "bytes",
+ "mosaicod-config",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-marshal",
+ "reqwest",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "mosaicod-instance-registry"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "mosaicod-core",
@@ -2773,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-marshal"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "mosaicod-core",
  "mosaicod-ext",
@@ -2788,7 +2770,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-os"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "hostname",
  "tracing",
@@ -2796,7 +2778,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-proto"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "prost",
  "prost-build",
@@ -2806,7 +2788,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-query"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "datafusion",
@@ -2825,7 +2807,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-rw"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -2842,7 +2824,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-store"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -2859,7 +2841,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-task"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "datafusion",
@@ -2873,7 +2855,7 @@ dependencies = [
  "mosaicod-os",
  "mosaicod-rw",
  "mosaicod-store",
- "rand 0.10.3",
+ "rand 0.10.4",
  "sqlx",
  "tokio",
  "tokio-util",
@@ -3000,7 +2982,7 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "quick-xml",
- "rand 0.10.3",
+ "rand 0.10.4",
  "reqwest",
  "ring",
  "serde",
@@ -3302,7 +3284,7 @@ version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01b80ea363c31af2de2b92e3c07ed1156628f7838c4afb4df75ee78a37fedbd1"
 dependencies = [
- "logos 0.16.1",
+ "logos",
  "miette",
  "prost",
  "prost-types",
@@ -3319,9 +3301,9 @@ dependencies = [
 
 [[package]]
 name = "protox"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f25a07a73c6717f0b9bbbd685918f5df9815f7efba450b83d9c9dea41f0e3a1"
+checksum = "f43240d7f22cf77d1625885e547acf874dd63cd2790f29f4a38e86256f41996f"
 dependencies = [
  "bytes",
  "miette",
@@ -3334,11 +3316,11 @@ dependencies = [
 
 [[package]]
 name = "protox-parse"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "072eee358134396a4643dff81cfff1c255c9fbd3fb296be14bdb6a26f9156366"
+checksum = "34efee6fad0cf6d71642d20a66bfe0c281919c9577e7c66d20360dfcb7549272"
 dependencies = [
- "logos 0.15.1",
+ "logos",
  "miette",
  "prost-types",
  "thiserror",
@@ -3393,7 +3375,7 @@ dependencies = [
  "bytes",
  "getrandom 0.4.3",
  "lru-slab",
- "rand 0.10.3",
+ "rand 0.10.4",
  "rand_pcg",
  "ring",
  "rustc-hash",
@@ -3464,9 +3446,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
+checksum = "8f6fa277c67e6ea590466f04c3fe82cb509f0864fe470643e5570de9514a9b11"
 dependencies = [
  "chacha20",
  "getrandom 0.4.3",
@@ -3699,9 +3681,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.45"
+version = "0.23.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d41d731c7d2f962d1ccc364cec258de3c0e93b38c2fb3ba97ac74513048d634"
+checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "log",
  "once_cell",
@@ -3864,7 +3846,7 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -3882,9 +3864,9 @@ dependencies = [
 
 [[package]]
 name = "serde_spanned"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e7523beb55eece201a2356bee0bbca0d1ab466c14c07703b2e0ee6d42cb0c2c"
+checksum = "9c187e0a369471c550af028cba56d4f4fa2a489ad28151ae95a4d340a2a8b782"
 dependencies = [
  "serde_core",
 ]
@@ -3940,9 +3922,9 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "signal-hook"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b29ffa27d3d59a049bb328258de100f8012848d1b08d444e08bbc02ac468435e"
+checksum = "49f7447afd772ca79ad17ae0a3972a6b0df0cb4b80990fd82707593e9e012a74"
 dependencies = [
  "libc",
  "signal-hook-registry",
@@ -4307,9 +4289,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.8"
+version = "3.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01016da373cd8f7ef12624f796309f5c31ba8d646dd08856c02cd741d823c622"
+checksum = "4ae9ccbea3a7b0b09443036490c8f34a8b1b760fd345e5c0dae0aac718faea79"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4333,7 +4315,7 @@ checksum = "901704edd0dfe137f1987838ee4f259e4e063c31371bdb423f7ae38ec6f77f02"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -4343,7 +4325,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
@@ -4351,7 +4333,7 @@ dependencies = [
 
 [[package]]
 name = "tests"
-version = "0.8.0-dev"
+version = "0.8.0"
 dependencies = [
  "arrow",
  "arrow-flight",
@@ -4364,6 +4346,7 @@ dependencies = [
  "mosaicod-facade",
  "mosaicod-grpc",
  "mosaicod-grpc-common",
+ "mosaicod-hook",
  "mosaicod-marshal",
  "mosaicod-proto",
  "mosaicod-query",
@@ -4371,7 +4354,7 @@ dependencies = [
  "mosaicod-store",
  "mosaicod-task",
  "prost",
- "rand 0.10.3",
+ "rand 0.10.4",
  "serde",
  "serde_json",
  "sqlx",
@@ -4401,7 +4384,7 @@ checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -4472,7 +4455,7 @@ checksum = "78773a2a397f451582ce068015985c33193cf6dea8b74d2a639fe457b2f07b0e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -4513,9 +4496,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "1.1.8+spec-1.1.0"
+version = "1.2.1+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20489e00e4d8741d6be680764cc12e270655e375a20d1011e844a9c3379e678d"
+checksum = "d5755c51863cdac711f1956baf8eb9588e060755f7d3c4c979e70ea1e1f32cd7"
 dependencies = [
  "serde_core",
  "serde_spanned",
@@ -4526,9 +4509,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "1.1.2+spec-1.1.0"
+version = "1.1.3+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b86d767906c6c42421dcba507eb9d203e779497710a47782a224bb871653053"
+checksum = "173f25c883cd2176a2d8212155638c0a60d484a9d84546d270866f40f56b6e49"
 dependencies = [
  "serde_core",
 ]
@@ -4544,9 +4527,9 @@ dependencies = [
 
 [[package]]
 name = "tonic"
-version = "0.14.6"
+version = "0.14.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef"
+checksum = "e2cdfc673aabd30fe8fee92e65837b644c37c5d47f0f97ae6d5e0f1237d15e1b"
 dependencies = [
  "async-trait",
  "axum",
@@ -4567,6 +4550,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-stream",
+ "tokio-util",
  "tower",
  "tower-layer",
  "tower-service",
@@ -4731,7 +4715,7 @@ version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "947dde63b6d514cc5e044edad4e0ca7261afd1099d16c83d942cb2b2f348689c"
 dependencies = [
- "rand 0.10.3",
+ "rand 0.10.4",
  "web-time",
 ]
 
@@ -4812,9 +4796,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.28.0"
+version = "1.29.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc1186384beb7dd8eedea376413fd654937285ea6c9cfbb928dc3043ea4b606"
+checksum = "3c14b15dffa2f4bd712103e857140aa04a4f2ff6e955c77d7eb8e53ee02a3b64"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
@@ -4922,7 +4906,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
  "wasm-bindgen-shared",
 ]
 
@@ -5231,7 +5215,7 @@ checksum = "ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
  "synstructure",
 ]
 
@@ -5272,7 +5256,7 @@ checksum = "f75b4683f6c7f45248d4d64056a24298c6281e0993356d7d1b4a1a962ef10d4a"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
  "synstructure",
 ]
 
@@ -5312,7 +5296,7 @@ checksum = "34df6fc39dbd26ddc9c10e6a2984476e13acce22e64e4487636ef494369225da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.8",
+ "syn 3.0.10",
 ]
 
 [[package]]

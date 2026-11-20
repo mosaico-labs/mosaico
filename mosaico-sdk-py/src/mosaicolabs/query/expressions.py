@@ -61,8 +61,8 @@ class _QueryExpression:
         aggregator: Optional["query_pb2.Aggregator"] = None,
     ):
         # self.key is the full path used in the final query dict, e.g., "GPS.status".
-        # Aggregated expressions get the aggregator as suffix, e.g., "GPS.status.max()",
-        # so that plain and aggregated expressions on the same field don't collide
+        # Aggregated expressions share the key of the field and carry the aggregator
+        # apart, e.g., "GPS.status" with `AGGREGATOR_MAX`
         self.key = full_path
         self.aggregator = aggregator
 

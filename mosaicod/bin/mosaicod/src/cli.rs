@@ -35,6 +35,9 @@ pub enum Commands {
 
     #[command(subcommand)]
     ApiKey(command::ApiKey),
+
+    #[command(subcommand)]
+    Hook(command::Hook),
 }
 
 impl Execute for Commands {
@@ -43,6 +46,7 @@ impl Execute for Commands {
             Self::Service(cmd) => cmd.execute(ctx),
             Self::Utility(cmd) => cmd.execute(ctx),
             Self::ApiKey(cmd) => cmd.execute(ctx),
+            Self::Hook(cmd) => cmd.execute(ctx),
         }
     }
 }
@@ -168,6 +172,39 @@ mod tests {
         let res = Cli::try_parse_from(["mosaicod", "store-optimizer", "--max-chunk-size", "0"]);
 
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn hook_create_requires_url() {
+        let res = Cli::try_parse_from(["mosaicod", "hook", "create"]);
+
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn hook_rm_takes_several_ids() {
+        let cli = parse(&["hook", "rm", "3", "1", "2"]);
+        let Commands::Hook(command::Hook::Rm { ids }) = cli.cmd else {
+            panic!("expected Hook Rm subcommand")
+        };
+
+        assert_eq!(ids, vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn hook_rm_requires_an_id() {
+        let res = Cli::try_parse_from(["mosaicod", "hook", "rm"]);
+
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn hook_aliases() {
+        let cli = parse(&["hook", "list"]);
+        assert!(matches!(cli.cmd, Commands::Hook(command::Hook::Ls)));
+
+        let cli = parse(&["hook", "remove", "1"]);
+        assert!(matches!(cli.cmd, Commands::Hook(command::Hook::Rm { .. })));
     }
 
     #[test]

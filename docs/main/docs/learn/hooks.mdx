@@ -1,0 +1,198 @@
+---
+title: Reacting to New Data with Hooks
+sidebar_position: 16
+description: "How to run your own code as soon as data lands in Mosaico, instead of polling for it. Covers how hooks work, registering one with mosaicod, receiving its events in Python with HookServer, and two typical use cases: notifying a chat channel when a recording is uploaded, and checking every new IMU topic as soon as it's uploaded."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+A lot of work starts as soon as new data reaches Mosaico: the team wants to know that last night's test drive is available, a quality check should run on every new recording, a pipeline should pick up fresh data. Instead of polling Mosaico for new sequences, you can register a **hook**: an HTTP endpoint that `mosaicod` sends an event to as soon as data lands. The Python SDK's `HookServer` receives those events and calls your functions with them.
+
+The examples below use `HookServer`, but hooks don't need an SDK: in any language, an HTTP server can receive the events, using the format described in [Hooks](../daemon/hooks.md#events).
+
+:::tip[Learn]
+[Doc: Hooks in the Python SDK](https://docs.mosaico.dev/python-sdk/SDK/hook/)
+
+[API Reference: Hook Module](https://docs.mosaico.dev/python-sdk/SDK/API_reference/hook/)
+
+[Daemon: Hooks](../daemon/hooks.md)
+:::
+
+## How Hooks Work
+
+Three pieces work together:
+
+* **The hook**: a URL registered in `mosaicod` with the [`mosaicod hook`](../daemon/cli.md#mosaicod-hook) command. Every hook receives every event.
+* **The events**: `mosaicod` sends an event whenever data lands, and each kind of event has its own class in the SDK. Each event carries the names you need to read the data back, such as `sequence_name`. See [Events](../daemon/hooks.md#events) for every kind and its fields.
+* **The receiver**: an HTTP server, listening at the hook's URL, that runs your code. In Python, the SDK's `HookServer` passes each event to every function decorated with it.
+
+## Receiving Your First Events
+
+With the Python SDK, a receiver is a short script: create a `HookServer`, decorate the functions that should get the events, and start it. Functions tell the events apart by their class.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="hook_server.py"
+from mosaicolabs.hook import Event, HookServer, SessionUploaded, TopicUploaded
+
+hook = HookServer()
+
+@hook
+def on_event(e: Event):
+    match e:
+        case TopicUploaded():
+            print(f"{e.topic_name} uploaded to {e.sequence_name}")
+        case SessionUploaded():
+            print(f"{len(e.topics)} topics uploaded to {e.sequence_name}")
+
+if __name__ == "__main__":
+    hook.start(host="0.0.0.0", port=8080)
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+Run the script: `start()` logs where it listens, and keeps listening until you stop it with Ctrl-C. `host="0.0.0.0"` makes the receiver reachable from other machines, such as the one running `mosaicod`. The default, `127.0.0.1`, only works when `mosaicod` runs on the same machine.
+
+Then register the receiver with `mosaicod`. Replace `<receiver-host>` with the hostname or IP address of the machine running the receiver, as `mosaicod` reaches it, or with `127.0.0.1` when both run on the same machine. With `host="0.0.0.0"`, the receiver's log suggests this command, built from its machine's hostname. `mosaicod` prints the new hook's id, and sends it events from the next upload on, with no restart:
+
+```bash title="Register the hook"
+$ mosaicod hook create http://<receiver-host>:8080/
+3
+```
+
+Now upload a sequence, for example as in [Writing Multiple Topics](./writing_multiple_topics.mdx), and the receiver prints:
+
+```text
+/sensors/imu uploaded to multi_sensor_ingestion
+/sensors/gps uploaded to multi_sensor_ingestion
+/sensors/pressure uploaded to multi_sensor_ingestion
+3 topics uploaded to multi_sensor_ingestion
+```
+
+`mosaicod hook ls` lists the registered hooks, and `mosaicod hook rm 3` removes the one above.
+
+## Use Cases
+
+### Notifying a Channel When a Recording Is Uploaded
+
+The team wants a message in its chat channel whenever a recording is ready. Most chat tools accept messages through an incoming webhook URL, which takes a small JSON body (for Slack, `{"text": ...}`). Reacting to `SessionUploaded` rather than `TopicUploaded` sends one message per upload, once all its topics are in, instead of one per topic.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Notify a chat channel"
+import json
+import os
+import urllib.request
+
+from mosaicolabs.hook import Event, HookServer, SessionUploaded
+
+# The channel's incoming webhook URL.
+CHAT_WEBHOOK_URL = os.environ["CHAT_WEBHOOK_URL"]
+
+hook = HookServer()
+
+@hook
+def notify(e: Event):
+    if not isinstance(e, SessionUploaded):
+        return
+
+    text = f"{e.sequence_name}: {len(e.topics)} topics uploaded"
+    request = urllib.request.Request(
+        CHAT_WEBHOOK_URL,
+        data=json.dumps({"text": text}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(request, timeout=10)
+
+if __name__ == "__main__":
+    hook.start(host="0.0.0.0", port=8080)
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+### Checking Every New IMU Topic
+
+A quality check should run on every IMU recording, as soon as it's available, rather than on a schedule. When `TopicUploaded` arrives, the topic's data is complete and can't change anymore, so the function can read it back right away. Here it streams the topic, as in [Streaming Data](./streaming_data.mdx), and reports accelerations beyond the sensor's range, a sign of a faulty or misconfigured IMU.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Check every new IMU topic"
+import math
+
+from mosaicolabs import IMU, MosaicoClient
+from mosaicolabs.hook import Event, HookServer, TopicUploaded
+
+MAX_ACCELERATION = 16 * 9.81  # The IMU's range, in m/s²
+
+hook = HookServer()
+
+@hook
+def check_imu(e: Event):
+    if not isinstance(e, TopicUploaded) or e.ontology_tag != IMU.ontology_tag():
+        return
+
+    peak = 0.0
+    with MosaicoClient.connect("localhost", 6726) as client:
+        top_handler = client.topic_handler(e.sequence_name, e.topic_name)
+        if not top_handler:
+            return
+
+        for msg in top_handler.get_data_streamer():
+            imu = msg.get_data(IMU)
+            if imu:
+                a = imu.acceleration
+                peak = max(peak, math.hypot(a.x, a.y, a.z))
+        top_handler.close()
+
+    if peak > MAX_ACCELERATION:
+        print(f"{e.sequence_name}{e.topic_name}: peak acceleration {peak:.1f} m/s²")
+
+if __name__ == "__main__":
+    hook.start(host="0.0.0.0", port=8080)
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+Reading a whole topic back takes a while, and that's fine: `HookServer` answers `mosaicod` before running your functions, so a slow function doesn't make `mosaicod` send the event again. Since functions can run for several events at once, each call opens its own client.
+
+:::note
+Both functions can live in the same receiver: decorate them on one `HookServer`, and each gets every event.
+:::
+
+## Key Concepts
+
+- **Best effort**: an event can be lost, for example if the receiver is down longer than `mosaicod` keeps retrying, and it can arrive twice, with the same `id`. Use `e.id` to skip duplicates when they matter. See [Delivery](../daemon/hooks.md#delivery) for the details.
+- **Answered before your functions run**: `HookServer` answers `mosaicod` as soon as an event arrives, then runs your functions. A slow function never makes `mosaicod` send the event again, but a function that fails isn't retried: it's logged, and the other functions still run.
+- **Concurrency**: functions for different events run at the same time, on a thread pool. Protect any state they share, for example with a lock.
+- **No authentication**: anything that can reach the receiver can send it events. Keep it on a network only `mosaicod` can reach.

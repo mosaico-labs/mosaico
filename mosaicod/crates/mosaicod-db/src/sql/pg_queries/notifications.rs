@@ -1,6 +1,7 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use tracing::trace;
+
+use crate::{Error, core::AsExec, sql::schema};
 
 /// Creates a new notification associated with a topic.
 pub async fn topic_notification_create(

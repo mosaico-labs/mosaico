@@ -264,6 +264,66 @@ async fn test_api_key_invalid_token(pool: sqlx::Pool<db::DatabaseType>) {
     server.shutdown().await;
 }
 
+/// The fingerprint identifies a key and the payload authenticates it. A token whose
+/// fingerprint matches a stored key but whose payload differs must be rejected.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_api_key_payload_mismatch(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool)
+        .enable_tls()
+        .enable_api_key()
+        .build()
+        .await;
+
+    let presented = types::auth::Token::new();
+
+    // Store a key with the same fingerprint as `presented` but a different payload.
+    // Distinct payloads can share a fingerprint, since it is a 32-bit checksum. The key
+    // grants every permission, so any request the server accepted would show up below.
+    let other = types::auth::Token::new();
+    assert_ne!(other.payload(), presented.payload());
+    let stored = types::ApiKey {
+        key: types::auth::Token::from_bytes(
+            other.payload().as_bytes().try_into().unwrap(),
+            presented.fingerprint().as_bytes().try_into().unwrap(),
+        ),
+        permission: "read|write|delete".parse().unwrap(),
+        description: String::new(),
+        created_at: types::Timestamp::now(),
+        expires_at: None,
+    };
+    db::api_key_create(&mut server.context().db.connection(), stored)
+        .await
+        .unwrap();
+
+    // `presented` is well formed, so it gets past parsing and is rejected by the payload
+    // comparison: PermissionDenied, not the InvalidArgument a malformed token gets.
+    let mut client = make_client(&presented, server.port()).await;
+
+    let mismatch = actions::sequence_create(&mut client, "payload_mismatch_seq", "")
+        .await
+        .unwrap_err();
+    assert_eq!(mismatch.code(), tonic::Code::PermissionDenied);
+
+    let res = actions::sequence_delete(&mut client, "payload_mismatch_seq").await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
+
+    assert_eq!(
+        try_read(&mut client).await,
+        Some(tonic::Code::PermissionDenied)
+    );
+
+    // A token whose fingerprint is not registered gets exactly the same error, so a
+    // client cannot tell whether a fingerprint is registered.
+    let mut unregistered = make_client(&types::auth::Token::new(), server.port()).await;
+    let res = actions::sequence_create(&mut unregistered, "payload_mismatch_seq", "")
+        .await
+        .unwrap_err();
+    assert_eq!(res.code(), mismatch.code());
+    assert_eq!(res.message(), mismatch.message());
+
+    server.shutdown().await;
+}
+
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
     const TTL: std::time::Duration = std::time::Duration::from_secs(1);

@@ -26,7 +26,7 @@ def _require_profile(ctx: typer.Context):
             "[bold red]Error:[/bold red] No default profile found. "
             "Set a default profile or specify one using --profile."
         )
-        raise SystemExit(1)
+        raise typer.Exit(code=1)
 
 
 @app.command(name="ls")

@@ -78,6 +78,7 @@ pub struct StoreConfig {
     /// Path to a file containing the secret key. There is no plain `secret_key` field —
     /// literal secret values are env/CLI only, never read from this file.
     pub secret_key_file: Option<String>,
+    pub connection_timeout: Option<NonZero<u32>>,
 }
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]

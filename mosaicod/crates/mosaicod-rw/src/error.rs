@@ -15,6 +15,8 @@ pub enum Error {
     Unsupported,
     #[error("blocking operation failed: {0}")]
     BlockingOperationError(String),
+    #[error("cannot finalize a chunk without samples")]
+    EmptyChunk,
 }
 
 impl core::error::PublicError for Error {

@@ -1,8 +1,9 @@
-use crate::{Context, Execute, common, print};
 use clap::Args;
 use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
+
+use crate::{Context, Execute, common, print};
 
 /// List registered mosaicod instances (server, cleanup) and cleanup routine status.
 #[derive(Args, Debug)]

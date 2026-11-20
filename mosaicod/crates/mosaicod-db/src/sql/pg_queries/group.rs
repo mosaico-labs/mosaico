@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
+use mosaicod_core::types;
+
 use super::*;
 use crate::{Error, core::AsExec, sql::schema};
-use mosaicod_core::types;
-use std::collections::HashMap;
 
 pub async fn sequences_group_from_topics(
     exe: &mut impl AsExec,

@@ -15,6 +15,7 @@ mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-grpc = { workspace = true }
 mosaicod-grpc-common = { workspace = true }
 mosaicod-facade = { workspace = true }
+mosaicod-hook = { workspace = true, features = ["testing"] }
 mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true}

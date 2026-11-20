@@ -25,6 +25,7 @@ pub const DEFAULT_STORE_BUCKET: &str = "";
 pub const DEFAULT_STORE_REGION: &str = "";
 pub const DEFAULT_STORE_SECRET_KEY: &str = "";
 pub const DEFAULT_STORE_ACCESS_KEY: &str = "";
+pub const DEFAULT_STORE_CONNECTION_TIMEOUT: NonZero<u32> = NonZero::new(5).unwrap();
 pub const DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE: usize = 0;
 pub const DEFAULT_HOST: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
 pub const DEFAULT_PORT: NonZero<u16> = NonZero::new(6726).unwrap();
@@ -174,14 +175,23 @@ pub struct Params {
     pub store_endpoint: Param<String>,
     pub store_bucket: Param<String>,
 
-    /// Region of the S3-compatible object store. When empty, the object store client
-    /// default is used. Ignored by the local filesystem backend.
+    /// Region where the bucket is located (e.g. `eu-south-1`).
+    ///
+    /// Region is a general concept shared by many cloud storage services.
+    /// For example, an S3 store uses it to sign requests, so on AWS it must
+    /// match the region of the bucket. Ignored by the local filesystem backend.
+    /// When empty, the object store client default (`us-east-1`) is used.
     pub store_region: Param<String>,
 
     /// May also be set via `MOSAICOD_STORE_SECRET_KEY_FILE` (see [`Param::optional_or_file`]).
     pub store_secret_key: Param<String, Hidden>,
 
     pub store_access_key: Param<String>,
+
+    /// Store connection timeout, in seconds.
+    ///
+    /// Defaults to 5 seconds.
+    pub store_connection_timeout: Param<NonZero<u32>>,
 }
 
 impl Params {
@@ -227,6 +237,11 @@ pub fn version() -> String {
         version.push_str("-devel");
     }
     version
+}
+
+/// The `User-Agent` mosaicod sends with its HTTP requests: `mosaicod/<version>`.
+pub fn user_agent() -> String {
+    format!("mosaicod/{}", version())
 }
 
 #[cfg(test)]
@@ -277,6 +292,7 @@ mod tests {
             store_region: param(DEFAULT_STORE_REGION.to_owned()),
             store_secret_key: param(DEFAULT_STORE_SECRET_KEY.to_owned()),
             store_access_key: param(DEFAULT_STORE_ACCESS_KEY.to_owned()),
+            store_connection_timeout: param(DEFAULT_STORE_CONNECTION_TIMEOUT),
             store_optimizer_memory_pool_size: param(DEFAULT_STORE_OPTIMIZER_MEMORY_POOL_SIZE),
             store_optimizer_time_interval: param(DEFAULT_STORE_OPTIMIZER_TIME_INTERVAL),
             store_optimizer_max_chunk_size: param(DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE),

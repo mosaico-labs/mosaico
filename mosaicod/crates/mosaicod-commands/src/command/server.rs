@@ -1,14 +1,16 @@
-use crate::{Context, Execute, common, print};
+use std::net::IpAddr;
+use std::num::NonZero;
+use std::thread;
+
 use clap::Args;
 use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
-use std::net::IpAddr;
-use std::num::NonZero;
-use std::thread;
 use tracing::{debug, info};
+
+use crate::{Context, Execute, common, print};
 
 /// Start the mosaicod server.
 #[derive(Args, Debug)]
@@ -41,12 +43,13 @@ impl Execute for Server {
 /// If `json_log` is enabled logs will be formatted in JSON format and startup info
 /// are hidden.
 fn server(args: Server, json_format: bool) -> Result<()> {
-    info!("startup store");
-    let store = common::init_store()?;
-    let store_display_name = print::store_display_name(&store);
-
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
+
+    info!("startup store");
+    let store = common::init_store()?;
+    common::check_store_connectivity(&rt, &store)?;
+    let store_display_name = print::store_display_name(&store);
 
     let params = default::params();
 

@@ -1,0 +1,470 @@
+"""
+These tests require the connection to the server (localhost)
+"""
+
+import logging as log
+import string
+
+import pyarrow as pa
+import pytest
+from pyarrow import ArrowInvalid
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.enum import (
+    SequenceStatus,
+    SerializationFormat,
+    SessionLevelErrorPolicy,
+)
+from mosaicolabs.handlers import TopicWriter
+from mosaicolabs.handlers.helpers import (
+    _SUPPORTED_SEQUENCE_NAME_CHARS,
+    _SUPPORTED_TOPIC_NAME_CHARS,
+)
+from mosaicolabs.models.sensors.imu import IMU
+from testing.integration.config import UPLOADED_SEQUENCE_NAME
+
+
+def test_invalid_host():
+    with pytest.raises(
+        ConnectionError,
+        match="Connection to Flight server at 'invalid-address:0' failed on startup",
+    ):
+        MosaicoClient.connect(host="invalid-address", port=0, timeout=0)
+
+
+def test_read_non_existing_sequence_and_topic(mosaico_client: MosaicoClient):
+    log.info("Expected three (3) errors after this line...")
+    assert mosaico_client.sequence_handler("non-existing-sequence") is None
+    assert (
+        mosaico_client.topic_handler(sequence_name="non-existing", topic_name="/topic")
+        is None
+    )
+
+
+def test_sequence_writer_bad_metadata(mosaico_client: MosaicoClient):
+    with pytest.raises(ValueError, match="Metadata must be a dictionary"):
+        with mosaico_client.sequence_create(
+            "new-sequence-bad-metadata",
+            metadata="{",  # type: ignore
+            on_error=SessionLevelErrorPolicy.Delete,
+        ) as _:
+            pass
+
+
+def test_topic_writer_bad_metadata(mosaico_client: MosaicoClient):
+    with pytest.raises(ValueError, match="Metadata must be a dictionary"):
+        with mosaico_client.sequence_create(
+            "new-sequence",
+            metadata={},
+            on_error=SessionLevelErrorPolicy.Delete,
+        ) as sw:
+            sw.topic_create(
+                "new-topic",
+                metadata="{",  # type: ignore
+                ontology_type=IMU,
+            )
+
+
+def test_sequence_writer_not_in_context(mosaico_client: MosaicoClient):
+    swriter = mosaico_client.sequence_create(
+        "new-sequence", metadata={}, on_error=SessionLevelErrorPolicy.Delete
+    )
+    assert swriter.status == SequenceStatus.Null
+    with pytest.raises(
+        RuntimeError,
+        match="SequenceWriter or SequenceUpdater must be used within a 'with' block.",
+    ):
+        swriter._check_entered()
+
+
+@pytest.mark.parametrize(
+    "non_alphanum",
+    [p for p in string.punctuation if p not in _SUPPORTED_SEQUENCE_NAME_CHARS],
+)
+def test_sequence_invalid_char_in_name(
+    mosaico_client: MosaicoClient, non_alphanum: str
+):
+    if non_alphanum != "/":
+        # '/' is supported at the beginning of the name
+        invalid_sequence_name = f"{non_alphanum}sequence-name"
+
+        # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+        # which triggers the report condition
+        with pytest.raises(
+            ValueError, match="does not begin with a letter or a number"
+        ):
+            with mosaico_client.sequence_create(
+                invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+            ) as _:
+                pass
+
+    invalid_sequence_name = f"invalid{non_alphanum}sequence-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+        with mosaico_client.sequence_create(
+            invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as _:
+            pass
+
+    invalid_sequence_name = f"/invalid{non_alphanum}sequence-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+        with mosaico_client.sequence_create(
+            invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as _:
+            pass
+
+
+def test_sequence_empty_name(mosaico_client: MosaicoClient):
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(
+        ValueError, match="Empty sequence name"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as _:
+            pass
+
+    with pytest.raises(
+        ValueError, match="does not begin with a letter or a number"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "/", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as _:
+            pass
+
+
+def test_sequence_startswith_double_slash(mosaico_client: MosaicoClient):
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(
+        ValueError, match="Malformed sequence name"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "//sequence-name", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as _:
+            pass
+
+
+@pytest.mark.parametrize(
+    "non_alphanum",
+    [p for p in string.punctuation if p not in _SUPPORTED_TOPIC_NAME_CHARS],
+)
+def test_topic_invalid_char_in_name(mosaico_client: MosaicoClient, non_alphanum: str):
+    invalid_topic_name = f"{non_alphanum}invalid-topic-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="does not begin with a letter or a number"):
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create(invalid_topic_name, {}, IMU)
+
+    invalid_topic_name = f"invalid{non_alphanum}topic-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create(invalid_topic_name, {}, IMU)
+
+    invalid_topic_name = f"/invalid{non_alphanum}topic-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create(invalid_topic_name, {}, IMU)
+
+
+def test_topic_empty_name(mosaico_client: MosaicoClient):
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(
+        ValueError, match="Empty topic name"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create("", {}, IMU)
+
+    with pytest.raises(
+        ValueError, match="does not begin with a letter or a number"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create("/", {}, IMU)
+
+
+def test_topic_startswith_double_slash(mosaico_client: MosaicoClient):
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(
+        ValueError, match="Malformed topic name"
+    ):  # triggers pathlib.path exception
+        with mosaico_client.sequence_create(
+            "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            sw.topic_create("//invalid/topic/name", {}, IMU)
+
+
+class NotSerializable:
+    __msco_pyarrow_struct__ = pa.struct(
+        [
+            pa.field(
+                "field",
+                pa.float32(),
+                nullable=False,
+            ),
+        ]
+    )
+    # Define Serializable inner variables, to make the test passing the getattr error
+    __ontology_tag__ = "not_serializable"
+    __serialization_format__ = SerializationFormat.Ragged
+    __class_type__ = type
+    field: float
+
+
+def test_topic_push_not_serializable(mosaico_client: MosaicoClient):
+    ontology_type = type
+    # Check raise value
+    with pytest.raises(ValueError, match="is not serializable"):
+        # type must fail here
+        TopicWriter._validate_ontology_type(ontology_type)  # type: ignore (disable pylance complaining)
+
+    # We do not want to keep the next created sequence on the server: we will raise an Exception
+    # to trigger the Abort mechanism (which will be tested in a separate test). This block is necessary
+    # to make the test successfull (do not fail after raised exception)
+    with pytest.raises(ChildProcessError):
+        with mosaico_client.sequence_create(
+            "test-seq-not-seerializable", {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as sw:
+            # This must fail: type is not serializable
+            tw = sw.topic_create("test-topic-unregistered", {}, ontology_type)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # This must fail: type is not serializable, although has all the variables injected by Serializable,
+            # but it is not a subclass
+            tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # do not want to keep this sequence on the server...
+            # Generate a specific Exception which is not raised by above functions
+            # (we want to be sure the test runs till here)
+            raise ChildProcessError
+
+
+def test_non_existing_topic_handler(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,
+):
+    """Test the exception raising of non-existing topic handler from sequence"""
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(
+        ValueError, match="Topic 'non-existing-topic-name' not available in sequence"
+    ):
+        seqhandler.get_topic_handler("non-existing-topic-name")
+
+
+def test_sequence_streamer_non_existing_topics(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,
+):
+    """Test the exception raising of non-existing topics when spawning data-stream from sequence"""
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(ValueError, match="Invalid input topic names"):
+        seqhandler.get_data_streamer(
+            topics=[
+                "non-existing-topic-name",
+            ]
+        )
+
+
+def test_sequence_invalid_metadata_key(mosaico_client: MosaicoClient):
+
+    invalid_metadata = {"ok-key1": 0, "invalid--key": 1, "ok-key2": 2}
+
+    # metadata contains a key with `--` (invalid)
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "(invalid-key)": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid-[key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid$-$key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "i*nva*lid-key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "i%nvalid-key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid^key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid{key}": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid++key=": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid<key>": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, r"invalid/|\key=": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid@key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+        invalid_metadata = {"ok-key1": 0, "invalid~key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass

@@ -215,6 +215,12 @@ fn build_params(env: &Env, cfg: &ConfigFile, skip_db_config: bool) -> error::Pub
             cfg.store.access_key.clone(),
             DEFAULT_STORE_ACCESS_KEY.to_owned(),
         )?,
+        store_connection_timeout: Param::optional(
+            "MOSAICOD_STORE_CONNECTION_TIMEOUT",
+            env,
+            cfg.store.connection_timeout,
+            DEFAULT_STORE_CONNECTION_TIMEOUT,
+        )?,
 
         // store optimizer
         store_optimizer_memory_pool_size: Param::optional(
@@ -346,6 +352,7 @@ mod tests {
                 region: Some("eu-south-1".to_owned()),
                 access_key: Some("access-key".to_owned()),
                 secret_key_file: Some(secret_key_path.to_str().unwrap().to_owned()),
+                connection_timeout: NonZero::new(15),
             },
             query_engine: QueryEngineConfig {
                 memory_pool_size: Some(1000),
@@ -406,6 +413,7 @@ mod tests {
         assert_eq!(p.store_region.value, "eu-south-1");
         assert_eq!(p.store_access_key.value, "access-key");
         assert_eq!(p.store_secret_key.value, "secret-key-from-file");
+        assert_eq!(p.store_connection_timeout.value.get(), 15);
 
         assert_eq!(p.query_engine_memory_pool_size.value, 1000);
         assert_eq!(p.max_concurrent_chunk_queries.value.get(), 2);

@@ -1,4 +1,5 @@
-use crate::{Context, Execute, common};
+use std::sync::Arc;
+
 use clap::{ArgGroup, Subcommand};
 use colored::Colorize;
 use mosaicod_config::default;
@@ -6,8 +7,9 @@ use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
-use std::sync::Arc;
 use tracing::error;
+
+use crate::{Context, Execute, common};
 
 /// Manage mosaico API keys.
 #[derive(Subcommand, Debug)]
@@ -77,10 +79,7 @@ fn auth(auth: ApiKey) -> Result<()> {
 
     let params = default::params();
 
-    let ts_gw = Arc::new(query::TimeseriesEngine::try_new(
-        store.clone(),
-        params.query_engine_memory_pool_size.value,
-    )?);
+    let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0)?);
 
     let db = common::init_db(
         &rt,

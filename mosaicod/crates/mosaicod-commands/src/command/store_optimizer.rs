@@ -1,14 +1,16 @@
-use crate::{Context, Execute, common};
+use std::num::NonZero;
+use std::thread;
+
 use clap::Args;
 use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_task as task;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
-use std::num::NonZero;
-use std::thread;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
+
+use crate::{Context, Execute, common};
 
 /// Run the store optimization routine.
 #[derive(Args, Debug)]
@@ -36,11 +38,12 @@ impl Execute for StoreOptimizer {
 
 /// Run the store optimization routine.
 fn store_optimization(args: StoreOptimizer) -> Result<()> {
-    info!("startup store");
-    let store = common::init_store()?;
-
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
+
+    info!("startup store");
+    let store = common::init_store()?;
+    common::check_store_connectivity(&rt, &store)?;
 
     let params = default::params();
 

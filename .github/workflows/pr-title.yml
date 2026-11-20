@@ -1,0 +1,56 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: read # to fetch the current PR title
+
+jobs:
+  validate-title:
+    name: "Validate PR title"
+    # Drafts cannot be merged, so the title is checked once the PR is ready for review
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: lint
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            refactor
+            perf
+            test
+            chore
+            ci
+            build
+          # Each entry is a regex. Multiple scopes are comma separated: `feat(mosaicod, sdk-py):`
+          scopes: |
+            mosaicod
+            sdk-.+
+            docs
+            cli
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+(?<!\.)$
+          subjectPatternError: |
+            The description "{subject}" in PR title "{title}" must start with a lowercase letter
+            and must not end with a period.
+
+      - name: Require scope for component changes
+        if: ${{ contains(fromJSON('["feat", "fix", "refactor", "perf", "test"]'), steps.lint.outputs.type) }}
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            refactor
+            perf
+            test
+          requireScope: true

@@ -2,6 +2,7 @@
 use mosaicod_core::{self as core, types};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
+use mosaicod_hook as hook;
 use mosaicod_marshal::ActionResponse;
 use tracing::{info, trace, warn};
 
@@ -28,6 +29,7 @@ pub async fn create(
 
 pub async fn finalize(
     ctx: &facade::Context,
+    dispatcher: &hook::Dispatcher,
     session_uuid: String,
 ) -> grpc_common::Result<ActionResponse> {
     info!("finalizing session {}", session_uuid);
@@ -36,9 +38,11 @@ pub async fn finalize(
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
-    facade::session::finalize(ctx, &uuid).await?;
+    let metadata = facade::session::finalize(ctx, &uuid).await?;
 
     trace!("session `{}` finalized", uuid);
+
+    dispatcher.emit(types::HookEvent::SessionUploaded(metadata));
 
     Ok(ActionResponse::session_finalize())
 }

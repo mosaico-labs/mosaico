@@ -16,6 +16,7 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
 crc32fast = { workspace = true }
+subtle = { workspace = true }
 bytes = { workspace = true }
 ulid = { workspace = true }
 clap = { workspace = true }

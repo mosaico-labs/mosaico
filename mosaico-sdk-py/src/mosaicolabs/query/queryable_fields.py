@@ -10,6 +10,10 @@ sense for its data type (e.g. numeric fields get `.lt()`/`.gt()`/`.between()`,
 string fields get `.match()`, boolean fields only get `.eq()`), so building an
 expression on the wrong operator is a type error, not a runtime surprise.
 
+The same holds for the aggregators, which compare a single value computed over
+the whole topic instead of the single samples (e.g. `.max()`, `.mean()`,
+`.count()`): each class only exposes the aggregators supported by its data type.
+
 Because a `Queryable*` field only needs a fully-qualified, dot-notated path
 (`f"{ontology_tag}.field.subfield"`) to build its `_QueryCatalogExpression`, the
 classes in this module double as a class-free escape hatch for
@@ -54,6 +58,12 @@ class QueryableNumeric(_QueryableField, _QueryableNumeric):
     is available. It exposes the numeric operators `.eq()`, `.lt()`, ...
     Values passed to any operator must be `int` or `float`.
 
+    It also exposes all the aggregators: `.max()`, `.min()`, `.range()`,
+    `.count()`, `.count_valid()`, `.mean()`, `.var()`, `.std()`, `.first()`,
+    `.last()` and `.rate()`. An aggregator returns a copy of the field, whose
+    operators compare the aggregated value, e.g.
+    `QueryableNumeric("IMU.acceleration.x").max().lt(20.0)`.
+
     Use it directly when you know the exact server-side field path you want to
     filter on but don't have (or don't want to construct) a `Serializable` class
     to hang a `.Q` proxy off of - most commonly for
@@ -86,6 +96,12 @@ class QueryableString(_QueryableField, _QueryableString):
     available. It exposes the string operators `.eq()`, `.match()`, ...
     Values passed to any operator must be `str`.
 
+    It also exposes the aggregators `.max()`, `.min()`, `.first()` and
+    `.last()`, whose operators compare strings (lexicographically, for `.max()`
+    and `.min()`), and `.count()`, `.count_valid()` and `.rate()`, which return
+    a [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric]
+    field, e.g. `QueryableString("IMU.frame_id").count().gt(100)`.
+
     Use it directly when you know the exact server-side field path you want to
     filter on but don't have (or don't want to construct) a `Serializable` class
     to hang a `.Q` proxy off of - most commonly for
@@ -117,6 +133,9 @@ class QueryableBool(_QueryableField, _QueryableBool):
     get, and what you can construct directly by path when no resolved class is
     available. Booleans only support equality, so it exposes just `.eq()`.
     Values passed to the operator must be `bool`.
+
+    It also exposes the aggregators `.max()` (`True` if at least one sample is
+    `True`) and `.min()` (`True` if every sample is `True`).
 
     Use it directly when you know the exact server-side field path you want to
     filter on but don't have (or don't want to construct) a `Serializable` class

@@ -1,0 +1,92 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO column_chunk_numeric_t(\n            column_id, chunk_id,\n            min_value, max_value,\n            null_count, nan_count,\n            first_sample_value, last_sample_value,\n            mean_value, m2_value,\n            is_list\n        )\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n        RETURNING *",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "column_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "chunk_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "min_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 3,
+        "name": "max_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 4,
+        "name": "nan_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "null_count",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "first_sample_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_sample_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 8,
+        "name": "mean_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 9,
+        "name": "m2_value",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 10,
+        "name": "is_list",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Float8",
+        "Float8",
+        "Int8",
+        "Int8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Float8",
+        "Bool"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "055e2e42c4dbc2be95d6199115280e8d892ba10bc42f16c6991350187e590fe1"
+}

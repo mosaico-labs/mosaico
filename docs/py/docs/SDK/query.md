@@ -505,11 +505,11 @@ While the `.Q` proxy is highly versatile, it enforces specific rules on which da
     * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
     * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
     * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
-* **Lists**: Fields defined as a `List` (e.g. `positions: List[float]`) are fully queryable — see [Querying List Fields](#querying-list-fields) below.
+* **Lists**: Fields defined as a `List` (e.g. `positions: List[float]`) are fully queryable, either element by element or aggregated as a whole — see [Querying List Fields](#querying-list-fields) and [Aggregators on List Fields](#aggregators-on-list-fields) below.
 
 ### Querying List Fields
 
-List fields **can't be compared directly**. The proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining an operator for the element's type:
+List fields **can't be compared directly**. To filter on single elements, the proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining an operator for the element's type:
 
 | Quantifier | Meaning |
 | --- | --- |
@@ -535,11 +535,26 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 `.all()` and `[i]` follow the same pattern, e.g. `RobotJoint.Q.efforts.all().leq(50.0)` (every joint within a safe effort limit) or `RobotJoint.Q.positions[0].gt(1.0)` (first joint's position).
 
+On a **list of structs** (e.g. `poses: List[Pose]`), the quantifier selects the structs, whose fields are then reached with the usual dot notation:
+
+```python
+from mosaicolabs.models.data import RobotPath
+
+RobotPath.Q.poses.any().position.z.gt(1.0)  # At least one pose above 1 m
+RobotPath.Q.poses[0].position.x.lt(0.0)     # The first pose behind the origin
+```
+
 !!! note
     A quantifier or index alone (`.any()`, `.all()`, `[i]`) is not a complete filter, it only narrows the path to a single element. A terminal operator (`.eq()`, `.gt()`, `.match()`, ...) must always be chained afterwards to form a valid expression.
 
+The following constraints apply to list fields:
+
+* **One quantifier per path**: a list inside a list already narrowed by a quantifier can't be narrowed again, e.g. `RobotPath.Q.poses.any().position.covariance.any()` raises a `TypeError`.
+* **No iteration**: a list field is a path, not a list of values, so iterating over it (e.g. `for p in RobotJoint.Q.positions`) raises a `TypeError`.
+* **Empty lists**: an empty list has no element, so it satisfies neither `.any()` nor `.all()`, whatever the condition.
+
 ??? question "API Reference"
-    [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy]
+    [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy],
 
 ### Aggregators
 
@@ -559,13 +574,32 @@ For example:
 
 | Aggregator | Description | Data Types |
 | --- | --- | --- |
-| [`.max()`][mosaicolabs.query.queryable_fields.QueryableNumeric.max] | Maximum value of the field over the topic | Numeric, String |
-| [`.min()`][mosaicolabs.query.queryable_fields.QueryableNumeric.min] | Minimum value of the field over the topic | Numeric, String |
+| [`.max()`][mosaicolabs.query.queryable_fields.QueryableNumeric.max] | Maximum value of the field over the topic | Numeric, String, Boolean |
+| [`.min()`][mosaicolabs.query.queryable_fields.QueryableNumeric.min] | Minimum value of the field over the topic | Numeric, String, Boolean |
 | [`.range()`][mosaicolabs.query.queryable_fields.QueryableNumeric.range] | Spread of the field over the topic, i.e. `max() - min()` | Numeric |
+| [`.count()`][mosaicolabs.query.queryable_fields.QueryableNumeric.count] | Number of samples of the field over the topic, null and NaN included | Numeric, String |
+| [`.count_valid()`][mosaicolabs.query.queryable_fields.QueryableNumeric.count_valid] | Number of valid samples of the field over the topic, i.e. neither null nor NaN | Numeric, String |
+| [`.mean()`][mosaicolabs.query.queryable_fields.QueryableNumeric.mean] | Mean of the valid samples of the field over the topic | Numeric |
+| [`.var()`][mosaicolabs.query.queryable_fields.QueryableNumeric.var] | Sample variance (divided by `n - 1`) of the valid samples of the field over the topic | Numeric |
+| [`.std()`][mosaicolabs.query.queryable_fields.QueryableNumeric.std] | Sample standard deviation of the valid samples of the field over the topic, i.e. the square root of `.var()` | Numeric |
+| [`.first()`][mosaicolabs.query.queryable_fields.QueryableNumeric.first] | Value of the field at the first timestamp of the topic | Numeric, String |
+| [`.last()`][mosaicolabs.query.queryable_fields.QueryableNumeric.last] | Value of the field at the last timestamp of the topic | Numeric, String |
+| [`.rate()`][mosaicolabs.query.queryable_fields.QueryableNumeric.rate] | Samples per second (Hz) of the field over the topic, null and NaN included, i.e. `(count - 1) / duration`, where the duration goes from the first to the last timestamp of the topic | Numeric, String |
 
 On **String** fields, `.max()` and `.min()` compare values lexicographically. On **Boolean** fields, `.max().eq(True)` matches the topics where **at least one** sample is `True`, while `.min().eq(True)` matches the topics where **every** sample is `True`.
 
-An aggregator returns the same queryable field, so it's followed by the usual comparison operators of the field type (`.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()`, `.match()`).
+An aggregator returns a queryable field, so it's followed by the usual comparison operators (`.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()`, `.outside()`, `.match()`):
+
+* `.count()`, `.count_valid()` and `.rate()` always return a **Numeric** field, whatever the type of the field, e.g. `IMU.Q.header.frame_id.count().gt(100)`;
+* the other aggregators return a field of the **same type**, e.g. `IMU.Q.header.frame_id.max().match("z*")`.
+
+Some aggregated values can't be computed for a topic, e.g. the mean of a field that is always null, or the rate of a single sample. Such a topic is never returned by an expression using that aggregator, whatever the condition. This happens when:
+
+* `.first()` or `.last()` find a null or NaN value at the first or last timestamp of the topic;
+* `.mean()` finds no valid sample;
+* `.var()` or `.std()` find less than two valid samples;
+* `.mean()`, `.var()` or `.std()` find an infinite value among the valid samples;
+* `.rate()` finds less than two samples, or the first and last timestamps of the topic are equal.
 
 **Example** Finding the IMU recordings whose acceleration never exceeded 15 m/s², while the vertical axis stayed nearly constant
 
@@ -602,9 +636,70 @@ Aggregated expressions are resolved by the server on the statistics stored for e
     Computing the [temporal windows](#temporal-windows) of a response (`clusterize`, `intersect`) is currently not supported for queries containing aggregated expressions, and the server returns an error.
     Support for aggregators that resolve to an actual time sample (e.g. `min`, `max`) is being discussed in [this open discussion](https://github.com/mosaico-labs/mosaico/discussions/897).
 
-The following constraint applies to aggregators:
+The following constraints apply to aggregators:
 
 * **One aggregator per expression**: aggregators can't be chained, e.g. `.max().min()` raises a `TypeError`.
+* **No quantifiers**: a list element narrowed by a quantifier or an index can't be aggregated, e.g. `RobotJoint.Q.positions.any().max()` raises a `TypeError`. Aggregate the list as a whole instead, see [Aggregators on List Fields](#aggregators-on-list-fields).
+
+An aggregator never modifies the field it is called on, so a field stored in a variable can be used for both simple and aggregated expressions:
+
+```python
+x = IMU.Q.acceleration.x
+QueryOntologyCatalog(x.gt(5.0), x.max().lt(20.0))
+```
+
+### Aggregators on List Fields
+
+A list field can be aggregated **as a whole**, without narrowing it with a quantifier. Only a subset of the aggregators is supported, and they work at two different levels:
+
+* [`.max()`][mosaicolabs.query.generation.api._QueryValueListProxy.max], [`.min()`][mosaicolabs.query.generation.api._QueryValueListProxy.min] and [`.range()`][mosaicolabs.query.generation.api._QueryValueListProxy.range] look at the **elements** of all the lists of the topic, as if they were a single flat sequence of values;
+* [`.count()`][mosaicolabs.query.generation.api._QueryValueListProxy.count] and [`.rate()`][mosaicolabs.query.generation.api._QueryValueListProxy.rate] look at the **samples**, whatever the length of their lists.
+
+For example, a topic with three samples of `RobotJoint.Q.positions`, `[1, 4]`, `[7]` and `[2, 3, 9]`, 1 second apart:
+
+| Expression | Value | Why |
+| --- | --- | --- |
+| `RobotJoint.Q.positions.max()` | `9` | greatest element of all the lists |
+| `RobotJoint.Q.positions.min()` | `1` | smallest element of all the lists |
+| `RobotJoint.Q.positions.range()` | `8` | `9 - 1` |
+| `RobotJoint.Q.positions.count()` | `3` | three samples, not six elements |
+| `RobotJoint.Q.positions.rate()` | `1` Hz | `(3 - 1) / 2 s` |
+
+The same rules hold for lists of lists and for the fields of a list of structs:
+
+* on a **list of lists**, the elements are the values of the innermost lists, at any depth;
+* on a **list of structs**, the fields of the struct can be reached with the dot notation without a quantifier, and each of them holds the values of that field for all the structs of the list. E.g. `RobotPath.Q.poses.position.z.max()` is the greatest `z` of all the poses of the topic. The same holds for the lists inside the structs, e.g. `RobotPath.Q.poses.position.covariance.max()`.
+
+**Example** Finding the robot recordings whose joints never exceeded π rad, recorded at 100 Hz at least
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, RobotJoint
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    qresponse = client.query(
+        QueryOntologyCatalog(
+            RobotJoint.Q.positions.max().lt(3.14),  # Every joint position below π
+            RobotJoint.Q.positions.rate().geq(100), # Samples at 100 Hz at least
+        )
+    )
+```
+
+Aggregated and quantified expressions can target the same list in the same query:
+
+```python
+QueryOntologyCatalog(
+    RobotJoint.Q.positions.any().gt(1.0),   # At least one joint position above 1 rad...
+    RobotJoint.Q.positions.max().lt(3.14),  # ...and never above π
+)
+```
+
+A field reached through a list without a quantifier holds many values for each sample, so it can **only** be aggregated with the aggregators above: comparing it directly (e.g. `RobotPath.Q.poses.position.z.gt(1.0)`) or using another aggregator (e.g. `.mean()`) raises an `AttributeError`. To compare single elements, narrow the list first with `.any()`, `.all()` or `[i]`.
+
+An empty list has no element, so it doesn't contribute to `.max()`, `.min()` and `.range()`: a topic made only of empty or null lists never matches them, whatever the condition. The empty lists still count as samples for `.count()` and `.rate()`.
+
+??? question "API Reference"
+    [`_QueryValueListProxy`][mosaicolabs.query.generation.api._QueryValueListProxy],
+    [`_FlattenedField`][mosaicolabs.query.generation.api._FlattenedField]
 
 ## Class-Free Queries
 

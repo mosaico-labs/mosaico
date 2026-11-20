@@ -1,0 +1,260 @@
+---
+title: Query with Aggregators
+sidebar_position: 7.5
+description: "How to filter topics by a value computed over the whole recording, such as the maximum, the mean or the sampling rate of a field, with the aggregators of the .Q proxy, also on list fields."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Every ontology query so far has been a question about **single samples**: `IMU.Q.acceleration.x.gt(5.0)` returns the topics where **at least one** sample of `acceleration.x` is above `5.0`.
+Many questions, though, are about the **recording as a whole**: did the acceleration *ever* exceed a limit? Was the IMU sampled at 200 Hz? Did the robot stand still for the whole session? Answering them sample by sample is either impossible or requires downloading the data and checking it on the client.
+
+**Aggregators** answer them on the server: they combine all the samples of a field in a topic into a single value, such as their maximum, their mean or their sampling rate, and the condition is checked once on that value.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Aggregators](https://docs.mosaico.dev/python-sdk/SDK/query/#aggregators)
+
+[Doc: Aggregators on List Fields](https://docs.mosaico.dev/python-sdk/SDK/query/#aggregators-on-list-fields)
+
+[API Reference: Queryable Fields](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/queryable_fields/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+## From Samples to Topics
+
+An aggregator is a method called on a field of the `.Q` proxy, between the field and the comparison operator:
+
+```
+<Ontology>.Q.<field_path>.<aggregator>().<operator>(value)
+```
+
+The difference with a simple expression is easiest to see on the same field and the same threshold:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Simple vs aggregated expression"
+from mosaicolabs import IMU, MosaicoClient, QueryOntologyCatalog
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # At least one sample below 15 m/s²
+    some_samples = client.query(
+        QueryOntologyCatalog(IMU.Q.acceleration.x.lt(15.0))
+    )
+
+    # The maximum below 15 m/s², i.e. every sample below 15 m/s²
+    every_sample = client.query(
+        QueryOntologyCatalog(IMU.Q.acceleration.x.max().lt(15.0))
+    )
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+The first query returns almost every IMU recording, since nearly all of them have a sample below 15 m/s² somewhere. The second one returns only the recordings that **never** went above it: `max().lt(x)` reads as "every sample below `x`", and `min().gt(x)` as "every sample above `x`".
+
+## Checking the Quality of a Recording
+
+The counting aggregators describe the recording itself rather than the measured values, which makes them a natural fit for selecting good data before using it, e.g. for training or evaluation:
+
+* `.count()` is the number of samples of the field, null and NaN included;
+* `.count_valid()` is the number of valid samples, i.e. neither null nor NaN;
+* `.rate()` is the number of samples per second (Hz), from the first to the last timestamp of the topic.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Select long, complete IMU recordings sampled at 200 Hz"
+from mosaicolabs import IMU, MosaicoClient, QueryOntologyCatalog
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    qresponse = client.query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.x.rate().between(190, 210),   # Sampled at about 200 Hz
+            IMU.Q.acceleration.x.count().gt(60_000),         # At least 5 minutes at 200 Hz
+            IMU.Q.acceleration.x.count_valid().gt(59_400),   # Less than 1% invalid samples
+        )
+    )
+
+    if qresponse is not None:
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Describing the Signal
+
+The statistical aggregators summarize how a signal behaved over the whole recording:
+
+* `.min()`, `.max()` and `.range()` (`max - min`) bound its values;
+* `.mean()`, `.var()` and `.std()` describe its distribution, computed on the valid samples;
+* `.first()` and `.last()` return its value at the first and last timestamp of the topic.
+
+For example, a robot that stood still for the whole session has a vertical acceleration close to gravity, with almost no spread, while a motor that warmed up during a test starts cold and ends hot:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Stationary robots and warming motors"
+from mosaicolabs import IMU, MosaicoClient, QueryOntologyCatalog, Temperature
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Robots standing still for the whole recording
+    stationary = client.query(
+        QueryOntologyCatalog(
+            IMU.Q.acceleration.z.mean().between(9.7, 9.9),  # Gravity only...
+            IMU.Q.acceleration.z.std().lt(0.05),            # ...with almost no vibration
+        )
+    )
+
+    # Tests that started below 30 °C and ended above 60 °C (values in Kelvin)
+    warming = client.query(
+        QueryOntologyCatalog(
+            Temperature.Q.value.first().lt(303.15),
+            Temperature.Q.value.last().gt(333.15),
+        )
+    )
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+String fields support `.max()`, `.min()`, `.first()` and `.last()`, which compare strings lexicographically, and the counting aggregators, which compare against a number, e.g. `IMU.Q.header.frame_id.first().eq("imu_link")` or `IMU.Q.header.frame_id.count().gt(1000)`. Boolean fields support `.max()` (at least one sample is `True`) and `.min()` (every sample is `True`).
+
+## Aggregating List Fields
+
+A list field can be aggregated **as a whole**, without selecting its elements with `.any()`, `.all()` or `[i]` first. Only a subset of the aggregators applies, at two different levels:
+
+* `.max()`, `.min()` and `.range()` look at the **elements** of all the lists of the topic;
+* `.count()` and `.rate()` look at the **samples**, whatever the length of their lists.
+
+On a list of structs, such as the poses of a `RobotPath`, the fields of the struct are reached directly with the dot notation, and each of them holds the values of all the structs of the list:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Joint limits and ground paths"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, RobotJoint
+from mosaicolabs.models.data import RobotPath
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Every joint within ±π rad, recorded at 100 Hz at least
+    within_limits = client.query(
+        QueryOntologyCatalog(
+            RobotJoint.Q.positions.max().lt(3.14),
+            RobotJoint.Q.positions.min().gt(-3.14),
+            RobotJoint.Q.positions.rate().geq(100),
+        )
+    )
+
+    # Paths whose poses all stay within 10 cm of the ground
+    ground_paths = client.query(
+        QueryOntologyCatalog(RobotPath.Q.poses.position.z.max().lt(0.1))
+    )
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+A field reached through a list without `.any()`, `.all()` or `[i]` holds many values for each sample, so it can **only** be aggregated: `RobotPath.Q.poses.position.z.gt(0.1)` raises an `AttributeError`. To compare single elements, select them first, e.g. `RobotPath.Q.poses.any().position.z.gt(0.1)`.
+
+## Combining Simple and Aggregated Expressions
+
+Simple and aggregated expressions can be mixed in the same `QueryOntologyCatalog`, even on the same field, and combined with `QuerySequence` and `QueryTopic` filters as in [Multi-Domain Query](./multi_domain_query.mdx):
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Strong but safe efforts"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, RobotJoint
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    qresponse = client.query(
+        QueryOntologyCatalog(
+            RobotJoint.Q.efforts.any().gt(40.0),  # Some joint pushed above 40 Nm...
+            RobotJoint.Q.efforts.max().lt(50.0),  # ...but never above 50 Nm
+        )
+    )
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+:::warning[Aggregators select topics, not time windows]
+An aggregator describes a topic as a whole, so it tells **which topics** match but not **when**. Computing [Temporal Windows](./temporal_windows.mdx) (`clusterize()`, `intersect()`) on the response of a query containing aggregated expressions is currently not supported, and the server returns an error.
+:::
+
+## Key Concepts
+
+**Aggregators move the question from samples to topics.** A simple expression matches a topic if at least one sample satisfies it; an aggregated one checks the condition once, on a value computed over all the samples. `max().lt(x)` reads as "every sample below `x`".
+
+**They are resolved on statistics, not on data.** The server answers aggregated expressions from the statistics stored for each data chunk at ingestion time, without scanning the recorded data.
+
+**Not every aggregator applies to every type.**
+* Numeric fields support all of them: `.max()`, `.min()`, `.range()`, `.count()`, `.count_valid()`, `.mean()`, `.var()`, `.std()`, `.first()`, `.last()` and `.rate()`.
+* String fields support `.max()`, `.min()`, `.first()`, `.last()`, `.count()`, `.count_valid()` and `.rate()`.
+* Boolean fields support `.max()` and `.min()`.
+* List fields support `.max()`, `.min()`, `.range()`, `.count()` and `.rate()`.
+
+**Counts and rates are always numbers.** `.count()`, `.count_valid()` and `.rate()` compare against a number, whatever the type of the field.
+
+**Some values can't be computed.** A topic whose aggregated value is undefined, e.g. the mean of an always-null field or the rate of a single sample, is never returned by an expression using that aggregator, whatever the condition.
+
+**One aggregator per expression.** Aggregators can't be chained (`.max().min()`), nor applied to a list element selected with `.any()`, `.all()` or `[i]`: both raise a `TypeError`.

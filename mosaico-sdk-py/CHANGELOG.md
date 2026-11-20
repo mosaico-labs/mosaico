@@ -1,6 +1,21 @@
 # Changelog
 
 
+## [Unreleased]
+
+### Features
+
+- Added the **`mosaico inject`** and **`mosaico extract`** command groups to the official CLI, each with a **`ros`** and an **`mcap`** command (e.g. `mosaico inject ros`, `mosaico extract mcap`), taking their connection settings from the active profile (`inject --dry-run` needs none). ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
+- Added the **`mosaicolabs.ros_sequence_extractor`** and **`mosaicolabs.mcap_sequence_extractor`** command-line scripts, the extraction counterparts of the `mosaicolabs.ros_injector` / `mosaicolabs.mcap_injector` development scripts. ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
+- The documentation now uses the `mosaico` CLI in its command-line examples; the `mosaicolabs.*` scripts are documented as development tools.
+- Added the **`mosaico inject lerobot`** command, which injects a LeRobot v3.0 dataset as one sequence per episode, taking its connection settings from the active profile. `LeRobotInjectionConfig`, `LeRobotInjector` and `LeRobotSchemaMetadata` can now be imported from `mosaicolabs.bridges.lerobot`. ([#1030](https://github.com/mosaico-labs/mosaico/issues/1030))
+
+### Bug Fixes
+
+- **`TopicWriter.push_batch` now accepts equal consecutive timestamps**: `timestamp_ns` must be non-decreasing within a batch instead of strictly increasing, so batches with records sharing a timestamp are no longer rejected. Records with equal timestamps have no guaranteed relative order once stored. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
+- **`TopicWriter` now enforces non-decreasing timestamps across pushes**: a record passed to `push()`, or the first record of a batch passed to `push_batch()`, whose `timestamp_ns` is lower than the last one accepted on the topic now raises a `ValueError`. Previously `push()` had no ordering check, and `push_batch()` only checked within a single batch. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
+
+
 ## [0.7.0] - 2026-10-08
 
 This release introduces the new **MCAP Bridge** (injection of MCAP files into Mosaico and reconstruction of the original MCAP from Mosaico data, with Protobuf and JSON Schema decoding), the **Watchdog** for automatic, unattended upload of MCAP and ROS bag files, and a reworked **ROS Bridge**, now moved to `mosaicolabs.bridges.ros`, with dry-run mode, sequence updates and scoped type registries. It also adapts the SDK to the backend's new **`info` action** (replacing `version`), using the server's own reported configuration to drive write-side batching instead of a hardcoded constant - correctly isolated per-connection, so a script talking to multiple Mosaico servers at once gets the right limits for each.

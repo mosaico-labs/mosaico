@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use mosaicod_proto::v1::query as proto_query;
 use mosaicod_query::{self as query, IsSupportedOp};
-use std::collections::HashMap;
 
 // ////////////////////////////////////////////////////////////////////////////
 // Values
@@ -113,13 +114,14 @@ fn aggregator(aggr: Option<i32>) -> Result<Option<query::Aggregator>, query::Agg
     let aggregator = match Aggregator::try_from(aggr) {
         Ok(Aggregator::Max) => query::Aggregator::Max,
         Ok(Aggregator::Min) => query::Aggregator::Min,
+        Ok(Aggregator::CountValid) => query::Aggregator::CountValid,
         Ok(Aggregator::Count) => query::Aggregator::Count,
         Ok(Aggregator::Range) => query::Aggregator::Range,
         Ok(Aggregator::First) => query::Aggregator::First,
         Ok(Aggregator::Last) => query::Aggregator::Last,
         Ok(Aggregator::Std) => query::Aggregator::Std,
         Ok(Aggregator::Mean) => query::Aggregator::Mean,
-        Ok(Aggregator::Diff) => query::Aggregator::Diff,
+        Ok(Aggregator::Var) => query::Aggregator::Var,
         Ok(Aggregator::Rate) => query::Aggregator::Rate,
         Ok(Aggregator::P50) => query::Aggregator::P50,
         Ok(Aggregator::P90) => query::Aggregator::P90,
@@ -552,6 +554,31 @@ mod tests {
     }
 
     #[test]
+    fn test_ontology_filter_rejects_sqli_payload() {
+        for bad in [
+            "t.x' OR 1=1 OR 'true",
+            "t.x'",
+            "t.x;",
+            "t.x--",
+            "t.x y",
+            "t.x\\y",
+        ] {
+            let result = ontology_filter_from_proto(proto_query::OntologyFilter {
+                predicates: vec![proto_query::OntologyPredicate {
+                    field: bad.to_owned(),
+                    aggregator: None,
+                    condition: Some(int_condition(proto_query::Operator::Eq, 500)),
+                }],
+            });
+
+            assert!(
+                result.is_err(),
+                "`{bad}` should be rejected before reaching the SQL builders"
+            );
+        }
+    }
+
+    #[test]
     fn test_aggregator_accepts_supported_predicates() {
         use proto_query::{Aggregator, Operator};
 
@@ -622,7 +649,7 @@ mod tests {
         for field in ["mock.v[?]", "mock.v[!]", "mock.v[0]"] {
             assert_aggregator_err(
                 aggregated_filter(field, Aggregator::Max, int_condition(Operator::Gt, 5)),
-                "aggregators are not supported on list fields",
+                "unsupported aggregator on list fields",
             );
         }
     }

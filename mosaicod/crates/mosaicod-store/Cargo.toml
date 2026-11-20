@@ -24,7 +24,5 @@ url = { workspace = true }
 bytes = { workspace = true }
 parquet = { workspace = true }
 chrono = { workspace = true }
-
-[dev-dependencies]
 tokio = { workspace = true }
 

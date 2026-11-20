@@ -1,3 +1,9 @@
+use std::convert::Into;
+use std::fs;
+use std::net::{IpAddr, Ipv4Addr, TcpListener};
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_config::default;
 use mosaicod_core::types;
@@ -5,13 +11,9 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
+use mosaicod_hook as hook;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use std::convert::Into;
-use std::fs;
-use std::net::{IpAddr, Ipv4Addr, TcpListener};
-use std::sync::Arc;
-use std::sync::Mutex;
 use tonic::service::interceptor;
 
 /// This lock prevents a race condition between releasing the TCP listener (used to find a
@@ -117,6 +119,7 @@ impl ServerBuilder {
 
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
+        let hooks = hook::Dispatcher::spawn(db.clone(), shutdown.token()).unwrap();
 
         let flight_server_handle = tokio::task::spawn({
             let shutdown = shutdown.clone();
@@ -124,7 +127,8 @@ impl ServerBuilder {
             let db = db.clone();
 
             async move {
-                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown.clone())).await {
+                if let Err(err) = grpc::serve(store, db, hooks, opts, Some(shutdown.clone())).await
+                {
                     panic!("flight server error: {}", err);
                 }
                 println!("server stopped");

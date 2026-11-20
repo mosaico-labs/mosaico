@@ -1,9 +1,10 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
     Ok(schema::TopicRecord {
@@ -458,7 +459,11 @@ pub async fn topic_from_query_filter(
     trace!("query values: {:?}", qr.values);
     trace!("generated SQL query: {}", query);
 
-    let mut r = sqlx::query(&query);
+    // Do not cache the prepared statement: sqlx caches statements by query text, and
+    // the same text is built for operands of different types (e.g. `3` and `3.5`).
+    // A cached statement keeps the parameter types of its first execution, so an
+    // operand of another type would be silently misread (an integer decoded as a float).
+    let mut r = sqlx::query(&query).persistent(false);
 
     for v in qr.values.into_iter() {
         match v {
@@ -482,13 +487,15 @@ pub async fn topic_from_query_filter(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::core::{DatabaseType, testing};
-    use crate::{sequence_create, session_create};
+    use std::collections::HashMap;
+
     use mosaicod_core::types::MetadataBlob;
     use mosaicod_marshal as marshal;
     use sqlx::Pool;
-    use std::collections::HashMap;
+
+    use super::*;
+    use crate::core::{DatabaseType, testing};
+    use crate::{sequence_create, session_create};
 
     async fn setup_fake_db(database: crate::Database) {
         let mut cx = database.connection();

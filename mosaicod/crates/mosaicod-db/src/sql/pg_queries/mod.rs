@@ -25,6 +25,12 @@ pub use api_key_record::*;
 mod builders;
 use builders::*;
 
+mod topic_aggregate;
+use topic_aggregate::*;
+
+mod stats_kind;
+use stats_kind::*;
+
 mod cleanup_log_record;
 pub use cleanup_log_record::*;
 
@@ -33,3 +39,6 @@ pub use topic_optimization_record::*;
 
 mod instance_registry_record;
 pub use instance_registry_record::*;
+
+mod hook_record;
+pub use hook_record::*;

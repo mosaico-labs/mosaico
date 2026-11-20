@@ -3,7 +3,7 @@ members = ["crates/*", "bin/*", "tests/"]
 resolver = "3"
 
 [workspace.package]
-version = "0.8.0-dev"
+version = "0.8.0"
 authors = ["Mosaico Labs <info@mosaico.dev>"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
@@ -26,6 +26,7 @@ mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-grpc = { path = "crates/mosaicod-grpc" }
 mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
 mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
+mosaicod-hook = { path = "crates/mosaicod-hook" }
 mosaicod-instance-registry = { path = "crates/mosaicod-instance-registry" }
 mosaicod-os = { path = "crates/mosaicod-os" }
 mosaicod-proto = { path = "crates/mosaicod-proto" }
@@ -42,7 +43,7 @@ datafusion = { version = "54.0.0", default-features = false, features = ["parque
 tonic = { version = "0.14.6", default-features = false, features = ["router", "transport", "codegen", "tls-ring", "gzip"] }
 object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
 
-base64 = { version = "0.22.1", default-features = false }
+base64 = { version = "0.23.1", default-features = false }
 bincode = { version = "2.0.1", default-features = false, features = ["alloc", "derive", "serde"] }
 bytes = { version = "1.11.1", default-features = false }
 chrono = { version = "0.4.44", default-features = false, features = ["clock"] }
@@ -59,6 +60,7 @@ fastrand = { version = "2.4.1", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.228", default-features = false, features = ["alloc", "derive"] }
 serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
 signal-hook = { version = "0.4.4", default-features = false, features = ["iterator"] }
+subtle = { version = "2.6.1", default-features = false }
 sqlx = { version = "0.8.6", default-features = false, features = [
     "postgres",
     "macros",
@@ -81,11 +83,12 @@ semver = { version = "1.0.28", default-features = false }
 tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "ansi", "tracing-log", "json", "env-filter"] }
 regex = { version = "1.12.4", default-features = false, features = ["perf", "unicode"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
 
 # Protobuf schema codegen (mosaicod-proto)
 prost = "0.14"
 prost-build = "0.14"
-protox = "0.9"
+protox = "0.10"
 
 # Used for testing
 filetime = { version = "0.2.27", default-features = false }

@@ -1,14 +1,16 @@
-use super::Error;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::Instant;
+
 use futures::stream::{FuturesUnordered, StreamExt};
 use mosaicod_config::default;
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::{debug, trace};
+
+use super::Error;
 
 /// Facade used to perform queries in the system, it will handle the dependencies
 /// between different components (mainly `query` and `db` modules).
@@ -36,6 +38,12 @@ impl Query {
             db::topic_from_query_filter(&mut cx, seq_filt, top_filt).await?
         };
         let on_topics = Arc::new(on_topics);
+
+        // A topic or sequence filter matching no topic leaves nothing to search
+        if !no_topic_filter && on_topics.is_empty() {
+            trace!("topic and sequence filters match no topic");
+            return Ok(types::SequenceTopicGroupSet::empty());
+        }
 
         if no_topic_filter {
             trace!("search unrestricted (no prior topics)");

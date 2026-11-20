@@ -1,11 +1,12 @@
 //! Common functions shared between multiple commands.
 
+use std::sync::Arc;
+use std::sync::OnceLock;
+
 use mosaicod_config::{self as config, default};
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use std::sync::Arc;
-use std::sync::OnceLock;
 
 /// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
@@ -57,11 +58,26 @@ pub fn init_store() -> Result<store::StoreRef> {
     let secret_key = params.store_secret_key.value.clone();
     let access_key = params.store_access_key.value.clone();
 
-    if !access_key.is_empty() && !secret_key.is_empty() {
-        builder = builder.with_credentials(access_key, secret_key);
+    if !access_key.is_empty() {
+        builder = builder.with_access_key(access_key);
+    }
+    if !secret_key.is_empty() {
+        builder = builder.with_secret_key(secret_key);
     }
 
-    Ok(Arc::new(builder.build()?))
+    let store = Arc::new(builder.build()?);
+    Ok(store)
+}
+
+pub fn check_store_connectivity(
+    rt: &tokio::runtime::Runtime,
+    store: &store::StoreRef,
+) -> Result<()> {
+    let timeout = std::time::Duration::from_secs(
+        default::params().store_connection_timeout.value.get() as u64,
+    );
+    rt.block_on(store.check_connectivity(timeout))?;
+    Ok(())
 }
 
 /// Builds the configuration from the sources of `builder` and sets it for the process.
@@ -96,8 +112,9 @@ fn build_config(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Mutex;
+
+    use super::*;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
