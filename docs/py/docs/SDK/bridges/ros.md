@@ -12,7 +12,7 @@ The **ROS Bridge** module serves as the bidirectional gateway between ROS (Robot
 The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather than simply extracting raw dictionaries from ROS messages, the bridge actively translates them into the standardized **Mosaico Ontology**. For example, a [`geometry_msgs/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html) is validated, normalized, and instantiated as a strongly-typed [`mosaicolabs.models.data.Pose`][mosaicolabs.models.data.Pose] object before ingestion.
 
 !!! example "Try-It Out"
-    You can experiment yourself the ROS Bridge ingestion via the **[ROS Ingestion](https://docs.mosaico.dev/examples/ROS/ros_ingestion) Example**.
+    You can try out the ROS bridge ingestion yourself via the **[ROS Ingestion](https://docs.mosaico.dev/examples/ROS/ros_ingestion) Example**.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ Both loaders share the same topic classification logic (accepted / filtered / ad
 
 The **[`RosbagInjector`][mosaicolabs.bridges.ros.RosbagInjector]** is the central command center of the ROS Bridge module. It is designed to be the primary entry point for developers who want to embed high-performance ROS ingestion directly into their Python applications or automation scripts.
 
-The ingestor orchestrates the interaction between the **[`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
+The injector orchestrates the interaction between the **[`ROSLoader`][mosaicolabs.bridges.ros.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.bridges.ros.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
 
 #### Core Workflow Execution: `run()`
 
@@ -50,7 +50,7 @@ Constructing `RosbagInjector(config)` resolves `ros_distro`/`custom_msgs` into a
 
 #### Configuring the Ingestion
 
-The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.bridges.ros.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
+The behavior of the injector is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.bridges.ros.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
 
 #### Per-Topic Metadata (`topic_metadata`)
 
@@ -85,7 +85,7 @@ config = ROSInjectionConfig(
 
 #### Updating an Existing Sequence (`update_if_exists`)
 
-By default, ingesting into a `sequence_name` that already exists on the server raises an error. Setting **`update_if_exists=True`** switches this to an append/merge: the ingestor appends this bag's topics to the existing sequence instead of creating a new one. This covers two distinct real-world scenarios with the same mechanism:
+By default, ingesting into a `sequence_name` that already exists on the server raises an error. Setting **`update_if_exists=True`** switches this to an append/merge: the injector appends this bag's topics to the existing sequence instead of creating a new one. This covers two distinct real-world scenarios with the same mechanism:
 
 * **Multi-part recordings**: a single logical recording split across several bag files, all of which should land in one sequence.
 * **Reprocessing / augmentation**: a derived bag (e.g. offline estimation results computed from an already-ingested recording, with timestamps aligned to the original) whose topics should be merged into the sequence that was already ingested from the original recording.
@@ -289,7 +289,7 @@ All of them extend [`PointCloudAdapterBase`][mosaicolabs.bridges.ros.adapters.se
 
 - **`decode`**: deserializes the binary buffer of a `PointCloud2` message into named field arrays.
 - **`_build`** *(abstract)*: constructs and returns an instance of the target ontology object from the decoded fields. Must be overridden in every concrete subclass.
-- **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.core.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **no Optional**.
+- **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.core.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **not Optional**.
 
 ##### Implementing a Custom PointCloud2 Adapter Override
 To create a custom `PointCloud2` adapter, inherit from [`PointCloudAdapterBase`][mosaicolabs.bridges.ros.adapters.sensor_msgs.PointCloudAdapterBase].
@@ -388,7 +388,7 @@ With this configuration, all the [`sensor_msgs/msg/PointCloud2`](https://docs.ro
 By using this pattern, you can maintain a clean separation between your raw ROS data and your high-level Mosaico data models, ensuring that even the most "exotic" sensor data is correctly ingested and indexed.
 
 ##### Implementing a Custom Adapter Override
-To create a custom adapter that overrides a existing ROS message, you must inherit from `ROSAdapterBase` and define the transformation logic.
+To create a custom adapter that overrides an existing ROS message, you must inherit from `ROSAdapterBase` and define the transformation logic.
 Follow the steps described [here](#extending-the-bridge-custom-adapters) with the only caveat not to register the adapter with `@register_default_adapter` but instead [register the override](#registering-the-override)
 
 #### CLI Usage
@@ -621,12 +621,12 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   In addition to mapping standard ROS messages to the core Mosaico ontology, the `ros-bridge` module implements two specialized data models. These are defined specifically for this module to handle ROS-native concepts that are not yet part of the official Mosaico standard:
   
   * **`FrameTransform`**: Designed to handle coordinate frame transformations (modeled after [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)). It encapsulates a list of [`Transform`][mosaicolabs.models.data.geometry.Transform] objects to manage spatial relationships.
-  * **`BatteryState`**: Modeled after [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)), this class captures comprehensive power supply metrics. It includes core data (voltage, current, capacity, percentage) and detailed metadata such as power supply health, technology status, and individual cell readings.
+  * **`BatteryState`**: Modeled after [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html), this class captures comprehensive power supply metrics. It includes core data (voltage, current, capacity, percentage) and detailed metadata such as power supply health, technology status, and individual cell readings.
   * **`PointCloud2`**: Modeled after [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html),
     this class captures raw point cloud data including field layout, endianness, and binary payload.
     It includes the companion `PointField` model to describe each data channel (e.g., `x`, `y`, `z`, `intensity`).
   
-  > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.core.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
+  > **Note:** Although these are provisional additions, all of `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.core.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
 
 ### Supported Message Types Table
 

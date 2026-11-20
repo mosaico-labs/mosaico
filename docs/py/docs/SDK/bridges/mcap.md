@@ -14,7 +14,7 @@ The **MCAP Bridge** module serves as the bidirectional gateway between [MCAP](ht
 The core philosophy of the module is the same as the [ROS Bridge](ros.md): **"Adaptation, Not Just Parsing."** Every message is translated into the **Mosaico Ontology** rather than stored as an opaque payload. Since an MCAP file can carry any schema, the bridge cannot ship adapters for them in advance: by default, every channel is translated into an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology generated at runtime from the schema embedded in the file. Specific schemas can then be mapped onto built-in or custom ontologies by writing a [custom adapter](#extending-the-bridge-custom-adapters).
 
 !!! example "Try-It Out"
-    You can experiment yourself the MCAP Bridge ingestion via the **[MCAP Ingestion](https://docs.mosaico.dev/examples/MCAP/mcap_ingestion) Example**.
+    You can try out the MCAP Bridge ingestion yourself via the **[MCAP Ingestion](https://docs.mosaico.dev/examples/MCAP/mcap_ingestion) Example**.
 
 ## Architecture
 
