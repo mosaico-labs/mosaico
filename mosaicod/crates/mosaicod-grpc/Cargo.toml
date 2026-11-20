@@ -23,8 +23,9 @@ mosaicod-hook = { workspace = true }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
+tonic-health = { workspace = true }
 tower = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 chrono = { workspace = true }
 

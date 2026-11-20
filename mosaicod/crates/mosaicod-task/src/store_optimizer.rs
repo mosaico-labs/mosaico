@@ -42,7 +42,7 @@ use mosaicod_core::{
 };
 use mosaicod_db as db;
 use mosaicod_facade as facade;
-use mosaicod_instance_registry::instance_heartbeat_loop;
+use mosaicod_instance_registry::InstanceHeartbeat;
 use mosaicod_os::local_hostname;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
@@ -530,11 +530,10 @@ impl StoreOptimizer {
         // exits (e.g. one-shot mode) without having to cancel `shutdown_notifier` itself, which
         // the caller may still be relying on for other purposes.
         let heartbeat_shutdown = shutdown_notifier.child_token();
-        let heartbeat_handle = tokio::spawn(instance_heartbeat_loop(
-            self.db.clone(),
-            instance.instance_id,
-            heartbeat_shutdown.clone(),
-        ));
+        let heartbeat_handle = tokio::spawn(
+            InstanceHeartbeat::new(self.db.clone(), instance.instance_id)
+                .run(heartbeat_shutdown.clone()),
+        );
 
         loop {
             info!("Store optimization routine started");

@@ -3,6 +3,7 @@
 pub mod actions;
 pub mod common;
 pub mod filter;
+pub mod proxy;
 pub mod store_optimizer;
 
 pub mod cleanup;

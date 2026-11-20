@@ -6,6 +6,8 @@ description: "How to create, list, and revoke API keys in mosaicod. Covers the k
 
 In Mosaico, access control is managed through **API keys**. An API key securely binds a unique token to a specific set of permissions.
 
+When API key management is enabled, every request requires a key, except [health checks](health.md#authentication).
+
 :::note 
     It is important to note that API keys in Mosaico act as a *loose, coarse-grained access mechanism*. They are designed strictly to limit the *types of operations* a user can perform across the platform as a whole.
 
