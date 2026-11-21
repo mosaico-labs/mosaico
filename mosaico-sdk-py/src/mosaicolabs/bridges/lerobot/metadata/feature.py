@@ -146,8 +146,18 @@ class LeRobotFeature:
         return self.key == _TASK_INDEX_COLUMN
 
     def is_timeseries(self) -> bool:
-        """Whether the feature is a timeseries: neither an image, a video nor the timestamp."""
-        return not self.is_image() and not self.is_video() and not self.is_timestamp()
+        """
+        Whether the feature is a timeseries: neither an image, a video, the timestamp, nor the
+        position of the frame (`index`, `frame_index` and `episode_index`), which is rebuilt on export.
+        """
+        return (
+            not self.is_image()
+            and not self.is_video()
+            and not self.is_timestamp()
+            and not self.is_index()
+            and not self.is_frame_index()
+            and not self.is_episode_index()
+        )
 
     def is_scalar(self) -> bool:
         """Whether the feature is a scalar: a single value, of shape `(1,)`."""
