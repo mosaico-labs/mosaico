@@ -10,7 +10,7 @@ from typing import List
 
 import numpy as np
 
-from .metadata import _TIMESTAMP_COLUMN_NAME
+from .metadata.feature import _TIMESTAMP_COLUMN_NAME
 from .reader import LeRobotReader
 
 _DEFAULT_TOLERANCE_S = 1e-4
