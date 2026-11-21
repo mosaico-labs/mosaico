@@ -1,7 +1,11 @@
 <div align="center">
-  <picture>
-    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/github-hero.webp" width="600px"></a>
-  </picture>
+  <a href="https://mosaico.dev">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://mosaico.dev/github-hero-dark.webp">
+      <source media="(prefers-color-scheme: light)" srcset="https://mosaico.dev/github-hero-light.webp">
+      <img alt="Mosaico logo" src="https://mosaico.dev/github-hero-light.webp" width="600px">
+    </picture>
+  </a>
 </div>
 <br/>
 
