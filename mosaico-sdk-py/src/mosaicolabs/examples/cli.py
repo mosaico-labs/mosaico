@@ -1,12 +1,13 @@
-import importlib
 import logging
 import sys
+from importlib import import_module
 
 import click
 
 from mosaicolabs.examples import config
 
-# Map command names to their respective module paths
+# Map command names to their respective module paths.
+# Keep in sync with EXAMPLES in mosaicolabs_cli/commands/examples.py (a unit test checks it).
 EXAMPLES_MAP = {
     "mcap_injection": "mosaicolabs.examples.bridges.mcap.injection",
     "reconstruct_mcaps": "mosaicolabs.examples.bridges.mcap.reconstruct",
@@ -51,10 +52,18 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 )
 def run_example_cli(example, host, port, tls, api_key, log_level):
     """
-    Mosaico SDK Examples Runner.
+    Mosaico SDK Examples Runner (deprecated: use `mosaico examples` instead).
 
     This utility allows you to run official SDK examples with custom connection settings.
     """
+    click.secho(
+        "Warning: `mosaicolabs.examples` is deprecated and will be removed in a future "
+        f"release. Use `mosaico examples {example}` instead, which takes the connection "
+        "from the active profile.",
+        fg="yellow",
+        err=True,
+    )
+
     # Set global logging configuration
     logging.basicConfig(level=getattr(logging, log_level.upper()))
 
@@ -70,14 +79,14 @@ def run_example_cli(example, host, port, tls, api_key, log_level):
     target_str = (
         f"{host}:{port}"
         + (" --tls" if config.ENABLE_TLS else "")
-        + ("--api-key" if config.API_KEY else "")
+        + (" --api-key" if config.API_KEY else "")
     )
     click.echo(f"Target Host: {target_str}\n")
 
     try:
         # Dynamically import the chosen example module
         module_path = EXAMPLES_MAP[example]
-        example_module = importlib.import_module(module_path)
+        example_module = import_module(module_path)
 
         # Detect the entry point (checks for 'main')
         entry_point = getattr(example_module, "main", None)

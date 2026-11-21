@@ -1,7 +1,7 @@
 ---
 title: Commands
 sidebar_position: 1
-description: "Reference for every mosaico CLI command: sequence, topic, and extension listings, stats, streaming, ROS/MCAP/LeRobot injection and ROS/MCAP extraction, with the handler format used to pipe results between them."
+description: "Reference for every mosaico CLI command: sequence, topic, and extension listings, stats, streaming, ROS/MCAP/LeRobot injection and ROS/MCAP extraction, and the SDK examples, with the handler format used to pipe results between them."
 ---
 
 The `mosaico` command line tool gives you terminal access to the platform catalog: listing and inspecting sequences and topics, and streaming raw message data, without writing any Python.
@@ -277,6 +277,43 @@ mosaico extract mcap --mcap-path ./exports --dry-run on_track_experiment
 
 :::note
 In a shell like zsh, `!` triggers history expansion, so quote exclusion patterns (`"!/cam/debug*"`).
+:::
+
+## `mosaico examples`
+
+Runs the official SDK examples: small runnable programs for trying out the base features of Mosaico, such as ingesting a sample recording, querying the catalog and reading data back, against a quick-start Mosaico instance. The server is reached through the active connection profile.
+
+### `ls`
+
+Lists the available examples.
+
+```bash
+mosaico examples ls [--output table|csv]
+```
+
+### `<EXAMPLE>`
+
+Runs one example, e.g. `ros_injection`, `data_inspection` or `mujoco_vis`.
+
+```bash
+mosaico examples <EXAMPLE> [--log <LEVEL>]
+```
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
+
+The examples don't support a custom CA certificate yet, so a profile's certificate path is ignored.
+
+#### Examples
+
+```bash
+mosaico examples ros_injection
+mosaico --profile staging examples query_catalogs --log DEBUG
+```
+
+:::note
+The `mosaicolabs.examples` script, which took `--host`, `--port`, `--tls` and `--api-key` options, is deprecated and will be removed in a future release.
 :::
 
 ## `mosaico extension`

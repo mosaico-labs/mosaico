@@ -12,7 +12,7 @@ This script demonstrates a complete workflow:
 Run the example via:
 ```bash
 
-mosaicolabs.examples mujoco_vis
+mosaico examples mujoco_vis
 
 ```
 """
