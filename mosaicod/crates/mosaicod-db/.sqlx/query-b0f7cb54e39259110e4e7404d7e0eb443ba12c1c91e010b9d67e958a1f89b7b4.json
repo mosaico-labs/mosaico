@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "instance_id",
         "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "unmarked_folders",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -51,7 +56,8 @@
       false,
       false,
       false,
-      true
+      true,
+      false
     ]
   },
   "hash": "b0f7cb54e39259110e4e7404d7e0eb443ba12c1c91e010b9d67e958a1f89b7b4"
