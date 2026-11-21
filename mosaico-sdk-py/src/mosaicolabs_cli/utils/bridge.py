@@ -215,6 +215,9 @@ def run_injector(injector) -> None:
 
     if status is InjectionStatus.CANCELLED:
         raise typer.Exit(code=EXIT_INTERRUPTED)
+    # Only part of the input was injected (the failures are already logged)
+    if status is InjectionStatus.PARTIAL:
+        raise typer.Exit(code=1)
 
 
 def run_extractor(extractor) -> None:
