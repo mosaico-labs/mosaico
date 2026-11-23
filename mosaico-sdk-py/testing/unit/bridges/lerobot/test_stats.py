@@ -121,13 +121,14 @@ def test_sample_indices_as_lerobot(length, num_samples):
 
 
 @pytest.mark.parametrize("size, rows", [((4, 4), 16), ((640, 480), 160 * 120)])
-def test_decode_image_as_rgb_divided_by_255(size, rows):
+def test_decode_image_as_rgb(size, rows):
     """A row per pixel. An image of 300 px or more is strided down to about 150 px
     (640 // 150 = 4)."""
     pixels = _decode_image(_images(_png((0, 51, 255), size)), is_depth_map=False)
 
     assert pixels.shape == (rows, 3)
-    np.testing.assert_allclose(pixels, [[0, 0.2, 1]] * rows)
+    assert pixels.dtype == np.uint8
+    np.testing.assert_allclose(pixels, [(0, 51, 255)] * rows)
 
 
 def test_decode_image_keeps_the_values_of_a_depth_map():
@@ -146,6 +147,11 @@ def test_decode_image_keeps_the_values_of_a_depth_map():
     [
         ([1], pa.array([0.0, 0.5, 1.0], pa.float32()), [[0.0], [0.5], [1.0]]),
         (
+            [1],
+            pa.array([[0.0], [0.5], [1.0]], pa.list_(pa.float32(), 1)),
+            [[0.0], [0.5], [1.0]],
+        ),
+        (
             [2],
             pa.array([[1, 10], [2, 20]], pa.list_(pa.float32(), 2)),
             [[1, 10], [2, 20]],
@@ -158,7 +164,7 @@ def test_decode_image_keeps_the_values_of_a_depth_map():
             [[0, 1, 2], [10, 11, 12]],
         ),
     ],
-    ids=["scalar", "vector", "array"],
+    ids=["scalar", "scalar-as-list", "vector", "array"],
 )
 def test_to_matrix_has_a_column_per_element_of_the_last_axis(shape, column, matrix):
     """The other axes are pooled into the rows, as in LeRobot."""
