@@ -12,7 +12,7 @@ written yet.
 
 Typical usage as a script:
     $ python -m mosaicolabs.bridges.lerobot.sequences_extractor \\
-        pusht_episode_000000 pusht_episode_000001 --lerobot_path ./exports/pusht
+        pusht_episode_000000 pusht_episode_000001 --lerobot-path ./exports/pusht
 
 Typical usage as a library:
     config = LeRobotExtractorConfig(
@@ -25,6 +25,7 @@ Typical usage as a library:
 """
 
 import argparse
+import os
 import shutil
 import sys
 import tempfile
@@ -412,7 +413,7 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
         help="Names of the Mosaico sequences to extract, one episode each, in episode order",
     )
     parser.add_argument(
-        "--lerobot_path",
+        "--lerobot-path",
         dest="saving_path",
         metavar="PATH",
         type=Path,
@@ -428,13 +429,19 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
 
     # Advanced Arguments
     parser.add_argument(
-        "--mosaico_api_key", default=None, help="The API key for authentication"
+        "--api-key",
+        default=None,
+        help=(
+            "Mosaico API-Key. Prefer setting the MOSAICO_API_KEY environment variable "
+            "instead, to avoid leaking the key via shell history or the process list "
+            "(e.g. `ps aux`); --api-key takes precedence if both are set."
+        ),
     )
     parser.add_argument(
-        "--tls_cert_path", default=None, help="Path to the TLS certificate file"
+        "--tls-cert", default=None, help="Path to the TLS certificate file"
     )
     parser.add_argument(
-        "--enable_tls",
+        "--enable-tls",
         action="store_true",
         help="Whether Mosaico Server requires tls",
     )
@@ -461,8 +468,8 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
         host=args.host,
         port=args.port,
         log_level=args.log,
-        mosaico_api_key=args.mosaico_api_key,
-        tls_cert_path=args.tls_cert_path,
+        mosaico_api_key=args.api_key or os.environ.get("MOSAICO_API_KEY"),
+        tls_cert_path=args.tls_cert,
         enable_tls=args.enable_tls,
         overwrite=args.overwrite,
     )

@@ -10,7 +10,7 @@ from mosaicolabs.bridges.lerobot.sequences_extractor import (
 def _run_script(monkeypatch, tmp_path, status: ExtractionStatus) -> None:
     """Runs the script with `LeRobotSequencesExtractor.run` stubbed to return `status`."""
     monkeypatch.setattr(LeRobotSequencesExtractor, "run", lambda self: status)
-    lerobot_sequences_extractor(["seq_a", "--lerobot_path", str(tmp_path / "out")])
+    lerobot_sequences_extractor(["seq_a", "--lerobot-path", str(tmp_path / "out")])
 
 
 def test_partial_extraction_exits_non_zero(monkeypatch, tmp_path):
