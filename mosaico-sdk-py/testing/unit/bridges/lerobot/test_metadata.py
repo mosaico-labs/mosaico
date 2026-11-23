@@ -352,8 +352,9 @@ def test_load(lerobot_dataset):
     assert meta.fps == FPS
     assert meta.n_episodes == len(EPISODE_LENGTHS)
     assert [f.key for f in meta.features] == DATA_SCHEMA.names
-    assert meta.stats is not None
-    assert set(meta.stats) == {
+    stats = meta.compute_stats()
+    assert stats is not None
+    assert set(stats) == {
         ACTION_COLUMN_NAME,
         STATE_COLUMN_NAME,
         *POSITION_COLUMN_NAMES,
@@ -417,13 +418,13 @@ def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
         }
 
 
-# --- LeRobotDatasetMeta.stats ---
+# --- LeRobotDatasetMeta.compute_stats ---
 
 
-def test_stats_combine_those_of_the_episodes(lerobot_dataset):
+def test_compute_stats_combines_those_of_the_episodes(lerobot_dataset):
     """As LeRobot writes `meta/stats.json`: those over every frame, for the features with
     stats in the episodes."""
-    stats = LeRobotDatasetMeta.load(lerobot_dataset).stats
+    stats = LeRobotDatasetMeta.load(lerobot_dataset).compute_stats()
 
     assert stats is not None
     assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
@@ -436,26 +437,10 @@ def test_stats_combine_those_of_the_episodes(lerobot_dataset):
             np.testing.assert_allclose(stats[key][name], expected)
 
 
-# --- LeRobotDatasetMeta.get_or_compute_episode_stats ---
+def test_compute_stats_of_episodes_without_stats_is_none(lerobot_dataset):
+    meta = _without_stats(LeRobotDatasetMeta.load(lerobot_dataset))
 
-
-def test_get_or_compute_episode_stats_returns_those_of_the_episode(
-    lerobot_dataset, tmp_path
-):
-    """Those read from `meta/episodes`: no data file is read (there is none under `root`)."""
-    meta = replace(LeRobotDatasetMeta.load(lerobot_dataset), root=tmp_path)
-
-    stats = meta.get_or_compute_episode_stats(0)
-
-    assert stats == meta.episodes_map[0].stats
-    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
-
-
-def test_get_or_compute_episode_stats_of_an_unknown_episode(lerobot_dataset):
-    meta = LeRobotDatasetMeta.load(lerobot_dataset)
-
-    with pytest.raises(KeyError):
-        meta.get_or_compute_episode_stats(len(EPISODE_LENGTHS))
+    assert meta.compute_stats() is None
 
 
 # --- LeRobotDatasetMeta.dump ---
@@ -468,7 +453,7 @@ def test_dump_writes_what_load_reads(lerobot_dataset, tmp_path):
 
     assert LeRobotDatasetMeta.load(meta.root) == meta
     stats_json = json.loads((meta.root / "meta" / "stats.json").read_text())
-    assert stats_json == meta.stats
+    assert stats_json == meta.compute_stats()
 
 
 def test_dump_writes_the_tasks_as_lerobot_reads_them(lerobot_dataset, tmp_path):
@@ -482,18 +467,16 @@ def test_dump_writes_the_tasks_as_lerobot_reads_them(lerobot_dataset, tmp_path):
     assert tasks.loc[TASK, "task_index"] == 0
 
 
-def test_dump_computes_the_missing_stats(lerobot_dataset_factory):
-    """As on export: the episodes without stats get those of their data, written to
-    `meta/episodes`, and `meta/stats.json` combines them."""
-    meta = _without_stats(LeRobotDatasetMeta.load(lerobot_dataset_factory()))
+def test_dump_of_episodes_without_stats_writes_no_stats_json(lerobot_dataset, tmp_path):
+    """No data file is read: the episodes are written with the stats they hold."""
+    meta = replace(
+        _without_stats(LeRobotDatasetMeta.load(lerobot_dataset)),
+        root=tmp_path / "dumped",
+    )
 
     meta.dump()
 
+    assert not (meta.root / "meta" / "stats.json").exists()
     reloaded = LeRobotDatasetMeta.load(meta.root)
     assert reloaded == meta
-    assert all(
-        set(episode.stats) == set(DATA_SCHEMA.names)
-        for episode in reloaded.episodes_map.values()
-    )
-    stats_json = json.loads((meta.root / "meta" / "stats.json").read_text())
-    assert stats_json == reloaded.stats
+    assert all(episode.stats == {} for episode in reloaded.episodes_map.values())
