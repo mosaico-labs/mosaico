@@ -21,7 +21,7 @@ from .config import (
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     FPS,
-    POSITION_COLUMN_NAMES,
+    INDEX_COLUMN_NAMES,
     STATE_COLUMN_NAME,
     TASK,
     action_value,
@@ -398,7 +398,7 @@ def test_drop_features_removes_them_from_info_and_episodes(lerobot_dataset):
     assert ACTION_COLUMN_NAME not in [f.key for f in dropped.features]
     assert STATE_COLUMN_NAME in [f.key for f in dropped.features]
     for episode in dropped.episodes_map.values():
-        assert set(episode.stats) == {STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
+        assert set(episode.stats) == {STATE_COLUMN_NAME, *INDEX_COLUMN_NAMES}
 
 
 def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
@@ -414,7 +414,7 @@ def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
         assert set(episode.stats) == {
             ACTION_COLUMN_NAME,
             STATE_COLUMN_NAME,
-            *POSITION_COLUMN_NAMES,
+            *INDEX_COLUMN_NAMES,
         }
 
 

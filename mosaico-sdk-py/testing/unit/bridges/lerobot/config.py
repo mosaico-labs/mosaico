@@ -69,6 +69,7 @@ TIMESTAMP_COLUMN_NAME = "timestamp"
 FRAME_INDEX_COLUMN_NAME = "frame_index"
 EPISODE_INDEX_COLUMN_NAME = "episode_index"
 INDEX_COLUMN_NAME = "index"
+TASK_INDEX_COLUMN_NAME = "task_index"
 
 POSITION_COLUMN_NAMES = [
     FRAME_INDEX_COLUMN_NAME,
@@ -331,6 +332,7 @@ def make_lerobot_dataset(
             ),
             (EPISODE_INDEX_COLUMN_NAME, [episode_index] * length),
             (INDEX_COLUMN_NAME, list(range(start, start + length))),
+            (TASK_INDEX_COLUMN_NAME, list([1] * length)),
         ):
             stats = _scalar_stats(value)
             episode_row.update(

@@ -53,6 +53,7 @@ READ_BUFFER_SIZE = 32 * 1024 * 1024
 
 _EPISODE_INDEX_COLUMN = "episode_index"
 _TASK_INDEX_COLUMN = "task_index"
+""" Pushed as `task`: a task index means nothing outside its source dataset  """
 _TASK_COLUMN = "task"
 _TASK_FIELD = pa.field(_TASK_COLUMN, pa.string())
 _NESTED_NAME_SEP = "."
@@ -107,7 +108,7 @@ def _timeseries_fields_to_msco_schema(fields: List[pa.Field]) -> pa.Schema:
 
         if schema.get_field_index(_TASK_COLUMN) != _NOT_FOUND:
             raise ValueError(
-                f"The original data files contains '{_TASK_COLUMN}' column that is reserved name for Mosaico bridge."
+                f"The original data files contains '{_TASK_COLUMN}' column that is reserved name for Mosaico bridge. "
                 "Please drop it using column name filters."
             )
 

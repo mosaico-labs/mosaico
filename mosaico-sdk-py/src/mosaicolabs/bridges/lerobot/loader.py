@@ -19,7 +19,7 @@ from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
 from .lerobot_batch import LeRobotBatch
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
-from .reader import LeRobotReader
+from .reader import _TASK_INDEX_COLUMN, LeRobotReader
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -297,12 +297,15 @@ class LeRobotEpisodeLoader:
     def stats(self) -> Dict[str, Dict[str, Any]]:
         """
         The episode stats after removing: the filtered features, index, frame_index,
-        episode_index and timestamp.
+        episode_index. task_index and timestamp.
         """
 
         injected_columns = (
             self._reader.cameras_column_names + self._reader.timeseries_column_names
         )
+
+        if _TASK_INDEX_COLUMN in injected_columns:
+            injected_columns.remove(_TASK_INDEX_COLUMN)
 
         reduced_stats = {
             k: v

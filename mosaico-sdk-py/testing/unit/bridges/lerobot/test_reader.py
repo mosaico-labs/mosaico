@@ -133,6 +133,31 @@ def test_timeseries_schema_rejects_a_name_both_field_and_struct(names, conflict)
         _timeseries_fields_to_msco_schema(fields)
 
 
+def test_timeseries_schema_rejects_schemas_with_task_column():
+    """The server rejects field names containing `.`."""
+    with pytest.raises(
+        ValueError, match="The original data files contains 'task' column"
+    ):
+        _timeseries_fields_to_msco_schema(
+            [
+                pa.field("action", VECTOR_TYPE),
+                pa.field("task_index", pa.string()),
+                pa.field("task", pa.string()),
+            ]
+        )
+
+    with pytest.raises(
+        ValueError, match="The original data files contains 'task' column"
+    ):
+        _timeseries_fields_to_msco_schema(
+            [
+                pa.field("action", VECTOR_TYPE),
+                pa.field("task_index", pa.string()),
+                pa.field("task.id", pa.string()),
+            ]
+        )
+
+
 # --- _adapt_timeseries_rb_to_schema ---
 
 
