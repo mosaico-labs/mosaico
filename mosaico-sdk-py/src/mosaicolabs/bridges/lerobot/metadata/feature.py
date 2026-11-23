@@ -21,8 +21,9 @@ class LeRobotFeature:
     """
     A feature of a LeRobot dataset, as described in the `features` dict of `meta/info.json`.
 
-    `info` is excluded from equality: it describes the feature (e.g. its video encoding), not
-    its data, so that datasets differing only there can be merged.
+    Two features are equal if they hold the same data: the same key, dtype, shape and names,
+    and both or neither a depth map (see `__eq__`). The rest of `info` (e.g. the video
+    encoding) is ignored, so that datasets differing only there can be merged.
     """
 
     key: str
@@ -38,7 +39,45 @@ class LeRobotFeature:
     """The names of the feature dimensions (a list, a dict of lists or `None`)."""
 
     info: Optional[Dict[str, Any]] = field(default=None, compare=False)
-    """Additional information about the feature (e.g. video encoding parameters)."""
+    """Additional information about the feature (e.g. video encoding parameters). Only its
+    depth map flag takes part in equality (see `__eq__`)."""
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Whether the two features hold the same data: the same `key`, `dtype`, `shape` and
+        `names`, and both or neither a depth map (see `is_depth_map`).
+
+        Of `info`, only the depth map flag is compared: it changes what the values are, while
+        the rest of `info` (e.g. the video encoding) only describes how they are stored.
+        """
+        if not isinstance(other, LeRobotFeature):
+            return NotImplemented
+        return (
+            self.key == other.key
+            and self.dtype == other.dtype
+            and self.shape == other.shape
+            and self.names == other.names
+            and self.is_depth_map() == other.is_depth_map()
+        )
+
+    def __post_init__(self):
+        """
+        Checks that the shape of the feature is supported: any shape for an image or a video,
+        otherwise a scalar, a vector or an array of 2 to 5 dimensions.
+
+        Raises:
+            ValueError: If the shape is not supported (e.g. `()`, `(0,)` or more than 5
+                dimensions).
+        """
+        if not self.is_image() and not self.is_video():
+            if (
+                not self.is_scalar()
+                and not self.is_list()
+                and not self.is_nested_list()
+            ):
+                raise ValueError(
+                    f"The `{self.key}` feature has {self.shape} shape that is unsupported."
+                )
 
     @classmethod
     def from_dict(cls, key: str, feature: Dict[str, Any]) -> "LeRobotFeature":
@@ -53,10 +92,14 @@ class LeRobotFeature:
             LeRobotFeature: The parsed feature.
 
         Raises:
-            ValueError: If the description has no `dtype`.
+            ValueError: If the description has no `dtype` or no `shape`, or its shape is not
+                supported (see `__post_init__`).
         """
         if "dtype" not in feature:
             raise ValueError(f"Feature '{key}' has no 'dtype' in 'meta/info.json'.")
+
+        if "shape" not in feature:
+            raise ValueError(f"Feature '{key}' has no 'shape' in 'meta/info.json'.")
 
         return cls(
             key=key,
@@ -105,8 +148,7 @@ class LeRobotFeature:
     def is_timeseries(self) -> bool:
         """
         Whether the feature is a timeseries: neither an image, a video, the timestamp, nor the
-        position of the frame (`index`, `frame_index` and `episode_index`), which is rebuilt
-        when the episodes are exported (see `LeRobotWriter`).
+        position of the frame (`index`, `frame_index` and `episode_index`), which is rebuilt on export.
         """
         return (
             not self.is_image()

@@ -8,7 +8,7 @@ The data parquet file holding an episode is found from its `meta/episodes` row (
 contiguously: the rows of the other episodes are filtered out on the `episode_index` column.
 
 The position of the frames (`index`, `frame_index` and `episode_index`) is not read: it is
-rebuilt when the episodes are exported (see `LeRobotFeature.is_timeserie`). `task_index` is
+rebuilt when the episodes are exported (see `LeRobotFeature.is_timeseries`). `task_index` is
 pushed as `task`, the task it refers to in `meta/tasks.parquet`, so that the sequences can be
 queried by task: `task_index` is rebuilt from it when the episodes are exported.
 
@@ -53,8 +53,7 @@ READ_BUFFER_SIZE = 32 * 1024 * 1024
 
 _EPISODE_INDEX_COLUMN = "episode_index"
 _TASK_INDEX_COLUMN = "task_index"
-# Pushed as `task`, but selected and reported by its dataset name `task_index`:
-# https://github.com/mosaico-labs/mosaico/discussions/971
+""" Pushed as `task`: a task index means nothing outside its source dataset  """
 _TASK_COLUMN = "task"
 _TASK_FIELD = pa.field(_TASK_COLUMN, pa.string())
 _NESTED_NAME_SEP = "."
@@ -102,9 +101,17 @@ def _timeseries_fields_to_msco_schema(fields: List[pa.Field]) -> pa.Schema:
     schema = pa.schema(list(to_struct(tree)))
 
     # Remove `task_index` field and add `task` field to Mosaico timeseries schema
+    # Raise if `task` column is already present within original schema
     task_index_field_index = schema.get_field_index(_TASK_INDEX_COLUMN)
     if task_index_field_index != _NOT_FOUND:
         schema = schema.remove(task_index_field_index)
+
+        if schema.get_field_index(_TASK_COLUMN) != _NOT_FOUND:
+            raise ValueError(
+                f"The original data files contains '{_TASK_COLUMN}' column that is reserved name for Mosaico bridge. "
+                "Please drop it using column name filters."
+            )
+
         schema = schema.append(_TASK_FIELD)
 
     return schema
@@ -137,7 +144,7 @@ def _adapt_timeseries_rb_to_schema(
     )
 
 
-def _task_indexes_to_tasks(task_index: pa.Array, tasks: List[str]) -> pa.Array:
+def _task_indexes_to_tasks(task_index: pa.Array, task_array: pa.Array) -> pa.Array:
     """
     Converts LeRobot task indexes (int64) into the tasks they refer to (string, see
     `LeRobotDatasetMeta.tasks`).
@@ -147,11 +154,11 @@ def _task_indexes_to_tasks(task_index: pa.Array, tasks: List[str]) -> pa.Array:
     """
     # As LeRobot reads it: a task index is the row of the task in `meta/tasks.parquet`
     try:
-        return pa.array(tasks, pa.string()).take(task_index)
+        return task_array.take(task_index)
     except pa.ArrowIndexError as e:
         raise ValueError(
             f"The '{_TASK_INDEX_COLUMN}' column holds an index not defined in "
-            f"'meta/tasks.parquet' ({len(tasks)} tasks defined): {e}"
+            f"'meta/tasks.parquet' ({len(task_array)} tasks defined): {e}"
         ) from e
 
 
@@ -286,11 +293,11 @@ class LeRobotReader:
             and (column_names is None or feature.key in column_names)
         ]
 
-        # TODO: this can probably be simplified using just passing
-        # the meta.features that are timeseries
         self._timeseries_schema: pa.Schema = _timeseries_fields_to_msco_schema(
             [schema.field(name) for name in self._timeseries_column_names]
         )
+
+        self._task_array: pa.Array = pa.array(self._meta.tasks, pa.string())
 
     def _iter_episode_batches(
         self,
@@ -408,7 +415,7 @@ class LeRobotReader:
     def timeseries_struct(self) -> pa.StructType:
         """
         The struct of the timeseries: every data column except `timestamp`, the images and the
-        position of the frames (see `LeRobotFeature.is_timeserie`), with dotted names nested.
+        position of the frames (see `LeRobotFeature.is_timeseries`), with dotted names nested.
         `task_index` becomes the last field `task` (`string`, the task it refers to). It is the
         ontology schema of the timeseries topic (e.g. for `make_unmodeled_ontology_class`).
         """
@@ -508,7 +515,7 @@ class LeRobotReader:
             # Only when `task_index` was selected through `column_names`
             if batch.schema.get_field_index(_TASK_INDEX_COLUMN) != _NOT_FOUND:
                 task_array = _task_indexes_to_tasks(
-                    batch.column(_TASK_INDEX_COLUMN), self._meta.tasks
+                    batch.column(_TASK_INDEX_COLUMN), self._task_array
                 )
                 batch = batch.append_column(_TASK_FIELD, task_array)
             timeseries_rb = _adapt_timeseries_rb_to_schema(
