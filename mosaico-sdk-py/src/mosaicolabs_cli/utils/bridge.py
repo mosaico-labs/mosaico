@@ -224,6 +224,12 @@ def run_extractor(extractor) -> None:
     """Runs an extractor, turning expected failures into a clean CLI error."""
     try:
         extractor.run()
-    except (FileExistsError, ValueError) as e:
+    except (
+        FileExistsError,
+        ValueError,
+        KeyError,
+        RuntimeError,
+        FileNotFoundError,
+    ) as e:
         error_console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)
