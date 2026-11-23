@@ -44,10 +44,12 @@ class LeRobotDatasetBuilder:
         """The `info` of the first episode, without the video features."""
 
         self._episode_by_sequence: Dict[str, LeRobotEpisode] = {}
-        """The new `episode_index` of each accepted episode, keyed by the name of its sequence."""
+        """The accepted episodes, renumbered, keyed by the name of their sequence, in the order
+        they were added."""
 
         self._current_index = 0
-        """The current episode index. Increases by episode length for each time a new episode is added"""
+        """The `dataset_to_index` of the last accepted episode: the row where the next one
+        starts."""
 
     @property
     def info(self) -> Optional[LeRobotInfo]:
@@ -159,9 +161,20 @@ class LeRobotDatasetBuilder:
 
     def build_lerobot_metadata(self, root: Path) -> LeRobotDatasetMeta:
         """
-        Creates a LeRobotDatasetMeta from LeRobotDatasetBuilder. Stats are not computed
-        and should be computed separately.
-        Raises RuntimeError if not episode has been added yet.
+        Creates the metadata of the dataset from the accepted episodes: their `info`,
+        `episodes` and `tasks`.
+
+        The stats are not computed: the episodes have none (see `add_episode`), they are
+        computed from the data of the new dataset.
+
+        Args:
+            root (Path): The root folder of the new dataset.
+
+        Returns:
+            LeRobotDatasetMeta: The metadata of the dataset.
+
+        Raises:
+            RuntimeError: If no episode has been added yet.
         """
         if self.info is None:
             raise RuntimeError(
@@ -171,8 +184,15 @@ class LeRobotDatasetBuilder:
 
         return LeRobotDatasetMeta.from_data(root, self.info, self.episodes, self.tasks)
 
-    def get_episode_by_sequence_name(self, seq_name: str):
+    def get_episode_by_sequence_name(self, seq_name: str) -> Optional[LeRobotEpisode]:
         """
-        Returns the LeRobotEpisode associated to Mosaico sequence name. None if none is found
+        Returns the accepted episode of a sequence.
+
+        Args:
+            seq_name (str): The name of the sequence.
+
+        Returns:
+            Optional[LeRobotEpisode]: The episode, renumbered, or `None` if the sequence was
+                not added or not accepted.
         """
         return self._episode_by_sequence.get(seq_name)

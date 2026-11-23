@@ -40,7 +40,7 @@ def _unpack_sequence(
     `info`, and the `tasks` of its episode, as in their source dataset.
 
     Returns:
-        Tuple[LeRobotInfo, List[str], int]: The `info`, the episode tasks and the episode length.
+        Tuple[LeRobotInfo, List[str]]: The `info` and the episode tasks.
 
     Raises:
         ValueError: If the `_lerobot_` metadata is missing or malformed.
@@ -93,7 +93,8 @@ class MosaicoToLeRobotLoader(BaseLoader):
     Reads the Mosaico sequences of a LeRobot dataset extraction, one episode each.
 
     On resolution (see `_ensure_resolved`), the episode of each sequence is read from its
-    `_lerobot_` metadata and merged with the previous ones by a `LeRobotDatasetBuilder`. The
+    `_lerobot_` metadata, with its `length` counted from the rows of the sequence in Mosaico,
+    and merged with the previous ones by a `LeRobotDatasetBuilder`. The
     metadata of the exported dataset is exposed by `info`, `episodes`, `tasks` and
     `episode_index_by_sequence`.
 
@@ -122,15 +123,16 @@ class MosaicoToLeRobotLoader(BaseLoader):
         """The sequences to export, one episode each, in episode order."""
 
         self._seq_handlers: Optional[List[SequenceHandler]] = None
-        """List of each accepted sequence handlers: `None` until resolved by
+        """The handlers of the accepted sequences, in episode order: `None` until resolved by
         `_ensure_resolved`."""
 
         self._streamers: Optional[List[SequenceDataStreamer]] = None
-        """List of each accepted streamer: `None` until resolved by
-        `_ensure_resolved`."""
+        """The data streamers of the accepted sequences, in the order of `_seq_handlers`:
+        `None` until resolved by `_ensure_resolved`."""
 
         self._builder: Optional[LeRobotDatasetBuilder] = None
-        """The builder of the metadata of the exported dataset, filled by `_ensure_resolved`."""
+        """The builder of the metadata of the exported dataset: `None` until resolved by
+        `_ensure_resolved`."""
 
     @property
     def info(self) -> LeRobotInfo:
@@ -193,8 +195,16 @@ class MosaicoToLeRobotLoader(BaseLoader):
 
     def msg_count(self, topic: Optional[str] = None) -> int:
         """
-        Returns the total number of messages in the passed
-        topic if not None. Otherwise returns all messages in all topics
+        Returns the number of messages of a topic, or of all the accepted topics.
+
+        Every topic has one row per frame: the count of a topic is the `total_frames` of the
+        exported dataset.
+
+        Args:
+            topic (Optional[str]): The topic to count, or `None` for all the accepted topics.
+
+        Returns:
+            int: The number of messages, or 0 if the topic is not one of the sequences.
         """
         self._resolve_sequence_handlers()
 
@@ -218,14 +228,19 @@ class MosaicoToLeRobotLoader(BaseLoader):
         self,
     ) -> List[Tuple[SequenceHandler, SequenceDataStreamer]]:
         """
-        Lazily resolves the sequences: their handlers, the episodes of the exported dataset and
-        their topics.
+        Lazily resolves the sequences: their handlers and data streamers, the episodes of the
+        exported dataset and their topics.
 
-        Called automatically on first access to any property. Each sequence, in order, is
-        dropped with a warning (and its handler closed) if it does not exist, has no valid
-        `_lerobot_` metadata, or cannot be merged with the previous ones (see
-        `LeRobotDatasetBuilder.add_episode`). If the resolution fails, the handlers opened so
-        far are closed.
+        Called automatically on first access to any property. For each sequence, in order, a
+        data streamer is opened, and the `length` of its episode is the number of rows of its
+        topics in Mosaico. A sequence is dropped with a warning (and its handler closed) if it
+        does not exist, has no valid `_lerobot_` metadata, or cannot be merged with the
+        previous ones (see `LeRobotDatasetBuilder.add_episode`). If the resolution fails, the
+        handlers opened so far are closed.
+
+        Returns:
+            List[Tuple[SequenceHandler, SequenceDataStreamer]]: The handler and the data
+                streamer of each accepted sequence, in episode order.
 
         Raises:
             ValueError: If no sequence can be exported.
@@ -315,8 +330,14 @@ class MosaicoToLeRobotLoader(BaseLoader):
         Streams the episodes of the exported dataset, one per accepted sequence, in episode
         order.
 
+        Single-pass: the data streamers of the sequences are opened once, on resolution, and
+        consumed by the yielded `LeRobotEpisodeStreamer`s (see its docstring).
+
         Yields:
             LeRobotEpisodeStreamer: The streamer of the data of the episode.
+
+        Raises:
+            ValueError: If no sequence can be exported.
         """
         streamers = self._resolve_sequence_handlers()
 
@@ -325,7 +346,7 @@ class MosaicoToLeRobotLoader(BaseLoader):
                 "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
             )
 
-        # The handlers and the episodes are accepted together, in the same order
+        # The episode of each accepted sequence, by its name
         for s_handler, streamer in streamers:
             sequence_name = s_handler.name
             episode = self._builder.get_episode_by_sequence_name(sequence_name)
@@ -388,8 +409,8 @@ class LeRobotEpisodeStreamer:
         self.episode_metadata: LeRobotEpisode = episode
         """The episode, renumbered in the exported dataset."""
 
-        # Get the streamers and set them as `batch` mode. The topics with no data have none
         self._streamers: SequenceDataStreamer = streamer
+        """The data streamer of the sequence, switched to batch mode on iteration."""
 
     def __del__(self):
         self._streamers.close()
