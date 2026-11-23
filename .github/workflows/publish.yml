@@ -10,6 +10,10 @@ name: Publish release
 # A security update of an older release keeps the `latest` container tag, the online docs and the
 # latest GitHub release on the highest release.
 # A failed publish job can be retried with "Re-run failed jobs", with the same artifacts.
+# The Release workflow calls it in its dry run, on the commit to tag and before the tag exists: it
+# builds every artifact and runs the publish jobs without publishing anything, so a failure shows up
+# before the release is tagged. A dry run uploads nothing: the container images are built but not
+# pushed, and the publish jobs only show what they would publish.
 #
 # Requires the variable RELEASE_PUBLIC_KEY (see release.yml) and the secrets R2_ACCOUNT_ID,
 # R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY for the docs. PyPI needs no secret: the `mosaicolabs`
@@ -21,9 +25,20 @@ on:
       - 'v[0-9]+.*.*'
   # To re-run it by hand: "Use workflow from" the release tag.
   workflow_dispatch:
+  # Dry run from the Release workflow.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag, not created yet"
+        type: string
+        required: true
+      dry_run:
+        description: "Build and check everything without publishing"
+        type: boolean
+        default: true
 
 concurrency:
-  group: publish-${{ github.ref_name }}
+  group: publish-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
@@ -36,19 +51,29 @@ jobs:
     outputs:
       # Whether this is the highest release. A security update of an older release must not
       # replace the `latest` container tag, the online docs and the latest GitHub release.
-      latest: ${{ steps.highest.outputs.tag == github.ref_name }}
+      latest: ${{ steps.highest.outputs.tag == steps.tag.outputs.tag }}
       version: ${{ steps.versions.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       # Every tag, to compare this release with the others.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      # Only tags signed with the release key are released.
+      # The release tag: the pushed tag, or the tag of the dry run.
+      - name: Read release tag
+        id: tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # Only tags signed with the release key are released. In a dry run the tag does not exist
+      # yet: the Release workflow has already verified it.
       - name: Verify release tag
+        if: ${{ !inputs.dry_run }}
         uses: ./.github/actions/verify-release-tag
         with:
-          tag: ${{ github.ref_name }}
+          tag: ${{ steps.tag.outputs.tag }}
           public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
           fetch: "true"
 
@@ -63,21 +88,24 @@ jobs:
       # hand must bump both manifests first.
       - name: Fail on version mismatch
         if: >-
-          format('v{0}', steps.versions.outputs.version) != github.ref_name ||
-          format('v{0}', steps.versions.outputs.py_version) != github.ref_name
+          format('v{0}', steps.versions.outputs.version) != steps.tag.outputs.tag ||
+          format('v{0}', steps.versions.outputs.py_version) != steps.tag.outputs.tag
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ steps.tag.outputs.tag }}
           VERSION: ${{ steps.versions.outputs.version }}
           PY_VERSION: ${{ steps.versions.outputs.py_version }}
         run: |
           echo "::error::Tag $TAG, but mosaicod is $VERSION and the Python SDK is $PY_VERSION."
           exit 1
 
-      # The highest release tag, compared with this one in the job outputs.
+      # The highest release tag, compared with this one in the job outputs. The release tag is added
+      # to the list because it does not exist yet in a dry run.
       - name: Find highest release
         id: highest
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          echo "tag=$(git tag --list 'v*' --sort=-version:refname | grep -m1 -E '^v[0-9]+\.[0-9]+\.[0-9]+$')" >> "$GITHUB_OUTPUT"
+          echo "tag=$({ git tag --list 'v*'; echo "$TAG"; } | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -u -r -V | head -n1)" >> "$GITHUB_OUTPUT"
 
   # ------------------------------------------------------------------------------------------------
   # Phase 1: build every artifact.
@@ -124,7 +152,7 @@ jobs:
       - name: Build binary
         env:
           GIT_HASH: ${{ github.sha }}
-          GIT_TAG: ${{ github.ref_name }}
+          GIT_TAG: ${{ needs.verify.outputs.tag }}
           MOSAICO_PROTO_DIR: ${{ github.workspace }}/proto
         working-directory: mosaicod
         run: ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
@@ -210,7 +238,7 @@ jobs:
           if-no-files-found: error
 
   # One image per platform, on native runners. The images are pushed to GHCR by digest only, with
-  # no tag: nobody sees them until phase 2 tags the multi-platform image.
+  # no tag: nobody sees them until phase 2 tags the multi-platform image. A dry run only builds them.
   container:
     name: Build container (${{ matrix.platform }})
     needs: verify
@@ -231,6 +259,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Log in to GHCR
+        if: ${{ !inputs.dry_run }}
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -249,14 +278,15 @@ jobs:
           platforms: ${{ matrix.platform }}
           build-args: |
             GIT_HASH=${{ github.sha }}
-            GIT_TAG=${{ github.ref_name }}
-          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=true
+            GIT_TAG=${{ needs.verify.outputs.tag }}
+          outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=${{ !inputs.dry_run }}
           # One cache per platform, or the two builds overwrite each other's cache.
           cache-from: type=gha,scope=release-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
 
       # The digest of the image, for phase 2.
       - name: Export digest
+        if: ${{ !inputs.dry_run }}
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
@@ -264,6 +294,7 @@ jobs:
           touch "digests/${DIGEST#sha256:}"
 
       - name: Upload digest
+        if: ${{ !inputs.dry_run }}
         uses: actions/upload-artifact@v7
         with:
           name: digests-${{ matrix.arch }}
@@ -271,7 +302,8 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------------------------------------------
-  # Phase 2: publish, only if every artifact was built. These jobs only upload.
+  # Phase 2: publish, only if every artifact was built. These jobs only upload. In a dry run they
+  # check what they would publish instead.
   # ------------------------------------------------------------------------------------------------
 
   publish-container:
@@ -283,6 +315,7 @@ jobs:
       packages: write
     steps:
       - name: Download digests
+        if: ${{ !inputs.dry_run }}
         uses: actions/download-artifact@v8
         with:
           path: digests
@@ -290,6 +323,7 @@ jobs:
           merge-multiple: true
 
       - name: Log in to GHCR
+        if: ${{ !inputs.dry_run }}
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -297,9 +331,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
+        if: ${{ !inputs.dry_run }}
         uses: docker/setup-buildx-action@v4
 
-      # Tags `X.Y.Z`, `X.Y` and, only for the highest release, `latest`.
+      # Tags `X.Y.Z`, `X.Y` and, only for the highest release, `latest`. The version comes from the
+      # release tag, which is not the ref of a dry run.
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -307,11 +343,12 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/mosaicod
           flavor: latest=${{ needs.verify.outputs.latest }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ needs.verify.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.tag }}
 
       # The multi-platform image from the digests of phase 1, with the release tags.
       - name: Create manifest list and push
+        if: ${{ !inputs.dry_run }}
         env:
           DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
           IMAGE: ghcr.io/${{ github.repository_owner }}/mosaicod
@@ -321,16 +358,31 @@ jobs:
           docker buildx imagetools create $TAGS $(printf "$IMAGE@sha256:%s " $(ls digests))
 
       - name: Inspect image
+        if: ${{ !inputs.dry_run }}
         env:
           IMAGE: ghcr.io/${{ github.repository_owner }}/mosaicod
           VERSION: ${{ steps.meta.outputs.version }}
         run: docker buildx imagetools inspect "$IMAGE:$VERSION"
 
+      # In a dry run, show the tags that would be pushed in the run summary.
+      - name: Job summary
+        if: ${{ inputs.dry_run }}
+        env:
+          DOCKER_METADATA_OUTPUT_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          {
+            echo "### Container (dry run, not pushed)"
+            echo ""
+            jq -r '.tags[] | "- `" + . + "`"' <<< "$DOCKER_METADATA_OUTPUT_JSON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # A PyPI release can never be replaced, so PyPI gets exactly the wheel and sdist tested in phase 1.
   # Security updates of older releases are published too: pip picks the highest version anyway.
+  # Skipped in a dry run, since PyPI has no dry run: the files are tested in phase 1.
   publish-pypi:
     name: Publish Python SDK (PyPI)
     needs: [verify, binaries, python-sdk, docs-main, docs-py, container]
+    if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -362,6 +414,8 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
       ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+      # A dry run only lists the changes.
+      DRY_RUN: ${{ inputs.dry_run && '--dryrun' || '' }}
     steps:
       - name: Download docs (Docusaurus)
         uses: actions/download-artifact@v8
@@ -377,14 +431,15 @@ jobs:
 
       # Replace the online docs: files that are no longer in the build are removed.
       - name: Upload docs (Docusaurus)
-        run: aws s3 sync docs-main s3://mosaico-docs/latest --delete --endpoint-url "$ENDPOINT" --region auto
+        run: aws s3 sync docs-main s3://mosaico-docs/latest --delete ${DRY_RUN:+"$DRY_RUN"} --endpoint-url "$ENDPOINT" --region auto
 
       - name: Upload docs (Python SDK)
-        run: aws s3 sync docs-py s3://mosaico-docs/python-sdk --delete --endpoint-url "$ENDPOINT" --region auto
+        run: aws s3 sync docs-py s3://mosaico-docs/python-sdk --delete ${DRY_RUN:+"$DRY_RUN"} --endpoint-url "$ENDPOINT" --region auto
 
   # Last, so the release is announced only once the container, the Python SDK and the docs are
   # published. It also runs when the docs are skipped (security update of an older release), never
-  # after a failure.
+  # after a failure. A dry run generates the notes and collects the files without creating the
+  # release.
   github-release:
     name: Publish GitHub release
     needs: [verify, publish-container, publish-pypi, publish-docs]
@@ -399,13 +454,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The released commit: the tag, or the commit to tag in a dry run.
+      - name: Read release ref
+        id: release
+        env:
+          REF: ${{ inputs.dry_run && github.sha || needs.verify.outputs.tag }}
+        run: echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
       # The previous release: the highest release tag before this one, empty for the first release.
+      # The release tag is added to the list because it does not exist yet in a dry run.
       - name: Find previous release
         id: previous
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.verify.outputs.tag }}
         run: |
-          echo "tag=$(git tag --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -x -A1 "$TAG" | sed -n 2p)" >> "$GITHUB_OUTPUT"
+          echo "tag=$({ git tag --list 'v*'; echo "$TAG"; } | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -u -r -V | grep -x -A1 "$TAG" | sed -n 2p)" >> "$GITHUB_OUTPUT"
 
       # Old releases were tagged on release branches, not on main, so the notes start from where
       # the history of the previous release meets this one.
@@ -414,8 +477,8 @@ jobs:
         if: steps.previous.outputs.tag != ''
         env:
           PREVIOUS: ${{ steps.previous.outputs.tag }}
-          TAG: ${{ github.ref_name }}
-        run: echo "sha=$(git merge-base "$PREVIOUS" "$TAG")" >> "$GITHUB_OUTPUT"
+          RELEASE: ${{ steps.release.outputs.ref }}
+        run: echo "sha=$(git merge-base "$PREVIOUS" "$RELEASE")" >> "$GITHUB_OUTPUT"
 
       # Release notes from the commit messages, one section per component (see .github/cliff.toml).
       # The author of each change is the GitHub user of its PR, from the GitHub API. The first
@@ -426,8 +489,8 @@ jobs:
           version: v2.14.2
           config: .github/cliff.toml
           args: >-
-            --tag ${{ github.ref_name }}
-            ${{ steps.start.outputs.sha && format('{0}..{1}', steps.start.outputs.sha, github.ref_name) || github.ref_name }}
+            --tag ${{ needs.verify.outputs.tag }}
+            ${{ steps.start.outputs.sha && format('{0}..{1}', steps.start.outputs.sha, steps.release.outputs.ref) || steps.release.outputs.ref }}
         env:
           OUTPUT: release-notes.md
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -448,9 +511,26 @@ jobs:
       # The release of the tag, with the notes, the binaries, the wheel and the sdist. Only the highest
       # release is marked as latest, which `releases/latest` download links point to.
       - name: Create GitHub release
+        if: ${{ !inputs.dry_run }}
         uses: softprops/action-gh-release@v3
         with:
           body_path: release-notes.md
           files: dist/*
           fail_on_unmatched_files: true
           make_latest: ${{ needs.verify.outputs.latest }}
+
+      # In a dry run, show the release that would be created in the run summary.
+      - name: Job summary
+        if: ${{ inputs.dry_run }}
+        env:
+          TAG: ${{ needs.verify.outputs.tag }}
+        run: |
+          {
+            echo "### GitHub release $TAG (dry run, not created)"
+            echo ""
+            echo "Files:"
+            echo ""
+            for FILE in dist/*; do echo "- \`${FILE#dist/}\`"; done
+            echo ""
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
