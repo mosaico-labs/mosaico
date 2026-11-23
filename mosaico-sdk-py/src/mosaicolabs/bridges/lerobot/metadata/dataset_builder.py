@@ -58,9 +58,10 @@ class LeRobotDatasetBuilder:
 
         return replace(
             self._info,
+            video_path=None,
             total_episodes=len(self._episodes),
             total_frames=sum(episode.length for episode in self._episodes),
-            total_tasks=len({task for e in self._episodes for task in e.tasks}),
+            total_tasks=len(self.tasks),
             splits={"train": f"0:{len(self._episodes)}"},
         )
 
@@ -88,10 +89,11 @@ class LeRobotDatasetBuilder:
         """
         Adds the episode of a sequence to the dataset, after the previous ones, renumbered.
 
-        Only its `tasks` and `length` are taken from its source dataset: its indexes are set by
-        its position in the new dataset. Its stats are not taken either: those of its source
-        dataset do not apply to the new one (it can hold only part of the episode). They are
-        computed from the data of the new dataset instead (see `LeRobotDatasetMeta.get_or_compute_episode_stats`).
+        Episode `length` is the number of rows extracted from Mosaico: its indexes are set by
+        its position in the new dataset. Only its `tasks` is taken from its source dataset.
+        Its stats are not taken either: those of its source dataset do not apply to the new
+        one (it can hold only part of the episode). They are computed from the data of the
+        new dataset instead (see `compute_episode_stats`).
 
         The video features are dropped from `info` before comparing it with the one of the
         first episode (see `LeRobotInfo.check_compatible`).
@@ -103,21 +105,26 @@ class LeRobotDatasetBuilder:
             length (int): The number of frames of the episode.
 
         Raises:
-            ValueError: If the sequence was already added, or its `info` is not compatible with
-                the one of the first episode. The dataset is left unchanged.
+            ValueError: If the sequence was already added, its `info` is not compatible with
+                the one of the first episode or length is <= 0. The dataset is left unchanged.
         """
         if sequence_name in self._episode_index_by_sequence:
             raise ValueError(f"Sequence '{sequence_name}' has already been added.")
 
+        if length <= 0:
+            raise ValueError(f"Sequence '{sequence_name}' has length <=0: {length}.")
+
         video_features = [f.key for f in info.features if f.is_video()]
+
+        if video_features:
+            logger.warning(
+                f"Skipping video features {video_features}: video files are not "
+                "supported yet."
+            )
+
         info = replace(info, features=[f for f in info.features if not f.is_video()])
 
         if self._info is None:
-            if video_features:
-                logger.warning(
-                    f"Skipping video features {video_features}: video files are not "
-                    "supported yet."
-                )
             self._info = info
         else:
             self._info.check_compatible(info)
@@ -125,7 +132,7 @@ class LeRobotDatasetBuilder:
         start = self._episodes[-1].dataset_to_index if self._episodes else 0
         episode = LeRobotEpisode(
             episode_index=len(self._episodes),
-            tasks=tasks,
+            tasks=list(tasks),
             length=length,
             dataset_from_index=start,
             dataset_to_index=start + length,
@@ -140,3 +147,18 @@ class LeRobotDatasetBuilder:
 
         self._episodes.append(episode)
         self._episode_index_by_sequence[sequence_name] = episode.episode_index
+
+    def task_index(self, task: str) -> int:
+        """
+        Returns the index of a task in `tasks`: its row in `meta/tasks.parquet`.
+
+        Raises:
+            ValueError: If no accepted episode has the task.
+        """
+        try:
+            return self.tasks.index(task)
+        except ValueError:
+            raise ValueError(
+                f"Task '{task}' is not a task of any exported episode: it has no index in "
+                "'meta/tasks.parquet'."
+            ) from None

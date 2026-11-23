@@ -20,6 +20,8 @@ import json
 import math
 from typing import Any, ClassVar, Dict, Optional
 
+from mosaicolabs.handlers.helpers import _validate_metadata_keys
+
 from ..base_schema_metadata import BaseSchemaMetadata
 from .metadata.helpers import _flatten_stats, _unflatten
 
@@ -102,13 +104,15 @@ class LeRobotSchemaMetadata(BaseSchemaMetadata):
 
     @staticmethod
     def _sanitize(fields: Dict[str, Any]) -> Dict[str, Any]:
-        sanitized = dict(fields)
-        if "info" in fields:
-            info = fields["info"]
+
+        sanitized = _replace_non_finite(fields)
+        if "info" in sanitized:
+            info = sanitized["info"]
             sanitized["info"] = {**info, "features": json.dumps(info["features"])}
-        if "stats" in fields.get("episode", {}):
-            episode = fields["episode"]
-            stats = _unflatten(_replace_non_finite(episode["stats"]), sep=".")
+        if "stats" in sanitized.get("episode", {}):
+            episode = sanitized["episode"]
+            stats = _unflatten(episode["stats"], sep=".")
             sanitized["episode"] = {**episode, "stats": stats}
 
+        _validate_metadata_keys(sanitized)
         return sanitized
