@@ -324,6 +324,8 @@ class LeRobotDatasetMeta:
         Raises:
             ValueError: If the stats of a feature in an episode are missing or not feasible.
         """
+        stats = self.compute_stats()
+
         meta_dir = self.root / _META_DIR
 
         if meta_dir.exists():
@@ -332,7 +334,6 @@ class LeRobotDatasetMeta:
         meta_dir.mkdir(parents=True, exist_ok=True)
 
         (meta_dir / _INFO_FILE).write_text(json.dumps(self.info.to_dict(), indent=4))
-        stats = self.compute_stats()
         if stats is not None:
             (meta_dir / _STATS_FILE).write_text(json.dumps(stats, indent=4))
 

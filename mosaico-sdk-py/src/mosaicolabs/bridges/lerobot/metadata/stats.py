@@ -52,9 +52,6 @@ def _decode_image(column: pa.ChunkedArray, is_depth_map: bool) -> np.ndarray:
     `_IMAGE_DOWNSAMPLE_THRESHOLD` pixels or more, to about `_IMAGE_TARGET_SIZE` pixels on
     that side.
 
-    The values are then divided by 255, into `[0, 1]`, unless the feature is flagged as a
-    depth map, as LeRobot does.
-
     Args:
         column (pa.ChunkedArray): The images, at least one and none null: structs whose
             `bytes` field holds the content of the image file (e.g. PNG).
@@ -62,14 +59,14 @@ def _decode_image(column: pa.ChunkedArray, is_depth_map: bool) -> np.ndarray:
             `LeRobotFeature.is_depth_map`).
 
     Returns:
-        np.ndarray: The pixels of the images, of shape `(pixels, channels)`, in `float64`.
+        np.ndarray: The pixels of the images, of shape `(pixels, channels)`, in the dtype of the images (e.g. uint8).
 
     Examples:
         ```
-        2 RGB images of 4 x 4:        2 * 16 = 32 rows of 3 channels, in [0, 1]   (32, 3)
+        2 RGB images of 4 x 4:        2 * 16 = 32 rows of 3 channels, in uint8    (32, 3)
         1 RGB image of 640 x 480:     downsampled by 640 // 150 = 4,
                                       to 160 x 120 = 19,200 rows                  (19200, 3)
-        1 depth map of 4 x 4, flagged: 16 rows of 1 channel, not divided          (16, 1)
+        1 depth map of 4 x 4, flagged: 16 rows of 1 channel                       (16, 1)
         ```
     """
     pixels: List[np.ndarray] = []
@@ -95,12 +92,7 @@ def _decode_image(column: pa.ChunkedArray, is_depth_map: bool) -> np.ndarray:
         channels = image.shape[-1]
         pixels.append(image.reshape(-1, channels))
 
-    # Converted to float once, over the sampled pixels of all the images
-    values = np.concatenate(pixels).astype(np.float64)
-    if not is_depth_map:
-        values /= 255.0
-
-    return values
+    return np.concatenate(pixels)
 
 
 def _to_matrix(feature: LeRobotFeature, column: pa.ChunkedArray) -> np.ndarray:
@@ -266,6 +258,9 @@ class LeRobotStats:
         - an image: over every pixel of the sampled images, a value per channel (see
           `_decode_image`), of shape `(channels, 1, 1)`, as LeRobot stores them.
 
+        For images (except depth maps) the stats are then divided by 255, into `[0, 1]`,
+        as LeRobot does.
+
         Args:
             feature (LeRobotFeature): The feature of the column, a timeseries or an image (not
                 a video, nor a `string` or `language`).
@@ -286,6 +281,11 @@ class LeRobotStats:
             shape = (-1,)
 
         stats = _compute_stats(values, shape)
+
+        # As LeRobot: the stats of the pixels are divided by 255
+        if feature.is_image() and not feature.is_depth_map():
+            stats = {name: value / 255.0 for name, value in stats.items()}
+
         return cls.from_dict({**stats, "count": count})
 
     @classmethod
