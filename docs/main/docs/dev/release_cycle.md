@@ -57,3 +57,5 @@ v0.N.S
 ```
 
 The tag triggers a single release workflow. It first builds every artifact: the `mosaicod` binaries, the Python SDK wheel and sdist (tested), the docs and the container image. Only if all of them are built, it publishes them: the container image on GHCR, the Python SDK on PyPI, the docs online and a GitHub release with the release notes, the binaries, the wheel and the sdist. The workflow fails if the versions of `mosaicod` and the SDK differ from the tag, so a security update must bump both before it is tagged. A security update of an older release does not replace the online docs, the `latest` container tag or the latest GitHub release, which stay on the highest release.
+
+The weekly release workflow can be started as a dry run. It runs every step on the commit to release, including the build and the checks of the release workflow, but it pushes nothing and publishes nothing. A release should be preceded by a dry run, so a failure is fixed before the tag is created.
