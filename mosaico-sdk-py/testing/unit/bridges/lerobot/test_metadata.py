@@ -357,7 +357,7 @@ def test_load(lerobot_dataset):
     assert set(stats) == {
         ACTION_COLUMN_NAME,
         STATE_COLUMN_NAME,
-        *POSITION_COLUMN_NAMES,
+        *INDEX_COLUMN_NAMES,
     }
     # Episodes 0 and 1 are in the first episodes file, episode 2 in the second one
     assert meta.episode_indexes == [0, 1, 2]
@@ -427,7 +427,7 @@ def test_compute_stats_combines_those_of_the_episodes(lerobot_dataset):
     stats = LeRobotDatasetMeta.load(lerobot_dataset).compute_stats()
 
     assert stats is not None
-    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *POSITION_COLUMN_NAMES}
+    assert set(stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *INDEX_COLUMN_NAMES}
     every_frame = range(sum(EPISODE_LENGTHS))
     for key, value in (
         (ACTION_COLUMN_NAME, action_value),
