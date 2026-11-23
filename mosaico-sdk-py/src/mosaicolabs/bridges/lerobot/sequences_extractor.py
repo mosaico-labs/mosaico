@@ -19,7 +19,9 @@ Typical usage as a library:
         saving_path=Path("exports/pusht"),
         sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
     )
-    meta = LeRobotSequencesExtractor(config).run()
+    extractor = LeRobotSequencesExtractor(config)
+    status = extractor.run()  # `PARTIAL` if some sequences were dropped
+    meta = extractor.meta
 """
 
 import argparse
@@ -27,6 +29,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass, replace
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
@@ -98,6 +101,22 @@ class LeRobotExtractorConfig:
 # --- Main Extractor Class ---
 
 
+class ExtractionStatus(Enum):
+    """
+    Outcome of `LeRobotSequencesExtractor.run()`.
+
+    Errors are not a status: `run()` raises them, including when no sequence can be
+    exported. `PARTIAL` reports a run that exported only part of the sequences.
+    """
+
+    COMPLETED = "completed"
+    """Every sequence was exported."""
+
+    PARTIAL = "partial"
+    """Only part of the sequences was exported: the others were dropped (see
+    `LeRobotSequencesExtractor.dropped_sequences`)."""
+
+
 class LeRobotSequencesExtractor:
     """
     Exports Mosaico sequences ingested by the LeRobot bridge to a LeRobot v3.0 dataset folder.
@@ -119,7 +138,9 @@ class LeRobotSequencesExtractor:
             saving_path=Path("exports/pusht"),
             sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
         )
-        meta = LeRobotSequencesExtractor(config).run()
+        extractor = LeRobotSequencesExtractor(config)
+        status = extractor.run()
+        meta = extractor.meta
         ```
     """
 
@@ -130,12 +151,32 @@ class LeRobotSequencesExtractor:
         """
         self._cfg = config
 
+        self._meta: Optional[LeRobotDatasetMeta] = None
+        """The metadata written by the last `run()`."""
+
+        self._dropped_sequences: List[str] = []
+        """The sequences dropped in the last `run()`."""
+
         from rich.console import Console
 
         self._console = Console(stderr=True)
         setup_sdk_logging(
             level=self._cfg.log_level.upper(), pretty=True, console=self._console
         )
+
+    @property
+    def meta(self) -> Optional[LeRobotDatasetMeta]:
+        """The metadata written under `saving_path` by the last `run()`, `None` before."""
+        return self._meta
+
+    @property
+    def dropped_sequences(self) -> List[str]:
+        """
+        The sequences dropped in the last `run()`: they do not exist, have no valid
+        `_lerobot_` metadata or cannot be merged with the previous ones. Empty before the
+        first run, and after a run where every sequence was exported.
+        """
+        return list(self._dropped_sequences)
 
     def _write_dataset(
         self,
@@ -247,7 +288,7 @@ class LeRobotSequencesExtractor:
 
         return episodes
 
-    def run(self) -> LeRobotDatasetMeta:
+    def run(self) -> ExtractionStatus:
         """
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
         and writes the dataset under `saving_path` (see `_write_dataset`).
@@ -258,8 +299,13 @@ class LeRobotSequencesExtractor:
         `saving_path` and swapped in only once complete: a failure leaves `saving_path`
         untouched and discards the partial files, which is logged as an error.
 
+        A sequence that cannot be exported is dropped with a warning, and the dropped ones
+        are listed again at the end (see `dropped_sequences`). The metadata written is in
+        `meta`.
+
         Returns:
-            LeRobotDatasetMeta: The metadata written under `saving_path`.
+            ExtractionStatus: `COMPLETED` if every sequence was exported, `PARTIAL` if some
+                were dropped.
 
         Raises:
             FileExistsError: If `saving_path` exists and `overwrite` is False.
@@ -268,6 +314,8 @@ class LeRobotSequencesExtractor:
                 `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
+        self._meta = None
+        self._dropped_sequences = []
         saving_path = self._cfg.saving_path
         if saving_path.exists() and not self._cfg.overwrite:
             raise FileExistsError(
@@ -293,6 +341,10 @@ class LeRobotSequencesExtractor:
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
+                accepted = loader.episode_index_by_sequence
+                self._dropped_sequences = [
+                    name for name in self._cfg.sequence_names if name not in accepted
+                ]
                 saving_path.parent.mkdir(parents=True, exist_ok=True)
                 tmp_path = Path(
                     tempfile.mkdtemp(
@@ -321,12 +373,18 @@ class LeRobotSequencesExtractor:
                     saving_path.rename(old_path)
                 tmp_path.rename(saving_path)
                 shutil.rmtree(old_path, ignore_errors=True)
-                meta = replace(meta, root=saving_path)
+                self._meta = replace(meta, root=saving_path)
 
         logger.info(
             f"LeRobot dataset of {meta.n_episodes} episode(s) written to '{saving_path}'."
         )
-        return meta
+        if self._dropped_sequences:
+            logger.warning(
+                f"{len(self._dropped_sequences)} of {len(self._cfg.sequence_names)} "
+                f"sequence(s) dropped (see the warnings above): {self._dropped_sequences}"
+            )
+            return ExtractionStatus.PARTIAL
+        return ExtractionStatus.COMPLETED
 
 
 # --- CLI Entry Point ---
@@ -412,12 +470,16 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
     # --- Execution ---
     extractor = LeRobotSequencesExtractor(config)
     try:
-        extractor.run()
+        status = extractor.run()
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception as e:
         # Exit non-zero so calling scripts/CI can detect the failure
         logger.error(f"LeRobot extraction failed: {e}")
+        sys.exit(1)
+
+    # Some sequences were dropped (already logged): exit non-zero, as for a failure
+    if status is ExtractionStatus.PARTIAL:
         sys.exit(1)
 
 

@@ -20,6 +20,7 @@ from mosaicolabs.bridges.lerobot.injector import (
 )
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.sequences_extractor import (
+    ExtractionStatus,
     LeRobotExtractorConfig,
     LeRobotSequencesExtractor,
 )
@@ -167,7 +168,11 @@ def test_extraction_recreates_the_dataset(extractor_config, lerobot_dataset):
     and its rows in a single data file"""
     saving_path = extractor_config.saving_path
 
-    meta = LeRobotSequencesExtractor(extractor_config).run()
+    extractor = LeRobotSequencesExtractor(extractor_config)
+
+    assert extractor.run() is ExtractionStatus.COMPLETED
+    assert extractor.dropped_sequences == []
+    meta = extractor.meta
 
     assert LeRobotDatasetMeta.load(saving_path) == meta
     assert [e.length for e in meta.episodes_map.values()] == EPISODE_LENGTHS
@@ -188,8 +193,10 @@ def test_extraction_of_a_filtered_ingestion_recreates_the_filtered_dataset(
     config = replace(extractor_config, sequence_names=ingested_filtered_sequences)
     saving_path = config.saving_path
 
-    meta = LeRobotSequencesExtractor(config).run()
+    extractor = LeRobotSequencesExtractor(config)
 
+    assert extractor.run() is ExtractionStatus.COMPLETED
+    meta = extractor.meta
     assert LeRobotDatasetMeta.load(saving_path) == meta
     assert [e.length for e in meta.episodes_map.values()] == EPISODE_LENGTHS
     original_meta = LeRobotDatasetMeta.load(lerobot_dataset)
@@ -205,13 +212,17 @@ def test_extraction_of_a_filtered_ingestion_recreates_the_filtered_dataset(
 
 
 def test_extraction_drops_the_missing_sequences(extractor_config):
-    """Tests that a sequence that does not exist is dropped, without stopping the extraction"""
+    """Tests that a sequence that does not exist is dropped, without stopping the extraction,
+    and reported as a partial extraction"""
     config = replace(
         extractor_config,
         sequence_names=[MISSING_SEQUENCE_NAME, SEQUENCE_NAMES[0]],
     )
+    extractor = LeRobotSequencesExtractor(config)
 
-    meta = LeRobotSequencesExtractor(config).run()
+    assert extractor.run() is ExtractionStatus.PARTIAL
+    assert extractor.dropped_sequences == [MISSING_SEQUENCE_NAME]
+    meta = extractor.meta
 
     assert [e.length for e in meta.episodes_map.values()] == [EPISODE_LENGTHS[0]]
     exported = pq.read_table(config.saving_path / EXPORTED_DATA_FILE)
