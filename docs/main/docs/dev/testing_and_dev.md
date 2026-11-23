@@ -119,7 +119,7 @@ uv creates a local `.venv` and installs the SDK, CLI extra, and development tool
 
 Use `uv add PACKAGE` for runtime dependencies, `uv add --dev PACKAGE` for development tools, and `uv lock --upgrade-package PACKAGE` for a targeted update. Commit both `pyproject.toml` and `uv.lock` when changing dependencies. Build distributable packages with `uv build` from the SDK directory.
 
-The Python documentation has its own environment and lockfile and requires Python 3.11 or newer:
+The Python documentation has its own environment and lockfile and requires Python 3.11.5 or newer:
 
 ```bash
 cd docs/py # From the repository root
