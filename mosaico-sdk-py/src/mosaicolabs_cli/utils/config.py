@@ -1,5 +1,5 @@
 import os
-import sys
+import tomllib
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -8,12 +8,6 @@ import typer
 from rich.console import Console
 
 from mosaicolabs_cli.utils.env import MosaicoEnv
-
-# Fallback mechanism for TOML parsing based on Python version
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 console = Console()
 error_console = Console(stderr=True)

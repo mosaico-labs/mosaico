@@ -14,7 +14,7 @@ Install the SDK via `pip`:
 pip install mosaicolabs
 ```
 
-*Note: Requires Python 3.10 or higher.*
+*Note: Requires Python 3.11 or higher.*
 
 ## Overview
 

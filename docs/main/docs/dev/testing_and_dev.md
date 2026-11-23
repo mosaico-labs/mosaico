@@ -106,7 +106,7 @@ cargo lint
 
 ## Developing the Python SDK
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.13.1 or newer, then set up the SDK with Python 3.10 or newer:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.13.1 or newer, then set up the SDK with Python 3.11 or newer:
 
 ```bash
 cd mosaico-sdk-py
