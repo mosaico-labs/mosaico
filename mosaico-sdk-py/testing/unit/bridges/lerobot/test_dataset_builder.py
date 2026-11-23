@@ -113,3 +113,24 @@ def test_builder_ignores_the_video_features(lerobot_dataset_factory):
     assert len(builder.episodes) == 2
     assert builder.info is not None
     assert VIDEO_COLUMN_NAME not in [f.key for f in builder.info.features]
+
+
+def test_builder_creates_metadata(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    builder.add_episode("a", meta.info, meta.tasks, 5)
+    builder.add_episode("b", meta.info, meta.tasks, 7)
+    builder.add_episode("c", meta.info, meta.tasks, 4)
+
+    reconstructed_metadata = builder.build_lerobot_metadata(lerobot_dataset)
+
+    assert reconstructed_metadata.info == meta.info
+    assert reconstructed_metadata.tasks == meta.tasks
+
+
+def test_builder_fails_create_metadata_when_no_episodes(lerobot_dataset):
+    builder = LeRobotDatasetBuilder()
+
+    with pytest.raises(RuntimeError, match="Add episodes using add_episode()"):
+        builder.build_lerobot_metadata(lerobot_dataset)
