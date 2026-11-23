@@ -198,7 +198,7 @@ pub async fn topic_update_serialization_format(
             UPDATE topic_t
             SET serialization_format = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         serialization_format,
         loc.to_string()
@@ -220,7 +220,7 @@ pub async fn topic_update_ontology_tag(
             UPDATE topic_t
             SET ontology_tag = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         ontology_tag,
         loc.to_string(),
@@ -244,7 +244,7 @@ pub async fn topic_update_user_metadata(
             UPDATE topic_t
             SET user_metadata = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         metadata,
         loc.to_string(),
