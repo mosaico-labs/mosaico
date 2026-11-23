@@ -70,6 +70,8 @@ Mosaico’s [ML module](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/) aut
 ## Documentation
 For a comprehensive description, please visit our [documentation](https://docs.mosaico.dev). If you are building with AI, you can find specialized technical guides in the [Agent-ready](https://docs.mosaico.dev/llms-full.txt) section.
 
+Useful links related to Mosaico development are collected on the [Resources](docs/main/docs/dev/resources.md) page.
+
 ### Cite Us
 
 If you use Mosaico for a publication, please cite it as:
