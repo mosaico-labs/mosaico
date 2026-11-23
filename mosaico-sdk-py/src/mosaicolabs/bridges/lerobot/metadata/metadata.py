@@ -318,8 +318,8 @@ class LeRobotDatasetMeta:
           the stats it holds.
 
         No data file is read: the episodes are written with the stats they hold (on export,
-        computed from the written data, see `compute_episode_stats`). Existing files are
-        overwritten.
+        computed from the written data, see `compute_episode_stats`). The `meta/` folder is
+        removed first: no file of a previous dump is left for `load` to read back.
 
         Raises:
             ValueError: If the stats of a feature in an episode are missing or not feasible.
