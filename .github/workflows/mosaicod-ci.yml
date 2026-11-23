@@ -31,7 +31,7 @@ jobs:
         with:
           components: rustfmt, clippy
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.2
+        uses: Swatinem/rust-cache@v2
         with:
           workspaces: "mosaicod -> target"
 
