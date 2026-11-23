@@ -34,6 +34,7 @@ from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
+from rich.console import Console
 from rich.live import Live
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
@@ -157,8 +158,6 @@ class LeRobotSequencesExtractor:
 
         self._dropped_sequences: List[str] = []
         """The sequences dropped in the last `run()`."""
-
-        from rich.console import Console
 
         self._console = Console(stderr=True)
         setup_sdk_logging(
