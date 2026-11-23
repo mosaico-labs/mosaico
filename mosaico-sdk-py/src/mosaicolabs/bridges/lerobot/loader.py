@@ -17,6 +17,7 @@ from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
 from .lerobot_batch import LeRobotBatch
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
+from .metadata.metadata import _EPISODES_DIR, _INFO_FILE, _META_DIR
 from .reader import LeRobotReader
 
 # Set the hierarchical logger
@@ -88,10 +89,24 @@ class LeRobotLoader(BaseLoader):
         self._meta: Optional[LeRobotDatasetMeta] = None
         """The dataset metadata, lazily loaded (see `_resolve_metadata`)."""
 
-    def _validate_folder(self):
-        """Raises `FileNotFoundError` if the dataset folder does not exist."""
-        if not self._file_path.exists():
-            raise FileNotFoundError(f"LeRobot dataset not found: {self._file_path}")
+    @staticmethod
+    def is_dataset(path: Path) -> bool:
+        """
+        Returns whether `path` is the root folder of a LeRobot dataset: it holds
+        `meta/info.json`, `meta/episodes/` and `data/`. Only the layout is checked,
+        not the content.
+
+        Args:
+            path (Path): The folder to check.
+
+        Returns:
+            bool: `True` if `path` has the layout of a LeRobot dataset, `False` otherwise.
+        """
+        meta = path / _META_DIR
+        info = meta / _INFO_FILE
+        episodes = meta / _EPISODES_DIR
+        data = path / "data"
+        return info.is_file() and episodes.is_dir() and data.is_dir()
 
     def _resolve_columns(self) -> LeRobotReader:
         """
@@ -162,11 +177,11 @@ class LeRobotLoader(BaseLoader):
             LeRobotDatasetMeta: The dataset metadata.
 
         Raises:
-            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be loaded.
+            IOError: If the `meta/` folder cannot be loaded: it is missing, or `meta/info.json`,
+                `meta/tasks.parquet` or the episodes parquet files are missing or invalid.
         """
         if self._meta is None:
             try:
-                self._validate_folder()
                 self._meta = LeRobotDatasetMeta.load(self._file_path)
 
             except Exception as e:

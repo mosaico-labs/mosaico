@@ -25,6 +25,7 @@ Typical usage as a library:
 import argparse
 import shutil
 import sys
+import tempfile
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import List, Optional
@@ -34,6 +35,7 @@ from rich.live import Live
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
+from .loader import LeRobotLoader
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
 from .metadata.stats import compute_episode_stats
 from .mosaico_loader import MosaicoToLeRobotLoader
@@ -250,16 +252,19 @@ class LeRobotSequencesExtractor:
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
         and writes the dataset under `saving_path` (see `_write_dataset`).
 
-        An existing `saving_path` is checked before connecting, and removed only once the
-        sequences are resolved: a failed resolution leaves it untouched. A failure while
-        writing leaves the dataset incomplete, which is logged as an error.
+        An existing `saving_path` is checked before connecting: it is replaced only with
+        `overwrite`, and only if it is empty or a LeRobot dataset (see
+        `LeRobotLoader.is_dataset`). The dataset is written to a temporary folder next to
+        `saving_path` and swapped in only once complete: a failure leaves `saving_path`
+        untouched and discards the partial files, which is logged as an error.
 
         Returns:
             LeRobotDatasetMeta: The metadata written under `saving_path`.
 
         Raises:
             FileExistsError: If `saving_path` exists and `overwrite` is False.
-            ValueError: If no sequence can be exported, or an episode cannot be written (see
+            ValueError: If `saving_path` is neither empty nor a LeRobot dataset, no sequence
+                can be exported, or an episode cannot be written (see
                 `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
@@ -268,6 +273,15 @@ class LeRobotSequencesExtractor:
             raise FileExistsError(
                 f"Impossible to save to '{saving_path}' since it already exists. "
                 "Pass overwrite=True to replace it."
+            )
+        if (
+            saving_path.exists()
+            and any(saving_path.iterdir())
+            and not LeRobotLoader.is_dataset(saving_path)
+        ):
+            raise ValueError(
+                f"Refusing to overwrite '{saving_path}': it is not empty and not a "
+                "LeRobot dataset."
             )
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
@@ -279,8 +293,12 @@ class LeRobotSequencesExtractor:
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
-                if saving_path.exists():
-                    shutil.rmtree(saving_path)
+                saving_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = Path(
+                    tempfile.mkdtemp(
+                        prefix=f".{saving_path.name}.", dir=saving_path.parent
+                    )
+                )
                 try:
                     ui = LeRobotProgressManager(loader, len(loader.episodes))
                     ui.setup()
@@ -288,16 +306,22 @@ class LeRobotSequencesExtractor:
                     with Live(
                         ui.progress, console=self._console, refresh_per_second=1000
                     ):
-                        meta = self._write_dataset(loader, saving_path, ui)
+                        meta = self._write_dataset(loader, tmp_path, ui)
 
-                except Exception:
-                    # The files written so far are left as they are. An interruption
-                    # (`KeyboardInterrupt`) is not an `Exception`: it is not reported here
+                except BaseException:
                     logger.error(
-                        f"The LeRobot dataset in '{saving_path}' is incomplete: the "
-                        "extraction stopped before writing all of it."
+                        f"The extraction to '{saving_path}' stopped before writing all "
+                        "of the LeRobot dataset: the partial files are discarded."
                     )
+                    shutil.rmtree(tmp_path, ignore_errors=True)
                     raise
+
+                old_path = tmp_path.with_name(f"{tmp_path.name}.old")
+                if saving_path.exists():
+                    saving_path.rename(old_path)
+                tmp_path.rename(saving_path)
+                shutil.rmtree(old_path, ignore_errors=True)
+                meta = replace(meta, root=saving_path)
 
         logger.info(
             f"LeRobot dataset of {meta.n_episodes} episode(s) written to '{saving_path}'."

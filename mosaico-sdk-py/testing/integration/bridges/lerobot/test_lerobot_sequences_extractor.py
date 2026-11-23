@@ -236,10 +236,12 @@ def test_extraction_refuses_an_existing_folder(extractor_config):
         LeRobotSequencesExtractor(extractor_config).run()
 
 
-def test_extraction_overwrites_an_existing_folder(extractor_config):
-    """Tests that an existing folder is replaced with `overwrite`"""
+def test_extraction_overwrites_an_existing_dataset(extractor_config):
+    """Tests that an existing LeRobot dataset is replaced with `overwrite`"""
     saving_path = extractor_config.saving_path
-    saving_path.mkdir()
+    (saving_path / "meta" / "episodes").mkdir(parents=True)
+    (saving_path / "meta" / "info.json").write_text("{}")
+    (saving_path / "data").mkdir()
     stale_file = saving_path / "stale.txt"
     stale_file.write_text("A previous extraction")
 
@@ -247,3 +249,20 @@ def test_extraction_overwrites_an_existing_folder(extractor_config):
 
     assert not stale_file.exists()
     assert (saving_path / EXPORTED_DATA_FILE).is_file()
+    assert not list(saving_path.parent.glob(f".{saving_path.name}.*"))
+
+
+def test_extraction_refuses_to_overwrite_a_folder_that_is_not_a_dataset(
+    extractor_config,
+):
+    """Tests that a non-empty folder that is not a LeRobot dataset is not replaced, even
+    with `overwrite`"""
+    saving_path = extractor_config.saving_path
+    saving_path.mkdir()
+    other_file = saving_path / "other.txt"
+    other_file.write_text("Not a LeRobot dataset")
+
+    with pytest.raises(ValueError, match="not a LeRobot dataset"):
+        LeRobotSequencesExtractor(replace(extractor_config, overwrite=True)).run()
+
+    assert other_file.exists()
