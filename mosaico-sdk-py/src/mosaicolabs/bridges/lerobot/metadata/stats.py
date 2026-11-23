@@ -147,11 +147,11 @@ def _to_matrix(feature: LeRobotFeature, column: pa.ChunkedArray) -> np.ndarray:
         The stats of the array are then those of each coordinate, over every point of every
         frame: e.g. its mean is `[55, 56, 57]`.
     """
-    if not feature.is_scalar():
-        # Every axis but the last pooled into the rows, as in LeRobot
+    if pa.types.is_list(column.type) or pa.types.is_fixed_size_list(column.type):
         column = pc.list_flatten(column, recursive=True)
 
-    return column.to_numpy().reshape(-1, feature.shape[-1])
+    width = feature.shape[-1] if feature.shape else 1
+    return column.to_numpy().reshape(-1, width)
 
 
 def _compute_stats(values: np.ndarray, shape: Tuple[int, ...]) -> Dict[str, np.ndarray]:
