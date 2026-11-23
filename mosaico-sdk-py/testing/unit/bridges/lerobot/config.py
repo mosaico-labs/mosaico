@@ -77,7 +77,6 @@ POSITION_COLUMN_NAMES = [
     INDEX_COLUMN_NAME,
 ]
 """The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
-TASK_INDEX_COLUMN_NAME = "task_index"
 TASK_COLUMN_NAME = "task"
 INDEX_COLUMN_NAMES = [*POSITION_COLUMN_NAMES, TASK_INDEX_COLUMN_NAME]
 
