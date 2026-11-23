@@ -11,7 +11,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 import pyarrow as pa
 
-from mosaicolabs import TopicDataStreamer
+from mosaicolabs import SequenceDataStreamer
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.handlers import SequenceHandler
 from mosaicolabs.logging_config import get_logger
@@ -34,11 +34,10 @@ def _unpack_sequence(
 ) -> Tuple[
     LeRobotInfo,
     List[str],
-    int,
 ]:
     """
     Reads the `_lerobot_` metadata of a sequence (see `LeRobotSchemaMetadata.restore`): its
-    `info`, and the `tasks` and `length` of its episode, as in their source dataset.
+    `info`, and the `tasks` of its episode, as in their source dataset.
 
     Returns:
         Tuple[LeRobotInfo, List[str], int]: The `info`, the episode tasks and the episode length.
@@ -49,7 +48,6 @@ def _unpack_sequence(
     try:
         block = LeRobotSchemaMetadata.restore(sequence.user_metadata)
         info = LeRobotInfo.from_dict(block["info"])
-        ep_length = block["episode"]["length"]
         ep_tasks = block["episode"]["tasks"]
 
     except (AttributeError, KeyError, TypeError, ValueError) as e:
@@ -58,7 +56,7 @@ def _unpack_sequence(
             f"'{LeRobotSchemaMetadata.KEY}' metadata: {e!r}"
         ) from e
 
-    return info, ep_tasks, ep_length
+    return info, ep_tasks
 
 
 def _pop_timestamps(
@@ -122,10 +120,16 @@ class MosaicoToLeRobotLoader(BaseLoader):
         """The MosaicoClient used to fetch the sequences."""
         self._sequence_names = sequence_names
         """The sequences to export, one episode each, in episode order."""
+
         self._seq_handlers: Optional[List[SequenceHandler]] = None
-        """List each accepted sequence handler: `None` until resolved by
+        """List of each accepted sequence handlers: `None` until resolved by
         `_ensure_resolved`."""
-        self._builder = LeRobotDatasetBuilder()
+
+        self._streamers: Optional[List[SequenceDataStreamer]] = None
+        """List of each accepted streamer: `None` until resolved by
+        `_ensure_resolved`."""
+
+        self._builder: Optional[LeRobotDatasetBuilder] = None
         """The builder of the metadata of the exported dataset, filled by `_ensure_resolved`."""
 
     @property
@@ -137,6 +141,12 @@ class MosaicoToLeRobotLoader(BaseLoader):
             ValueError: If no sequence can be exported.
         """
         self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
         info = self._builder.info
         if info is None:
             raise ValueError("No episode to export: the dataset has no `info`.")
@@ -146,12 +156,24 @@ class MosaicoToLeRobotLoader(BaseLoader):
     def episodes(self) -> List[LeRobotEpisode]:
         """The episodes of the exported dataset, renumbered in the order of the sequences."""
         self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
         return self._builder.episodes
 
     @property
     def episode_index_by_sequence(self) -> Dict[str, int]:
         """The `episode_index` of each accepted sequence in the exported dataset."""
         self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
         return self._builder.episode_index_by_sequence
 
     @property
@@ -161,11 +183,19 @@ class MosaicoToLeRobotLoader(BaseLoader):
         order they first appear, which is their task index order.
         """
         self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
         return self._builder.tasks
 
     def msg_count(self, topic: Optional[str] = None) -> int:
-        """This should return the total number of messages in the passed
-        topic if not None. Otherwise returns all messages in all topics"""
+        """
+        Returns the total number of messages in the passed
+        topic if not None. Otherwise returns all messages in all topics
+        """
         self._resolve_sequence_handlers()
 
         if not topic:
@@ -176,10 +206,17 @@ class MosaicoToLeRobotLoader(BaseLoader):
             return 0
 
         # Every topic has one row per frame
-        info = self._builder.info
-        return info.total_frames if info else 0
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
 
-    def _resolve_sequence_handlers(self) -> List[SequenceHandler]:
+        info = self._builder.info
+        return info.total_frames if info and info.total_frames else 0
+
+    def _resolve_sequence_handlers(
+        self,
+    ) -> List[Tuple[SequenceHandler, SequenceDataStreamer]]:
         """
         Lazily resolves the sequences: their handlers, the episodes of the exported dataset and
         their topics.
@@ -193,10 +230,16 @@ class MosaicoToLeRobotLoader(BaseLoader):
         Raises:
             ValueError: If no sequence can be exported.
         """
-        if self._seq_handlers is not None:
-            return self._seq_handlers
+        if self._streamers is not None and self._seq_handlers is not None:
+            return [
+                (s_handler, streamer)
+                for (s_handler, streamer) in zip(
+                    self._seq_handlers, self._streamers, strict=True
+                )
+            ]
 
-        seq_handlers: List[SequenceHandler] = []
+        s_hanlders: List[SequenceHandler] = []
+        streamers: List[SequenceDataStreamer] = []
         builder = LeRobotDatasetBuilder()
         topics: Optional[List[str]] = None
         try:
@@ -210,8 +253,18 @@ class MosaicoToLeRobotLoader(BaseLoader):
                     continue
 
                 try:
-                    info, ep_tasks, ep_length = _unpack_sequence(seq_handler)
-                    builder.add_episode(sequence_name, info, ep_tasks, ep_length)
+                    info, ep_tasks = _unpack_sequence(seq_handler)
+
+                    streamer = seq_handler.get_data_streamer(
+                        start_timestamp_ns=None, end_timestamp_ns=None
+                    )
+
+                    builder.add_episode(
+                        sequence_name,
+                        info,
+                        ep_tasks,
+                        streamer.msg_count // len(seq_handler.topics),
+                    )
                 except ValueError as e:
                     logger.warning(
                         f"Episode of sequence '{sequence_name}' dropped: {e}"
@@ -222,13 +275,14 @@ class MosaicoToLeRobotLoader(BaseLoader):
                     seq_handler.close()
                     raise
 
-                seq_handlers.append(seq_handler)
+                s_hanlders.append(seq_handler)
+                streamers.append(streamer)
                 if topics is None:
                     topics = list(seq_handler.topics)
         except Exception:
-            # Release the handlers opened so far
-            for seq_handler in seq_handlers:
-                seq_handler.close()
+            # Release the streamer opened so far
+            for s_handler in s_hanlders:
+                s_handler.close()
             raise
 
         if topics is None:
@@ -237,9 +291,15 @@ class MosaicoToLeRobotLoader(BaseLoader):
         self._builder = builder
         self._resolved_topics = list(topics)
         self._accepted_topics = list(topics)
-        self._seq_handlers = seq_handlers
+        self._seq_handlers = s_hanlders
+        self._streamers = streamers
 
-        return self._seq_handlers
+        return [
+            (s_handler, streamer)
+            for (s_handler, streamer) in zip(
+                self._seq_handlers, self._streamers, strict=True
+            )
+        ]
 
     def _ensure_resolved(self) -> None:
         """
@@ -258,13 +318,24 @@ class MosaicoToLeRobotLoader(BaseLoader):
         Yields:
             LeRobotEpisodeStreamer: The streamer of the data of the episode.
         """
-        seq_handlers = self._resolve_sequence_handlers()
+        streamers = self._resolve_sequence_handlers()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
 
         # The handlers and the episodes are accepted together, in the same order
-        for s_handler, episode in zip(
-            seq_handlers, self._builder.episodes, strict=True
-        ):
-            yield LeRobotEpisodeStreamer(s_handler, episode)
+        for s_handler, streamer in streamers:
+            sequence_name = s_handler.name
+            episode = self._builder.get_episode_by_sequence_name(sequence_name)
+
+            if not episode:
+                raise ValueError(
+                    f"Cannot find LeRobotEpisode associated to Mosaico sequence called {sequence_name}"
+                )
+
+            yield LeRobotEpisodeStreamer(sequence_name, streamer, episode)
 
     def close(self):
         """
@@ -295,34 +366,33 @@ class LeRobotEpisodeStreamer:
     sequence: each row of the episode is spread over all the topics (see
     `LeRobotEpisodeLoader`), while Mosaico streams each topic on its own, in batches of its own
     size.
+
+    It is single-pass: it consumes the `SequenceDataStreamer` it is given, which cannot be
+    rewound. To stream the episode again, get a fresh streamer from a new `MosaicoToLeRobotLoader`.
     """
 
-    def __init__(self, s_handler: SequenceHandler, episode: LeRobotEpisode):
+    def __init__(
+        self,
+        sequence_name: str,
+        streamer: SequenceDataStreamer,
+        episode: LeRobotEpisode,
+    ):
         """
         Args:
-            s_handler (SequenceHandler): The handler of the sequence of the episode.
+            sequence_name (str): The sequence name associated to the episode.
+            streamer (SequenceDataStreamer): The streamer of the sequence of the episode.
             episode (LeRobotEpisode): The episode, renumbered in the exported dataset.
         """
-        self._sequence_name: str = s_handler.name
+        self._sequence_name: str = sequence_name
         """The name of the sequence of the episode."""
         self.episode_metadata: LeRobotEpisode = episode
         """The episode, renumbered in the exported dataset."""
 
         # Get the streamers and set them as `batch` mode. The topics with no data have none
-        self._streamers: Dict[str, TopicDataStreamer] = (
-            s_handler.get_data_streamer()._as_batch_provider()
-        )
+        self._streamers: SequenceDataStreamer = streamer
 
     def __del__(self):
-
-        # Close all PyArrow streams
-        for stream in self._streamers.values():
-            stream.close()
-
-    @property
-    def sequence_name(self) -> str:
-        """The name of the sequence of the episode."""
-        return self._sequence_name
+        self._streamers.close()
 
     @staticmethod
     def _get_finished_topics(
@@ -344,6 +414,8 @@ class LeRobotEpisodeStreamer:
         Each yielded batch is a slice of the batches received from the topics: about one batch
         per topic is held in memory.
 
+        Single-pass: the streamer of the sequence is consumed (see the class docstring).
+
         Yields:
             Tuple[pa.Array, Dict[str, pa.RecordBatch]]: The `timestamp_ns` of the rows, shared
                 by all the topics, and a batch per topic holding those rows, as stored in Mosaico
@@ -354,8 +426,11 @@ class LeRobotEpisodeStreamer:
                 or holds different timestamps), or their number of rows is not the `length` of
                 the episode.
         """
+
+        streamers_as_batch = self._streamers._as_batch_provider()
+
         batches_map: Dict[str, Optional[pa.RecordBatch]] = dict.fromkeys(
-            self._streamers
+            streamers_as_batch
         )
         n_streamed = 0
         while True:
@@ -363,7 +438,7 @@ class LeRobotEpisodeStreamer:
             # empty batch, `None` means the stream is exhausted
             for topic, batch in batches_map.items():
                 if batch is None or batch.num_rows == 0:
-                    batches_map[topic] = self._streamers[topic]._fetch_next_batch()
+                    batches_map[topic] = streamers_as_batch[topic]._fetch_next_batch()
 
             # 2) All the topics exhausted: the episode is over. Only some: their rows differ
             if self._is_episode_over(batches_map):
