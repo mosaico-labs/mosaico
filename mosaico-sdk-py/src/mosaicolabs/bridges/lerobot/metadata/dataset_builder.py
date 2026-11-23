@@ -4,12 +4,14 @@ source datasets, into the metadata of a single LeRobot dataset.
 """
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from mosaicolabs.logging_config import get_logger
 
 from .episode import LeRobotEpisode
 from .info import LeRobotInfo
+from .metadata import LeRobotDatasetMeta
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -148,17 +150,16 @@ class LeRobotDatasetBuilder:
         self._episodes.append(episode)
         self._episode_index_by_sequence[sequence_name] = episode.episode_index
 
-    def task_index(self, task: str) -> int:
+    def build_lerobot_metadata(self, root: Path) -> LeRobotDatasetMeta:
         """
-        Returns the index of a task in `tasks`: its row in `meta/tasks.parquet`.
+        Creates a LeRobotDatasetMeta from LeRobotDatasetBuilder. Stats are not computed
+        and should be computed separately.
+        Raises RuntimeError if not episode has been added yet.
+        """
+        if self.info is None:
+            raise RuntimeError(
+                "Cannot generate `LeRobotDatasetMeta` if no episode has been added. "
+                "Add episodes using add_episode()"
+            )
 
-        Raises:
-            ValueError: If no accepted episode has the task.
-        """
-        try:
-            return self.tasks.index(task)
-        except ValueError:
-            raise ValueError(
-                f"Task '{task}' is not a task of any exported episode: it has no index in "
-                "'meta/tasks.parquet'."
-            ) from None
+        return LeRobotDatasetMeta.from_data(root, self.info, self.episodes, self.tasks)
