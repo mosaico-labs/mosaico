@@ -227,7 +227,7 @@ mosaico inject lerobot \
 
 ## `mosaico extract`
 
-Extracts a sequence as a ROS bag or an MCAP file. The server is reached through the active connection profile.
+Extracts a sequence as a ROS bag or an MCAP file, or a set of sequences as a LeRobot dataset. The server is reached through the active connection profile.
 
 ### `ros`
 
@@ -273,6 +273,32 @@ Takes `--mcap-path <PATH>` (default `.`) for the output directory, plus the same
 
 ```bash
 mosaico extract mcap --mcap-path ./exports --dry-run on_track_experiment
+```
+
+### `lerobot`
+
+Extracts sequences ingested with [`inject lerobot`](#lerobot) and writes them as a LeRobot v3.0 dataset under `<SAVING_PATH>/<NAME>`. Each sequence becomes one episode, in the order given.
+
+```bash
+mosaico extract lerobot [OPTIONS] SEQUENCE_NAME...
+```
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `--saving-path <PATH>` | `.` | Directory where to save the dataset. |
+| `-n`, `--name <NAME>` | `LeRobotDataset` | Name of the dataset folder created under the saving path. |
+| `--overwrite` | | Delete and recreate the dataset folder if it already exists. |
+| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
+
+Video features are not supported yet.
+
+#### Examples
+
+```bash
+mosaico extract lerobot \
+  --saving-path ./exports \
+  --name pusht \
+  pusht_episode_000000 pusht_episode_000001
 ```
 
 :::note
