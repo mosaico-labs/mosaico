@@ -134,7 +134,7 @@ def test_timeseries_schema_rejects_a_name_both_field_and_struct(names, conflict)
 
 
 def test_timeseries_schema_rejects_schemas_with_task_column():
-    """The server rejects field names containing `.`."""
+    """The server rejects field names containing a `task` column."""
     with pytest.raises(
         ValueError, match="The original data files contains 'task' column"
     ):

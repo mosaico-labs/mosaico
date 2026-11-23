@@ -297,7 +297,7 @@ class LeRobotEpisodeLoader:
     def stats(self) -> Dict[str, Dict[str, Any]]:
         """
         The episode stats after removing: the filtered features, index, frame_index,
-        episode_index. task_index and timestamp.
+        episode_index, task_index and timestamp.
         """
 
         injected_columns = (
