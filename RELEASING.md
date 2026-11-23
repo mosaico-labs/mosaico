@@ -10,6 +10,11 @@ builds every artifact and publishes them only if all of them were built: the
 container image on GHCR, the Python SDK on PyPI, the docs online and the GitHub
 release.
 
+Both workflows run as a dry run when `release.yml` is started with `dry_run`
+ticked. Every job runs on the commit to release, but nothing is pushed or
+published, so a failure shows up before the tag exists. A release should always
+follow a successful dry run.
+
 In the diagrams below, solid arrows follow a successful run and dashed arrows
 lead to where a run stops, in red when the run fails. An arrow into a box
 starts all the jobs inside it in parallel. The colors mark the kind of each
@@ -56,7 +61,7 @@ flowchart TD
     failExists(["FAIL: tag already exists"])
     failTests(["FAIL: no tag, no bump"])
     failSign(["FAIL: nothing pushed"])
-    summary(["Dry run: nothing pushed,<br/>summary only"])
+    summary(["Dry run: nothing pushed,<br/>publish.yml in dry run"])
     publish(["The tag push starts<br/>publish.yml"])
 
     trigger --> onMain
@@ -114,8 +119,9 @@ only from `main`, so a run started from another branch skips every job.
    the latest `main`. The tag stays on the tested commit, even if `main` moved
    during the tests. The tag and the bump are pushed together in an atomic
    push, so either both land or neither does. With `dry_run` ticked, nothing
-   is pushed and the run only writes its summary, with the tag and the next
-   version.
+   is pushed: the run writes its summary, with the tag and the next version,
+   and then calls `publish.yml` in dry run on the tested commit (see [Dry
+   run](#dry-run)).
 
 The workflow pushes with a GitHub App instead of `GITHUB_TOKEN`. The App is
 allowed to push to the protected `main`, and its pushes trigger other
@@ -127,6 +133,7 @@ starts `publish.yml`.
 ```mermaid
 flowchart TD
     trigger(["Push of a tag v*.*.*<br/>or workflow_dispatch from it"])
+    dryTrigger(["Called by release.yml<br/>in dry run"])
 
     subgraph verify["#emsp;#emsp;#emsp;#emsp;#emsp;#emsp;verify"]
         signed{"Tag signed with<br/>the release key?"}
@@ -139,7 +146,7 @@ flowchart TD
         pythonSdk["python-sdk<br/>wheel + sdist,<br/>tested on Py 3.10-3.14"]
         docsMain["docs-main<br/>Docusaurus"]
         docsPy["docs-py<br/>MkDocs"]
-        container["container<br/>amd64, arm64,<br/>pushed by digest"]
+        container["container<br/>amd64, arm64,<br/>pushed by digest<br/>(only built in dry run)"]
     end
 
     subgraph pub["#emsp;#emsp;#emsp;#emsp;#emsp;#emsp;Phase 2: publish"]
@@ -168,6 +175,7 @@ flowchart TD
     pub --> noneFailed
     noneFailed -. no .-> failPublish
     noneFailed -- yes --> ghRelease
+    dryTrigger -- "tag not created yet,<br/>signature already checked" --> versions
 
     classDef start fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
     classDef check fill:#fef3c7,stroke:#d97706,color:#78350f
@@ -178,7 +186,7 @@ flowchart TD
     linkStyle default stroke:#64748b,stroke-width:2px
     linkStyle 1,3,7,10 stroke:#dc2626,stroke-width:2px
 
-    class trigger start
+    class trigger,dryTrigger start
     class signed,versions,allBuilt,noneFailed check
     class highest,binaries,pythonSdk step
     class docsMain,docsPy,container step
@@ -221,6 +229,24 @@ A run can also be started again from the tag with `workflow_dispatch`.
    after a failed or cancelled job. It writes the release notes with git-cliff
    and attaches the binaries with their checksums, the wheel and the sdist.
    Only the highest release is marked as the latest GitHub release.
+
+### Dry run
+
+In a dry run, `release.yml` calls `publish.yml` with the tag that it would
+push. The tag does not exist yet, so **verify** skips the signature check,
+which `release.yml` has just run on the same tag. Phase 1 builds and tests
+every artifact as in a release, but the container images are only built and
+never pushed to GHCR. Phase 2 checks what it would publish without uploading
+anything. `publish-container` computes the image tags and lists them in the run
+summary. `publish-docs` runs `aws s3 sync --dryrun`, which checks the R2
+credentials and lists the files that would change. `publish-pypi` is skipped,
+because PyPI has no dry run, but its wheel and sdist are the ones tested in
+phase 1. Finally, `github-release` writes the release notes and collects the
+files, then shows them in the run summary instead of creating the release.
+
+If the dry run passes, every step of the release works. The only steps that it
+can't check are the uploads themselves to GHCR, PyPI, the docs and the GitHub
+release.
 
 A failed publish job can be retried with "Re-run failed jobs", which uploads
 the artifacts already built. Starting the workflow again with
