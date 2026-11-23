@@ -12,12 +12,13 @@ written yet.
 
 Typical usage as a script:
     $ python -m mosaicolabs.bridges.lerobot.sequences_extractor \\
-        pusht_episode_000000 pusht_episode_000001 --lerobot_path ./exports/pusht
+        pusht_episode_000000 pusht_episode_000001 --lerobot_path ./exports --name pusht
 
 Typical usage as a library:
     config = LeRobotExtractorConfig(
-        saving_path=Path("exports/pusht"),
+        saving_path=Path("exports"),
         sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
+        dataset_name="pusht",
     )
     meta = LeRobotSequencesExtractor(config).run()
 """
@@ -51,8 +52,10 @@ class LeRobotExtractorConfig:
     The configuration of the LeRobot dataset extraction.
 
     Attributes:
-        saving_path (Path): The root folder of the exported LeRobot dataset.
+        saving_path (Path): The folder where the dataset folder `dataset_name` is created.
         sequence_names (List[str]): The sequences to export, one episode each, in episode order.
+        dataset_name (str): The name of the dataset folder, created under `saving_path`.
+            Defaults to `"LeRobotDataset"`.
         host (str): The hostname of the Mosaico server. Defaults to `"localhost"`.
         port (int): The port of the Mosaico server. Defaults to `6726`.
         log_level (str): The log level. Defaults to `"INFO"`.
@@ -62,17 +65,18 @@ class LeRobotExtractorConfig:
             to the Mosaico server. Defaults to None.
         enable_tls (bool): Enable standard one-way TLS (server authenticated only). Ignored if
             `tls_cert_path` is provided. Defaults to False.
-        overwrite (bool): If True, replace `saving_path` if it already exists. Defaults to False.
+        overwrite (bool): If True, replace the dataset folder if it already exists. Defaults to
+            False.
     """
 
     saving_path: Path
-    """The root folder of the exported LeRobot dataset."""
+    """The folder where the dataset folder `dataset_name` is created."""
 
     sequence_names: List[str]
     """The sequences to export, one episode each, in episode order."""
 
     dataset_name: str = "LeRobotDataset"
-    """Name the dataset will get and will be attached to saving_path"""
+    """The name of the dataset folder, created under `saving_path`."""
 
     host: str = "localhost"
     """The hostname of the Mosaico server."""
@@ -93,7 +97,7 @@ class LeRobotExtractorConfig:
     """Enable standard one-way TLS (server authenticated only)."""
 
     overwrite: bool = False
-    """If True, replace `saving_path` if it already exists."""
+    """If True, replace the dataset folder if it already exists."""
 
 
 # --- Main Extractor Class ---
@@ -117,8 +121,9 @@ class LeRobotSequencesExtractor:
         )
 
         config = LeRobotExtractorConfig(
-            saving_path=Path("exports/pusht"),
+            saving_path=Path("exports"),
             sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
+            dataset_name="pusht",
         )
         meta = LeRobotSequencesExtractor(config).run()
         ```
@@ -251,17 +256,17 @@ class LeRobotSequencesExtractor:
     def run(self) -> LeRobotDatasetMeta:
         """
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
-        and writes the dataset under `saving_path` (see `_write_dataset`).
+        and writes the dataset under `saving_path / dataset_name` (see `_write_dataset`).
 
-        An existing `saving_path` is checked before connecting, and removed only once the
+        An existing dataset folder is checked before connecting, and removed only once the
         sequences are resolved: a failed resolution leaves it untouched. A failure while
         writing leaves the dataset incomplete, which is logged as an error.
 
         Returns:
-            LeRobotDatasetMeta: The metadata written under `saving_path`.
+            LeRobotDatasetMeta: The metadata written under `saving_path / dataset_name`.
 
         Raises:
-            FileExistsError: If `saving_path` exists and `overwrite` is False.
+            FileExistsError: If the dataset folder exists and `overwrite` is False.
             ValueError: If no sequence can be exported, or an episode cannot be written (see
                 `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
@@ -338,7 +343,14 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
         metavar="PATH",
         type=Path,
         required=True,
-        help="Root folder of the LeRobot dataset to write",
+        help="Folder where the LeRobot dataset folder is created",
+    )
+    parser.add_argument(
+        "--name",
+        "-n",
+        dest="dataset_name",
+        default="LeRobotDataset",
+        help="Name of the LeRobot dataset folder, created under --lerobot_path",
     )
 
     # Connection Arguments
@@ -379,6 +391,7 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
     config = LeRobotExtractorConfig(
         saving_path=args.saving_path,
         sequence_names=args.sequence_names,
+        dataset_name=args.dataset_name,
         host=args.host,
         port=args.port,
         log_level=args.log,

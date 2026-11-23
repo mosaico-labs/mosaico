@@ -87,7 +87,7 @@ def inject(
 def extract(
     ctx: typer.Context,
     sequence_names: SequenceNamesArg,
-    rosbag_path: Annotated[
+    saving_path: Annotated[
         Path,
         typer.Option(
             "--saving-path",
@@ -95,13 +95,22 @@ def extract(
             help="Directory where to save the LeRobot dataset.",
         ),
     ] = Path("."),
+    dataset_name: Annotated[
+        str,
+        typer.Option(
+            "--name",
+            "-n",
+            help="Name of the dataset folder created under the saving path.",
+        ),
+    ] = "LeRobotDataset",
     overwrite: OverwriteOpt = False,
     log_level: LogLevelOpt = LogLevel.INFO,
 ) -> None:
     """
-    Extract a sequence from Mosaico and encode it as a rosbag.
+    Extract sequences from Mosaico and write them as a LeRobot v3.0 dataset.
 
-    The bag is written under <ROSBAG_PATH>/<SEQUENCE_NAME>.
+    Each sequence becomes one episode, in the order given. The dataset is written
+    under <SAVING_PATH>/<NAME>.
     """
     profile = require_profile(ctx)
 
@@ -111,8 +120,9 @@ def extract(
     )
 
     config = LeRobotExtractorConfig(
-        saving_path=rosbag_path,
+        saving_path=saving_path,
         sequence_names=sequence_names,
+        dataset_name=dataset_name,
         overwrite=overwrite,
         log_level=log_level.value,
         **connection_kwargs(profile),
