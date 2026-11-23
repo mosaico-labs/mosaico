@@ -3,3 +3,6 @@ __pycache__/
 
 # Generated MkDocs output
 /site/
+
+# Social plugin cache
+/.cache/
