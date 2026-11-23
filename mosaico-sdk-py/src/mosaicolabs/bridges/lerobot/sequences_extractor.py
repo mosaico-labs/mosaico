@@ -356,9 +356,7 @@ class LeRobotSequencesExtractor:
                     ui = LeRobotProgressManager(loader, len(loader.episodes))
                     ui.setup()
 
-                    with Live(
-                        ui.progress, console=self._console, refresh_per_second=1000
-                    ):
+                    with Live(ui.progress, console=self._console):
                         meta = self._write_dataset(loader, tmp_path, ui)
 
                 except BaseException:
