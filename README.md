@@ -23,7 +23,7 @@ You ingest a recording once. From then on, you just ask for the signals and time
 Storage format, indexing and synchronization are Mosaico's job, not yours.
 
 <p align="center">
-  <img alt="Terminal: an NVIDIA recording is downloaded, ingested with the mosaico CLI and listed in the catalog" src="https://mosaico.dev/ext/github/terminal.webp" width="100%">
+  <img alt="Terminal: an NVIDIA recording is downloaded, ingested with the mosaico CLI and listed in the catalog" src="https://mosaico.dev/ext/github/terminal.webp" width="640">
 </p>
 
 ## Streamlining data for Physical AI
@@ -36,7 +36,7 @@ Mosaico stores the data differently.
 Every topic is indexed and typed against an ontology, which means you can ask for one signal, one time window, or every moment the acceleration went above 5 m/s², and you get back exactly that.
 
 <p align="center">
-  <img src="https://mosaico.dev/ext/github/stack.webp" width="400px" />
+  <img src="https://mosaico.dev/ext/github/stack.webp" width="260" />
 </p>
 
 Sensors rarely share a clock: lidar at 10 Hz, IMU at 100 Hz, camera at 30 Hz.
@@ -52,7 +52,7 @@ In Mosaico a recording is a sequence, and every upload is a session: an immutabl
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://mosaico.dev/ext/github/sessions-dark.webp">
     <source media="(prefers-color-scheme: light)" srcset="https://mosaico.dev/ext/github/sessions-light.webp">
-    <img alt="A sequence grows in sessions: each upload is an immutable layer of topics, and a failed update rolls back only its own session" src="https://mosaico.dev/ext/github/sessions-light.webp" width="100%">
+    <img alt="A sequence grows in sessions: each upload is an immutable layer of topics, and a failed update rolls back only its own session" src="https://mosaico.dev/ext/github/sessions-light.webp" width="640">
   </picture>
 </p>
 
@@ -82,15 +82,6 @@ mosaico sequence ls
 ```
 
 The CLI works the same for you and for your coding agent: plain commands, tables in the terminal, CSV and JSON Lines when piped, so either of you can explore and work on the data without writing code.
-When you want the data inside your own programs, the SDKs give you the same catalog.
-Here is the same listing from Python:
-
-```python
-from mosaicolabs import MosaicoClient
-
-with MosaicoClient.connect(host="localhost", port=6726) as client:
-    print(client.list_sequences())
-```
 
 To try it without your own data, run `mosaicolabs.examples --help`.
 
@@ -102,7 +93,7 @@ Under the hood, a columnar, zero-copy format gives you direct access to any sign
 The full story is in the [architecture docs](https://docs.mosaico.dev/daemon).
 
 <p align="center">
-  <img src="https://mosaico.dev/ext/github/stack.svg" width="400px" />
+  <img src="https://mosaico.dev/ext/github/stack.svg" width="220" />
 </p>
 
 ## Where to go next
