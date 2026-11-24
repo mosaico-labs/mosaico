@@ -8,7 +8,8 @@ import pyarrow.parquet as pq
 import pytest
 
 from mosaicolabs import CompressedImage
-from mosaicolabs.bridges.lerobot.helpers import _max_rows_within, _to_timestamp_ns
+from mosaicolabs.bridges.helpers import _fit_batch, _max_rows_within
+from mosaicolabs.bridges.lerobot.helpers import _to_timestamp_ns
 from mosaicolabs.bridges.lerobot.lerobot_batch import LeRobotBatch
 from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
 from mosaicolabs.bridges.lerobot.reader import (
@@ -342,18 +343,17 @@ def test_iter_episode_batches_reads_every_column_by_default(reader):
     assert batches[0].schema.names == DATA_SCHEMA.names
 
 
-def test_fit_batch_keeps_a_batch_within_max_size_whole(reader, int64_batch):
-    full_batches, pending = reader._fit_batch(int64_batch)
+def test_fit_batch_keeps_a_batch_within_max_size_whole(int64_batch):
+    full_batches, pending = _fit_batch(int64_batch, MAX_BATCH_SIZE_BYTES)
 
     assert full_batches == []
     assert pending.num_rows == int64_batch.num_rows
 
 
-def test_fit_batch_cuts_slices_within_max_size(lerobot_dataset, int64_batch):
+def test_fit_batch_cuts_slices_within_max_size(int64_batch):
     max_size = _batch_size(int64_batch, 0, 300)
-    reader = LeRobotReader(lerobot_dataset, max_size)
 
-    full_batches, pending = reader._fit_batch(int64_batch)
+    full_batches, pending = _fit_batch(int64_batch, max_size)
 
     assert len(full_batches) >= 3
     batches = [*full_batches, pending]
