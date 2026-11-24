@@ -46,6 +46,24 @@ class _FakeSequenceStreamer:
         pass
 
 
+class _FakeSequenceHandler:
+    """Stands for a `SequenceHandler`: the parts `LeRobotEpisodeStreamer` uses."""
+
+    def __init__(self, name, streamer: _FakeSequenceStreamer):
+        self._name = name
+        self._streamer = streamer
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def get_data_streamer(self) -> _FakeSequenceStreamer:
+        return self._streamer
+
+    def close(self):
+        pass
+
+
 def _batches(
     column: str, timestamps: Sequence[int], sizes: Sequence[int]
 ) -> List[pa.RecordBatch]:
@@ -79,7 +97,8 @@ def _episode_streamer(
         dataset_to_index=length,
     )
     return LeRobotEpisodeStreamer(
-        SEQUENCE_NAME, _FakeSequenceStreamer(batches_by_topic), episode
+        _FakeSequenceHandler(SEQUENCE_NAME, _FakeSequenceStreamer(batches_by_topic)),
+        episode,
     )
 
 
