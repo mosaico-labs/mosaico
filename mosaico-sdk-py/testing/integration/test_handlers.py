@@ -1,6 +1,7 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.models.core.serializable import _compute_schema_fingerprint
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
@@ -11,6 +12,7 @@ from .helpers import (
     _validate_returned_topic_name,
     topic_list,
     topic_to_metadata_dict,
+    topic_to_ontology_class_dict,
 )
 
 
@@ -197,6 +199,72 @@ def test_topic_handlers(
     _validate_returned_topic_name(tophandler.name)
     # TopicHandlers must be the same
     assert tophandler._topic == tophandler_from_seq._topic
+
+
+@pytest.mark.parametrize("topic_name", topic_list)
+def test_topic_handler_connect_does_not_fetch_schema(
+    mosaico_client: MosaicoClient,
+    topic_name,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that connecting a 'TopicHandler' does not fetch the ontology schema"""
+    tophandler = mosaico_client.topic_handler(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
+    )
+    # Topic must exist
+    assert tophandler is not None
+    # The schema is fetched on the first access to 'ontology_schema' only
+    assert tophandler._arrow_schema is None
+
+
+@pytest.mark.parametrize("topic_name", topic_list)
+def test_topic_handler_metadata_access_does_not_fetch_schema(
+    mosaico_client: MosaicoClient,
+    topic_name,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that the metadata of a 'TopicHandler' are available without fetching the ontology schema"""
+    tophandler = mosaico_client.topic_handler(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
+    )
+    # Topic must exist
+    assert tophandler is not None
+
+    _validate_returned_topic_name(tophandler.name)
+    assert tophandler.sequence_name == UPLOADED_SEQUENCE_NAME
+    assert tophandler.user_metadata == topic_to_metadata_dict[topic_name]
+    assert tophandler.timestamp_ns_min is not None
+    assert tophandler.timestamp_ns_max is not None
+    assert tophandler.timestamp_ns_min <= tophandler.timestamp_ns_max
+
+    # None of the above requires the schema
+    assert tophandler._arrow_schema is None
+
+
+@pytest.mark.parametrize("topic_name", topic_list)
+def test_topic_handler_ontology_schema_is_fetched_lazily_and_cached(
+    mosaico_client: MosaicoClient,
+    topic_name,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that 'TopicHandler.ontology_schema' is fetched on first access and then cached"""
+    tophandler = mosaico_client.topic_handler(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
+    )
+    # Topic must exist
+    assert tophandler is not None
+    assert tophandler._arrow_schema is None
+
+    # The first access fetches the schema of the requested topic from the server
+    schema = tophandler.ontology_schema
+    ontology_class = topic_to_ontology_class_dict[topic_name]
+    assert _compute_schema_fingerprint(schema) == _compute_schema_fingerprint(
+        ontology_class.__msco_pyarrow_struct__
+    )
+
+    # Further accesses return the cached schema, without asking the server again
+    assert tophandler._arrow_schema is schema
+    assert tophandler.ontology_schema is schema
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
