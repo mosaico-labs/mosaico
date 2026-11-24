@@ -23,7 +23,7 @@ You ingest a recording once. From then on, you just ask for the signals and time
 Storage format, indexing and synchronization are Mosaico's job, not yours.
 
 <p align="center">
-  <img alt="Terminal: an NVIDIA recording is downloaded, ingested with the mosaico CLI and listed in the catalog" src="https://mosaico.dev/ext/github/terminal.webp" width="640">
+  <img alt="Terminal: an NVIDIA recording is downloaded, ingested with the mosaico CLI and listed in the catalog" src="https://mosaico.dev/ext/github/terminal.webp" width="800">
 </p>
 
 ## Streamlining data for Physical AI
@@ -36,7 +36,7 @@ Mosaico stores the data differently.
 Every topic is indexed and typed against an ontology, which means you can ask for one signal, one time window, or every moment the acceleration went above 5 m/s², and you get back exactly that.
 
 <p align="center">
-  <img src="https://mosaico.dev/ext/github/stack.webp" width="260" />
+  <img src="https://mosaico.dev/ext/github/stack.webp" width="360" />
 </p>
 
 Sensors rarely share a clock: lidar at 10 Hz, IMU at 100 Hz, camera at 30 Hz.
@@ -52,7 +52,7 @@ In Mosaico a recording is a sequence, and every upload is a session: an immutabl
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://mosaico.dev/ext/github/sessions-dark.webp">
     <source media="(prefers-color-scheme: light)" srcset="https://mosaico.dev/ext/github/sessions-light.webp">
-    <img alt="A sequence grows in sessions: each upload is an immutable layer of topics, and a failed update rolls back only its own session" src="https://mosaico.dev/ext/github/sessions-light.webp" width="640">
+    <img alt="A sequence grows in sessions: each upload is an immutable layer of topics, and a failed update rolls back only its own session" src="https://mosaico.dev/ext/github/sessions-light.webp" width="800">
   </picture>
 </p>
 
@@ -66,18 +66,18 @@ See [updating a sequence](https://docs.mosaico.dev/learn/updating_sequences) for
 ## Quickstart
 
 ```bash
-# 1. Install the daemon (Linux and macOS; on Windows use WSL2)
+# Install the daemon (Linux and macOS; on Windows use WSL2)
 curl -fsSL https://get.mosaico.dev | sh
 
-# 2. Install the SDK and the CLI, then connect
+# Install the SDK and the CLI, then connect
 pip install "mosaicolabs[cli]"
 mosaico profile add dev --no-interactive --host localhost
 
-# 3. Ingest your first recording: here r2b_galileo (about 470 MB) from the NVIDIA R2B Dataset 2024
+# Ingest your first recording: here r2b_galileo (about 470 MB) from the NVIDIA R2B Dataset 2024
 curl -L -o r2b_galileo.mcap "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files?redirect=true&path=r2b_galileo/r2b_galileo_0.mcap"
 mosaico inject ros r2b_galileo.mcap --name r2b_galileo --log warning
 
-# 4. List the sequences in your catalog
+# List the sequences in your catalog
 mosaico sequence ls
 ```
 
@@ -93,7 +93,7 @@ Under the hood, a columnar, zero-copy format gives you direct access to any sign
 The full story is in the [architecture docs](https://docs.mosaico.dev/daemon).
 
 <p align="center">
-  <img src="https://mosaico.dev/ext/github/stack.svg" width="220" />
+  <img src="https://mosaico.dev/ext/github/stack.svg" width="320" />
 </p>
 
 ## Where to go next
