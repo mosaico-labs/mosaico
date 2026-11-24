@@ -77,8 +77,8 @@ mosaico profile add dev --no-interactive --host localhost
 curl -L -o r2b_galileo.mcap "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files?redirect=true&path=r2b_galileo/r2b_galileo_0.mcap"
 mosaico inject ros r2b_galileo.mcap --name r2b_galileo --log warning
 
-# List the sequences in your catalog
-mosaico sequence ls
+# Stream the IMU topic and keep only the moments of hard acceleration
+mosaico topic ls --locator '*/chassis/imu' | mosaico topic mcat | jq -c 'select(.acceleration.x > 1) | {t: ._timestamp, ax: .acceleration.x}'
 ```
 
 The CLI works the same for you and for your coding agent: plain commands, tables in the terminal, CSV and JSON Lines when piped, so either of you can explore and work on the data without writing code.
