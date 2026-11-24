@@ -56,19 +56,6 @@ class LeRobotSchemaConverter:
         )
 
     @classmethod
-    def to_mosaico_pyarrow(cls, features: List[LeRobotFeature]) -> pa.StructType:
-        """
-        Returns the struct the timeseries of a dataset are pushed to Mosaico with: the ontology
-        schema of the timeseries topic (the camera topics need no conversion: they use the
-        `CompressedImage` ontology).
-
-        TODO: build it from the timeseries fields of `to_lerobot_pyarrow`, nested as
-        `_timeseries_fields_to_msco_schema` does in `LeRobotReader`, so that the reader no
-        longer needs the schema of the data files.
-        """
-        raise NotImplementedError
-
-    @classmethod
     def _feature_to_lerobot_type(cls, feature: LeRobotFeature) -> pa.DataType:
         """
         Returns the type of the data column of a feature, as LeRobot writes it (through the

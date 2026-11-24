@@ -415,6 +415,10 @@ class LeRobotEpisodeStreamer:
     def __del__(self):
         self._streamers.close()
 
+    @property
+    def sequence_name(self) -> str:
+        return self._sequence_name
+
     @staticmethod
     def _get_finished_topics(
         batches_map: Dict[str, Optional[pa.RecordBatch]],
