@@ -15,10 +15,11 @@ from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.handlers import SequenceHandler
 from mosaicolabs.logging_config import get_logger
 
-from ..helpers import _validate_sequence
+from ..helpers import _dotted_name_to_topic_name, _validate_sequence
 from ..loader_base import BaseLoader
 from .metadata import LeRobotEpisode, LeRobotInfo
 from .metadata.dataset_builder import LeRobotDatasetBuilder
+from .reader import _TIMESERIES_MSCO_TOPIC_NAME
 from .schema_metadata import LeRobotSchemaMetadata
 
 # Set the hierarchical logger
@@ -56,6 +57,29 @@ def _unpack_sequence(
         ) from e
 
     return info, ep_tasks
+
+
+def _check_topics(sequence: SequenceHandler, info: LeRobotInfo) -> None:
+    """
+    Checks that a sequence has the topics the data of its episode is rebuilt from (see
+    `LeRobotWriter`): the timeseries topic, and a topic per image feature. The video features
+    are not ingested.
+
+    Args:
+        sequence (SequenceHandler): The sequence of the episode.
+        info (LeRobotInfo): The `info` of the episode, read from the sequence metadata.
+
+    Raises:
+        ValueError: If a topic is missing from the sequence.
+    """
+    required = {_TIMESERIES_MSCO_TOPIC_NAME} | {
+        _dotted_name_to_topic_name(f.key) for f in info.features if f.is_image()
+    }
+    missing = sorted(required - set(sequence.topics))
+    if missing:
+        raise ValueError(
+            f"Sequence '{sequence.name}' has no topics {missing}, that are expected from the episode features {[f.key for f in info.features]}."
+        )
 
 
 def _pop_timestamps(
@@ -231,10 +255,10 @@ class MosaicoToLeRobotLoader(BaseLoader):
         data streamer is opened only to count the rows of its topics, then closed: the
         `length` of its episode is that count divided by the number of topics (every topic has
         one row per frame). No stream stays open: each episode opens its own when iterated
-        (see `LeRobotEpisodeStreamer`). A sequence is dropped with a warning (and its handler
-        closed) if it does not exist, has no topics, has no valid `_lerobot_` metadata, or
-        cannot be merged with the previous ones (see `LeRobotDatasetBuilder.add_episode`). If
-        the resolution fails, the handlers opened so far are closed.
+        (see `LeRobotEpisodeStreamer`). A sequence is dropped with a warning (and its handler closed) if it
+        does not exist, has no topics, has no valid `_lerobot_` metadata, misses a topic of its
+        features or cannot be merged with the previous ones (see `LeRobotDatasetBuilder.add_episode`).
+        If the resolution fails, the handlers opened so far are closed.
 
         Returns:
             List[SequenceHandler]: The handlers of the accepted sequences, in episode order.
@@ -267,6 +291,9 @@ class MosaicoToLeRobotLoader(BaseLoader):
 
                 try:
                     info, ep_tasks = _unpack_sequence(seq_handler)
+                    # Before any stream is opened: a missing topic would fail the export
+                    # halfway, when its episode is written
+                    _check_topics(seq_handler, info)
 
                     streamer = seq_handler.get_data_streamer(
                         start_timestamp_ns=None, end_timestamp_ns=None
