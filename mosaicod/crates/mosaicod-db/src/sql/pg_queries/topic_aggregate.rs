@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use mosaicod_core::types;
 use mosaicod_query as query;
 
-use super::builders::column_table_name;
+use super::builders::column_match;
 use super::stats_kind::StatsKind;
 
 /// Builds the query returning the ids of the topics whose aggregated values satisfy
@@ -28,7 +28,7 @@ impl TopicAggregateQueryBuilder {
             format!("AND chunk_t.topic_id = ANY(${p})")
         };
 
-        let mut having_compiler = super::SqlQueryCompiler::new(placeholder);
+        let mut having_compiler = super::SqlQueryCompiler::new(placeholder.clone());
         let mut clauses = Vec::new();
 
         for predicate in filter.into_iter() {
@@ -57,10 +57,12 @@ impl TopicAggregateQueryBuilder {
                 JOIN column_t __column__ USING(column_id)",
                 table = kind.table(),
             );
-            let filter = format!(
-                "{column} = '{field}' {topic_clause}",
-                column = column_table_name()
-            );
+            // Consumed before the HAVING placeholders, so the values are pushed first
+            let ptag = format!("${}", placeholder.clone().consume());
+            let ppath = format!("${}", placeholder.clone().consume());
+            let (column, mut column_values) = column_match(&field, &ptag, &ppath);
+            values.append(&mut column_values);
+            let filter = format!("{column} {topic_clause}");
 
             let joins = aggregate_joins(&aggr, &source, &filter);
 
