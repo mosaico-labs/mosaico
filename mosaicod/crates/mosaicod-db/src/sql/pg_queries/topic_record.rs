@@ -1,9 +1,10 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
     Ok(schema::TopicRecord {
@@ -486,13 +487,15 @@ pub async fn topic_from_query_filter(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::core::{DatabaseType, testing};
-    use crate::{sequence_create, session_create};
+    use std::collections::HashMap;
+
     use mosaicod_core::types::MetadataBlob;
     use mosaicod_marshal as marshal;
     use sqlx::Pool;
-    use std::collections::HashMap;
+
+    use super::*;
+    use crate::core::{DatabaseType, testing};
+    use crate::{sequence_create, session_create};
 
     async fn setup_fake_db(database: crate::Database) {
         let mut cx = database.connection();

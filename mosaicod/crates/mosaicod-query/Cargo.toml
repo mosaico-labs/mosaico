@@ -20,6 +20,7 @@ url  = { workspace = true }
 regex  = { workspace = true }
 
 [dev-dependencies]
+mosaicod-config = { workspace = true, features = ["testing"] }
 mosaicod-ext = { workspace = true , features = ["testing"]}
 mosaicod-store = { workspace = true, features = ["testing"] }
 

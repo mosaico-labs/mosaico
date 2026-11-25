@@ -1,9 +1,10 @@
-use super::Context;
 use mosaicod_core::{
     error::{BoxPublicError, PublicResult as Result},
     types,
 };
 use mosaicod_db as db;
+
+use super::Context;
 
 /// Why [`Handle::try_from_token`] rejected a token.
 ///
@@ -100,10 +101,12 @@ pub async fn delete(context: &Context, handle: Handle) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use mosaicod_query as query;
     use mosaicod_store as store;
-    use std::sync::Arc;
+
+    use super::*;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);

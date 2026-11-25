@@ -1,14 +1,17 @@
-use crate::common;
+use std::sync::Arc;
+
 use clap::{ArgGroup, Subcommand};
 use colored::Colorize;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
-use std::sync::Arc;
 use tracing::error;
 
+use crate::{Context, Execute, common};
+
+/// Manage mosaico API keys.
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
     /// Create a new API key with custom parameters.
@@ -63,26 +66,32 @@ pub enum ApiKey {
     },
 }
 
-pub fn auth(auth: ApiKey) -> Result<()> {
-    common::load_env_variables(None)?;
+impl Execute for ApiKey {
+    fn execute(self, _ctx: &Context) -> Result<()> {
+        auth(self)
+    }
+}
 
+fn auth(auth: ApiKey) -> Result<()> {
     let rt = common::init_runtime()?;
 
     let store = common::init_store()?;
+
+    let params = default::params();
 
     let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0)?);
 
     let db = common::init_db(
         &rt,
         &db::Config {
-            db_url: params::params().db_url.value.parse().map_err(|_| {
+            db_url: params.db_url.value.parse().map_err(|_| {
                 core::Error::invalid_configuration(
-                    params::params().db_url.env.clone(),
+                    params.db_url.env.clone(),
                     "unable to parse".to_string(),
                 )
             })?,
-            user: params::params().db_user.value.clone(),
-            password: params::params().db_password.value.clone(),
+            user: params.db_user.value.clone(),
+            password: params.db_password.value.clone(),
             // Here we are using only one connection since it's a CLI command
             max_connections: 1,
         },
