@@ -969,7 +969,7 @@ mod tests {
         pool: sqlx::Pool<db::DatabaseType>,
     ) -> (Context, store::testing::Store) {
         // Chunk encoding reads the daemon parameters.
-        params::load_params(params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
