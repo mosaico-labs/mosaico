@@ -255,11 +255,10 @@ class MosaicoToLeRobotLoader(BaseLoader):
         data streamer is opened only to count the rows of its topics, then closed: the
         `length` of its episode is that count divided by the number of topics (every topic has
         one row per frame). No stream stays open: each episode opens its own when iterated
-        (see `LeRobotEpisodeStreamer`). A sequence is dropped with a warning (and its handler
-        closed) if it does not exist, has no valid `_lerobot_` metadata, misses a topic of its
-        features (see `_check_topics`), or cannot be merged with the previous ones (see
-        `LeRobotDatasetBuilder.add_episode`). If the resolution fails, the
-        handlers opened so far are closed.
+        (see `LeRobotEpisodeStreamer`). A sequence is dropped with a warning (and its handler closed) if it
+        does not exist, has no topics, has no valid `_lerobot_` metadata, misses a topic of its
+        features or cannot be merged with the previous ones (see `LeRobotDatasetBuilder.add_episode`).
+        If the resolution fails, the handlers opened so far are closed.
 
         Returns:
             List[SequenceHandler]: The handlers of the accepted sequences, in episode order.
@@ -272,7 +271,6 @@ class MosaicoToLeRobotLoader(BaseLoader):
 
         s_handlers: List[SequenceHandler] = []
         builder = LeRobotDatasetBuilder()
-        topics: Optional[List[str]] = None
         try:
             for sequence_name in self._sequence_names:
                 seq_handler = self._client.sequence_handler(sequence_name)
@@ -281,6 +279,14 @@ class MosaicoToLeRobotLoader(BaseLoader):
                         f"Episode of sequence '{sequence_name}' dropped: the sequence does "
                         "not exist."
                     )
+                    continue
+
+                if not seq_handler.topics:
+                    logger.warning(
+                        f"Episode of sequence '{sequence_name}' dropped: the sequence has "
+                        "no topics."
+                    )
+                    seq_handler.close()
                     continue
 
                 try:
@@ -312,16 +318,16 @@ class MosaicoToLeRobotLoader(BaseLoader):
                     raise
 
                 s_handlers.append(seq_handler)
-                if topics is None:
-                    topics = list(seq_handler.topics)
         except Exception:
             # Release the handlers opened so far
             for s_handler in s_handlers:
                 s_handler.close()
             raise
 
-        if topics is None:
+        if not s_handlers:
             raise ValueError("No episode to export.")
+
+        topics = list(s_handlers[0].topics)
 
         self._builder = builder
         self._resolved_topics = list(topics)
