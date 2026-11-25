@@ -1,15 +1,18 @@
-use crate::{common, print};
+use std::net::IpAddr;
+use std::num::NonZero;
+use std::thread;
+
 use clap::Args;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
-use std::net::IpAddr;
-use std::num::NonZero;
-use std::thread;
 use tracing::{debug, info};
 
+use crate::{Context, Execute, common, print};
+
+/// Start the mosaicod server.
 #[derive(Args, Debug)]
 pub struct Server {
     /// Specify a host address. Defaults to MOSAICOD_HOST, then the loopback address
@@ -24,8 +27,14 @@ pub struct Server {
 
 fn tls_config() -> grpc::TlsConfig {
     grpc::TlsConfig {
-        certificate_file: params::params().tls_certificate_file.value.clone().into(),
-        private_key_file: params::params().tls_private_key_file.value.clone().into(),
+        certificate_file: default::params().tls_certificate_file.value.clone().into(),
+        private_key_file: default::params().tls_private_key_file.value.clone().into(),
+    }
+}
+
+impl Execute for Server {
+    fn execute(self, ctx: &Context) -> Result<()> {
+        server(self, ctx.is_json_output)
     }
 }
 
@@ -33,20 +42,21 @@ fn tls_config() -> grpc::TlsConfig {
 ///
 /// If `json_log` is enabled logs will be formatted in JSON format and startup info
 /// are hidden.
-pub fn server(args: Server, json_format: bool) -> Result<()> {
-    info!("startup store");
-    let store = common::init_store()?;
-    let store_display_name = print::store_display_name(&store);
-
+fn server(args: Server, json_format: bool) -> Result<()> {
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
 
-    let params = params::params();
+    info!("startup store");
+    let store = common::init_store()?;
+    common::check_store_connectivity(&rt, &store)?;
+    let store_display_name = print::store_display_name(&store);
+
+    let params = default::params();
 
     let db_config = db::Config {
         db_url: params.db_url.value.parse().map_err(|_| {
             core::Error::invalid_configuration(
-                params::params().db_url.env.clone(),
+                params.db_url.env.clone(),
                 "unable to parse".to_owned(),
             )
         })?,
@@ -95,7 +105,7 @@ pub fn server(args: Server, json_format: bool) -> Result<()> {
                 port,
                 &store_display_name,
                 &db_config,
-                &params::version(),
+                &default::version(),
                 common::startup_time(),
             );
         }

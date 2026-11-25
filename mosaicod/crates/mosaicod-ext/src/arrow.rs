@@ -1,12 +1,11 @@
+use std::collections::{HashSet, VecDeque};
+use std::sync::Arc;
+
 use arrow::array::{
     ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
 };
 use arrow::datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef};
 use mosaicod_core::{self as core, constants, types};
-use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
-use parquet::arrow::parquet_to_arrow_schema;
-use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
 
 #[derive(thiserror::Error, Debug)]
 pub enum SchemaError {
@@ -142,21 +141,6 @@ fn is_valid_field_name(name: &str) -> bool {
 /// Return a arrow empty schema.
 pub fn empty_schema_ref() -> Arc<Schema> {
     Arc::new(Schema::empty())
-}
-
-/// Extract the schema from a parquet reader object.
-pub async fn schema_from_parquet_reader(
-    reader: &mut ParquetObjectReader,
-) -> Result<SchemaRef, Error> {
-    let metadata = reader.get_metadata(None).await?;
-    let file_metadata = metadata.file_metadata();
-
-    let schema = parquet_to_arrow_schema(
-        file_metadata.schema_descr(),
-        file_metadata.key_value_metadata(),
-    )?;
-
-    Ok(Arc::new(schema))
 }
 
 /// Checks if the given Arrow [`DataType`] is considered numeric.
@@ -629,9 +613,10 @@ pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyMo
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
-    use super::*;
     use arrow::array::{Int64Array, LargeBinaryBuilder, ListBuilder, RecordBatch, StringBuilder};
     use arrow::datatypes::{DataType, Field, Schema};
+
+    use super::*;
 
     pub fn dummy_empty_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![

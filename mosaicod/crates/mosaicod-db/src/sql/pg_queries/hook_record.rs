@@ -1,7 +1,8 @@
 //! Hooks: HTTP endpoints that mosaicod sends events to. See `mosaicod hook`.
 
-use crate::{Error, core::AsExec, sql::schema};
 use tracing::trace;
+
+use crate::{Error, core::AsExec, sql::schema};
 
 /// Registers a hook.
 ///

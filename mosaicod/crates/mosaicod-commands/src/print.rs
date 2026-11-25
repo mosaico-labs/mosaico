@@ -1,8 +1,9 @@
+use std::{net::IpAddr, time::Instant};
+
 use colored::Colorize;
 use mosaicod_core::{error::PublicError, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use std::{net::IpAddr, time::Instant};
 use tracing::error;
 
 fn format_addr(is_loopback: bool, msg: String) {

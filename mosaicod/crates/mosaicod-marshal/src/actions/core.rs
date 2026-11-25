@@ -1,9 +1,10 @@
-use super::{requests, responses};
-use crate::time::timestamp_range_to_proto;
 use mosaicod_core as core;
 use mosaicod_ext as ext;
 use prost::Message;
 use thiserror::Error;
+
+use super::{requests, responses};
+use crate::time::timestamp_range_to_proto;
 
 /// Represents possible errors that can occur while handling an [`ActionRequest`].
 #[derive(Error, Debug)]
@@ -298,10 +299,11 @@ impl ActionResponse {
 
 #[cfg(test)]
 mod tests {
-    use super::ActionRequest;
-    use crate::format::{Format, try_format_from_i32};
     use mosaicod_core::types;
     use prost::Message;
+
+    use super::ActionRequest;
+    use crate::format::{Format, try_format_from_i32};
 
     /// Ensure that user_metadata field in [`requests::TopicCreate`] is carried
     /// as raw bytes and can be converted to a parsable json if required.
