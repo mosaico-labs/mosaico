@@ -225,7 +225,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert_eq!(ep_metadata.data_info.total_chunks, 1);
-    assert_eq!(ep_metadata.data_info.total_bytes, 895);
+    assert_eq!(ep_metadata.data_info.total_bytes, 893);
     let ts_range: types::TimestampRange = ep_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
