@@ -198,7 +198,7 @@ pub async fn topic_update_serialization_format(
             UPDATE topic_t
             SET serialization_format = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         serialization_format,
         loc.to_string()
@@ -220,7 +220,7 @@ pub async fn topic_update_ontology_tag(
             UPDATE topic_t
             SET ontology_tag = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         ontology_tag,
         loc.to_string(),
@@ -244,7 +244,7 @@ pub async fn topic_update_user_metadata(
             UPDATE topic_t
             SET user_metadata = $1
             WHERE locator_name = $2
-            RETURNING * 
+            RETURNING *
     "#,
         metadata,
         loc.to_string(),
@@ -463,7 +463,11 @@ pub async fn topic_from_query_filter(
     // the same text is built for operands of different types (e.g. `3` and `3.5`).
     // A cached statement keeps the parameter types of its first execution, so an
     // operand of another type would be silently misread (an integer decoded as a float).
-    let mut r = sqlx::query(&query).persistent(false);
+    //
+    // SAFETY (SQL): the only user input in `query` is the `user_metadata` keys,
+    // which `valid_key` of `query_rs` in the `mosaicod-marshal` crate restricts
+    // to a safe set of characters. All values are bound as parameters.
+    let mut r = sqlx::query(sqlx::AssertSqlSafe(query)).persistent(false);
 
     for v in qr.values.into_iter() {
         match v {
