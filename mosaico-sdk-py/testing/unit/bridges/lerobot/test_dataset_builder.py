@@ -1,0 +1,136 @@
+from dataclasses import replace
+
+import pytest
+
+from mosaicolabs.bridges.lerobot.metadata import LeRobotDatasetMeta
+from mosaicolabs.bridges.lerobot.metadata.dataset_builder import LeRobotDatasetBuilder
+
+from .config import EPISODE_LENGTHS, VIDEO_COLUMN_NAME
+
+
+def test_builder_renumbers_the_episodes(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    # Episode 2 of the source dataset first, then episode 0
+    episode = meta.episodes_map[2]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("b", meta.info, episode.tasks, episode.length)
+
+    first, second = EPISODE_LENGTHS[2], EPISODE_LENGTHS[0]
+    assert [
+        (e.episode_index, e.dataset_from_index, e.dataset_to_index)
+        for e in builder.episodes
+    ] == [(0, 0, first), (1, first, first + second)]
+    assert builder.episode_index_by_sequence == {"a": 0, "b": 1}
+    assert all(
+        (e.data_chunk_index, e.data_file_index) == (0, 0) for e in builder.episodes
+    )
+    assert builder.info is not None
+    assert (builder.info.total_episodes, builder.info.total_frames) == (
+        2,
+        first + second,
+    )
+    assert builder.info.splits == {"train": "0:2"}
+
+
+def test_builder_rejects_an_incompatible_episode(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
+
+    other_robot = replace(meta.info, robot_type="other_robot")
+
+    with pytest.raises(ValueError, match="robot type"):
+        episode = meta.episodes_map[1]
+        builder.add_episode("b", other_robot, episode.tasks, episode.length)
+    assert len(builder.episodes) == 1
+    assert builder.episode_index_by_sequence == {"a": 0}
+
+
+def test_builder_rejects_a_sequence_added_twice(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, episode.tasks, episode.length)
+
+    with pytest.raises(ValueError, match="already been added"):
+        episode = meta.episodes_map[1]
+        builder.add_episode("a", meta.info, episode.tasks, episode.length)
+    assert len(builder.episodes) == 1
+    assert builder.episode_index_by_sequence == {"a": 0}
+
+
+def test_builder_tasks_are_the_distinct_tasks_of_the_episodes(lerobot_dataset):
+    """In the order they first appear: their task index in the exported dataset."""
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+    assert builder.tasks == []
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, ["place", "pick"], episode.length)
+
+    episode = meta.episodes_map[1]
+    builder.add_episode("b", meta.info, ["pick", "push"], episode.length)
+
+    assert builder.tasks == ["place", "pick", "push"]
+    assert builder.info is not None
+    assert builder.info.total_tasks == len(builder.tasks)
+
+
+def test_builder_tasks_exclude_the_rejected_episodes(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    episode = meta.episodes_map[0]
+    builder.add_episode("a", meta.info, ["pick"], episode.length)
+
+    other_robot = replace(meta.info, robot_type="other_robot")
+    with pytest.raises(ValueError, match="robot type"):
+        episode = meta.episodes_map[1]
+        builder.add_episode("b", other_robot, ["push"], episode.length)
+
+    assert builder.tasks == ["pick"]
+
+
+def test_builder_ignores_the_video_features(lerobot_dataset_factory):
+    """They are dropped: a dataset with video features merges with one without."""
+    with_video = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_video=True))
+    without_video = LeRobotDatasetMeta.load(
+        lerobot_dataset_factory(name="no_video", with_video=False)
+    )
+    builder = LeRobotDatasetBuilder()
+
+    episode = with_video.episodes_map[0]
+    builder.add_episode("a", with_video.info, episode.tasks, episode.length)
+    builder.add_episode("b", without_video.info, episode.tasks, episode.length)
+
+    assert len(builder.episodes) == 2
+    assert builder.info is not None
+    assert VIDEO_COLUMN_NAME not in [f.key for f in builder.info.features]
+
+
+def test_builder_creates_metadata(lerobot_dataset):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset)
+    builder = LeRobotDatasetBuilder()
+
+    builder.add_episode("a", meta.info, meta.tasks, 5)
+    builder.add_episode("b", meta.info, meta.tasks, 7)
+    builder.add_episode("c", meta.info, meta.tasks, 4)
+
+    reconstructed_metadata = builder.build_lerobot_metadata(lerobot_dataset)
+
+    assert reconstructed_metadata.info == meta.info
+    assert reconstructed_metadata.tasks == meta.tasks
+
+
+def test_builder_fails_create_metadata_when_no_episodes(lerobot_dataset):
+    builder = LeRobotDatasetBuilder()
+
+    with pytest.raises(RuntimeError, match="Add episodes using add_episode()"):
+        builder.build_lerobot_metadata(lerobot_dataset)
