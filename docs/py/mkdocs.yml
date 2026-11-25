@@ -60,6 +60,7 @@ nav:
         - SDK/handling/reading.md
     - SDK/query.md
     - Bridges:
+        - SDK/bridges/lerobot.md
         - SDK/bridges/mcap.md
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md

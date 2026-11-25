@@ -210,10 +210,21 @@ mosaico inject lerobot [OPTIONS] DATASET_PATH
 | `-c`, `--column-names <PATTERN>` | all columns | Filter on the image and timeseries features of `meta/info.json`, glob-style. Prefix with `!` to exclude. Repeatable; patterns are evaluated in order. |
 | `--metadata <JSON\|FILE>` | | Metadata attached to every sequence, as a JSON object or the path to a JSON file. |
 | `--topic-metadata <JSON\|FILE>` | | Mapping of exact topic name (e.g. `/timeseries`, `/observation/images/front`) to metadata, as a JSON object or the path to a JSON file. |
-| `--dry-run` | | Print which columns, topics and sequences would be ingested, without connecting to the server. |
+| `--dry-run` | | Print which columns, topics and sequences would be ingested and which episodes would be skipped, without connecting to the server. |
 | `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
 
-Video features are not supported yet and are skipped with a warning. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+Each image feature becomes its own `CompressedImage` topic (e.g. `observation.images.front` becomes `/observation/images/front`), and every other feature goes into a single `/timeseries` topic. A few columns are handled differently:
+
+- `timestamp` gives the time of every message, in nanoseconds from the start of the episode.
+- `index`, `frame_index` and `episode_index` are not ingested, and cannot be selected with `--column-names`.
+- `task_index` is ingested as a `task` column holding the task text from `meta/tasks.parquet`. A dataset that has `task_index` and also a `task` (or `task.*`) feature cannot be opened: exclude one of them with `--column-names`.
+- Video features are not supported yet and are skipped with a warning.
+
+Every episode is checked before the first upload (timestamps present, increasing, `1 / fps` apart and starting at `0`, row count matching `meta/episodes`). An episode that fails a check is skipped with a warning, and its sequence is not created. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+
+Each sequence carries the episode length, tasks and statistics, and the dataset `meta/info.json`, under the reserved `_lerobot_` metadata key. See the [LeRobot Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/lerobot/) page for the full mapping.
+
+The command exits with `0` once every episode is ingested, `1` if any episode was skipped or failed (after processing every other episode, and listing the failed ones at the end of the log) or on a fatal error (e.g. the server is unreachable or the dataset cannot be opened), and `130` when interrupted.
 
 #### Examples
 
