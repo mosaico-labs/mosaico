@@ -1,5 +1,6 @@
-use crate as db;
 use mosaicod_core::types;
+
+use crate as db;
 
 #[derive(Debug)]
 pub struct ColumnRecord {

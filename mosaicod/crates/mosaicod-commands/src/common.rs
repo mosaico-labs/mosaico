@@ -1,16 +1,17 @@
 //! Common functions shared between multiple commands.
 
-use mosaicod_config::{self as config, params};
+use std::sync::Arc;
+use std::sync::OnceLock;
+
+use mosaicod_config::{self as config, default};
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use std::sync::Arc;
-use std::sync::OnceLock;
 
 /// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
 
-pub fn pin_startup_time() {
+pub(crate) fn pin_startup_time() {
     STARTUP_TIME
         .set(std::time::Instant::now())
         .expect("Startup time already set");
@@ -39,7 +40,7 @@ pub fn init_runtime() -> Result<tokio::runtime::Runtime> {
 }
 
 pub fn init_store() -> Result<store::StoreRef> {
-    let params = params::params();
+    let params = default::params();
 
     let endpoint_url: url::Url = params.store_endpoint.value.parse().map_err(|_| {
         core::Error::invalid_configuration(
@@ -57,46 +58,63 @@ pub fn init_store() -> Result<store::StoreRef> {
     let secret_key = params.store_secret_key.value.clone();
     let access_key = params.store_access_key.value.clone();
 
-    if !access_key.is_empty() && !secret_key.is_empty() {
-        builder = builder.with_credentials(access_key, secret_key);
+    if !access_key.is_empty() {
+        builder = builder.with_access_key(access_key);
+    }
+    if !secret_key.is_empty() {
+        builder = builder.with_secret_key(secret_key);
     }
 
-    Ok(Arc::new(builder.build()?))
+    let store = Arc::new(builder.build()?);
+    Ok(store)
 }
 
-/// Resolves and loads the config file (if any), and builds the resulting
-/// [`params::ParamsLoadOptions`]. `config_path` is the explicit `--config` CLI override,
-/// if any; otherwise the search order is `MOSAICOD_CONFIG_FILE` env var >
-/// `$XDG_CONFIG_HOME/mosaicod/config.toml` (or `~/.config/mosaicod/config.toml`) >
-/// `/etc/mosaicod/config.toml` > no config file.
-fn build_params_options(
-    config_path: Option<&std::path::Path>,
-) -> Result<params::ParamsLoadOptions> {
-    let resolved_path = config::resolve_config_path(config_path)?;
-
-    let config_file = match resolved_path {
-        Some(path) => config::load_config_file(&path)?,
-        None => Default::default(),
-    };
-
-    Ok(params::ParamsLoadOptions {
-        config_file,
-        skip_db_config: false,
-        ignore_env: false,
-    })
-}
-
-/// Load the defined env variables from the system, merging in a config file if one is found.
-pub fn load_env_variables(config_path: Option<&std::path::Path>) -> Result<()> {
-    dotenv::dotenv().ok();
-    params::load_params(build_params_options(config_path)?)?;
+pub fn check_store_connectivity(
+    rt: &tokio::runtime::Runtime,
+    store: &store::StoreRef,
+) -> Result<()> {
+    let timeout = std::time::Duration::from_secs(
+        default::params().store_connection_timeout.value.get() as u64,
+    );
+    rt.block_on(store.check_connectivity(timeout))?;
     Ok(())
+}
+
+/// Builds the configuration from the sources of `builder` and sets it for the process.
+///
+/// `config_path` is the explicit `--config` CLI override, if any; otherwise the search
+/// order is `MOSAICOD_CONFIG_FILE` env var > `$XDG_CONFIG_HOME/mosaicod/config.toml` (or
+/// `~/.config/mosaicod/config.toml`) > `/etc/mosaicod/config.toml` > no config file.
+pub(crate) fn load_config(
+    builder: config::ConfigBuilder,
+    config_path: Option<&std::path::Path>,
+) -> Result<()> {
+    dotenv::dotenv().ok();
+    config::set_config(build_config(builder, config_path)?)
+}
+
+fn build_config(
+    builder: config::ConfigBuilder,
+    config_path: Option<&std::path::Path>,
+) -> Result<config::Config> {
+    let config = builder.build(config::resolve_config_path(config_path)?.as_deref())?;
+
+    if config.get::<default::Params>().is_none() {
+        Err(core::Error::internal(Some(
+            "no config source builds mosaicod's parameters: add `DefaultConfig::new()` \
+             to the `ConfigBuilder`"
+                .to_owned(),
+        )))?;
+    }
+
+    Ok(config)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::Mutex;
+
+    use super::*;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -132,29 +150,32 @@ mod tests {
         }
     }
 
+    fn default_config() -> config::ConfigBuilder {
+        config::ConfigBuilder::new().add_conf(default::DefaultConfig::testing())
+    }
+
     #[test]
-    fn build_params_options_loads_explicit_cli_path() {
+    fn build_config_loads_explicit_cli_path() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _config_file = EnvVarGuard::unset("MOSAICOD_CONFIG_FILE");
 
         let path = std::env::temp_dir().join("mosaicod_test_build_params_options_cli.toml");
         std::fs::write(&path, "[server]\nhost = \"10.0.0.5\"\n").unwrap();
 
-        let result = build_params_options(Some(&path));
+        let result = build_config(default_config().ignore_env(true), Some(&path));
 
         let _ = std::fs::remove_file(&path);
 
-        let options = result.unwrap();
+        let config = result.unwrap();
+        let params = config.get::<default::Params>().unwrap();
         assert_eq!(
-            options.config_file.server.host,
-            Some("10.0.0.5".parse().unwrap())
+            params.host.value,
+            "10.0.0.5".parse::<std::net::IpAddr>().unwrap()
         );
-        assert!(!options.skip_db_config);
-        assert!(!options.ignore_env);
     }
 
     #[test]
-    fn build_params_options_defaults_to_empty_config_file_when_nothing_resolves() {
+    fn build_config_defaults_to_no_config_file_when_nothing_resolves() {
         let _lock = ENV_LOCK.lock().unwrap();
         let _config_file = EnvVarGuard::unset("MOSAICOD_CONFIG_FILE");
 
@@ -173,11 +194,31 @@ mod tests {
         std::fs::create_dir_all(&xdg_dir).unwrap();
         let _xdg_home = EnvVarGuard::set("XDG_CONFIG_HOME", &xdg_dir);
 
-        let result = build_params_options(None);
+        let result = build_config(default_config().ignore_env(true), None);
 
         let _ = std::fs::remove_dir_all(&xdg_dir);
 
-        let options = result.unwrap();
-        assert!(options.config_file.server.host.is_none());
+        let config = result.unwrap();
+        let params = config.get::<default::Params>().unwrap();
+        assert_eq!(params.host.value, default::DEFAULT_HOST);
+    }
+
+    #[test]
+    fn build_config_without_default_config_is_an_error() {
+        let path = std::env::temp_dir().join("mosaicod_test_build_config_no_default.toml");
+        std::fs::write(&path, "").unwrap();
+
+        let result = build_config(config::ConfigBuilder::new().ignore_env(true), Some(&path));
+
+        let _ = std::fs::remove_file(&path);
+
+        let err = match result {
+            Ok(_) => panic!("expected an error"),
+            Err(e) => e.error().kind().clone(),
+        };
+        assert!(
+            matches!(&err, core::error::ErrorKind::Internal(m) if m.contains("DefaultConfig")),
+            "{err:?}"
+        );
     }
 }

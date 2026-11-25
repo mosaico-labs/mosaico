@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mosaico-labs/mosaico/main/logo/mono_black.svg" width="300" alt="Mosaico Logo">
+  <img src="https://mosaico.dev/ext/logo/light.svg" width="300" alt="Mosaico Logo">
 </p>
 
 <p align="center">

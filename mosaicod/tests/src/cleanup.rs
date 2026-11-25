@@ -1,4 +1,3 @@
-use mosaicod_config::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_grpc_common as grpc_common;
@@ -33,7 +32,7 @@ impl Builder {
 
     pub async fn build_with_store(self, store: &store::testing::Store) -> Handle {
         // Ensure that params are loaded
-        params::load_params(params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;

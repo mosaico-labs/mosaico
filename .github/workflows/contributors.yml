@@ -1,0 +1,54 @@
+name: Contributors
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read # to read CONTRIBUTORS.md from the target branch
+
+jobs:
+  check-contributor:
+    name: "Check contributor"
+    # Authors who already have a commit in the repository have signed the CLA,
+    # and bots do not need to sign it. Private organization members are
+    # reported as CONTRIBUTOR, so they are skipped too.
+    if: >-
+      ${{
+        !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"]'), github.event.pull_request.author_association) &&
+        github.event.pull_request.user.type != 'Bot'
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      # Check out CONTRIBUTORS.md from the target branch, not from the PR,
+      # so a PR cannot pass the check by adding its own author to the list
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: CONTRIBUTORS.md
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Check that the author is in CONTRIBUTORS.md
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs')
+
+            // GitHub usernames are case-insensitive, so we compare them in lowercase
+            const author = context.payload.pull_request.user.login.toLowerCase()
+
+            // Each contributor is a line like `- @username`
+            const contributors = fs.readFileSync('CONTRIBUTORS.md', 'utf8')
+              .split('\n')
+              .filter(line => line.startsWith('- @'))
+              .map(line => line.slice(3).trim().toLowerCase())
+
+            // Fail the check when the author is not in the list
+            if (!contributors.includes(author)) {
+              core.setFailed(
+                `@${author} is not listed in CONTRIBUTORS.md. ` +
+                'Please sign the CLA and ask a maintainer to add you, ' +
+                'then re-run this check.'
+              )
+            }

@@ -1,4 +1,10 @@
 # The git history isn't available inside the cross container: the commit and the tag come from the
 # environment (see crates/mosaicod-build/build.rs).
+#
+# mosaicod-proto reads the `.proto` files from the `proto/` folder at the repo root, outside this
+# workspace, which cross doesn't mount: MOSAICO_PROTO_DIR, the absolute path of that folder, is
+# mounted at the same path in the container. When running cross locally:
+#   MOSAICO_PROTO_DIR="$(realpath ../proto)" cross build --target <target>
 [build.env]
 passthrough = ["GIT_HASH", "GIT_TAG"]
+volumes = ["MOSAICO_PROTO_DIR"]

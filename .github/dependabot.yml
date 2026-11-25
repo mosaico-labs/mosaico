@@ -2,7 +2,6 @@ version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
-    target-branch: "main"
     schedule:
       interval: "weekly"
     commit-message:
@@ -10,7 +9,6 @@ updates:
 
   - package-ecosystem: "cargo"
     directory: "/mosaicod"
-    target-branch: "main"
     schedule:
       interval: "weekly"
     commit-message:
@@ -18,7 +16,6 @@ updates:
 
   - package-ecosystem: "uv"
     directory: "/mosaico-sdk-py"
-    target-branch: "main"
     schedule:
       interval: "weekly"
     commit-message:
@@ -26,8 +23,16 @@ updates:
 
   - package-ecosystem: "uv"
     directory: "/docs/py"
-    target-branch: "main"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "chore(docs)"
+
+  - package-ecosystem: "npm"
+    directory: "/docs/main"
+    schedule:
+      interval: "weekly"
+    # Security updates only: the entry exists to set the commit prefix.
+    open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(docs)"
