@@ -6,8 +6,6 @@ files.
 from dataclasses import dataclass, field, replace
 from typing import Any, ClassVar, Dict, List, Optional
 
-from .helpers import _unflatten
-
 _STATS_COLUMN_PREFIX = "stats/"
 
 
@@ -150,24 +148,3 @@ class LeRobotEpisode:
                 key: value for key, value in self.stats.items() if key not in to_drop
             },
         )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Returns the episode information, with the `/`-separated column names nested
-        (e.g. `data/chunk_index` -> `data` / `chunk_index`).
-        """
-        flat: Dict[str, Any] = {
-            col: getattr(self, attr) for col, attr in self._REQUIRED_COLUMNS.items()
-        }
-        flat.update(
-            {
-                col: getattr(self, attr)
-                for col, attr in self._OPTIONAL_COLUMNS.items()
-                if getattr(self, attr) is not None
-            }
-        )
-
-        out = _unflatten(flat, sep="/")
-        if self.stats:
-            out["stats"] = self.stats
-        return out

@@ -360,13 +360,14 @@ class LeRobotInjector:
 
         # --- Schema metadata Resolution ---
         lerobot_meta = LeRobotSchemaMetadata(
+            episode={
+                "length": episode_loader.length,
+                "tasks": episode_loader.tasks,
+                "stats": episode_loader.stats,
+            },
             info=episode_loader._reader._meta.info.to_dict(),
-            stats=episode_loader._reader._meta.stats or {},
-            episode=episode_loader.episode_metadata.to_dict(),
+            source_file=self._cfg.file_path.name,
         )
-
-        # Record which dataset introduced this sequence, inside the reserved `_lerobot_` namespace
-        lerobot_meta.update(source_file=self._cfg.file_path.name)
 
         # Start from the user-supplied per-topic metadata, then layer the bridge-computed
         # `_lerobot_` block on top: `_lerobot_` is reserved and always wins on conflict, every

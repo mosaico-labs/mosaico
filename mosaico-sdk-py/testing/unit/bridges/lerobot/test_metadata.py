@@ -19,6 +19,7 @@ from .config import (
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     FPS,
+    INDEX_COLUMN_NAMES,
     STATE_COLUMN_NAME,
     TASK,
 )
@@ -51,41 +52,68 @@ def _edit_info_json(root: Path, edit: Callable[[Dict[str, Any]], Any]):
 # --- LeRobotSchemaMetadata ---
 
 
-def test_schema_metadata_nests_dotted_keys():
-    """The server rejects metadata keys containing `.`."""
+def test_schema_metadata_stores_the_features_as_a_string():
+    """They are keyed by feature names, whose `.` the server rejects in keys."""
+    features = {"observation.state": {"dtype": "float32", "shape": [2]}}
+
+    meta = LeRobotSchemaMetadata(info={"fps": 30, "features": features})
+
+    assert meta.to_dict()["_lerobot_"]["info"] == {
+        "fps": 30,
+        "features": json.dumps(features),
+    }
+
+
+def test_schema_metadata_nests_the_episode_stats():
+    """The server rejects metadata keys containing `.`, and non-finite floats."""
     meta = LeRobotSchemaMetadata(
-        info={"features": {"observation.state": 1, "observation.images.front": 2}}
+        episode={
+            "length": 10,
+            "stats": {
+                "observation.state": {"std": [math.nan, 1.0]},
+                "observation.images.front": {"max": [[[1.0]]]},
+            },
+        }
     )
 
     assert meta.to_dict() == {
         "_lerobot_": {
-            "info": {"features": {"observation": {"state": 1, "images": {"front": 2}}}}
+            "episode": {
+                "length": 10,
+                "stats": {
+                    "observation": {
+                        "state": {"std": [None, 1.0]},
+                        "images": {"front": {"max": [[[1.0]]]}},
+                    }
+                },
+            }
         }
     }
 
 
 @pytest.mark.parametrize(
-    "features",
+    "stats",
     [
-        {"observation": 1, "observation.state": 2},
-        {"observation.state": 2, "observation": 1},
+        {"a": {"mean": [1.0]}, "a.mean": {"mean": [2.0]}},
+        {"a.mean": {"mean": [2.0]}, "a": {"mean": [1.0]}},
     ],
 )
-def test_schema_metadata_rejects_a_key_both_value_and_object(features):
-    with pytest.raises(ValueError, match="Metadata key conflict on 'observation'"):
-        LeRobotSchemaMetadata(info={"features": features})
+def test_schema_metadata_rejects_a_key_both_value_and_object(stats):
+    """A feature named after a statistic of another one (`a.mean`) cannot be nested."""
+    with pytest.raises(ValueError, match="Metadata key conflict on 'a.mean'"):
+        LeRobotSchemaMetadata(episode={"stats": stats})
 
 
 def test_schema_metadata_update_sanitizes_the_fields():
     meta = LeRobotSchemaMetadata(source_file="pusht")
 
-    result = meta.update(stats={"observation.state": {"std": [math.nan]}})
+    result = meta.update(episode={"stats": {"observation.state": {"std": [math.nan]}}})
 
     assert result is meta
     assert meta.to_dict() == {
         "_lerobot_": {
             "source_file": "pusht",
-            "stats": {"observation": {"state": {"std": [None]}}},
+            "episode": {"stats": {"observation": {"state": {"std": [None]}}}},
         }
     }
 
@@ -99,11 +127,47 @@ def test_schema_metadata_accepts_the_metadata_of_every_episode(
 
     for episode in meta.episodes_map.values():
         lerobot_meta = LeRobotSchemaMetadata(
-            info=meta.info.to_dict(), stats=meta.stats, episode=episode.to_dict()
+            info=meta.info.to_dict(),
+            episode={
+                "length": episode.length,
+                "tasks": episode.tasks,
+                "stats": episode.stats,
+            },
         )
 
-        features = lerobot_meta.to_dict()["_lerobot_"]["info"]["features"]
-        assert "state" in features["observation"]
+        stats = lerobot_meta.to_dict()["_lerobot_"]["episode"]["stats"]
+        assert "state" in stats["observation"]
+
+
+@pytest.mark.parametrize("with_video", [False, True])
+def test_schema_metadata_restore_gives_the_fields_back(
+    lerobot_dataset_factory, with_video
+):
+    meta = LeRobotDatasetMeta.load(lerobot_dataset_factory(with_video=with_video))
+    episode = meta.episodes_map[0]
+    # What the injector attaches to the sequence of the episode
+    fields = {
+        "info": meta.info.to_dict(),
+        "episode": {
+            "length": episode.length,
+            "tasks": episode.tasks,
+            "stats": episode.stats,
+        },
+        "source_file": "example",
+    }
+
+    stored = LeRobotSchemaMetadata(**fields).merge_into({"operator": "x"})
+
+    assert LeRobotSchemaMetadata.restore(stored) == fields
+
+
+def test_schema_metadata_restores_a_feature_prefix_of_another():
+    """Nesting merges the stats of `a.b` into those of `a`: restoring splits them back."""
+    stats = {"a": {"mean": [1.0]}, "a.b": {"mean": [2.0]}}
+
+    stored = LeRobotSchemaMetadata(episode={"stats": stats}).to_dict()
+
+    assert LeRobotSchemaMetadata.restore(stored)["episode"]["stats"] == stats
 
 
 # --- LeRobotEpisode ---
@@ -125,22 +189,23 @@ def test_episode_from_row():
     }
 
 
-def test_episode_to_dict_nests_the_column_names():
+def test_episode_to_row():
     episode = LeRobotEpisode.from_row(_episode_row())
 
     # The `videos/...` column of the row is not read: video features are not supported yet
-    assert episode.to_dict() == {
+    assert episode.to_row() == {
         "episode_index": 3,
         "tasks": ["Pick up the cube"],
         "length": 10,
-        "data": {"chunk_index": 0, "file_index": 1},
+        "data/chunk_index": 0,
+        "data/file_index": 1,
         "dataset_from_index": 20,
         "dataset_to_index": 30,
-        "meta": {"episodes": {"chunk_index": 0, "file_index": 2}},
-        "stats": {
-            "observation.state": {"mean": [0.5, 1.5], "count": [10]},
-            "action": {"max": [1.0, 2.0]},
-        },
+        "meta/episodes/chunk_index": 0,
+        "meta/episodes/file_index": 2,
+        "stats/observation.state/mean": [0.5, 1.5],
+        "stats/observation.state/count": [10],
+        "stats/action/max": [1.0, 2.0],
     }
 
 
@@ -310,7 +375,7 @@ def test_drop_features_removes_them_from_info_and_episodes(lerobot_dataset):
     assert ACTION_COLUMN_NAME not in [f.key for f in dropped.features]
     assert STATE_COLUMN_NAME in [f.key for f in dropped.features]
     for episode in dropped.episodes_map.values():
-        assert set(episode.stats) == {STATE_COLUMN_NAME}
+        assert set(episode.stats) == {STATE_COLUMN_NAME, *INDEX_COLUMN_NAMES}
 
 
 def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
@@ -323,4 +388,8 @@ def test_drop_features_leaves_the_metadata_unchanged(lerobot_dataset):
     assert meta == LeRobotDatasetMeta.load(lerobot_dataset)
     assert ACTION_COLUMN_NAME in [f.key for f in meta.features]
     for episode in meta.episodes_map.values():
-        assert set(episode.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+        assert set(episode.stats) == {
+            ACTION_COLUMN_NAME,
+            STATE_COLUMN_NAME,
+            *INDEX_COLUMN_NAMES,
+        }

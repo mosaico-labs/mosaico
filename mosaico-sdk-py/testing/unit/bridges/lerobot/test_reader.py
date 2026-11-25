@@ -16,6 +16,7 @@ from mosaicolabs.bridges.lerobot.reader import (
     LeRobotReader,
     _adapt_image_rb_to_schema,
     _adapt_timeseries_rb_to_schema,
+    _task_indexes_to_tasks,
     _timeseries_fields_to_msco_schema,
 )
 
@@ -25,8 +26,10 @@ from .config import (
     DATA_SCHEMA,
     EPISODE_LENGTHS,
     EPISODES_PATH,
-    INDEX_COLUMN_NAMES,
+    POSITION_COLUMN_NAMES,
     STATE_COLUMN_NAME,
+    TASK,
+    TASK_COLUMN_NAME,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
     action_value,
@@ -131,6 +134,31 @@ def test_timeseries_schema_rejects_a_name_both_field_and_struct(names, conflict)
         _timeseries_fields_to_msco_schema(fields)
 
 
+def test_timeseries_schema_rejects_schemas_with_task_column():
+    """The server rejects field names containing a `task` column."""
+    with pytest.raises(
+        ValueError, match="The original data files contains 'task' column"
+    ):
+        _timeseries_fields_to_msco_schema(
+            [
+                pa.field("action", VECTOR_TYPE),
+                pa.field("task_index", pa.string()),
+                pa.field("task", pa.string()),
+            ]
+        )
+
+    with pytest.raises(
+        ValueError, match="The original data files contains 'task' column"
+    ):
+        _timeseries_fields_to_msco_schema(
+            [
+                pa.field("action", VECTOR_TYPE),
+                pa.field("task_index", pa.string()),
+                pa.field("task.id", pa.string()),
+            ]
+        )
+
+
 # --- _adapt_timeseries_rb_to_schema ---
 
 
@@ -151,6 +179,25 @@ def test_adapt_timeseries_batch_nests_the_dotted_columns():
         {"action": 1.0, "observation": {"state": 3.0, "force": 5.0}},
         {"action": 2.0, "observation": {"state": 4.0, "force": 6.0}},
     ]
+
+
+# --- _task_indexes_to_tasks ---
+
+TASKS = ["Pick up the cube", "Place the cube"]
+
+
+def test_task_indexes_to_tasks_takes_the_task_at_each_index():
+    """A task index is the row of its task in `meta/tasks.parquet`."""
+    converted = _task_indexes_to_tasks(pa.array([1, 0, 1], pa.int64()), pa.array(TASKS))
+
+    assert converted.type == pa.string()
+    assert converted.to_pylist() == [TASKS[1], TASKS[0], TASKS[1]]
+
+
+@pytest.mark.parametrize("task_index", [len(TASKS), -1])
+def test_task_indexes_to_tasks_rejects_an_index_not_in_the_tasks(task_index):
+    with pytest.raises(ValueError, match="meta/tasks.parquet"):
+        _task_indexes_to_tasks(pa.array([0, task_index], pa.int64()), pa.array(TASKS))
 
 
 # --- _adapt_image_rb_to_schema ---
@@ -264,13 +311,16 @@ def test_reader_episodes(lerobot_dataset, with_meta):
         (
             [STATE_COLUMN_NAME, CAMERA_COLUMN_NAMES[1]],
             [CAMERA_COLUMN_NAMES[1]],
-            [STATE_COLUMN_NAME],
+            [
+                STATE_COLUMN_NAME,
+            ],
         ),
-        # The timestamp is the time of the messages, not a timeseries
         (
             ["unknown", TIMESTAMP_COLUMN_NAME, ACTION_COLUMN_NAME],
             [],
-            [ACTION_COLUMN_NAME],
+            [
+                ACTION_COLUMN_NAME,
+            ],
         ),
     ],
 )
@@ -290,7 +340,7 @@ def test_reader_timeseries_struct_nests_the_dotted_columns(reader):
         [
             pa.field("action", VECTOR_TYPE),
             pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
-            *[pa.field(name, pa.int64()) for name in INDEX_COLUMN_NAMES],
+            pa.field(TASK_COLUMN_NAME, pa.string()),
         ]
     )
 
@@ -301,7 +351,9 @@ def test_reader_timeseries_struct_holds_the_selected_columns_only(lerobot_datase
     )
 
     assert reader.timeseries_struct == pa.struct(
-        [pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)]))]
+        [
+            pa.field("observation", pa.struct([pa.field("state", VECTOR_TYPE)])),
+        ]
     )
 
 
@@ -378,10 +430,9 @@ def test_timeseries_batches_hold_the_rows_of_the_episode(reader, episode_index):
     assert batch.column("observation").to_pylist() == [
         {"state": state_value(i)} for i in frames
     ]
-    assert batch.column("frame_index").to_pylist() == list(range(length))
-    assert batch.column("episode_index").to_pylist() == [episode_index] * length
-    assert batch.column("index").to_pylist() == list(frames)
-    assert batch.column("task_index").to_pylist() == [0] * length
+    assert batch.column("task").to_pylist() == [TASK] * length
+    # The position of the frames is not ingested: it is rebuilt on export
+    assert not set(POSITION_COLUMN_NAMES) & set(batch.schema.names)
 
 
 def test_timeseries_batches_are_batches_of_the_timeseries_topic(reader):
