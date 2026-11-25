@@ -4,12 +4,14 @@ source datasets, into the metadata of a single LeRobot dataset.
 """
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from mosaicolabs.logging_config import get_logger
 
 from .episode import LeRobotEpisode
 from .info import LeRobotInfo
+from .metadata import LeRobotDatasetMeta
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -41,11 +43,13 @@ class LeRobotDatasetBuilder:
         self._info: Optional[LeRobotInfo] = None
         """The `info` of the first episode, without the video features."""
 
-        self._episodes: List[LeRobotEpisode] = []
-        """The accepted episodes, renumbered in the order they were added."""
+        self._episode_by_sequence: Dict[str, LeRobotEpisode] = {}
+        """The accepted episodes, renumbered, keyed by the name of their sequence, in the order
+        they were added."""
 
-        self._episode_index_by_sequence: Dict[str, int] = {}
-        """The new `episode_index` of each accepted episode, keyed by the name of its sequence."""
+        self._current_index = 0
+        """The `dataset_to_index` of the last accepted episode: the row where the next one
+        starts."""
 
     @property
     def info(self) -> Optional[LeRobotInfo]:
@@ -58,21 +62,28 @@ class LeRobotDatasetBuilder:
 
         return replace(
             self._info,
-            total_episodes=len(self._episodes),
-            total_frames=sum(episode.length for episode in self._episodes),
-            total_tasks=len({task for e in self._episodes for task in e.tasks}),
-            splits={"train": f"0:{len(self._episodes)}"},
+            video_path=None,
+            total_episodes=len(self._episode_by_sequence),
+            total_frames=sum(
+                episode.length for episode in self._episode_by_sequence.values()
+            ),
+            total_tasks=len(self.tasks),
+            splits={"train": f"0:{len(self._episode_by_sequence)}"},
         )
 
     @property
     def episodes(self) -> List[LeRobotEpisode]:
         """The accepted episodes, renumbered in the order they were added."""
-        return list(self._episodes)
+        return list(self._episode_by_sequence.values())
 
     @property
     def tasks(self) -> List[str]:
         """The distinct tasks of the accepted episodes, in the order they first appear."""
-        return list(dict.fromkeys(task for e in self._episodes for task in e.tasks))
+        return list(
+            dict.fromkeys(
+                task for e in self._episode_by_sequence.values() for task in e.tasks
+            )
+        )
 
     @property
     def episode_index_by_sequence(self) -> Dict[str, int]:
@@ -80,7 +91,9 @@ class LeRobotDatasetBuilder:
         The new `episode_index` of each accepted episode, keyed by the name of its sequence, in
         episode order.
         """
-        return dict(self._episode_index_by_sequence)
+        return {
+            s_name: e.episode_index for s_name, e in self._episode_by_sequence.items()
+        }
 
     def add_episode(
         self, sequence_name: str, info: LeRobotInfo, tasks: List[str], length: int
@@ -88,10 +101,11 @@ class LeRobotDatasetBuilder:
         """
         Adds the episode of a sequence to the dataset, after the previous ones, renumbered.
 
-        Only its `tasks` and `length` are taken from its source dataset: its indexes are set by
-        its position in the new dataset. Its stats are not taken either: those of its source
-        dataset do not apply to the new one (it can hold only part of the episode). They are
-        computed from the data of the new dataset instead (see `LeRobotDatasetMeta.get_or_compute_episode_stats`).
+        Episode `length` is the number of rows extracted from Mosaico: its indexes are set by
+        its position in the new dataset. Only its `tasks` is taken from its source dataset.
+        Its stats are not taken either: those of its source dataset do not apply to the new
+        one (it can hold only part of the episode). They are computed from the data of the
+        new dataset instead (see `compute_episode_stats`).
 
         The video features are dropped from `info` before comparing it with the one of the
         first episode (see `LeRobotInfo.check_compatible`).
@@ -103,32 +117,36 @@ class LeRobotDatasetBuilder:
             length (int): The number of frames of the episode.
 
         Raises:
-            ValueError: If the sequence was already added, or its `info` is not compatible with
-                the one of the first episode. The dataset is left unchanged.
+            ValueError: If the sequence was already added, its `info` is not compatible with
+                the one of the first episode or length is <= 0. The dataset is left unchanged.
         """
-        if sequence_name in self._episode_index_by_sequence:
+        if sequence_name in self._episode_by_sequence:
             raise ValueError(f"Sequence '{sequence_name}' has already been added.")
 
+        if length <= 0:
+            raise ValueError(f"Sequence '{sequence_name}' has length <=0: {length}.")
+
         video_features = [f.key for f in info.features if f.is_video()]
+
+        if video_features:
+            logger.warning(
+                f"Skipping video features {video_features}: video files are not "
+                "supported yet."
+            )
+
         info = replace(info, features=[f for f in info.features if not f.is_video()])
 
         if self._info is None:
-            if video_features:
-                logger.warning(
-                    f"Skipping video features {video_features}: video files are not "
-                    "supported yet."
-                )
             self._info = info
         else:
             self._info.check_compatible(info)
 
-        start = self._episodes[-1].dataset_to_index if self._episodes else 0
         episode = LeRobotEpisode(
-            episode_index=len(self._episodes),
-            tasks=tasks,
+            episode_index=len(self._episode_by_sequence),
+            tasks=list(tasks),
             length=length,
-            dataset_from_index=start,
-            dataset_to_index=start + length,
+            dataset_from_index=self._current_index,
+            dataset_to_index=self._current_index + length,
             # A single data file and a single episodes file
             data_chunk_index=0,
             data_file_index=0,
@@ -138,5 +156,43 @@ class LeRobotDatasetBuilder:
             stats={},
         )
 
-        self._episodes.append(episode)
-        self._episode_index_by_sequence[sequence_name] = episode.episode_index
+        self._current_index += length
+        self._episode_by_sequence[sequence_name] = episode
+
+    def build_lerobot_metadata(self, root: Path) -> LeRobotDatasetMeta:
+        """
+        Creates the metadata of the dataset from the accepted episodes: their `info`,
+        `episodes` and `tasks`.
+
+        The stats are not computed: the episodes have none (see `add_episode`), they are
+        computed from the data of the new dataset.
+
+        Args:
+            root (Path): The root folder of the new dataset.
+
+        Returns:
+            LeRobotDatasetMeta: The metadata of the dataset.
+
+        Raises:
+            RuntimeError: If no episode has been added yet.
+        """
+        if self.info is None:
+            raise RuntimeError(
+                "Cannot generate `LeRobotDatasetMeta` if no episode has been added. "
+                "Add episodes using add_episode()"
+            )
+
+        return LeRobotDatasetMeta.from_data(root, self.info, self.episodes, self.tasks)
+
+    def get_episode_by_sequence_name(self, seq_name: str) -> Optional[LeRobotEpisode]:
+        """
+        Returns the accepted episode of a sequence.
+
+        Args:
+            seq_name (str): The name of the sequence.
+
+        Returns:
+            Optional[LeRobotEpisode]: The episode, renumbered, or `None` if the sequence was
+                not added or not accepted.
+        """
+        return self._episode_by_sequence.get(seq_name)

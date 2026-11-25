@@ -2,14 +2,14 @@
 The `meta/info.json` file of a LeRobot v3.0 dataset.
 """
 
-from dataclasses import MISSING, dataclass, fields
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 from .feature import LeRobotFeature
 
-"""The only LeRobot dataset format version supported by the bridge."""
 SUPPORTED_CODEBASE_VERSION = "v3.0"
+"""The only LeRobot dataset format version supported by the bridge."""
 
 
 @dataclass(frozen=True)
@@ -17,8 +17,10 @@ class LeRobotInfo:
     """
     The content of the `meta/info.json` file of a LeRobot v3.0 dataset.
 
-    Each field is a key of `meta/info.json`: the fields with no default are the keys LeRobot
-    always writes, and are required. Any key outside the v3.0 format is dropped.
+    Each field is a key of `meta/info.json`. Only the keys needed to read the data are
+    required (`codebase_version`, `fps`, `features`, `total_episodes`, `data_path`), and their
+    type is checked. The others are kept as found, or `None` if missing. Any key outside the
+    v3.0 format is kept, as found, in `extra`.
     """
 
     codebase_version: str
@@ -33,25 +35,25 @@ class LeRobotInfo:
     total_episodes: int
     """The number of episodes of the dataset."""
 
-    total_frames: int
-    """The number of frames of the dataset, over every episode."""
-
-    total_tasks: int
-    """The number of distinct tasks of the dataset."""
-
-    chunks_size: int
-    """The maximum number of files of each `chunk-XXX` folder."""
-
-    data_files_size_in_mb: int
-    """The size, in MB, beyond which LeRobot starts a new data file."""
-
-    video_files_size_in_mb: int
-    """The size, in MB, beyond which LeRobot starts a new video file."""
-
     data_path: str
     """The template of the data file paths (see `get_path_to_data`)."""
 
-    splits: Dict[str, str]
+    total_frames: Optional[int] = None
+    """The number of frames of the dataset, over every episode."""
+
+    total_tasks: Optional[int] = None
+    """The number of distinct tasks of the dataset."""
+
+    chunks_size: Optional[int] = None
+    """The maximum number of files of each `chunk-XXX` folder."""
+
+    data_files_size_in_mb: Optional[int] = None
+    """The size, in MB, beyond which LeRobot starts a new data file."""
+
+    video_files_size_in_mb: Optional[int] = None
+    """The size, in MB, beyond which LeRobot starts a new video file."""
+
+    splits: Optional[Dict[str, str]] = None
     """The dataset splits, as ranges of episode indexes (e.g. `{"train": "0:50"}`)."""
 
     video_path: Optional[str] = None
@@ -59,6 +61,31 @@ class LeRobotInfo:
 
     robot_type: Optional[str] = None
     """The robot that recorded the dataset (e.g. `so_follower`), if known."""
+
+    extra: Dict[str, Any] = field(default_factory=dict)
+    """The keys of `meta/info.json` outside the v3.0 format (e.g. added by the dataset author),
+    kept as found and written back by `to_dict`."""
+
+    _REQUIRED_KEYS: ClassVar[Dict[str, type]] = {
+        "codebase_version": str,
+        "fps": int,
+        "features": dict,
+        "total_episodes": int,
+        "data_path": str,
+    }
+    """The keys needed to read the data, with their expected type. Each is a field."""
+
+    _OPTIONAL_KEYS: ClassVar[Tuple[str, ...]] = (
+        "total_frames",
+        "total_tasks",
+        "chunks_size",
+        "data_files_size_in_mb",
+        "video_files_size_in_mb",
+        "splits",
+        "video_path",
+        "robot_type",
+    )
+    """The other keys of the v3.0 format, `None` if missing. Each is a field."""
 
     @classmethod
     def from_dict(cls, info: Dict[str, Any]) -> "LeRobotInfo":
@@ -73,46 +100,62 @@ class LeRobotInfo:
 
         Raises:
             ValueError: If the dataset format version is not supported, a required key is
-                missing, or a feature has no `dtype`.
+                missing or has the wrong type, or a feature description is not valid (see
+                `LeRobotFeature.from_dict`).
         """
-        codebase_version = info.get("codebase_version")
-        if codebase_version != SUPPORTED_CODEBASE_VERSION:
-            raise ValueError(
-                f"Unsupported LeRobot dataset version '{codebase_version}': only "
-                f"'{SUPPORTED_CODEBASE_VERSION}' is supported."
-            )
 
-        missing = [
-            f.name for f in fields(cls) if f.default is MISSING and f.name not in info
-        ]
+        # Checking missing required elements
+        missing = [key for key in cls._REQUIRED_KEYS if key not in info]
+
         if missing:
             raise ValueError(
                 f"'meta/info.json' is missing the required keys {missing}. "
                 f"Available keys: {sorted(info)}"
             )
 
+        # Check on the code version
+        codebase_version = info["codebase_version"]
+        if codebase_version != SUPPORTED_CODEBASE_VERSION:
+            raise ValueError(
+                f"Unsupported LeRobot dataset version '{codebase_version}': only "
+                f"'{SUPPORTED_CODEBASE_VERSION}' is supported."
+            )
+
+        # Checking required elements types
+        for key, expected_type in cls._REQUIRED_KEYS.items():
+            value = info[key]
+
+            if not isinstance(value, expected_type):
+                raise ValueError(
+                    f"'meta/info.json' key '{key}' must be a {expected_type.__name__}, "
+                    f"got {type(value).__name__}: {value!r}."
+                )
+
+        # A copy, so that the caller's dict is left unchanged: what is left once the v3.0 keys
+        # are popped are the extra keys
+        remaining = dict(info)
+        required = {key: remaining.pop(key) for key in cls._REQUIRED_KEYS}
+        optional = {
+            key: remaining.pop(key) for key in cls._OPTIONAL_KEYS if key in remaining
+        }
+        features = required.pop("features")
+
         return cls(
-            codebase_version=codebase_version,
-            fps=info["fps"],
             features=[
                 LeRobotFeature.from_dict(key, feature)
-                for key, feature in info["features"].items()
+                for key, feature in features.items()
             ],
-            total_episodes=info["total_episodes"],
-            total_frames=info["total_frames"],
-            total_tasks=info["total_tasks"],
-            chunks_size=info["chunks_size"],
-            data_files_size_in_mb=info["data_files_size_in_mb"],
-            video_files_size_in_mb=info["video_files_size_in_mb"],
-            data_path=info["data_path"],
-            splits=info["splits"],
-            video_path=info.get("video_path"),
-            robot_type=info.get("robot_type"),
+            **required,
+            **optional,
+            extra=remaining,
         )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Returns the content of `meta/info.json`."""
+        """
+        Returns the content of `meta/info.json`: the `extra` keys and the v3.0 ones.
+        """
         return {
+            **self.extra,
             "codebase_version": self.codebase_version,
             "fps": self.fps,
             "features": {feature.key: feature.to_dict() for feature in self.features},
@@ -131,7 +174,8 @@ class LeRobotInfo:
     def check_compatible(self, other_info: "LeRobotInfo") -> None:
         """
         Checks that the episodes of `other_info` can be merged with the ones of this info: same
-        features (see `LeRobotFeature` for what is compared), fps and robot type.
+        features (see `LeRobotFeature` for what is compared), fps and robot type. The `extra`
+        keys are not compared.
 
         Raises:
             ValueError: If the two infos differ in features, fps or robot type.
@@ -168,14 +212,20 @@ class LeRobotInfo:
                 f"'{other_info.robot_type}'."
             )
 
-    def drop_features(self, to_drop: List[str]):
+    def drop_features(self, to_drop: List[str]) -> "LeRobotInfo":
         """
-        Removes the given features from `features`. Unknown features are ignored.
+        Returns a copy of the info without the given features. Unknown features are ignored,
+        and this info is left unchanged.
 
         Args:
             to_drop (List[str]): The names of the features to drop.
+
+        Returns:
+            LeRobotInfo: The info without the given features.
         """
-        self.features[:] = [f for f in self.features if f.key not in to_drop]
+        return replace(
+            self, features=[f for f in self.features if f.key not in to_drop]
+        )
 
     def get_path_to_data(self, root: Path, chunk_index: int, file_index: int) -> Path:
         """

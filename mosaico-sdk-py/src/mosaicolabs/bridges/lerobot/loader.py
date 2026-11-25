@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import (
+    Any,
+    Dict,
     Generator,
     Iterator,
     List,
@@ -17,7 +19,7 @@ from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
 from .lerobot_batch import LeRobotBatch
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
-from .reader import LeRobotReader
+from .reader import _TASK_INDEX_COLUMN, LeRobotReader
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -88,6 +90,21 @@ class LeRobotLoader(BaseLoader):
         self._meta: Optional[LeRobotDatasetMeta] = None
         """The dataset metadata, lazily loaded (see `_resolve_metadata`)."""
 
+    @staticmethod
+    def is_dataset(path: Path) -> bool:
+        """
+        Returns whether `path` is the root folder of a LeRobot dataset: it holds
+        `meta/info.json`, `meta/episodes/` and `data/`. Only the layout is checked,
+        not the content.
+
+        Args:
+            path (Path): The folder to check.
+
+        Returns:
+            bool: `True` if `path` has the layout of a LeRobot dataset, `False` otherwise.
+        """
+        return LeRobotDatasetMeta.is_dataset(path)
+
     def _validate_folder(self):
         """Raises `FileNotFoundError` if the dataset folder does not exist."""
         if not self._file_path.exists():
@@ -120,18 +137,22 @@ class LeRobotLoader(BaseLoader):
             logger.warning(
                 f"Skipping video features {video_columns}: video files are not supported yet."
             )
+            metadata = metadata.drop_features(video_columns)
 
-        # Resolved topics are all the columns from the .parquet (except timestamp and videos)
+        # Resolved topics are all the columns from the .parquet (except for:
+        # timestamp, index, frame_index, episode_index, and videos)
         self._resolved_topics = metadata.column_names
 
         matched_columns = _filter_from_list(
             self._resolved_topics, self._requested_columns
         )
 
-        for col_name in self._resolved_topics:
-            if col_name not in matched_columns:
-                metadata.drop_features([col_name])
-                self._reject(col_name, TopicStatus.FILTERED)
+        rejected = [c for c in self._resolved_topics if c not in matched_columns]
+        for col_name in rejected:
+            self._reject(col_name, TopicStatus.FILTERED)
+
+        if rejected:
+            metadata = metadata.drop_features(rejected)
 
         if not matched_columns:
             raise RuntimeError(
@@ -139,12 +160,13 @@ class LeRobotLoader(BaseLoader):
             )
 
         self._accepted_topics = matched_columns
+        self._meta = metadata
 
         try:
             self._reader = LeRobotReader(
                 self._file_path,
                 self._max_batch_size_bytes,
-                metadata,
+                self._meta,
                 self._accepted_topics,
             )
 
@@ -162,7 +184,9 @@ class LeRobotLoader(BaseLoader):
             LeRobotDatasetMeta: The dataset metadata.
 
         Raises:
-            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be loaded.
+            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be
+                loaded: it is missing, or `meta/info.json`, `meta/tasks.parquet` or the
+                episodes parquet files are missing or invalid.
         """
         if self._meta is None:
             try:
@@ -275,6 +299,38 @@ class LeRobotEpisodeLoader:
     def episode_index(self) -> int:
         """The episode index."""
         return self._episode_index
+
+    @property
+    def tasks(self) -> List[str]:
+        """The episode tasks"""
+        return self.episode_metadata.tasks
+
+    @property
+    def length(self) -> int:
+        """The episode length"""
+        return self.episode_metadata.length
+
+    @property
+    def stats(self) -> Dict[str, Dict[str, Any]]:
+        """
+        The episode stats after removing: the filtered features, index, frame_index,
+        episode_index, task_index and timestamp.
+        """
+
+        injected_columns = (
+            self._reader.cameras_column_names + self._reader.timeseries_column_names
+        )
+
+        if _TASK_INDEX_COLUMN in injected_columns:
+            injected_columns.remove(_TASK_INDEX_COLUMN)
+
+        reduced_stats = {
+            k: v
+            for k, v in self.episode_metadata.stats.items()
+            if k in injected_columns
+        }
+
+        return reduced_stats
 
     @property
     def n_rows(self) -> int:

@@ -128,6 +128,13 @@ def test_loader_reports_a_dataset_that_cannot_be_opened(
         _ = loader.topics
 
 
+def test_loader_reports_a_missing_dataset_folder(tmp_path):
+    loader = LeRobotLoader(tmp_path / "missing", MAX_BATCH_SIZE_BYTES)
+
+    with pytest.raises(IOError, match="LeRobot dataset not found"):
+        _ = loader.topics
+
+
 # --- Properties ---
 
 
@@ -212,3 +219,15 @@ def test_episode_streams_the_accepted_columns_only(lerobot_dataset, columns, top
 
     assert [msg.msco_topic_name for msg in messages] == [topic]
     assert [msg.column_names for msg in messages] == [columns]
+
+
+def test_episode_returns_stats_of_timeseries_and_camera(loader):
+    for ep_loader in loader:
+        assert set(ep_loader.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+
+
+def test_episode_returns_stats_of_the_accepted_columns_only(lerobot_dataset):
+    loader = LeRobotLoader(lerobot_dataset, MAX_BATCH_SIZE_BYTES, [ACTION_COLUMN_NAME])
+
+    for ep_loader in loader:
+        assert set(ep_loader.stats) == {ACTION_COLUMN_NAME}

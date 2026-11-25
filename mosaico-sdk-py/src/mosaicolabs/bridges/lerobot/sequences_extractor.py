@@ -20,21 +20,28 @@ Typical usage as a library:
         sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
         dataset_name="pusht",
     )
-    meta = LeRobotSequencesExtractor(config).run()
+    extractor = LeRobotSequencesExtractor(config)
+    status = extractor.run()  # `PARTIAL` if some sequences were dropped
+    meta = extractor.meta
 """
 
 import argparse
+import os
 import shutil
 import sys
+import tempfile
 from dataclasses import dataclass, replace
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
+from rich.console import Console
 from rich.live import Live
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
+from .loader import LeRobotLoader
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
 from .metadata.stats import compute_episode_stats
 from .mosaico_loader import MosaicoToLeRobotLoader
@@ -103,6 +110,47 @@ class LeRobotExtractorConfig:
 # --- Main Extractor Class ---
 
 
+class ExtractionStatus(Enum):
+    """
+    Outcome of `LeRobotSequencesExtractor.run()`.
+
+    Errors are not a status: `run()` raises them, including when no sequence can be
+    exported. `PARTIAL` reports a run that exported only part of the sequences.
+    """
+
+    COMPLETED = "completed"
+    """Every sequence was exported."""
+
+    PARTIAL = "partial"
+    """Only part of the sequences was exported: the others were dropped (see
+    `LeRobotSequencesExtractor.dropped_sequences`)."""
+
+
+def _close_tmp_folder(tmp_path: Path, saving_path: Path, save: bool) -> None:
+    """
+    Closes the temporary folder the dataset was written to: with `save` it replaces
+    `saving_path`, otherwise it is removed with the partial files written to it.
+
+    A folder cannot replace a non-empty one: an existing `saving_path` is first renamed aside,
+    instantly unlike its removal, and removed only once the new dataset is in place. Hence
+    `saving_path` is missing only between two renames.
+
+    Args:
+        tmp_path (Path): The temporary folder holding the dataset.
+        saving_path (Path): The root folder of the dataset.
+        save (bool): Whether the dataset in `tmp_path` is complete and replaces
+            `saving_path`.
+    """
+    if save:
+        old_path = tmp_path.with_name(f"{tmp_path.name}.old")
+        if saving_path.exists():
+            saving_path.rename(old_path)
+        tmp_path.rename(saving_path)
+        shutil.rmtree(old_path, ignore_errors=True)
+    else:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 class LeRobotSequencesExtractor:
     """
     Exports Mosaico sequences ingested by the LeRobot bridge to a LeRobot v3.0 dataset folder.
@@ -125,7 +173,9 @@ class LeRobotSequencesExtractor:
             sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
             dataset_name="pusht",
         )
-        meta = LeRobotSequencesExtractor(config).run()
+        extractor = LeRobotSequencesExtractor(config)
+        status = extractor.run()
+        meta = extractor.meta
         ```
     """
 
@@ -136,12 +186,30 @@ class LeRobotSequencesExtractor:
         """
         self._cfg = config
 
-        from rich.console import Console
+        self._meta: Optional[LeRobotDatasetMeta] = None
+        """The metadata written by the last `run()`."""
+
+        self._dropped_sequences: List[str] = []
+        """The sequences dropped in the last `run()`."""
 
         self._console = Console(stderr=True)
         setup_sdk_logging(
             level=self._cfg.log_level.upper(), pretty=True, console=self._console
         )
+
+    @property
+    def meta(self) -> Optional[LeRobotDatasetMeta]:
+        """The metadata written under `saving_path` by the last `run()`, `None` before."""
+        return self._meta
+
+    @property
+    def dropped_sequences(self) -> List[str]:
+        """
+        The sequences dropped in the last `run()`: they do not exist, have no valid
+        `_lerobot_` metadata or cannot be merged with the previous ones. Empty before the
+        first run, and after a run where every sequence was exported.
+        """
+        return list(self._dropped_sequences)
 
     def _write_dataset(
         self,
@@ -253,30 +321,59 @@ class LeRobotSequencesExtractor:
 
         return episodes
 
-    def run(self) -> LeRobotDatasetMeta:
+    def run(self) -> ExtractionStatus:
         """
         Connects to the Mosaico server, builds the metadata of the dataset from the sequences
         and writes the dataset under `saving_path / dataset_name` (see `_write_dataset`).
 
-        An existing dataset folder is checked before connecting, and removed only once the
-        sequences are resolved: a failed resolution leaves it untouched. A failure while
-        writing leaves the dataset incomplete, which is logged as an error.
+        An existing dataset folder is checked before connecting: it is replaced only with
+        `overwrite`, and only if it is empty or a LeRobot dataset (see
+        `LeRobotLoader.is_dataset`). The dataset is written to a temporary folder next to
+        `saving_path` and swapped in only once complete (see `_close_tmp_folder`): a failure
+        leaves `saving_path` untouched and discards the partial files, which is logged as an
+        error.
+
+        A sequence that cannot be exported is dropped with a warning, and the dropped ones
+        are listed again at the end (see `dropped_sequences`). The metadata written is in
+        `meta`.
+
+        Note:
+            If the process is killed without a chance to clean up (e.g. `SIGKILL`, a power
+            loss), the hidden temporary folders `.{name}.*` (and `.{name}.*.old` during the
+            swap) are left in the parent folder of `saving_path`, where they can take as much
+            space as a whole dataset. They are not removed by the next extraction and must be
+            deleted by hand.
 
         Returns:
-            LeRobotDatasetMeta: The metadata written under `saving_path / dataset_name`.
+            ExtractionStatus: `COMPLETED` if every sequence was exported, `PARTIAL` if some
+                were dropped.
 
         Raises:
-            FileExistsError: If the dataset folder exists and `overwrite` is False.
-            ValueError: If no sequence can be exported, or an episode cannot be written (see
-                `LeRobotWriter.write_episode`).
+            FileExistsError: If `saving_path` exists and `overwrite` is False.
+            ValueError: If `saving_path` is neither empty nor a LeRobot dataset, or an episode
+                cannot be written (see `LeRobotWriter.write_episode`).
+            RuntimeError: If no sequence can be exported.
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
+
+        # Resetting internal data
+        self._meta = None
+        self._dropped_sequences = []
+
         saving_path = self._cfg.saving_path / self._cfg.dataset_name
-        if saving_path.exists() and not self._cfg.overwrite:
-            raise FileExistsError(
-                f"Impossible to save to '{saving_path}' since it already exists. "
-                "Pass overwrite=True to replace it."
-            )
+        if saving_path.exists():
+            if not self._cfg.overwrite:
+                raise FileExistsError(
+                    f"Impossible to save to '{saving_path}' since it already exists. "
+                    "Pass overwrite=True to replace it."
+                )
+            if not saving_path.is_dir() or (
+                any(saving_path.iterdir()) and not LeRobotLoader.is_dataset(saving_path)
+            ):
+                raise ValueError(
+                    f"Refusing to overwrite '{saving_path}': it is not empty and not a "
+                    "LeRobot dataset."
+                )
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
         with MosaicoClient.connect(
@@ -287,30 +384,45 @@ class LeRobotSequencesExtractor:
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
-                if saving_path.exists():
-                    shutil.rmtree(saving_path)
+                saving_path.parent.mkdir(parents=True, exist_ok=True)
+                tmp_path = Path(
+                    tempfile.mkdtemp(
+                        prefix=f".{saving_path.name}.", dir=saving_path.parent
+                    )
+                )
+
+                succeeded = False
                 try:
                     ui = LeRobotProgressManager(loader, len(loader.episodes))
                     ui.setup()
 
-                    with Live(
-                        ui.progress, console=self._console, refresh_per_second=1000
-                    ):
-                        meta = self._write_dataset(loader, saving_path, ui)
+                    with Live(ui.progress, console=self._console):
+                        meta = self._write_dataset(loader, tmp_path, ui)
+                    succeeded = True
 
-                except Exception:
-                    # The files written so far are left as they are. An interruption
-                    # (`KeyboardInterrupt`) is not an `Exception`: it is not reported here
-                    logger.error(
-                        f"The LeRobot dataset in '{saving_path}' is incomplete: the "
-                        "extraction stopped before writing all of it."
-                    )
-                    raise
+                finally:
+                    if not succeeded:
+                        logger.error(
+                            f"The extraction to '{saving_path}' stopped before writing "
+                            "all of the LeRobot dataset: the partial files are discarded."
+                        )
+                    _close_tmp_folder(tmp_path, saving_path, save=succeeded)
+
+                self._meta = replace(meta, root=saving_path)
+                # Before the loader is closed: it cannot be used afterwards
+                self._dropped_sequences = loader.dropped_sequences
 
         logger.info(
             f"LeRobot dataset of {meta.n_episodes} episode(s) written to '{saving_path}'."
         )
-        return meta
+
+        if self._dropped_sequences:
+            logger.warning(
+                f"{len(self._dropped_sequences)} of {len(self._cfg.sequence_names)} "
+                f"sequence(s) dropped (see the warnings above): {self._dropped_sequences}"
+            )
+            return ExtractionStatus.PARTIAL
+        return ExtractionStatus.COMPLETED
 
 
 # --- CLI Entry Point ---
@@ -338,7 +450,7 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
         help="Names of the Mosaico sequences to extract, one episode each, in episode order",
     )
     parser.add_argument(
-        "--lerobot_path",
+        "--lerobot-path",
         dest="saving_path",
         metavar="PATH",
         type=Path,
@@ -361,13 +473,19 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
 
     # Advanced Arguments
     parser.add_argument(
-        "--mosaico_api_key", default=None, help="The API key for authentication"
+        "--api-key",
+        default=None,
+        help=(
+            "Mosaico API-Key. Prefer setting the MOSAICO_API_KEY environment variable "
+            "instead, to avoid leaking the key via shell history or the process list "
+            "(e.g. `ps aux`); --api-key takes precedence if both are set."
+        ),
     )
     parser.add_argument(
-        "--tls_cert_path", default=None, help="Path to the TLS certificate file"
+        "--tls-cert", default=None, help="Path to the TLS certificate file"
     )
     parser.add_argument(
-        "--enable_tls",
+        "--enable-tls",
         action="store_true",
         help="Whether Mosaico Server requires tls",
     )
@@ -395,8 +513,8 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
         host=args.host,
         port=args.port,
         log_level=args.log,
-        mosaico_api_key=args.mosaico_api_key,
-        tls_cert_path=args.tls_cert_path,
+        mosaico_api_key=args.api_key or os.environ.get("MOSAICO_API_KEY"),
+        tls_cert_path=args.tls_cert,
         enable_tls=args.enable_tls,
         overwrite=args.overwrite,
     )
@@ -404,12 +522,16 @@ def lerobot_sequences_extractor(argv: Optional[List[str]] = None):
     # --- Execution ---
     extractor = LeRobotSequencesExtractor(config)
     try:
-        extractor.run()
+        status = extractor.run()
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception as e:
         # Exit non-zero so calling scripts/CI can detect the failure
         logger.error(f"LeRobot extraction failed: {e}")
+        sys.exit(1)
+
+    # Some sequences were dropped (already logged): exit non-zero, as for a failure
+    if status is ExtractionStatus.PARTIAL:
         sys.exit(1)
 
 
