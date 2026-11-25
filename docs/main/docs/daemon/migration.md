@@ -138,6 +138,31 @@ mosaicod store-optimizer --time-interval 3600
 
 This release changes the database schema. The migrations are applied automatically on the first startup of `mosaicod` 0.8.
 
+### Aggregator statistics
+
+The [aggregators](query.md#aggregators) need per-chunk statistics that `mosaicod` 0.7 didn't record. The migration drops the old statistics and queues every topic for the [store optimizer](store_optimizer.md), which rewrites the data and computes them again. **Until a topic is rewritten, it is not returned by the queries on [ontology](query.md) fields.** Reading its data is not affected.
+
+Run the store optimizer once after the upgrade:
+
+```bash
+mosaicod store-optimizer
+```
+
+It rewrites the whole store, so it can take a while on large deployments. The previous files are removed by the [cleanup routine](cleanup.md). A topic that fails is retried on the next run.
+
+:::warning
+If the store optimizer crashes or is killed abruptly (e.g. out of memory, `kill -9`, host crash), the topic it was rewriting stays locked for 7 days and is not returned by the ontology queries until then. To unlock it, make sure no store optimizer is running and run the following with `psql`, using the same database and credentials configured for `mosaicod`:
+
+```bash
+psql "postgresql://<user>:<password>@<host>:<port>/<database>" \
+  -c "DELETE FROM topic_optimization_t WHERE start_unix_tstamp IS NOT NULL;"
+```
+
+It prints the number of unlocked topics (e.g. `DELETE 1`). Then start `mosaicod store-optimizer` again.
+
+Stopping it with `SIGTERM` or `Ctrl+C` doesn't lock any topic.
+:::
+
 ### Flight endpoints
 
 #### `list_flights`

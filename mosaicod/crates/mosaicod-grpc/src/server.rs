@@ -1,4 +1,6 @@
-use mosaicod_config::params;
+use std::net::{IpAddr, SocketAddr};
+
+use mosaicod_config::default;
 use mosaicod_core::{error::PublicResult as Result, types, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
@@ -8,7 +10,6 @@ use mosaicod_hook as hook;
 use mosaicod_instance_registry::instance_heartbeat_loop;
 use mosaicod_os::local_hostname;
 use mosaicod_store as store;
-use std::net::{IpAddr, SocketAddr};
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -224,8 +225,8 @@ pub async fn serve(
     // outgoing (retrieval) messages, tying it to a value that can be lowered later
     // would risk making previously-accepted, already-stored data unretrievable.
     flight_svc = flight_svc
-        .max_decoding_message_size(params::params().grpc_max_decode_message_size.value)
-        .max_encoding_message_size(params::GRPC_MSG_MAX_SIZE_BYTES);
+        .max_decoding_message_size(default::params().grpc_max_decode_message_size.value)
+        .max_encoding_message_size(default::GRPC_MSG_MAX_SIZE_BYTES);
 
     if opts.gzip {
         flight_svc = flight_svc
@@ -252,10 +253,11 @@ pub async fn serve(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::sync::mpsc;
     use std::thread;
     use std::time::Duration as StdDuration;
+
+    use super::*;
 
     /// If the flight service fails on its very first attempt to start (e.g. because of an
     /// invalid bind address), `start_and_wait` must still join both the flight and the cleanup
@@ -265,8 +267,8 @@ mod tests {
     async fn test_start_and_wait_joins_all_tasks_on_first_failure(
         pool: sqlx::Pool<db::DatabaseType>,
     ) {
-        // `start_and_wait` reads `params::params()` internally, so it must be initialized first.
-        let _ = params::load_params(params::ParamsLoadOptions::testing());
+        // `start_and_wait` reads `default::params()` internally, so it must be initialized first.
+        mosaicod_config::testing::load();
 
         let test_store =
             store::testing::Store::new_random_on_tmp().expect("failed to create test store");

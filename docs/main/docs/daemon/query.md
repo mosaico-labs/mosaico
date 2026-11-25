@@ -243,7 +243,7 @@ To prevent users from inserting weird user metadata keys, only the following sym
 * ` ` _white space_
 
 Inside queries also the following ones are admitted:
-* `*`, this enables glob pattern search on keys
+* `*`, this enables glob pattern search on keys. Alone (e.g. `status.*`) it matches any key; next to other characters (e.g. `status.motor_*`) it matches only the keys that fit the pattern, like `motor_left`
 * `**`, this enables recursive glob pattern search on keys
 
 #### Examples
@@ -291,6 +291,8 @@ Inside queries also the following ones are admitted:
 | `*`                           | Single Level (`*`)       | Matches top-level keys only.                                                          | `robot_id`, `status`, `payload_manifest`                                                                                                                                       |
 | `status.*`                    | Single Level (`*`)       | Matches every single key directly inside the `status` object.                         | `status.telemetry`, `status.hardware`                                                                                                                                          |
 | `payload_manifest.sensors.**` | Deep Recursive (`**`)    | Traverses deeply to capture all keys and nested objects underneath `sensors`.         | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`, `payload_manifest.sensors.diagnostics.camera_feed` |
+| `status.hardware.motor_*`     | Partial Key (`*`)        | Matches the keys directly inside `status.hardware` whose name starts with `motor_`.   | `status.hardware.motor_left`, `status.hardware.motor_right`                                                                                                                    |
+| `robot_id.bot_*`              | Partial Key (`*`)        | `robot_id` holds a string, not an object, so it has no keys to match: it is skipped.  | No match                                                                                                                                                                       |
 | `payload_manifest.*.*`        | Positional Single (`*`)  | Matches any key that is exactly **two levels down** from the `payload_manifest` root. | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`                                                     |
 | `tags[*]`                     | Array flattining (`[*]`) | Matches all elements inside the `tags` array.                                         | `"warehouse-alpha"`, `"heavy-duty"`, `"fleet-3"`                                                                                                                               |
 | `logs[*].id`                  | Array flattining (`[*]`) | Matches all objects inside the `logs` array containing an `id` key.                   | `logs[0].id`, `logs[1].id`                                                                                                                                                     |

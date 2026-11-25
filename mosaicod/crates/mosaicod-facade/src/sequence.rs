@@ -1,12 +1,14 @@
 //! This module provides the high-level API for managing a persistent **Sequence**
 //! entity within the application.
 
-use super::{Context, session, topic};
+use std::path;
+
 use mosaicod_core::{self as core, error::PublicError, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
-use std::path;
 use tracing::trace;
+
+use super::{Context, session, topic};
 
 /// Define sequence metadata type contaning json user metadata.
 pub type SequenceUserMetadata = marshal::JsonMetadataBlob;
@@ -227,13 +229,14 @@ pub async fn delete(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use mosaicod_core::types::NotificationType;
     use mosaicod_query as query;
     use mosaicod_store as store;
-    use std::sync::Arc;
-
     use types::MetadataBlob;
+
+    use super::*;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);

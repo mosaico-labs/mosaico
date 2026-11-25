@@ -1,9 +1,10 @@
-use super::{Format, SessionMetadata, TimestampRange};
-use crate::{Error, constants, traits, types};
 use std::cmp::PartialEq;
 use std::ops::Deref;
 use std::path;
 use std::str::FromStr;
+
+use super::{Format, SessionMetadata, TimestampRange};
+use crate::{Error, constants, traits, types};
 
 // ////////////////////////////////////////////////////////////////////////////
 // RESOURCE LOCATOR
