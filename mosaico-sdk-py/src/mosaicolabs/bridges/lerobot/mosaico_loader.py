@@ -403,10 +403,6 @@ class LeRobotEpisodeStreamer:
         """The name of the sequence of the episode."""
         return self._sequence_handler.name
 
-    @property
-    def sequence_name(self) -> str:
-        return self._sequence_name
-
     @staticmethod
     def _get_finished_topics(
         batches_map: Dict[str, Optional[pa.RecordBatch]],

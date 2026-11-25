@@ -8,7 +8,7 @@ sequences, with the types LeRobot writes them with (see
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pyarrow as pa
@@ -36,6 +36,13 @@ _IMAGE_FORMAT_FIELD = "format"
 
 _FRAME_INDEX_WIDTH = 6
 """The number of digits of the frame index in the name of an image (`frame-000012.png`)."""
+
+_ROW_GROUP_MAX_BYTES = 64 * 1024 * 1024
+"""The size of the rows buffered before they are written as one row group of a data file: it
+bounds the memory held while writing an episode, whatever its length."""
+
+_TMP_SUFFIX = ".tmp"
+"""The suffix of the file a data file is written to, until it is complete (see `_tmp_path`)."""
 
 
 def _to_timeseries_column(timeseries: pa.RecordBatch, key: str) -> pa.Array:
@@ -152,6 +159,20 @@ def _to_task_index_column(timeseries: pa.RecordBatch, tasks: List[str]) -> pa.Ar
     return task_index
 
 
+def _tmp_path(data_path: Path) -> Path:
+    """
+    Returns the file a data file is written to (`file-000.parquet.tmp`), renamed to
+    `data_path` once complete (see `LeRobotWriter.close`).
+
+    Args:
+        data_path (Path): The data parquet file.
+
+    Returns:
+        Path: The temporary file of `data_path`.
+    """
+    return data_path.with_name(data_path.name + _TMP_SUFFIX)
+
+
 class LeRobotWriter:
     """
     Writes the data of the episodes of an exported LeRobot dataset to its data parquet files.
@@ -161,6 +182,11 @@ class LeRobotWriter:
     (see `write_episode`), when that episode is written, and stays open until `close` (or the
     `with` block exits): a parquet file is only readable once closed, and cannot be reopened
     to append more episodes.
+
+    A data file is written to a temporary file next to it (see `_tmp_path`), renamed to the
+    data file only when the writer is closed with no error. A failed episode stops the export:
+    when the `with` block exits on an error, the temporary files are deleted, and no data file
+    is left half-written.
 
     ```python
     with LeRobotWriter(info.features, tasks) as writer:
@@ -195,21 +221,24 @@ class LeRobotWriter:
         self._current_index: int = 0
         """The `index` of the next row: its position in the exported dataset."""
         self._file_writers: Dict[Path, pq.ParquetWriter] = {}
-        """The writer of each data parquet file opened, keyed by its path."""
+        """The writer of each data parquet file opened, keyed by its path (not the path of
+        its temporary file)."""
 
     def _get_file_writer(self, data_path: Path) -> pq.ParquetWriter:
         """
-        Returns the writer of the data parquet file at `data_path`.
+        Returns the writer of the data parquet file at `data_path`, writing to its temporary
+        file (see `_tmp_path`).
 
         The file is opened (creating its folders) for its first episode only, then its writer
         is reused: opening a parquet file empties it. The writers are keyed by `data_path` as
         given, so the episodes of a same file must be given the same path.
         """
-        file_writer = self._file_writers.get(data_path)
+        key = data_path.resolve()
+        file_writer = self._file_writers.get(key)
         if file_writer is None:
             data_path.parent.mkdir(parents=True, exist_ok=True)
-            file_writer = pq.ParquetWriter(data_path, self._schema)
-            self._file_writers[data_path] = file_writer
+            file_writer = pq.ParquetWriter(_tmp_path(data_path), self._schema)
+            self._file_writers[key] = file_writer
 
         return file_writer
 
@@ -319,29 +348,29 @@ class LeRobotWriter:
         self,
         streamer: LeRobotEpisodeStreamer,
         data_path: Path,
-        ui: LeRobotProgressManager,
+        ui: Optional[LeRobotProgressManager],
     ) -> None:
         """
         Writes an episode, streamed from its Mosaico sequence, to its data parquet file at
         `data_path`.
 
-        The episode is written slice by slice, as streamed: only one slice is held in memory,
-        never the whole episode, which can be very large. Each slice is a row group of the file
-        (LeRobot writes a row group per episode instead). If an error is raised, the slices
-        before it are already written.
+        The episode is converted slice by slice, as streamed, and the slices are buffered up
+        to `_ROW_GROUP_MAX_BYTES`, then written as one row group: the memory held is bounded
+        by that limit, never by the whole episode, which can be very large.
 
         The episodes must be written in the order of the exported dataset, each one starting at
         the row the previous one ended at. The episodes sharing a data file must be given the
-        same `data_path`: the file is opened with its first episode only (see
-        `_get_file_writer`).
+        same `data_path`: the file is opened with its first episode only. A failed episode stops
+        the export: the data files are deleted when the `with` block exits on its error, none
+        is left half-written.
 
         Args:
             streamer (LeRobotEpisodeStreamer): The episode, as yielded by the loader.
             data_path (Path): The data parquet file of the episode: the `data_path` template of
                 `info` filled with its `data/chunk_index` and `data/file_index`, under the root
                 of the dataset (see `LeRobotInfo.get_path_to_data`).
-            ui (LeRobotProgressManager): The progress bars, whose topic bars are advanced by
-                the rows of each slice written.
+            ui (Optional[LeRobotProgressManager]): The progress bars, whose topic bars are
+                advanced by the rows of each slice converted, or `None` for no progress bars.
 
         Raises:
             ValueError: If the episode does not end at its `dataset_to_index`, or a slice
@@ -352,13 +381,29 @@ class LeRobotWriter:
 
         file_writer = self._get_file_writer(data_path)
 
+        # The slices not written yet: kept as a list, not concatenated, to copy them only once
+        buffer: List[pa.RecordBatch] = []
+        buffer_bytes = 0
+
         for ts, b in streamer:
             lerobot_rb = self._to_lerobot_rb(episode, ts, b)
-            file_writer.write_batch(lerobot_rb)
+            buffer.append(lerobot_rb)
+            buffer_bytes += lerobot_rb.nbytes
+
+            if buffer_bytes >= _ROW_GROUP_MAX_BYTES:
+                # The buffered slices, written as one row group
+                file_writer.write_table(pa.Table.from_batches(buffer, self._schema))
+                buffer, buffer_bytes = [], 0
 
             advance = len(ts)
             topics = [topic for topic in b]
-            ui.advance_all_topics(topics, advance)
+
+            if ui is not None:
+                ui.advance_all_topics(topics, advance)
+
+        # The last rows of the episode: a row group never holds two episodes
+        if buffer:
+            file_writer.write_table(pa.Table.from_batches(buffer, self._schema))
 
         # The next episode starts where this one ends in the metadata
         if self._current_index != episode.dataset_to_index:
@@ -368,17 +413,35 @@ class LeRobotWriter:
                 f"{episode.dataset_to_index} (its `length` is {episode.length})."
             )
 
-    def close(self) -> None:
+    def close(self, save_files: bool = True) -> None:
         """
         Closes the data parquet files, writing their footer: a file cannot be read until then.
+
+        Each file is written to its temporary file (see `_tmp_path`): it is then renamed to
+        the data file, or deleted. Calling `close` again does nothing.
+
+        Args:
+            save_files (bool): Whether to keep the files, renamed to their data files, or to
+                delete them (after a failed episode: they would be half-written).
         """
-        for file_writer in self._file_writers.values():
+        for data_path, file_writer in self._file_writers.items():
             file_writer.close()
+
+            if save_files:
+                # Atomic: the data file is never seen half-written
+                _tmp_path(data_path).replace(data_path)
+            else:
+                _tmp_path(data_path).unlink(missing_ok=True)
+
+        self._file_writers.clear()
 
     def __enter__(self) -> "LeRobotWriter":
         """Context manager support."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Ensures the data files are closed even if an error occurs in the `with` block."""
-        self.close()
+        """
+        Closes the data files when the `with` block exits: they are kept only if it exits
+        with no error, and deleted otherwise (see `close`).
+        """
+        self.close(save_files=exc_type is None)
