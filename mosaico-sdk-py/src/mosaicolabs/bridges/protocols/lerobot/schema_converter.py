@@ -1,10 +1,7 @@
 """
-Conversion of the features of a LeRobot dataset into `pyarrow` schemas, in the two directions
-of the LeRobot bridge:
-- `to_lerobot_pyarrow`: the schema of the data parquet files, as LeRobot writes them (the
-  export, see `LeRobotWriter`);
-- `to_mosaico_pyarrow`: the schema the timeseries are pushed to Mosaico with (the ingestion,
-  see `LeRobotReader`). Not implemented yet.
+Conversion of the features of a LeRobot dataset into `pyarrow` schemas: `to_lerobot_pyarrow`
+gives the schema of the data parquet files, as LeRobot writes them (the export, see
+`LeRobotWriter`).
 """
 
 from typing import ClassVar, List
@@ -19,7 +16,7 @@ class LeRobotSchemaConverter:
     Converts the features of a LeRobot dataset (see `LeRobotFeature`) into `pyarrow` schemas.
 
     Unlike the MCAP converters (see `McapSchemaConverter`), there is a single format to convert,
-    hence no registry: the two methods are the two directions of the LeRobot bridge.
+    hence no registry.
     """
 
     IMAGE_ARROW_TYPE: ClassVar[pa.StructType] = pa.struct(

@@ -195,7 +195,7 @@ class LeRobotWriter:
             data_path = info.get_path_to_data(
                 root, episode.data_chunk_index, episode.data_file_index
             )
-            writer.write_episode(streamer, data_path)
+            writer.write_episode(streamer, data_path, ui=None)
     ```
     """
 
@@ -221,8 +221,7 @@ class LeRobotWriter:
         self._current_index: int = 0
         """The `index` of the next row: its position in the exported dataset."""
         self._file_writers: Dict[Path, pq.ParquetWriter] = {}
-        """The writer of each data parquet file opened, keyed by its path (not the path of
-        its temporary file)."""
+        """The writer of each data parquet file opened, keyed by its resolved path."""
 
     def _get_file_writer(self, data_path: Path) -> pq.ParquetWriter:
         """
@@ -230,8 +229,9 @@ class LeRobotWriter:
         file (see `_tmp_path`).
 
         The file is opened (creating its folders) for its first episode only, then its writer
-        is reused: opening a parquet file empties it. The writers are keyed by `data_path` as
-        given, so the episodes of a same file must be given the same path.
+        is reused: opening a parquet file empties it. The writers are keyed by the resolved
+        `data_path`, so the episodes of a same file share its writer however their path is
+        written (relative or absolute).
         """
         key = data_path.resolve()
         file_writer = self._file_writers.get(key)
@@ -375,7 +375,8 @@ class LeRobotWriter:
         Raises:
             ValueError: If the episode does not end at its `dataset_to_index`, or a slice
                 cannot be converted (see `_to_lerobot_rb`).
-            KeyError: If a topic of the episode is missing (see `_to_lerobot_rb`).
+            KeyError: If a topic of the episode is missing (see `_to_lerobot_rb`). The
+                `MosaicoToLeRobotLoader` drops such sequences beforehand (see `_check_topics`).
         """
         episode = streamer.episode_metadata
 
