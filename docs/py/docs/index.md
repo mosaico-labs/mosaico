@@ -45,7 +45,7 @@ You can push data into Mosaico through two primary pathways, both designed to en
 
 **Native Ontology Ingestion**. This approach allows you to stream data directly from your application, providing the highest level of control over serialization and real-time performance.
 
-**Ecosystem Adapters & Bridges**. Use specialized adapters to translate data from existing middleware and log formats into Mosaico sequences. The [ROS Bridge](SDK/bridges/ros.md) ingests ROS 1 bags (`.bag`) and ROS 2 bags (`.mcap`, `.db3`), while the [MCAP Bridge](SDK/bridges/mcap.md) ingests self-describing MCAP files whose schemas are encoded with `protobuf`.
+**Ecosystem Adapters & Bridges**. Use specialized adapters to translate data from existing middleware and log formats into Mosaico sequences. The [ROS Bridge](SDK/bridges/ros.md) ingests ROS 1 bags (`.bag`) and ROS 2 bags (`.mcap`, `.db3`), the [MCAP Bridge](SDK/bridges/mcap.md) ingests self-describing MCAP files whose schemas are encoded with `protobuf`, and the [LeRobot Bridge](SDK/bridges/lerobot.md) ingests LeRobot v3.0 datasets.
 
 
 <figure markdown="span">

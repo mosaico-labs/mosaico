@@ -111,6 +111,8 @@ nav:
             - Adapters:
                 - SDK/API_reference/bridges/mcap/adapters/base.md
                 - SDK/API_reference/bridges/mcap/adapters/unmodeled.md
+        - LeRobot-Bridge:
+            - SDK/API_reference/bridges/lerobot/lerobot.md
     - SDK/API_reference/watchdog.md
     - SDK/API_reference/hook.md
 extra_css:
