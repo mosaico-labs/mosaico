@@ -19,7 +19,6 @@ from ..loader_base import BaseLoader
 from ..topic_status import TopicStatus
 from .lerobot_batch import LeRobotBatch
 from .metadata import LeRobotDatasetMeta, LeRobotEpisode
-from .metadata.metadata import _EPISODES_DIR, _INFO_FILE, _META_DIR
 from .reader import _TASK_INDEX_COLUMN, LeRobotReader
 
 # Set the hierarchical logger
@@ -104,11 +103,12 @@ class LeRobotLoader(BaseLoader):
         Returns:
             bool: `True` if `path` has the layout of a LeRobot dataset, `False` otherwise.
         """
-        meta = path / _META_DIR
-        info = meta / _INFO_FILE
-        episodes = meta / _EPISODES_DIR
-        data = path / "data"
-        return info.is_file() and episodes.is_dir() and data.is_dir()
+        return LeRobotDatasetMeta.is_dataset(path)
+
+    def _validate_folder(self):
+        """Raises `FileNotFoundError` if the dataset folder does not exist."""
+        if not self._file_path.exists():
+            raise FileNotFoundError(f"LeRobot dataset not found: {self._file_path}")
 
     def _resolve_columns(self) -> LeRobotReader:
         """
@@ -184,11 +184,13 @@ class LeRobotLoader(BaseLoader):
             LeRobotDatasetMeta: The dataset metadata.
 
         Raises:
-            IOError: If the `meta/` folder cannot be loaded: it is missing, or `meta/info.json`,
-                `meta/tasks.parquet` or the episodes parquet files are missing or invalid.
+            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be
+                loaded: it is missing, or `meta/info.json`, `meta/tasks.parquet` or the
+                episodes parquet files are missing or invalid.
         """
         if self._meta is None:
             try:
+                self._validate_folder()
                 self._meta = LeRobotDatasetMeta.load(self._file_path)
 
             except Exception as e:

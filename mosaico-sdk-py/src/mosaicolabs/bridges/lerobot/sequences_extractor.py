@@ -119,6 +119,31 @@ class ExtractionStatus(Enum):
     `LeRobotSequencesExtractor.dropped_sequences`)."""
 
 
+def _close_tmp_folder(tmp_path: Path, saving_path: Path, save: bool) -> None:
+    """
+    Closes the temporary folder the dataset was written to: with `save` it replaces
+    `saving_path`, otherwise it is removed with the partial files written to it.
+
+    A folder cannot replace a non-empty one: an existing `saving_path` is first renamed aside,
+    instantly unlike its removal, and removed only once the new dataset is in place. Hence
+    `saving_path` is missing only between two renames.
+
+    Args:
+        tmp_path (Path): The temporary folder holding the dataset.
+        saving_path (Path): The root folder of the dataset.
+        save (bool): Whether the dataset in `tmp_path` is complete and replaces
+            `saving_path`.
+    """
+    if save:
+        old_path = tmp_path.with_name(f"{tmp_path.name}.old")
+        if saving_path.exists():
+            saving_path.rename(old_path)
+        tmp_path.rename(saving_path)
+        shutil.rmtree(old_path, ignore_errors=True)
+    else:
+        shutil.rmtree(tmp_path, ignore_errors=True)
+
+
 class LeRobotSequencesExtractor:
     """
     Exports Mosaico sequences ingested by the LeRobot bridge to a LeRobot v3.0 dataset folder.
@@ -296,12 +321,20 @@ class LeRobotSequencesExtractor:
         An existing `saving_path` is checked before connecting: it is replaced only with
         `overwrite`, and only if it is empty or a LeRobot dataset (see
         `LeRobotLoader.is_dataset`). The dataset is written to a temporary folder next to
-        `saving_path` and swapped in only once complete: a failure leaves `saving_path`
-        untouched and discards the partial files, which is logged as an error.
+        `saving_path` and swapped in only once complete (see `_close_tmp_folder`): a failure
+        leaves `saving_path` untouched and discards the partial files, which is logged as an
+        error.
 
         A sequence that cannot be exported is dropped with a warning, and the dropped ones
         are listed again at the end (see `dropped_sequences`). The metadata written is in
         `meta`.
+
+        Note:
+            If the process is killed without a chance to clean up (e.g. `SIGKILL`, a power
+            loss), the hidden temporary folders `.{name}.*` (and `.{name}.*.old` during the
+            swap) are left in the parent folder of `saving_path`, where they can take as much
+            space as a whole dataset. They are not removed by the next extraction and must be
+            deleted by hand.
 
         Returns:
             ExtractionStatus: `COMPLETED` if every sequence was exported, `PARTIAL` if some
@@ -309,28 +342,30 @@ class LeRobotSequencesExtractor:
 
         Raises:
             FileExistsError: If `saving_path` exists and `overwrite` is False.
-            ValueError: If `saving_path` is neither empty nor a LeRobot dataset, no sequence
-                can be exported, or an episode cannot be written (see
-                `LeRobotWriter.write_episode`).
+            ValueError: If `saving_path` is neither empty nor a LeRobot dataset, or an episode
+                cannot be written (see `LeRobotWriter.write_episode`).
+            RuntimeError: If no sequence can be exported.
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
+
+        # Resetting internal data
         self._meta = None
         self._dropped_sequences = []
+
         saving_path = self._cfg.saving_path
-        if saving_path.exists() and not self._cfg.overwrite:
-            raise FileExistsError(
-                f"Impossible to save to '{saving_path}' since it already exists. "
-                "Pass overwrite=True to replace it."
-            )
-        if (
-            saving_path.exists()
-            and any(saving_path.iterdir())
-            and not LeRobotLoader.is_dataset(saving_path)
-        ):
-            raise ValueError(
-                f"Refusing to overwrite '{saving_path}': it is not empty and not a "
-                "LeRobot dataset."
-            )
+        if saving_path.exists():
+            if not self._cfg.overwrite:
+                raise FileExistsError(
+                    f"Impossible to save to '{saving_path}' since it already exists. "
+                    "Pass overwrite=True to replace it."
+                )
+            if not saving_path.is_dir() or (
+                any(saving_path.iterdir()) and not LeRobotLoader.is_dataset(saving_path)
+            ):
+                raise ValueError(
+                    f"Refusing to overwrite '{saving_path}': it is not empty and not a "
+                    "LeRobot dataset."
+                )
 
         logger.info(f"Connecting to Mosaico at '{self._cfg.host}:{self._cfg.port}'...")
         with MosaicoClient.connect(
@@ -341,41 +376,38 @@ class LeRobotSequencesExtractor:
             tls_cert_path=self._cfg.tls_cert_path,
         ) as mclient:
             with MosaicoToLeRobotLoader(mclient, self._cfg.sequence_names) as loader:
-                accepted = loader.episode_index_by_sequence
-                self._dropped_sequences = [
-                    name for name in self._cfg.sequence_names if name not in accepted
-                ]
                 saving_path.parent.mkdir(parents=True, exist_ok=True)
                 tmp_path = Path(
                     tempfile.mkdtemp(
                         prefix=f".{saving_path.name}.", dir=saving_path.parent
                     )
                 )
+
+                succeeded = False
                 try:
                     ui = LeRobotProgressManager(loader, len(loader.episodes))
                     ui.setup()
 
                     with Live(ui.progress, console=self._console):
                         meta = self._write_dataset(loader, tmp_path, ui)
+                    succeeded = True
 
-                except BaseException:
-                    logger.error(
-                        f"The extraction to '{saving_path}' stopped before writing all "
-                        "of the LeRobot dataset: the partial files are discarded."
-                    )
-                    shutil.rmtree(tmp_path, ignore_errors=True)
-                    raise
+                finally:
+                    if not succeeded:
+                        logger.error(
+                            f"The extraction to '{saving_path}' stopped before writing "
+                            "all of the LeRobot dataset: the partial files are discarded."
+                        )
+                    _close_tmp_folder(tmp_path, saving_path, save=succeeded)
 
-                old_path = tmp_path.with_name(f"{tmp_path.name}.old")
-                if saving_path.exists():
-                    saving_path.rename(old_path)
-                tmp_path.rename(saving_path)
-                shutil.rmtree(old_path, ignore_errors=True)
                 self._meta = replace(meta, root=saving_path)
+                # Before the loader is closed: it cannot be used afterwards
+                self._dropped_sequences = loader.dropped_sequences
 
         logger.info(
             f"LeRobot dataset of {meta.n_episodes} episode(s) written to '{saving_path}'."
         )
+
         if self._dropped_sequences:
             logger.warning(
                 f"{len(self._dropped_sequences)} of {len(self._cfg.sequence_names)} "

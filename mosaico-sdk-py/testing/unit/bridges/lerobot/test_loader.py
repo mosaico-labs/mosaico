@@ -128,6 +128,13 @@ def test_loader_reports_a_dataset_that_cannot_be_opened(
         _ = loader.topics
 
 
+def test_loader_reports_a_missing_dataset_folder(tmp_path):
+    loader = LeRobotLoader(tmp_path / "missing", MAX_BATCH_SIZE_BYTES)
+
+    with pytest.raises(IOError, match="LeRobot dataset not found"):
+        _ = loader.topics
+
+
 # --- Properties ---
 
 

@@ -4,9 +4,10 @@ Integration tests of the LeRobot dataset extraction: the example dataset is inge
 `LeRobotSequencesExtractor` and compared with it.
 """
 
+import shutil
 from dataclasses import replace
 from pathlib import Path
-from typing import Iterator, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -111,6 +112,16 @@ def _episode_rows(table: pa.Table, episode_index: int) -> pa.Table:
     return table.filter(pc.equal(table.column("episode_index"), episode_index))
 
 
+def _files(root: Path) -> Dict[Path, bytes]:
+    """The content of each file under `root`, by its path relative to `root`."""
+    return {p.relative_to(root): p.read_bytes() for p in root.rglob("*") if p.is_file()}
+
+
+def _tmp_folders(saving_path: Path) -> List[Path]:
+    """The temporary folders of the extractions to `saving_path` left next to it."""
+    return list(saving_path.parent.glob(f".{saving_path.name}.*"))
+
+
 @pytest.fixture(scope="module")
 def ingested_sequences(
     host, port, api_key_manage, with_tls, tls_cert_path, lerobot_dataset
@@ -161,6 +172,23 @@ def extractor_config(
         tls_cert_path=tls_cert_path,
         enable_tls=with_tls,
     )
+
+
+@pytest.fixture
+def failing_stats(monkeypatch) -> List[Path]:
+    """Makes the extraction fail once its data files are written, when computing the stats of
+    its episodes. Returns the data files found written when failing."""
+    written: List[Path] = []
+
+    def _fail(data_path: Path, *args, **kwargs):
+        if data_path.is_file():
+            written.append(data_path)
+        raise RuntimeError("Injected failure")
+
+    monkeypatch.setattr(
+        "mosaicolabs.bridges.lerobot.sequences_extractor.compute_episode_stats", _fail
+    )
+    return written
 
 
 def test_extraction_recreates_the_dataset(extractor_config, lerobot_dataset):
@@ -233,7 +261,7 @@ def test_extraction_without_any_sequence_raises(extractor_config):
     """Tests that an extraction with no sequence to export raises, writing nothing"""
     config = replace(extractor_config, sequence_names=[MISSING_SEQUENCE_NAME])
 
-    with pytest.raises(ValueError, match="No episode to export"):
+    with pytest.raises(RuntimeError, match="No episode to export"):
         LeRobotSequencesExtractor(config).run()
 
     assert not config.saving_path.exists()
@@ -260,7 +288,49 @@ def test_extraction_overwrites_an_existing_dataset(extractor_config):
 
     assert not stale_file.exists()
     assert (saving_path / EXPORTED_DATA_FILE).is_file()
-    assert not list(saving_path.parent.glob(f".{saving_path.name}.*"))
+    assert not _tmp_folders(saving_path)
+
+
+def test_extraction_overwrites_an_empty_folder(extractor_config):
+    """Tests that an existing empty folder is replaced with `overwrite`: it is not a LeRobot
+    dataset, but replacing it loses nothing"""
+    saving_path = extractor_config.saving_path
+    saving_path.mkdir()
+
+    status = LeRobotSequencesExtractor(replace(extractor_config, overwrite=True)).run()
+
+    assert status is ExtractionStatus.COMPLETED
+    assert (saving_path / EXPORTED_DATA_FILE).is_file()
+    assert not _tmp_folders(saving_path)
+
+
+def test_failed_extraction_leaves_the_existing_dataset_untouched(
+    extractor_config, lerobot_dataset, failing_stats
+):
+    """Tests that an extraction failing with `overwrite` discards its partial files and leaves
+    the dataset it would have replaced untouched"""
+    saving_path = extractor_config.saving_path
+    shutil.copytree(lerobot_dataset, saving_path)
+    original = _files(saving_path)
+
+    with pytest.raises(RuntimeError, match="Injected failure"):
+        LeRobotSequencesExtractor(replace(extractor_config, overwrite=True)).run()
+
+    assert _files(saving_path) == original
+    assert not _tmp_folders(saving_path)
+
+
+def test_failed_extraction_writes_nothing(extractor_config, failing_stats):
+    """Tests that an extraction failing to a new folder discards its partial files, without
+    creating the folder"""
+    saving_path = extractor_config.saving_path
+
+    with pytest.raises(RuntimeError, match="Injected failure"):
+        LeRobotSequencesExtractor(extractor_config).run()
+
+    assert failing_stats, "The extraction failed before writing its data files"
+    assert not saving_path.exists()
+    assert not _tmp_folders(saving_path)
 
 
 def test_extraction_refuses_to_overwrite_a_folder_that_is_not_a_dataset(

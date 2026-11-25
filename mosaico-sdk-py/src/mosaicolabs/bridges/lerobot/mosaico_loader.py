@@ -123,7 +123,7 @@ class MosaicoToLeRobotLoader(BaseLoader):
 
     Its topics (in the `BaseLoader` sense) are the topics of the first accepted sequence. The
     handlers of the accepted sequences stay open until `close` is called (or the `with` block
-    exits).
+    exits): after that, the loader cannot be used anymore.
     """
 
     def __init__(self, m_client: MosaicoClient, sequence_names: List[str]):
@@ -153,6 +153,10 @@ class MosaicoToLeRobotLoader(BaseLoader):
         self._builder: Optional[LeRobotDatasetBuilder] = None
         """The builder of the metadata of the exported dataset: `None` until resolved by
         `_ensure_resolved`."""
+
+        self._closed = False
+        """Whether `close` was called: the sequences cannot be resolved again, since the
+        client may be closed too."""
 
     @property
     def info(self) -> LeRobotInfo:
@@ -197,6 +201,24 @@ class MosaicoToLeRobotLoader(BaseLoader):
             )
 
         return self._builder.episode_index_by_sequence
+
+    @property
+    def accepted_sequences(self) -> List[str]:
+        """Returns the accepted sequence names"""
+
+        try:
+            resolved_sequences = self._resolve_sequence_handlers()
+        except RuntimeError:  # Case where no sequences are accepted
+            resolved_sequences = []
+
+        return [s_hanlder.name for s_hanlder in resolved_sequences]
+
+    @property
+    def dropped_sequences(self) -> List[str]:
+        """Returns the name of the dropped sequences. See `_resolve_sequence_handlers` for when
+        a sequence gets dropped"""
+        accepted = set(self.accepted_sequences)
+        return [name for name in self._sequence_names if name not in accepted]
 
     @property
     def tasks(self) -> List[str]:
@@ -264,8 +286,14 @@ class MosaicoToLeRobotLoader(BaseLoader):
             List[SequenceHandler]: The handlers of the accepted sequences, in episode order.
 
         Raises:
-            ValueError: If no sequence can be exported.
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
         """
+        if self._closed:
+            raise ValueError(
+                "The loader is closed: its sequences cannot be resolved again."
+            )
+
         if self._seq_handlers is not None:
             return self._seq_handlers
 
@@ -325,7 +353,7 @@ class MosaicoToLeRobotLoader(BaseLoader):
             raise
 
         if not s_handlers:
-            raise ValueError("No episode to export.")
+            raise RuntimeError("No episode to export.")
 
         topics = list(s_handlers[0].topics)
 
@@ -341,7 +369,8 @@ class MosaicoToLeRobotLoader(BaseLoader):
         Resolves the sequences, if not done yet (see `_resolve_sequence_handlers`).
 
         Raises:
-            ValueError: If no sequence can be exported.
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
         """
         self._resolve_sequence_handlers()
 
@@ -358,7 +387,8 @@ class MosaicoToLeRobotLoader(BaseLoader):
             LeRobotEpisodeStreamer: The streamer of the data of the episode.
 
         Raises:
-            ValueError: If no sequence can be exported.
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
         """
         s_handlers = self._resolve_sequence_handlers()
 
@@ -382,8 +412,9 @@ class MosaicoToLeRobotLoader(BaseLoader):
     def close(self):
         """
         Closes the handlers of the sequences (and their topic handlers and streams), releasing
-        their resources.
+        their resources. The loader cannot be used afterwards.
         """
+        self._closed = True
         if self._seq_handlers is not None:
             for seq_handler in self._seq_handlers:
                 seq_handler.close()
