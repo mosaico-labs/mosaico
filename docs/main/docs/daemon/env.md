@@ -36,6 +36,10 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 - <Link id="mosaicod-log-format" />`MOSAICOD_LOG_FORMAT`: Log output format. One of `json`, `pretty`, `plain`. Defaults to `pretty`. Overridden by the `--log-format` CLI argument if set.
 
+## Usage reporting
+
+- <Link id="mosaicod-usage-reporting-enabled" />`MOSAICOD_USAGE_REPORTING_ENABLED`: Whether the daemon sends usage reports to Mosaico, at `https://telemetry.mosaico.dev`. Defaults to `true`.
+
 ## Server
 
 - <Link id="mosaicod-host" />`MOSAICOD_HOST`: Host address the server listens on. Defaults to the loopback address `127.0.0.1`. Overridden by the `--host` CLI argument of the `server` command if set.
