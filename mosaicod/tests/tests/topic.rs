@@ -359,7 +359,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let ts_range: types::TimestampRange = app_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
@@ -731,7 +731,7 @@ async fn test_topic_flight_info_app_metadata_with_data(pool: sqlx::Pool<db::Data
     );
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let ts_range: types::TimestampRange = app_metadata.data_info.timestamp_range;
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);

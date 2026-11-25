@@ -327,6 +327,11 @@ impl Store {
         let bucket_url = Url::parse(&format!("s3://{}", bucket))
             .map_err(|_| Error::InvalidBucket("non URL safe string".to_owned()))?;
 
+        // The `object_store` HTTP client is built without a bundled crypto
+        // provider, so we install ring as the process default. An error only
+        // means that a provider is already installed.
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         // Setup connection with object storage service
         let mut s3_builder = AmazonS3Builder::new()
             .with_endpoint(endpoint.to_string())
