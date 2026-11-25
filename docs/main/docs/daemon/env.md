@@ -38,7 +38,7 @@ A variable set to an empty value (e.g. `MOSAICOD_STORE_BUCKET=`) is treated as u
 
 ## Usage reporting
 
-- <Link id="mosaicod-usage-reporting-enabled" />`MOSAICOD_USAGE_REPORTING_ENABLED`: Whether mosaicod sends usage reports to Mosaico, at `https://telemetry.mosaico.dev`. Defaults to `true`.
+- <Link id="mosaicod-usage-reporting-enabled" />`MOSAICOD_USAGE_REPORTING_ENABLED`: Whether mosaicod sends usage reports to the Mosaico telemetry service. Defaults to `true`.
 
 ## Server
 
