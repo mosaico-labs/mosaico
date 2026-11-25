@@ -217,8 +217,8 @@ Each image feature becomes its own `CompressedImage` topic (e.g. `observation.im
 
 - `timestamp` gives the time of every message, in nanoseconds from the start of the episode.
 - `index`, `frame_index` and `episode_index` are not ingested, and cannot be selected with `--column-names`.
-- `task_index` is ingested as a `task` column holding the task text from `meta/tasks.parquet`. A dataset that has `task_index` and also a `task` (or `task.*`) feature cannot be opened: exclude one of them with `--column-names`.
-- Video features are not supported yet and are skipped with a warning.
+- `task_index` is ingested as a `task` column holding the task text from `meta/tasks.parquet` (e.g. `task_index=0` becomes `task="Pick up a sharpie"`). A dataset that has `task_index` and also a `task` (or `task.*`) feature cannot be opened: exclude one of them with `--column-names`.
+- Only image features (`dtype: image`) are ingested. Video features (`dtype: video`, LeRobot's default for cameras) are skipped with a warning: record the dataset with `--dataset.video=false` to keep its camera data.
 
 Every episode is checked before the first upload (timestamps present, increasing, `1 / fps` apart and starting at `0`, row count matching `meta/episodes`). An episode that fails a check is skipped with a warning, and its sequence is not created. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
 

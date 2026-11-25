@@ -152,6 +152,15 @@ The position of each frame (`index`, `frame_index` and `episode_index`) is not p
 
 A task index only means something next to the `meta/tasks.parquet` of its own dataset. The bridge therefore replaces the `task_index` column with a `task` column holding the task text it refers to, as the last field of `/timeseries`. A task index not defined in `meta/tasks.parquet` fails the episode.
 
+For example, with this `meta/tasks.parquet`:
+
+| task | task_index |
+| :--- | --- |
+| `Pick up a sharpie` | `0` |
+| `Place it in the cup` | `1` |
+
+a frame with `task_index=1` is pushed to `/timeseries` with `task="Place it in the cup"`.
+
 Because `task` is the name the bridge writes, a dataset that has a `task_index` column and also a feature named `task` (or nested under it, such as `task.id`) cannot be opened. Exclude one of them with `column_names`: `"!task_index"` keeps your `task` feature (the episode tasks stay in the [sequence metadata](#metadata-reserved-keys-custom-fields)), while `"!task"` or `"!task.*"` keeps `task_index`. A dataset with a `task` feature and no `task_index` is ingested as is.
 
 #### Metadata: Reserved Keys & Custom Fields
