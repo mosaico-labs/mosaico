@@ -3,6 +3,8 @@ name: Release
 # Weekly release (see docs/main/docs/dev/release_cycle.md). Started by hand from the Actions tab on
 # `main`: it tests the current commit, tags it as `v0.N.0` with a signed tag and bumps `main` to
 # `0.(N+1).0`. The tag push then triggers the Publish release workflow (publish.yml).
+# A dry run pushes nothing and also runs the Publish release workflow in dry run on the same commit,
+# so the whole release is checked before the tag exists.
 #
 # Requires the secrets:
 #   RELEASE_APP_ID, RELEASE_APP_PRIVATE_KEY   GitHub App allowed to push to `main`. Pushes made with
@@ -17,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Run every step without pushing the tag and the version bump"
+        description: "Run every step, including the Publish release workflow, without publishing anything"
         type: boolean
         default: false
 
@@ -148,7 +150,7 @@ jobs:
       # Sign the tag and the bump commit with the signing subkey of the release key (the secret holds
       # only the subkeys, so the action must not use the primary key).
       - name: Import release GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.RELEASE_GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
@@ -207,3 +209,20 @@ jobs:
           echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Tag | \`v$VERSION\` on \`${SHA::8}\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Next version on main | \`$NEXT_VERSION\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  # The Publish release workflow, in dry run on the tested commit: it builds every artifact and
+  # checks the publish jobs without publishing. The permissions are those its jobs ask for.
+  publish-dry-run:
+    name: Publish release (dry run)
+    needs: [prepare, tag-and-bump]
+    if: ${{ inputs.dry_run }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      pull-requests: read
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag: v${{ needs.prepare.outputs.version }}
+      dry_run: true
+    secrets: inherit

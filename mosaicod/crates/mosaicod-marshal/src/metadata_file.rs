@@ -2,9 +2,10 @@
 //! [`types::TopicMetadata`], used only to write the on-disk `metadata.json`
 //! sidecar files.
 
-use super::{Format, JsonMetadataBlob};
 use mosaicod_core::types;
 use serde::{Deserialize, Serialize};
+
+use super::{Format, JsonMetadataBlob};
 
 type Error = types::MetadataError;
 

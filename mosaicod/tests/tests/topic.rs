@@ -1046,9 +1046,10 @@ fn ontology_value_lt_3() -> proto_query::OntologyFilter {
 }
 
 fn clustering_test_batch_xy(ts: &[i64], xs: &[i64], ys: &[i64]) -> arrow::array::RecordBatch {
+    use std::sync::Arc;
+
     use arrow::array::Int64Array;
     use arrow::datatypes::{DataType, Field, Schema};
-    use std::sync::Arc;
 
     let schema = Arc::new(Schema::new(vec![
         Field::new("timestamp_ns", DataType::Int64, false),
