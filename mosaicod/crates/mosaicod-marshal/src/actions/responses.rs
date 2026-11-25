@@ -5,21 +5,16 @@
 //! Wire format is raw protobuf binary.
 
 use mosaicod_core::types::{self, Locator};
-
-/// Generic response message used to provide to clients the unique key of a resource.
-pub use mosaicod_proto::v1::responses::ResourceUuid;
-
-// ########
-// Session
-// ########
-
-pub use mosaicod_proto::v1::responses::SessionCreate;
-
 // ########
 // Notifications
 // ########
-
 pub use mosaicod_proto::v1::responses::NotificationItem as ResponseNotificationItem;
+/// Generic response message used to provide to clients the unique key of a resource.
+pub use mosaicod_proto::v1::responses::ResourceUuid;
+// ########
+// Session
+// ########
+pub use mosaicod_proto::v1::responses::SessionCreate;
 
 pub fn notification_item<L: Locator>(value: types::Notification<L>) -> ResponseNotificationItem {
     ResponseNotificationItem {
@@ -43,7 +38,6 @@ pub fn notification_list<L: Locator>(value: Vec<types::Notification<L>>) -> Noti
 // #####
 
 pub use mosaicod_proto::v1::responses::Query;
-
 /// Holds topic data: locator and optional timestamp.
 pub use mosaicod_proto::v1::responses::QueryItemTopic as ResponseQueryItemTopic;
 
@@ -74,20 +68,16 @@ pub fn query_response(value: types::SequenceTopicGroupSet) -> Query {
 // Clustering
 // ####
 
-/// Single JSONL record emitted as response to a TopicFilterClusterize request:
-/// one cluster per line, identified by a progressive `id` and bounded by ts.
-pub use mosaicod_proto::v1::responses::TopicFilterClusterize;
-
 // ####
 // Misc
 // ####
-
 pub use mosaicod_proto::v1::responses::SemVerItem;
-
 /// Server-configured limits that clients should respect (e.g. when sizing requests).
 pub use mosaicod_proto::v1::responses::ServerConfig;
-
 pub use mosaicod_proto::v1::responses::ServerInfo;
+/// Single JSONL record emitted as response to a TopicFilterClusterize request:
+/// one cluster per line, identified by a progressive `id` and bounded by ts.
+pub use mosaicod_proto::v1::responses::TopicFilterClusterize;
 
 pub fn server_info(version: &str, config: ServerConfig) -> Result<ServerInfo, semver::Error> {
     let parsed = semver::Version::parse(version)?;
@@ -110,8 +100,9 @@ pub fn server_info(version: &str, config: ServerConfig) -> Result<ServerInfo, se
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use prost::Message;
+
+    use super::*;
 
     #[test]
     fn response_query_item() {

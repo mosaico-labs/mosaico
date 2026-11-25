@@ -1,6 +1,7 @@
-use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use tracing::{trace, warn};
+
+use crate::{Error, core::AsExec, sql::schema};
 
 /// Deletes from the optimization table topics for which the optimization routine appears to take too long.
 pub async fn topic_optimization_delete_stale(

@@ -1,4 +1,4 @@
-use super::{Error, IsSupportedOp, OntologyField, OntologyPredicateGroup, Op, Value};
+use super::{Error, IsSupportedOp, OntologyPredicateGroup, Op, Value};
 
 const EMPTY_CLAUSE: &str = "()";
 
@@ -32,11 +32,6 @@ pub trait CompileClause {
     fn compile_clause<V>(&mut self, field: &str, op: Op<V>) -> Result<CompiledClause, Error>
     where
         V: Into<Value> + IsSupportedOp;
-}
-
-/// Specify how a given ontology field needs to be formatted.
-pub trait OntologyFieldFmt {
-    fn ontology_column_fmt(&self, val: &OntologyField) -> String;
 }
 
 #[derive(Debug)]
@@ -110,7 +105,7 @@ impl ClausesCompiler {
     ) -> Self
     where
         V: Into<Value> + IsSupportedOp,
-        F: CompileClause + OntologyFieldFmt,
+        F: CompileClause,
     {
         if self.error.is_some() {
             return self;
@@ -127,8 +122,7 @@ impl ClausesCompiler {
                 });
                 return self;
             }
-            let field = formatter.ontology_column_fmt(&ontology_field);
-            self = self.expr(&field, op, formatter);
+            self = self.expr(&ontology_field.field_str(), op, formatter);
         }
 
         self

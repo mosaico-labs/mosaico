@@ -1,5 +1,5 @@
-use super::common::Client;
 use arrow::array::RecordBatch;
+use arrow_flight::Ticket;
 use arrow_flight::decode::DecodedPayload;
 use arrow_flight::decode::FlightRecordBatchStream;
 use arrow_flight::encode::FlightDataEncoderBuilder;
@@ -8,13 +8,12 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
-use prost::Message;
-
-use arrow_flight::Ticket;
 use mosaicod_marshal::{self as marshal, requests, responses};
 use mosaicod_proto::v1::query as proto_query;
-
+use prost::Message;
 use tonic::Streaming;
+
+use super::common::Client;
 
 /// Encodes `msg` as raw protobuf binary into a Flight `Action` of the given type.
 fn action(r#type: &str, msg: &impl Message) -> Action {

@@ -1,9 +1,10 @@
+use tracing::trace;
+
 use crate::{
     Error,
     core::{AsExec, Tx},
     sql::schema,
 };
-use tracing::trace;
 
 /// Acquires a transaction-level advisory lock to prevent race conditions. The caller must run
 /// this on a connection held open for the duration of a single transaction (see `AsExec` impl
@@ -115,9 +116,10 @@ pub async fn cleanup_log_close(
 
 #[cfg(test)]
 mod tests {
+    use sqlx::Pool;
+
     use super::*;
     use crate::core::{DatabaseType, testing};
-    use sqlx::Pool;
 
     #[sqlx::test]
     async fn test_cleanup_log_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
