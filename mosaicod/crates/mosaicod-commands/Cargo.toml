@@ -27,3 +27,6 @@ iso8601 = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+mosaicod-config = { workspace = true, features = ["testing"] }

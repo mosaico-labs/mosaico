@@ -1,12 +1,13 @@
 #![allow(unused_crate_dependencies)]
 
+use std::sync::Arc;
+
 use arrow::array::{Int64Array, RecordBatch};
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_core::constants;
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use rand::{random, random_range};
-use std::sync::Arc;
 use tests::{self, actions, common};
 
 fn dummy_batch(batch_size: u32, sorted_ts: bool, min_ts: u32) -> RecordBatch {

@@ -109,8 +109,9 @@ pub fn user_metadata_from_bytes(bytes: Vec<u8>) -> Result<Option<JsonMetadataBlo
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn test_find_invalid_keys_with_valid_json_structures() {

@@ -6,10 +6,11 @@
 //! Multiple sessions can occur in parallel for the same sequence. Once a session is
 //! finalized, all data associated with it becomes immutable.
 
-use crate::{Context, topic};
 use mosaicod_core::error::PublicError;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
+
+use crate::{Context, topic};
 
 pub(super) mod internal {
     use super::*;
@@ -134,11 +135,12 @@ pub async fn delete(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mosaicod_query as query;
-    use mosaicod_store as store;
     use std::sync::Arc;
 
+    use mosaicod_query as query;
+    use mosaicod_store as store;
+
+    use super::*;
     use crate::sequence;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {

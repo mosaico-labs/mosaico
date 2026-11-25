@@ -26,6 +26,7 @@ tokio = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+mosaicod-config = { workspace = true, features = ["testing"] }
 sqlx = { workspace = true }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }

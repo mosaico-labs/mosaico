@@ -62,8 +62,9 @@ impl std::fmt::Display for Format {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::str::FromStr;
+
+    use super::*;
 
     #[test]
     fn from_str() {
