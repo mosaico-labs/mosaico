@@ -1,4 +1,5 @@
-from typing import List, Sequence
+from pathlib import Path
+from typing import List, Sequence, cast
 
 import pyarrow as pa
 import pytest
@@ -6,6 +7,7 @@ from PIL import Image
 
 from mosaicolabs import CompressedImage
 from mosaicolabs.bridges.lerobot.metadata import LeRobotEpisode, LeRobotFeature
+from mosaicolabs.bridges.lerobot.mosaico_loader import LeRobotEpisodeStreamer
 from mosaicolabs.bridges.lerobot.writer import (
     LeRobotWriter,
     _tmp_path,
@@ -263,5 +265,48 @@ def test_write_episode_rejects_an_episode_ending_before_its_dataset_to_index(tmp
         with LeRobotWriter(FEATURES, TASKS) as writer:
             writer.write_episode(streamer, data_path, None)
 
+    assert not data_path.exists()
+    assert not _tmp_path(data_path).exists()
+
+
+class _FailingStreamer:
+    """Streams the slices of an episode, then fails, as a stream from Mosaico breaking
+    halfway: records whether the temporary data file held the rows written so far."""
+
+    def __init__(self, streamer: LeRobotEpisodeStreamer, data_path: Path):
+        self._streamer = streamer
+        self._data_path = data_path
+        self.episode_metadata = streamer.episode_metadata
+        self.sequence_name = streamer.sequence_name
+        self.tmp_file_written = False
+        """Whether the temporary data file, and not the data file, existed when failing."""
+
+    def __iter__(self):
+        yield from self._streamer
+        self.tmp_file_written = (
+            _tmp_path(self._data_path).is_file() and not self._data_path.exists()
+        )
+        raise RuntimeError("Injected failure")
+
+
+def test_write_episode_failing_leaves_no_data_file(tmp_path, monkeypatch):
+    """The rows are written to `file-000.parquet.tmp`, renamed to `file-000.parquet` only when
+    the `with` block exits without errors: an episode failing halfway leaves neither file."""
+    # Each slice is written as soon as converted: the temporary file holds rows when failing
+    monkeypatch.setattr("mosaicolabs.bridges.lerobot.writer._ROW_GROUP_MAX_BYTES", 1)
+    data_path = tmp_path / "data" / "chunk-000" / "file-000.parquet"
+    streamer = _FailingStreamer(
+        episode_streamer({TIMESERIES_TOPIC: _timeseries_slices(5, [2, 3])}, length=5),
+        data_path,
+    )
+
+    with pytest.raises(RuntimeError, match="Injected failure"):
+        with LeRobotWriter(FEATURES, TASKS) as writer:
+            # Duck-typed: `write_episode` only uses what `_FailingStreamer` exposes
+            writer.write_episode(
+                cast(LeRobotEpisodeStreamer, streamer), data_path, None
+            )
+
+    assert streamer.tmp_file_written
     assert not data_path.exists()
     assert not _tmp_path(data_path).exists()
