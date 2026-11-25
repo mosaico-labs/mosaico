@@ -33,4 +33,5 @@ list. Usernames are case-insensitive.
 - @cmdr-chara
 - @shounakjoshi88-a11y
 - @Pirat83
+- @ValerioJiang
 
