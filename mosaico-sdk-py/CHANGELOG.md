@@ -3,11 +3,6 @@
 
 ## [Unreleased]
 
-### Breaking Changes
-
-- **Python 3.10 is no longer supported**: the SDK now requires Python 3.11 or newer. Python 3.10 reached end of life in October 2026, and the fixes for the open Pillow and filelock advisories are only released for Python 3.11 and newer. The `tomli` fallback of the `cli` extra is removed, because Python 3.11 ships `tomllib`.
-- **Pillow 13**: the `pillow` requirement moves from `>=11.3.0,<13.0.0` to `>=13.0.0,<14.0.0`. `Image.to_pillow()` now lets Pillow infer the image mode, because Pillow 13 rejects the explicit `mode` for `mono16` and `16UC1` images.
-
 ### Features
 
 - Added the **`mosaico inject`** and **`mosaico extract`** command groups to the official CLI, each with a **`ros`** and an **`mcap`** command (e.g. `mosaico inject ros`, `mosaico extract mcap`), taking their connection settings from the active profile (`inject --dry-run` needs none). ([#898](https://github.com/mosaico-labs/mosaico/issues/898))
@@ -18,7 +13,6 @@
 
 ### Bug Fixes
 
-- **`Image.to_pillow()` now converts `16SC1` images**: it raised `ValueError: not enough image data`, and now returns a mode `I` image.
 - **`TopicWriter.push_batch` now accepts equal consecutive timestamps**: `timestamp_ns` must be non-decreasing within a batch instead of strictly increasing, so batches with records sharing a timestamp are no longer rejected. Records with equal timestamps have no guaranteed relative order once stored. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
 - **`TopicWriter` now enforces non-decreasing timestamps across pushes**: a record passed to `push()`, or the first record of a batch passed to `push_batch()`, whose `timestamp_ns` is lower than the last one accepted on the topic now raises a `ValueError`. Previously `push()` had no ordering check, and `push_batch()` only checked within a single batch. ([#1075](https://github.com/mosaico-labs/mosaico/issues/1075))
 
