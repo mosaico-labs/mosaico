@@ -177,7 +177,7 @@ The `timestamp` column gives the time of every message: LeRobot stores it in sec
 
 #### Rebuilding the Data Columns
 
-On export, `LeRobotWriter` applies the same mapping in reverse. Each slice streamed by the loader becomes a row group of the data file, so an episode is never held in memory as a whole.
+On export, `LeRobotWriter` applies the same mapping in reverse. Each slice streamed by the loaderare buffered up to 64 MB and written as one row group, so an episode is never held in memory as a whole but up to a maximum of 64 MB.
 
 | Data column | Rebuilt from |
 | :--- | :--- |
@@ -281,7 +281,7 @@ The CLI always uses the default `on_error` policy (`Delete`) and the default `to
 #### Core Workflow Execution: `run()`
 
 1. **Output Check**: before connecting, checks the dataset folder, `saving_path / dataset_name`. If it exists and `overwrite` is `False`, `run()` raises a `FileExistsError`. If it exists, is not empty and is not a LeRobot dataset (a folder holding `meta/info.json`, `meta/episodes/` and `data/`), `run()` raises a `ValueError` even with `overwrite`.
-2. **Handshake**: connects to the Mosaico server and resolves the sequences (see [Reading Back the Sequences](#reading-back-the-sequences-mosaicotolerobotloader)). If no sequence can be exported, `run()` raises a `ValueError`.
+2. **Handshake**: connects to the Mosaico server and resolves the sequences (see [Reading Back the Sequences](#reading-back-the-sequences-mosaicotolerobotloader)). If no sequence can be exported, `run()` raises a `RuntimeError`.
 3. **Data**: streams each episode from its sequence and writes it to the data file, in episode order.
 4. **Statistics**: computes the statistics of each episode from the data file written, then the dataset-wide statistics from those of the episodes.
 5. **Metadata**: writes the `meta/` folder.
@@ -316,7 +316,7 @@ Errors are not a status: `run()` raises them.
 ```python
 from pathlib import Path
 
-from mosaicolabs.bridges.lerobot.sequences_extractor import (
+from mosaicolabs.bridges.lerobot import (
     ExtractionStatus,
     LeRobotExtractorConfig,
     LeRobotSequencesExtractor,
