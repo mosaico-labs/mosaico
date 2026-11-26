@@ -41,6 +41,7 @@ pub const DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE: NonZero<usize> =
     NonZero::new(256 * 1024 * 1024).unwrap(); // 256 MiB
 pub const DEFAULT_LOG_LEVEL: LogLevel = LogLevel::Warning;
 pub const DEFAULT_LOG_FORMAT: LogFormat = LogFormat::Pretty;
+pub const DEFAULT_USAGE_REPORTING_ENABLED: bool = true;
 
 /// Required and configurables parameters of mosaico.
 #[derive(Debug)]
@@ -194,6 +195,9 @@ pub struct Params {
     ///
     /// Defaults to 5 seconds.
     pub store_connection_timeout: Param<NonZero<u32>>,
+
+    /// Whether mosaicod sends usage reports.
+    pub usage_reporting_enabled: Param<bool>,
 }
 
 impl Params {
@@ -301,6 +305,7 @@ mod tests {
             store_optimizer_max_chunk_size: param(DEFAULT_STORE_OPTIMIZER_MAX_CHUNK_SIZE),
             cleanup_time_interval: param(DEFAULT_CLEANUP_TIME_INTERVAL),
             cleanup_retention_duration: param(DEFAULT_CLEANUP_RETENTION_DURATION),
+            usage_reporting_enabled: param(DEFAULT_USAGE_REPORTING_ENABLED),
         }
     }
 

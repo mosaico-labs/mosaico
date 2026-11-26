@@ -15,8 +15,8 @@ from .config import (
     COLUMN_NAMES,
     DATA_PATH,
     EPISODE_LENGTHS,
-    INDEX_COLUMN_NAMES,
     STATE_COLUMN_NAME,
+    TASK_INDEX_COLUMN_NAME,
     TIMESERIES_COLUMN_NAMES,
     TIMESTAMP_COLUMN_NAME,
 )
@@ -71,12 +71,13 @@ def test_loader_loads_every_column_by_default(loader):
         ("observation.images.*", CAMERA_COLUMN_NAMES),
         (["observation.images.*"], CAMERA_COLUMN_NAMES),
         (["*", "!observation.images.*"], TIMESERIES_COLUMN_NAMES),
-        (["!observation.*"], [ACTION_COLUMN_NAME, *INDEX_COLUMN_NAMES]),
+        (["!observation.*"], [ACTION_COLUMN_NAME, TASK_INDEX_COLUMN_NAME]),
         # With an inclusion pattern, the selection starts from no column
         (["!observation.*", STATE_COLUMN_NAME], [STATE_COLUMN_NAME]),
+        # The position of the frames is not ingested
         (
             [ACTION_COLUMN_NAME, "*_index"],
-            [ACTION_COLUMN_NAME, "frame_index", "episode_index", "task_index"],
+            [ACTION_COLUMN_NAME, TASK_INDEX_COLUMN_NAME],
         ),
     ],
 )
@@ -124,6 +125,13 @@ def test_loader_reports_a_dataset_that_cannot_be_opened(
     loader = LeRobotLoader(root, MAX_BATCH_SIZE_BYTES)
 
     with pytest.raises(IOError, match=error):
+        _ = loader.topics
+
+
+def test_loader_reports_a_missing_dataset_folder(tmp_path):
+    loader = LeRobotLoader(tmp_path / "missing", MAX_BATCH_SIZE_BYTES)
+
+    with pytest.raises(IOError, match="LeRobot dataset not found"):
         _ = loader.topics
 
 
@@ -211,3 +219,15 @@ def test_episode_streams_the_accepted_columns_only(lerobot_dataset, columns, top
 
     assert [msg.msco_topic_name for msg in messages] == [topic]
     assert [msg.column_names for msg in messages] == [columns]
+
+
+def test_episode_returns_stats_of_timeseries_and_camera(loader):
+    for ep_loader in loader:
+        assert set(ep_loader.stats) == {ACTION_COLUMN_NAME, STATE_COLUMN_NAME}
+
+
+def test_episode_returns_stats_of_the_accepted_columns_only(lerobot_dataset):
+    loader = LeRobotLoader(lerobot_dataset, MAX_BATCH_SIZE_BYTES, [ACTION_COLUMN_NAME])
+
+    for ep_loader in loader:
+        assert set(ep_loader.stats) == {ACTION_COLUMN_NAME}

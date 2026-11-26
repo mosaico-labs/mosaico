@@ -68,6 +68,7 @@ def fake(monkeypatch):
         (mcap_bridge, "MCAPInjector"),
         (mcap_bridge, "MCAPSequenceExtractor"),
         (lerobot_bridge, "LeRobotInjector"),
+        (lerobot_bridge, "LeRobotSequencesExtractor"),
     ]:
         monkeypatch.setattr(module, name, _FakeRunner)
     return _FakeRunner
@@ -414,3 +415,80 @@ class TestLeRobotInject:
         result = runner.invoke(app, ["inject", "lerobot", str(input_file)])
         assert result.exit_code == 2
         assert fake.configs == []
+
+
+class TestLeRobotExtract:
+    def test_defaults(self, profile_env, fake):
+        result = runner.invoke(app, ["extract", "lerobot", "my_seq"])
+        assert result.exit_code == 0, result.output
+
+        (cfg,) = fake.configs
+        assert isinstance(cfg, lerobot_bridge.LeRobotExtractorConfig)
+        assert cfg.sequence_names == ["my_seq"]
+        assert cfg.saving_path == Path(".")
+        assert cfg.dataset_name == "LeRobotDataset"
+        assert cfg.host == "bridge.test"
+        assert cfg.port == 1234
+        assert cfg.mosaico_api_key == "secret"
+        assert cfg.overwrite is False
+        assert cfg.log_level == "INFO"
+
+    def test_options(self, profile_env, fake, tmp_path):
+        result = runner.invoke(
+            app,
+            [
+                "extract",
+                "lerobot",
+                "ep_0",
+                "ep_1",
+                "ep_2",
+                "--saving-path",
+                str(tmp_path),
+                "-n",
+                "pusht",
+                "--overwrite",
+                "--log",
+                "debug",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        (cfg,) = fake.configs
+        assert cfg.sequence_names == ["ep_0", "ep_1", "ep_2"]
+        assert cfg.saving_path == tmp_path
+        assert cfg.dataset_name == "pusht"
+        assert cfg.overwrite is True
+        assert cfg.log_level == "DEBUG"
+
+    def test_without_profile_exits(self, no_profile_env, fake):
+        result = runner.invoke(app, ["extract", "lerobot", "my_seq"])
+        assert result.exit_code == 1
+        assert fake.configs == []
+
+    @pytest.mark.parametrize(
+        "status, exit_code",
+        [
+            (lerobot_bridge.ExtractionStatus.COMPLETED, 0),
+            (lerobot_bridge.ExtractionStatus.PARTIAL, 1),
+        ],
+    )
+    def test_status_exit_codes(self, profile_env, fake, status, exit_code):
+        fake.outcome = status
+        result = runner.invoke(app, ["extract", "lerobot", "ep_0", "ep_1"])
+        assert result.exit_code == exit_code, result.output
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            FileExistsError("already exists"),
+            FileNotFoundError("no such folder"),
+            ValueError("no valid sequence"),
+            KeyError("missing key"),
+            RuntimeError("write failed"),
+        ],
+    )
+    def test_expected_errors_exit_cleanly(self, profile_env, fake, error):
+        fake.outcome = error
+        result = runner.invoke(app, ["extract", "lerobot", "my_seq"])
+        assert result.exit_code == 1
+        assert str(error) in result.output
