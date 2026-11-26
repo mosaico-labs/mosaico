@@ -1,7 +1,4 @@
 # cargo-deny configuration: https://embarkstudios.github.io/cargo-deny/
-# CI (`.github/workflows/dependencies.yml`) runs:
-#   cd mosaicod && cargo deny check bans licenses sources
-# Advisories are checked in CI by `cargo audit` (ignores in `.cargo/audit.toml`).
 
 # Security advisories from the RustSec database.
 # This section applies to local runs of `cargo deny check`.

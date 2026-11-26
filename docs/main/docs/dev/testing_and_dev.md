@@ -111,6 +111,8 @@ The `dependencies` workflow checks the whole dependency tree, including the crat
 - [`cargo audit`](https://github.com/rustsec/rustsec/tree/main/cargo-audit) checks `Cargo.lock` against the [RustSec advisory database](https://rustsec.org/). GitHub's Dependabot alerts don't include these advisories.
 - [`cargo deny`](https://embarkstudios.github.io/cargo-deny/) checks for banned and duplicate crates, licenses that `mosaicod/deny.toml` doesn't allow, and crates from sources other than crates.io.
 
+On a pull request a failure shows up as a failed check. On `main`, `cargo audit` opens or updates an issue for each advisory, and a `cargo deny` failure opens the "Fix cargo-deny failures" issue, or adds the failed run to it as a comment while it is still open.
+
 To run the same checks locally:
 
 ```bash

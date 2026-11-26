@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # On main, the audit action opens or updates an issue for each advisory it finds
+      # On main, the audit action opens or updates an issue for each advisory it finds,
+      # and a cargo-deny failure opens or updates the "Fix cargo-deny failures" issue
       issues: write
     steps:
       - uses: actions/checkout@v7
@@ -37,7 +38,52 @@ jobs:
           workingDirectory: mosaicod
 
       - name: Check bans, licenses and sources
+        id: deny
+        # Runs even when the audit step failed, so both reports are complete
+        if: ${{ !cancelled() }}
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           manifest-path: mosaicod/Cargo.toml
           command: check bans licenses sources
+
+      # cargo-deny only reports to the workflow log, so a failure on main is tracked in an issue.
+      # On pull requests the failed check is visible on the PR itself.
+      - name: Report cargo-deny failure in an issue
+        if: ${{ failure() && steps.deny.outcome == 'failure' && github.event_name != 'pull_request' }}
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // The title is how we recognize the issue opened by this
+            // workflow, so it must stay the same on every run.
+            const title = "Fix cargo-deny failures";
+
+            // Link to the failed run, so the cargo-deny log is one click away.
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Fetch all the open issues, going through every result page.
+            // The list also contains pull requests, but their titles never
+            // match ours.
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              ...context.repo,
+              state: "open",
+            });
+
+            // Look for an open issue with exactly the same title.
+            const existing = issues.find((issue) => issue.title === title);
+
+            if (existing) {
+              // The problem is already tracked: add the new failed run as a
+              // comment instead of opening a duplicate issue.
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: existing.number,
+                body: `The cargo-deny check failed again: ${runUrl}`,
+              });
+            } else {
+              // No open issue: open a new one for this failure.
+              await github.rest.issues.create({
+                ...context.repo,
+                title,
+                body: `The cargo-deny check failed: ${runUrl}`,
+              });
+            }

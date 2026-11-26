@@ -1,6 +1,5 @@
-# cargo audit configuration, used by `.github/workflows/dependencies.yml`:
-#   cd mosaicod && cargo audit
-#
+# cargo audit configuration, used by `.github/workflows/dependencies.yml`.
+
 # Every ignore needs a reason that says what it waits for. Remove it once that is done.
 [advisories]
 ignore = [
