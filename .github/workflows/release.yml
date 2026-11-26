@@ -180,12 +180,10 @@ jobs:
           tag: v${{ env.VERSION }}
           public-key: ${{ vars.RELEASE_PUBLIC_KEY }}
 
-      # Set the next version in manifests and lockfiles. sed matches the workspace version
-      # and the versions of the internal crates in `[workspace.dependencies]`.
+      # Set the next version in manifests and lockfiles (sed only matches the workspace version).
       - name: Bump version
         run: |
-          sed -i -e "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" \
-            -e "/^mosaicod-/s/version = \"[^\"]*\"/version = \"$NEXT_VERSION\"/" mosaicod/Cargo.toml
+          sed -i "s/^version = \".*\"/version = \"$NEXT_VERSION\"/" mosaicod/Cargo.toml
           cargo update --workspace --manifest-path mosaicod/Cargo.toml
           uv version --project mosaico-sdk-py --no-sync "$NEXT_VERSION"
 

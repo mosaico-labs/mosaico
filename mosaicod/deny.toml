@@ -12,8 +12,10 @@ yanked = "deny"
 # because most dependency trees have a few duplicates
 multiple-versions = "warn"
 # Reject `*` version requirements, which accept any version of a crate.
-# Internal path dependencies carry a version too (see `[workspace.dependencies]`).
 wildcards = "deny"
+# Internal path dependencies have no version: allowed because no crate is published
+# (`publish = false` in `[workspace.package]`).
+allow-wildcard-paths = true
 
 # Licenses that dependencies, direct and transitive, are allowed to use.
 # A dependency whose license is not in this list fails the check.

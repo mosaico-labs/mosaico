@@ -1,6 +1,7 @@
 [package]
 name = "mosaicod-facade"
 version.workspace = true
+publish.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 authors.workspace = true

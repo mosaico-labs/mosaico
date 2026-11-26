@@ -10,28 +10,30 @@ repository = "https://github.com/mosaico-labs/mosaico"
 license = "Apache-2.0"
 edition = "2024"
 rust-version = "1.94"
+# The crates are not published: mosaicod is released as a single binary.
+publish = false
 
 [workspace.dependencies]
 # Internal crates
-mosaicod-build = { path = "crates/mosaicod-build", version = "0.10.0" }
-mosaicod-commands = { path = "crates/mosaicod-commands", version = "0.10.0" }
-mosaicod-config = { path = "crates/mosaicod-config", version = "0.10.0" }
-mosaicod-core = { path = "crates/mosaicod-core", version = "0.10.0" }
-mosaicod-db = { path = "crates/mosaicod-db", version = "0.10.0" }
-mosaicod-facade = { path = "crates/mosaicod-facade", version = "0.10.0" }
-mosaicod-ext = { path = "crates/mosaicod-ext", version = "0.10.0" }
-mosaicod-marshal = { path = "crates/mosaicod-marshal", version = "0.10.0" }
-mosaicod-query = { path = "crates/mosaicod-query", version = "0.10.0" }
-mosaicod-rw = { path = "crates/mosaicod-rw", version = "0.10.0" }
-mosaicod-grpc = { path = "crates/mosaicod-grpc", version = "0.10.0" }
-mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight", version = "0.10.0" }
-mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common", version = "0.10.0" }
-mosaicod-hook = { path = "crates/mosaicod-hook", version = "0.10.0" }
-mosaicod-instance-registry = { path = "crates/mosaicod-instance-registry", version = "0.10.0" }
-mosaicod-os = { path = "crates/mosaicod-os", version = "0.10.0" }
-mosaicod-proto = { path = "crates/mosaicod-proto", version = "0.10.0" }
-mosaicod-store = { path = "crates/mosaicod-store", version = "0.10.0" }
-mosaicod-task = { path = "crates/mosaicod-task", version = "0.10.0" }
+mosaicod-build = { path = "crates/mosaicod-build" }
+mosaicod-commands = { path = "crates/mosaicod-commands" }
+mosaicod-config = { path = "crates/mosaicod-config" }
+mosaicod-core = { path = "crates/mosaicod-core" }
+mosaicod-db = { path = "crates/mosaicod-db" }
+mosaicod-facade = { path = "crates/mosaicod-facade" }
+mosaicod-ext = { path = "crates/mosaicod-ext" }
+mosaicod-marshal = { path = "crates/mosaicod-marshal" }
+mosaicod-query = { path = "crates/mosaicod-query" }
+mosaicod-rw = { path = "crates/mosaicod-rw" }
+mosaicod-grpc = { path = "crates/mosaicod-grpc" }
+mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
+mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
+mosaicod-hook = { path = "crates/mosaicod-hook" }
+mosaicod-instance-registry = { path = "crates/mosaicod-instance-registry" }
+mosaicod-os = { path = "crates/mosaicod-os" }
+mosaicod-proto = { path = "crates/mosaicod-proto" }
+mosaicod-store = { path = "crates/mosaicod-store" }
+mosaicod-task = { path = "crates/mosaicod-task" }
 
 # Arrow stack dependencies
 arrow = { version = "59.3.3", default-features = false, features = ["prettyprint", "ipc_compression"] }

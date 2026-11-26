@@ -122,7 +122,7 @@ cargo audit
 cargo deny check bans licenses sources
 ```
 
-If an advisory can't be fixed yet, add its ID to `ignore` in `mosaicod/.cargo/audit.toml`, with a comment that says what the fix is waiting for. Internal crates in `[workspace.dependencies]` carry the workspace version, because `cargo deny` rejects path dependencies without a version. The release workflow bumps them together with the workspace version.
+If an advisory can't be fixed yet, add its ID to `ignore` in `mosaicod/.cargo/audit.toml`, with a comment that says what the fix is waiting for. The internal crates are never published (`publish = false` in `[workspace.package]`), so `cargo deny` accepts their path dependencies without a version (`allow-wildcard-paths`). A new crate inherits it with `publish.workspace = true`.
 
 ## Developing the Python SDK
 
