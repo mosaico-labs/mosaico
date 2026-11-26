@@ -88,6 +88,10 @@ impl Dispatcher {
 }
 
 fn build_client() -> Result<reqwest::Client, Error> {
+    // reqwest is built without a bundled crypto provider, so we install ring as the process
+    // default. An error only means that a provider is already installed.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     Ok(reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .user_agent(default::user_agent())
