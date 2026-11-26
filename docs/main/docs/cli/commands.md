@@ -210,10 +210,21 @@ mosaico inject lerobot [OPTIONS] DATASET_PATH
 | `-c`, `--column-names <PATTERN>` | all columns | Filter on the image and timeseries features of `meta/info.json`, glob-style. Prefix with `!` to exclude. Repeatable; patterns are evaluated in order. |
 | `--metadata <JSON\|FILE>` | | Metadata attached to every sequence, as a JSON object or the path to a JSON file. |
 | `--topic-metadata <JSON\|FILE>` | | Mapping of exact topic name (e.g. `/timeseries`, `/observation/images/front`) to metadata, as a JSON object or the path to a JSON file. |
-| `--dry-run` | | Print which columns, topics and sequences would be ingested, without connecting to the server. |
+| `--dry-run` | | Print which columns, topics and sequences would be ingested and which episodes would be skipped, without connecting to the server. |
 | `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
 
-Video features are not supported yet and are skipped with a warning. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+Each image feature becomes its own `CompressedImage` topic (e.g. `observation.images.front` becomes `/observation/images/front`), and every other feature goes into a single `/timeseries` topic. A few columns are handled differently:
+
+- `timestamp` gives the time of every message, in nanoseconds from the start of the episode.
+- `index`, `frame_index` and `episode_index` are not ingested, and cannot be selected with `--column-names`.
+- `task_index` is ingested as a `task` column holding the task text from `meta/tasks.parquet` (e.g. `task_index=0` becomes `task="Pick up a sharpie"`). A dataset that has `task_index` and also a `task` (or `task.*`) feature cannot be opened: exclude one of them with `--column-names`.
+- Only image features (`dtype: image`) are ingested. Video features (`dtype: video`, LeRobot's default for cameras) are skipped with a warning: record the dataset with `--dataset.video=false` to keep its camera data.
+
+Every episode is checked before the first upload (timestamps present, increasing, `1 / fps` apart and starting at `0`, row count matching `meta/episodes`). An episode that fails a check is skipped with a warning, and its sequence is not created. An episode that fails to upload has its partial sequence deleted, and the injection continues with the next episode.
+
+Each sequence carries the episode length, tasks and statistics, and the dataset `meta/info.json`, under the reserved `_lerobot_` metadata key. See the [LeRobot Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/lerobot/) page for the full mapping.
+
+The command exits with `0` once every episode is ingested, `1` if any episode was skipped or failed (after processing every other episode, and listing the failed ones at the end of the log) or on a fatal error (e.g. the server is unreachable or the dataset cannot be opened), and `130` when interrupted.
 
 #### Examples
 
@@ -227,7 +238,7 @@ mosaico inject lerobot \
 
 ## `mosaico extract`
 
-Extracts a sequence as a ROS bag or an MCAP file. The server is reached through the active connection profile.
+Extracts a sequence as a ROS bag or an MCAP file, or a set of sequences as a LeRobot dataset. The server is reached through the active connection profile.
 
 ### `ros`
 
@@ -273,6 +284,34 @@ Takes `--mcap-path <PATH>` (default `.`) for the output directory, plus the same
 
 ```bash
 mosaico extract mcap --mcap-path ./exports --dry-run on_track_experiment
+```
+
+### `lerobot`
+
+Extracts sequences ingested with [`inject lerobot`](#lerobot) and writes them as a LeRobot v3.0 dataset under `<SAVING_PATH>/<NAME>`. Each sequence becomes one episode, in the order given.
+
+```bash
+mosaico extract lerobot [OPTIONS] SEQUENCE_NAME...
+```
+
+| Option | Default | Description |
+| :--- | --- | :--- |
+| `--saving-path <PATH>` | `.` | Directory where to save the dataset. |
+| `-n`, `--name <NAME>` | `LeRobotDataset` | Name of the dataset folder created under the saving path. |
+| `--overwrite` | | Replace the dataset folder if it already exists. The folder must be empty or hold a LeRobot dataset, and is replaced only once the new dataset is complete: a failed extraction leaves it untouched. |
+| `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
+
+A sequence that does not exist, was not ingested with `inject lerobot`, or cannot be merged with the previous ones is skipped with a warning, and the dataset is written with the remaining episodes. The command exits with code `1` if any sequence is skipped or the extraction fails.
+
+Video features are not supported yet.
+
+#### Examples
+
+```bash
+mosaico extract lerobot \
+  --saving-path ./exports \
+  --name pusht \
+  pusht_episode_000000 pusht_episode_000001
 ```
 
 :::note

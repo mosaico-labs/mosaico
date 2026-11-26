@@ -526,6 +526,7 @@ mod tests {
                 "store_optimizer",
                 "cleanup",
                 "logging",
+                "usage_reporting",
             ]
         );
         assert_eq!(serde_introspect::<Renamed>(), ["iam", "other"]);

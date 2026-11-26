@@ -18,9 +18,11 @@ Every value is a function of its frame (see `action_value`, `state_value`, `time
 
 import io
 import json
+import math
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from PIL import Image as PILImage
@@ -63,19 +65,36 @@ CAMERA_COLUMN_NAMES = ["observation.images.front", "observation.images.wrist"]
 VIDEO_COLUMN_NAME = "observation.images.side"
 """The video feature declared by `with_video`, which has no data column."""
 TIMESTAMP_COLUMN_NAME = "timestamp"
-INDEX_COLUMN_NAMES = ["frame_index", "episode_index", "index", "task_index"]
 
-TIMESERIES_COLUMN_NAMES = [ACTION_COLUMN_NAME, STATE_COLUMN_NAME, *INDEX_COLUMN_NAMES]
+FRAME_INDEX_COLUMN_NAME = "frame_index"
+EPISODE_INDEX_COLUMN_NAME = "episode_index"
+INDEX_COLUMN_NAME = "index"
+TASK_INDEX_COLUMN_NAME = "task_index"
+
+POSITION_COLUMN_NAMES = [
+    FRAME_INDEX_COLUMN_NAME,
+    EPISODE_INDEX_COLUMN_NAME,
+    INDEX_COLUMN_NAME,
+]
+"""The position of a frame: not ingested, as it is rebuilt when the episodes are exported."""
+TASK_COLUMN_NAME = "task"
+INDEX_COLUMN_NAMES = [*POSITION_COLUMN_NAMES, TASK_INDEX_COLUMN_NAME]
+
+TIMESERIES_COLUMN_NAMES = [
+    ACTION_COLUMN_NAME,
+    STATE_COLUMN_NAME,
+    TASK_INDEX_COLUMN_NAME,
+]
 """The timeseries columns, in the order of the features."""
 
 COLUMN_NAMES = [
     ACTION_COLUMN_NAME,
     STATE_COLUMN_NAME,
     *CAMERA_COLUMN_NAMES,
-    *INDEX_COLUMN_NAMES,
+    TASK_INDEX_COLUMN_NAME,
 ]
-"""The columns read by the bridge (all but the timestamp and the video), in the order of the
-features."""
+"""The columns read by the bridge (all but the timestamp, the position of the frames and the
+video), in the order of the features."""
 
 _IMAGE_TYPE = pa.struct([("bytes", pa.binary()), ("path", pa.string())])
 _VECTOR_TYPE = pa.list_(pa.float32(), len(JOINT_NAMES))
@@ -140,13 +159,34 @@ def image_value(index: int, camera_column_name: str) -> bytes:
 # ----- Dataset -----
 
 
+def _scalar_stats(values: List[float] | List[int]) -> Dict[str, List[Any]]:
+    """The LeRobot statistics of a scalar feature (shape `(1,)`) over `values`, without the
+    quantiles (as the LeRobot versions before them wrote them)."""
+    mean = sum(values) / len(values)
+    return {
+        "min": [min(values)],
+        "max": [max(values)],
+        "mean": [mean],
+        # Divided by n, as LeRobot does
+        "std": [math.sqrt(sum((value - mean) ** 2 for value in values) / len(values))],
+        "count": [len(values)],
+    }
+
+
 def _vector_stats(values: List[List[float]]) -> Dict[str, List[Any]]:
-    """The LeRobot statistics of a vector feature over `values`, per dimension."""
+    """The LeRobot statistics of a vector feature over `values`, per dimension, without the
+    quantiles (as the LeRobot versions before them wrote them)."""
     dims = list(zip(*values))
+    means = [sum(dim) / len(dim) for dim in dims]
     return {
         "min": [min(dim) for dim in dims],
         "max": [max(dim) for dim in dims],
-        "mean": [sum(dim) / len(dim) for dim in dims],
+        "mean": means,
+        # Divided by n, as LeRobot does
+        "std": [
+            math.sqrt(sum((value - mean) ** 2 for value in dim) / len(dim))
+            for dim, mean in zip(dims, means)
+        ],
         "count": [len(values)],
     }
 
@@ -283,6 +323,21 @@ def make_lerobot_dataset(
             episode_row.update(
                 {f"stats/{column_name}/{stat}": val for stat, val in stats.items()}
             )
+
+        for column_name, value in (
+            (
+                FRAME_INDEX_COLUMN_NAME,
+                list(range(0, length)),
+            ),
+            (EPISODE_INDEX_COLUMN_NAME, [episode_index] * length),
+            (INDEX_COLUMN_NAME, list(range(start, start + length))),
+            (TASK_INDEX_COLUMN_NAME, list([1] * length)),
+        ):
+            stats = _scalar_stats(value)
+            episode_row.update(
+                {f"stats/{column_name}/{stat}": val for stat, val in stats.items()}
+            )
+
         episode_rows.setdefault(file_index, []).append(episode_row)
 
         start += length
@@ -298,9 +353,8 @@ def make_lerobot_dataset(
             pa.Table.from_pylist(rows),
             root / EPISODES_PATH.format(chunk_index=0, file_index=file_index),
         )
-    _write_parquet(
-        pa.Table.from_pylist([{"task_index": 0, "task": TASK}]),
-        root / "meta" / "tasks.parquet",
+    pd.DataFrame({"task_index": [0]}, index=pd.Index([TASK], name="task")).to_parquet(
+        root / "meta" / "tasks.parquet"
     )
 
     _write_json(

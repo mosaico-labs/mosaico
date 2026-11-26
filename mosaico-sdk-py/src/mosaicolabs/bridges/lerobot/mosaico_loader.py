@@ -1,0 +1,551 @@
+"""
+Loader of the LeRobot dataset extraction: reads the Mosaico sequences ingested by the LeRobot
+bridge (one per episode, see `LeRobotInjector`) to export them back to a LeRobot dataset.
+
+As `LeRobotLoader` resolves the metadata of a dataset from its `meta/` folder, this loader
+resolves the metadata of the exported dataset from the `_lerobot_` metadata of the sequences
+(see `LeRobotSchemaMetadata`), merging their episodes with a `LeRobotDatasetBuilder`.
+"""
+
+from typing import Dict, Iterator, List, Optional, Tuple
+
+import pyarrow as pa
+
+from mosaicolabs.comm.mosaico_client import MosaicoClient
+from mosaicolabs.handlers import SequenceHandler
+from mosaicolabs.logging_config import get_logger
+
+from ..helpers import _dotted_name_to_topic_name, _validate_sequence
+from ..loader_base import BaseLoader
+from .metadata import LeRobotEpisode, LeRobotInfo
+from .metadata.dataset_builder import LeRobotDatasetBuilder
+from .reader import _TIMESERIES_MSCO_TOPIC_NAME
+from .schema_metadata import LeRobotSchemaMetadata
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
+
+_TIMESTAMP_NS_COLUMN_NAME = "timestamp_ns"
+"""The column of the timestamp of the messages, in every topic."""
+
+
+def _unpack_sequence(
+    sequence: SequenceHandler,
+) -> Tuple[
+    LeRobotInfo,
+    List[str],
+]:
+    """
+    Reads the `_lerobot_` metadata of a sequence (see `LeRobotSchemaMetadata.restore`): its
+    `info`, and the `tasks` of its episode, as in their source dataset.
+
+    Returns:
+        Tuple[LeRobotInfo, List[str]]: The `info` and the episode tasks.
+
+    Raises:
+        ValueError: If the `_lerobot_` metadata is missing or malformed.
+    """
+    try:
+        block = LeRobotSchemaMetadata.restore(sequence.user_metadata)
+        info = LeRobotInfo.from_dict(block["info"])
+        ep_tasks = block["episode"]["tasks"]
+
+    except (AttributeError, KeyError, TypeError, ValueError) as e:
+        raise ValueError(
+            f"Sequence '{sequence.name}' has missing or malformed "
+            f"'{LeRobotSchemaMetadata.KEY}' metadata: {e!r}"
+        ) from e
+
+    return info, ep_tasks
+
+
+def _check_topics(sequence: SequenceHandler, info: LeRobotInfo) -> None:
+    """
+    Checks that a sequence has the topics the data of its episode is rebuilt from (see
+    `LeRobotWriter`): the timeseries topic, and a topic per image feature. The video features
+    are not ingested.
+
+    Args:
+        sequence (SequenceHandler): The sequence of the episode.
+        info (LeRobotInfo): The `info` of the episode, read from the sequence metadata.
+
+    Raises:
+        ValueError: If a topic is missing from the sequence.
+    """
+    required = {_TIMESERIES_MSCO_TOPIC_NAME} | {
+        _dotted_name_to_topic_name(f.key) for f in info.features if f.is_image()
+    }
+    missing = sorted(required - set(sequence.topics))
+    if missing:
+        raise ValueError(
+            f"Sequence '{sequence.name}' has no topics {missing}, that are expected from the episode features {[f.key for f in info.features]}."
+        )
+
+
+def _pop_timestamps(
+    sequence_name: str, batches: Dict[str, pa.RecordBatch]
+) -> Tuple[pa.Array, Dict[str, pa.RecordBatch]]:
+    """
+    Splits the `timestamp_ns` column, the same in every topic, from the batches of the topics
+    of a sequence.
+
+    Returns:
+        Tuple[pa.Array, Dict[str, pa.RecordBatch]]: The `timestamp_ns` of the rows, and the
+            batches without it.
+
+    Raises:
+        ValueError: If a batch holds different timestamps than the others.
+    """
+    (first_topic, first_batch), *others = batches.items()
+    timestamps = first_batch.column(_TIMESTAMP_NS_COLUMN_NAME)
+    for topic, batch in others:
+        if not batch.column(_TIMESTAMP_NS_COLUMN_NAME).equals(timestamps):
+            raise ValueError(
+                f"Sequence '{sequence_name}': topics '{first_topic}' and '{topic}' hold "
+                "different timestamps."
+            )
+
+    return timestamps, {
+        topic: batch.drop_columns([_TIMESTAMP_NS_COLUMN_NAME])
+        for topic, batch in batches.items()
+    }
+
+
+class MosaicoToLeRobotLoader(BaseLoader):
+    """
+    Reads the Mosaico sequences of a LeRobot dataset extraction, one episode each.
+
+    On resolution (see `_ensure_resolved`), the episode of each sequence is read from its
+    `_lerobot_` metadata, with its `length` counted from the rows of the sequence in Mosaico,
+    and merged with the previous ones by a `LeRobotDatasetBuilder`. The
+    metadata of the exported dataset is exposed by `info`, `episodes`, `tasks` and
+    `episode_index_by_sequence`.
+
+    Its topics (in the `BaseLoader` sense) are the topics of the first accepted sequence. The
+    handlers of the accepted sequences stay open until `close` is called (or the `with` block
+    exits): after that, the loader cannot be used anymore.
+    """
+
+    def __init__(self, m_client: MosaicoClient, sequence_names: List[str]):
+        """
+        Initializes the loader against Mosaico sequences.
+
+        Nothing is fetched here: the sequences are resolved lazily on first access to any
+        property (see `_ensure_resolved`).
+
+        Args:
+            m_client (MosaicoClient): An open connection to the Mosaico server.
+            sequence_names (List[str]): The sequences to export, one episode each, in episode
+                order.
+        """
+        super().__init__(container_type=list)
+
+        self._client = m_client
+        """The MosaicoClient used to fetch the sequences."""
+
+        self._sequence_names = sequence_names
+        """The sequences to export, one episode each, in episode order."""
+
+        self._seq_handlers: Optional[List[SequenceHandler]] = None
+        """The handlers of the accepted sequences, in episode order: `None` until resolved by
+        `_ensure_resolved`."""
+
+        self._builder: Optional[LeRobotDatasetBuilder] = None
+        """The builder of the metadata of the exported dataset: `None` until resolved by
+        `_ensure_resolved`."""
+
+        self._closed = False
+        """Whether `close` was called: the sequences cannot be resolved again, since the
+        client may be closed too."""
+
+    @property
+    def info(self) -> LeRobotInfo:
+        """
+        The `info` of the exported dataset, with the totals and `splits` of its episodes.
+
+        Raises:
+            ValueError: If no sequence can be exported.
+        """
+        self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        info = self._builder.info
+        if info is None:
+            raise ValueError("No episode to export: the dataset has no `info`.")
+        return info
+
+    @property
+    def episodes(self) -> List[LeRobotEpisode]:
+        """The episodes of the exported dataset, renumbered in the order of the sequences."""
+        self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        return self._builder.episodes
+
+    @property
+    def episode_index_by_sequence(self) -> Dict[str, int]:
+        """The `episode_index` of each accepted sequence in the exported dataset."""
+        self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        return self._builder.episode_index_by_sequence
+
+    @property
+    def accepted_sequences(self) -> List[str]:
+        """Returns the accepted sequence names"""
+
+        try:
+            resolved_sequences = self._resolve_sequence_handlers()
+        except RuntimeError:  # Case where no sequences are accepted
+            resolved_sequences = []
+
+        return [s_handler.name for s_handler in resolved_sequences]
+
+    @property
+    def dropped_sequences(self) -> List[str]:
+        """Returns the name of the dropped sequences. See `_resolve_sequence_handlers` for when
+        a sequence gets dropped"""
+        accepted = set(self.accepted_sequences)
+        return [name for name in self._sequence_names if name not in accepted]
+
+    @property
+    def tasks(self) -> List[str]:
+        """
+        The tasks of the exported dataset: the distinct tasks of the accepted episodes, in the
+        order they first appear, which is their task index order.
+        """
+        self._ensure_resolved()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        return self._builder.tasks
+
+    def msg_count(self, topic: Optional[str] = None) -> int:
+        """
+        Returns the number of messages of a topic, or of all the accepted topics.
+
+        Every topic has one row per frame: the count of a topic is the `total_frames` of the
+        exported dataset.
+
+        Args:
+            topic (Optional[str]): The topic to count, or `None` for all the accepted topics.
+
+        Returns:
+            int: The number of messages, or 0 if the topic is not one of the sequences.
+        """
+        self._resolve_sequence_handlers()
+
+        if not topic:
+            return sum(self.msg_count(topic) for topic in self._accepted_topics)
+
+        if topic not in self._resolved_topics:
+            logger.error(f"Column '{topic}' not found in the dataset.")
+            return 0
+
+        # Every topic has one row per frame
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        info = self._builder.info
+        return info.total_frames if info and info.total_frames else 0
+
+    def _resolve_sequence_handlers(
+        self,
+    ) -> List[SequenceHandler]:
+        """
+        Lazily resolves the sequences: their handlers, the episodes of the exported dataset and
+        their topics.
+
+        Called automatically on first access to any property. For each sequence, in order, a
+        data streamer is opened only to count the rows of its topics, then closed: the
+        `length` of its episode is that count divided by the number of topics (every topic has
+        one row per frame). No stream stays open: each episode opens its own when iterated
+        (see `LeRobotEpisodeStreamer`). A sequence is dropped with a warning (and its handler closed) if it
+        does not exist, has no topics, has no valid `_lerobot_` metadata, misses a topic of its
+        features or cannot be merged with the previous ones (see `LeRobotDatasetBuilder.add_episode`).
+        If the resolution fails, the handlers opened so far are closed.
+
+        Returns:
+            List[SequenceHandler]: The handlers of the accepted sequences, in episode order.
+
+        Raises:
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
+        """
+        if self._closed:
+            raise ValueError(
+                "The loader is closed: its sequences cannot be resolved again."
+            )
+
+        if self._seq_handlers is not None:
+            return self._seq_handlers
+
+        s_handlers: List[SequenceHandler] = []
+        builder = LeRobotDatasetBuilder()
+        try:
+            for sequence_name in self._sequence_names:
+                seq_handler = self._client.sequence_handler(sequence_name)
+                if not _validate_sequence(seq_handler):
+                    logger.warning(
+                        f"Episode of sequence '{sequence_name}' dropped: the sequence does "
+                        "not exist."
+                    )
+                    continue
+
+                if not seq_handler.topics:
+                    logger.warning(
+                        f"Episode of sequence '{sequence_name}' dropped: the sequence has "
+                        "no topics."
+                    )
+                    seq_handler.close()
+                    continue
+
+                try:
+                    info, ep_tasks = _unpack_sequence(seq_handler)
+                    # Before any stream is opened: a missing topic would fail the export
+                    # halfway, when its episode is written
+                    _check_topics(seq_handler, info)
+
+                    streamer = seq_handler.get_data_streamer(
+                        start_timestamp_ns=None, end_timestamp_ns=None
+                    )
+
+                    builder.add_episode(
+                        sequence_name,
+                        info,
+                        ep_tasks,
+                        streamer.msg_count // len(seq_handler.topics),
+                    )
+
+                    streamer.close()
+                except ValueError as e:
+                    logger.warning(
+                        f"Episode of sequence '{sequence_name}' dropped: {e}"
+                    )
+                    seq_handler.close()
+                    continue
+                except Exception:
+                    seq_handler.close()
+                    raise
+
+                s_handlers.append(seq_handler)
+        except Exception:
+            # Release the handlers opened so far
+            for s_handler in s_handlers:
+                s_handler.close()
+            raise
+
+        if not s_handlers:
+            raise RuntimeError("No episode to export.")
+
+        topics = list(s_handlers[0].topics)
+
+        self._builder = builder
+        self._resolved_topics = list(topics)
+        self._accepted_topics = list(topics)
+        self._seq_handlers = s_handlers
+
+        return self._seq_handlers
+
+    def _ensure_resolved(self) -> None:
+        """
+        Resolves the sequences, if not done yet (see `_resolve_sequence_handlers`).
+
+        Raises:
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
+        """
+        self._resolve_sequence_handlers()
+
+    def __iter__(self) -> Iterator["LeRobotEpisodeStreamer"]:
+        """
+        Streams the episodes of the exported dataset, one per accepted sequence, in episode
+        order.
+
+        No data is streamed here: each yielded `LeRobotEpisodeStreamer` opens a fresh data
+        streamer of its sequence when iterated. The loader can be iterated again, until
+        `close` is called.
+
+        Yields:
+            LeRobotEpisodeStreamer: The streamer of the data of the episode.
+
+        Raises:
+            RuntimeError: If no sequence can be exported.
+            ValueError: If the loader is closed.
+        """
+        s_handlers = self._resolve_sequence_handlers()
+
+        if self._builder is None:
+            raise ValueError(
+                "No episode to export: the episode builder is None. Did you call _ensure_resolved()?"
+            )
+
+        # The episode of each accepted sequence, by its name
+        for s_handler in s_handlers:
+            sequence_name = s_handler.name
+            episode = self._builder.get_episode_by_sequence_name(sequence_name)
+
+            if not episode:
+                raise ValueError(
+                    f"Cannot find LeRobotEpisode associated to Mosaico sequence called {sequence_name}"
+                )
+
+            yield LeRobotEpisodeStreamer(s_handler, episode)
+
+    def close(self):
+        """
+        Closes the handlers of the sequences (and their topic handlers and streams), releasing
+        their resources. The loader cannot be used afterwards.
+        """
+        self._closed = True
+        if self._seq_handlers is not None:
+            for seq_handler in self._seq_handlers:
+                seq_handler.close()
+            self._seq_handlers = None
+
+    def __enter__(self):
+        """Context manager support."""
+        self._ensure_resolved()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
+        self.close()
+
+
+class LeRobotEpisodeStreamer:
+    """
+    A single episode of the exported dataset, as yielded by iterating over a
+    `MosaicoToLeRobotLoader`: the opposite of `LeRobotEpisodeLoader`.
+
+    Iterating over it streams the data of the episode, lined up across the topics of its
+    sequence: each row of the episode is spread over all the topics (see
+    `LeRobotEpisodeLoader`), while Mosaico streams each topic on its own, in batches of its own
+    size.
+
+    Each iteration opens a fresh data streamer of the sequence, closed when the iteration ends
+    or is stopped: the episode can be streamed again. Iterate one episode of a sequence at a
+    time: opening a data streamer closes the one already open on the same `SequenceHandler`.
+    The handler belongs to the `MosaicoToLeRobotLoader`, which closes it.
+    """
+
+    def __init__(
+        self,
+        sequence_handler: SequenceHandler,
+        episode: LeRobotEpisode,
+    ):
+        """
+        Args:
+            sequence_handler (SequenceHandler): The handler of the sequence of the episode,
+                owned by the loader.
+            episode (LeRobotEpisode): The episode, renumbered in the exported dataset.
+        """
+        self._sequence_handler: SequenceHandler = sequence_handler
+        """The handler of the sequence of the episode, owned by the loader: a fresh data
+        streamer is opened from it on each iteration."""
+        self.episode_metadata: LeRobotEpisode = episode
+        """The episode, renumbered in the exported dataset."""
+
+    @property
+    def sequence_name(self) -> str:
+        """The name of the sequence of the episode."""
+        return self._sequence_handler.name
+
+    @staticmethod
+    def _get_finished_topics(
+        batches_map: Dict[str, Optional[pa.RecordBatch]],
+    ) -> List[str]:
+        """Returns the list of topics whose streaming is over (meaning their RecordBatch is None)"""
+        return [topic for topic, batch in batches_map.items() if batch is None]
+
+    @staticmethod
+    def _is_episode_over(batches_map: Dict[str, Optional[pa.RecordBatch]]) -> bool:
+        """Check whether the episode is over. An episode is over when all the RecordBatch within the map are None"""
+        finished_topics = LeRobotEpisodeStreamer._get_finished_topics(batches_map)
+        return len(finished_topics) == len(batches_map)
+
+    def __iter__(self) -> Iterator[Tuple[pa.Array, Dict[str, pa.RecordBatch]]]:
+        """
+        Streams the data of the episode, lined up across its topics.
+
+        Each yielded batch is a slice of the batches received from the topics: about one batch
+        per topic is held in memory.
+
+        A fresh data streamer of the sequence is opened, and closed when the iteration ends,
+        fails or is stopped.
+
+        Yields:
+            Tuple[pa.Array, Dict[str, pa.RecordBatch]]: The `timestamp_ns` of the rows, shared
+                by all the topics, and a batch per topic holding those rows, as stored in Mosaico
+                but without `timestamp_ns`.
+
+        Raises:
+            ValueError: If the topics do not hold the same rows (a topic ends before the others,
+                or holds different timestamps), or their number of rows is not the `length` of
+                the episode.
+        """
+
+        streamer = self._sequence_handler.get_data_streamer()
+        streamers_as_batch = streamer._as_batch_provider()
+
+        batches_map: Dict[str, Optional[pa.RecordBatch]] = dict.fromkeys(
+            streamers_as_batch
+        )
+        n_streamed = 0
+        try:
+            while True:
+                # 1) Refill the topics with no rows left: `_fetch_next_batch` never returns an
+                # empty batch, `None` means the stream is exhausted
+                for topic, batch in batches_map.items():
+                    if batch is None or batch.num_rows == 0:
+                        batches_map[topic] = streamers_as_batch[
+                            topic
+                        ]._fetch_next_batch()
+
+                # 2) All the topics exhausted: the episode is over. Only some: their rows differ
+                if self._is_episode_over(batches_map):
+                    # The exported metadata place the rows of the episode by its `length`
+                    if n_streamed != self.episode_metadata.length:
+                        raise ValueError(
+                            f"Sequence '{self.sequence_name}': {n_streamed} rows streamed, "
+                            f"while its episode has length {self.episode_metadata.length}."
+                        )
+                    break
+
+                ended = self._get_finished_topics(batches_map)
+                if len(ended) > 0:
+                    raise ValueError(
+                        f"Sequence '{self.sequence_name}': topics {ended} ended before the "
+                        "others, the topics have a different number of rows."
+                    )
+
+                # 3) The rows all the topics have, sliced out of their batches. No batch is `None`
+                # here: the filter only narrows the type
+                batches = {t: b for t, b in batches_map.items() if b is not None}
+                n_rows = min(b.num_rows for b in batches.values())
+                sliced = {t: b.slice(0, n_rows) for t, b in batches.items()}
+                # Keep the rows not sliced yet for the next round
+                batches_map = {t: b.slice(n_rows) for t, b in batches.items()}
+
+                timestamps, sliced = _pop_timestamps(self.sequence_name, sliced)
+                n_streamed += n_rows
+                yield timestamps, sliced
+        finally:
+            streamer.close()

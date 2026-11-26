@@ -77,39 +77,6 @@ pub(super) mod internal {
         Ok(Status::Finalized)
     }
 
-    /// Computes first and last timestamps recorded in the topic.
-    pub async fn compute_timestamp_range(
-        ts_engine: query::TimeseriesEngineRef,
-        topic_record: &db::TopicRecord,
-    ) -> Result<types::TimestampRange> {
-        let path_in_store = topic_record
-            .path_in_store()
-            .ok_or(Error::MissingDbData(format!(
-                "No path in store set for topic {}",
-                topic_record.locator()
-            )))?;
-
-        let format = topic_record
-            .serialization_format()
-            .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
-
-        let timeseries_res = ts_engine
-            .read(path_in_store.data_folder_path(), format, None)
-            .await;
-
-        let timestamp_range = match timeseries_res {
-            Ok(res) => res
-                .timestamp_range()
-                .await
-                .ok()
-                .flatten()
-                .unwrap_or(types::TimestampRange::unbounded()),
-            Err(_) => types::TimestampRange::unbounded(),
-        };
-
-        Ok(timestamp_range)
-    }
-
     async fn time_window_info(
         ts_engine: &query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
@@ -169,10 +136,19 @@ pub(super) mod internal {
             total_row_count: stats.total_row_count,
         };
 
-        let time_window_info = if let Some(time_window) = time_window {
-            Some(time_window_info(ts_engine, topic_record, time_window).await?)
-        } else {
-            None
+        let time_window_info = match time_window {
+            // A do_put sets path_in_store before writing the first chunk: querying the (still
+            // empty) data folder would fail, so return an empty window instead.
+            // A chunk is recorded only after its file is written, so chunks_count > 0 guarantees
+            // at least one data file.
+            Some(_) if stats.chunks_count == 0 => Some(TopicTimeWindowInfo {
+                row_count: 0,
+                timestamp_range: types::TimestampRange::unbounded(),
+            }),
+            Some(time_window) => {
+                Some(time_window_info(ts_engine, topic_record, time_window).await?)
+            }
+            None => None,
         };
 
         Ok(TopicInfo {
@@ -489,6 +465,7 @@ pub async fn writer(
         topic_locator: locator,
         ontology_tag,
         writer,
+        timestamp_range: None,
         context,
     })
 }
@@ -614,13 +591,41 @@ pub struct HandleWriter {
     /// The underlying writer handling the actual data operations.
     writer: rw::ChunkWriter<Arc<store::Store>>,
 
-    /// Context containing query engine for timeseries data used to finalize topic data at the end of write process.
+    /// Timestamp range covered by the chunks written so far, `None` if no chunk has been written.
+    ///
+    /// A topic is written by a single [`HandleWriter`], so this is the range of the whole topic
+    /// when [`HandleWriter::finalize`] is called.
+    timestamp_range: Option<types::TimestampRange>,
+
+    /// Context used to finalize topic data at the end of write process.
     context: Context,
 }
 
 impl HandleWriter {
     pub fn ontology_tag(&self) -> &str {
         &self.ontology_tag
+    }
+
+    /// Writes a [`RecordBatch`](arrow::array::RecordBatch) to the topic and returns the
+    /// serialized chunk.
+    ///
+    /// The timestamp bounds of the chunk are added to the topic timestamp range, which is
+    /// stored when the topic is finalized.
+    pub async fn write(&mut self, batch: arrow::array::RecordBatch) -> Result<rw::SerializedChunk> {
+        let chunk = self.writer.write(batch).await?;
+
+        let first = chunk.metadata.first_sample_timestamp_ns;
+        let last = chunk.metadata.last_sample_timestamp_ns;
+        let range = match self.timestamp_range {
+            Some(range) => types::TimestampRange::between(
+                range.start.as_i64().min(first).into(),
+                range.end.as_i64().max(last).into(),
+            ),
+            None => types::TimestampRange::between(first.into(), last.into()),
+        };
+        self.timestamp_range = Some(range);
+
+        Ok(chunk)
     }
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
@@ -641,12 +646,12 @@ impl HandleWriter {
 
         let topic_locator = topic_record.locator();
 
-        // ts_range can be unbounded if only empty batches have been sent.
-        let ts_range = internal::compute_timestamp_range(
-            self.context.timeseries_querier.clone(),
-            &topic_record,
-        )
-        .await?;
+        // The range is taken from the bounds of the chunks written by this writer.
+        // `ts_range` is unbounded only if no chunk has been written (only empty batches have
+        // been sent).
+        let ts_range = self
+            .timestamp_range
+            .unwrap_or_else(types::TimestampRange::unbounded);
 
         db::topic_update_index_timestamp_range(&mut tx, &topic_locator, ts_range).await?;
 
@@ -683,20 +688,6 @@ impl HandleWriter {
         .await?;
 
         Ok(metadata)
-    }
-}
-
-impl std::ops::Deref for HandleWriter {
-    type Target = rw::ChunkWriter<Arc<store::Store>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.writer
-    }
-}
-
-impl std::ops::DerefMut for HandleWriter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.writer
     }
 }
 
@@ -908,5 +899,245 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /// A topic whose upload has started (path_in_store set) but has no chunks yet must report an
+    /// empty time window instead of failing, both for topic and sequence ranged info requests.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_info_ranged_without_chunks(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
+        sequence::try_create(&context, &seq_locator, None)
+            .await
+            .unwrap();
+        let (_, session_uuid) = session::try_create(&context, seq_locator.clone())
+            .await
+            .unwrap();
+
+        let topic_locator = "test_sequence/test_topic"
+            .parse::<types::TopicLocator>()
+            .unwrap();
+        try_create(
+            &context,
+            &topic_locator,
+            &session_uuid,
+            dummy_ontology_metadata(),
+        )
+        .await
+        .unwrap();
+
+        // Simulate the start of a do_put: path_in_store is set, no chunk is written yet.
+        let topic_record = db::topic_find_by_locator(&mut context.db.connection(), &topic_locator)
+            .await
+            .unwrap();
+        assert!(
+            db::topic_update_path_in_store_if_null(
+                &mut context.db.connection(),
+                topic_record.topic_id,
+                types::TopicPathInStore::new(),
+            )
+            .await
+            .unwrap()
+        );
+
+        let window = types::TimestampRange::between(0.into(), 1_000.into());
+
+        let info = super::info(&context, &topic_locator, Some(window))
+            .await
+            .expect("ranged topic info must not fail without chunks");
+        assert_eq!(info.data_info.total_chunks, 0);
+        assert_eq!(info.time_window_info.unwrap().row_count, 0);
+
+        let seq_info = sequence::info(&context, &seq_locator, Some(window))
+            .await
+            .expect("ranged sequence info must not fail without chunks");
+        assert_eq!(seq_info.topics.len(), 1);
+        assert_eq!(
+            seq_info.topics[0]
+                .time_window_info
+                .as_ref()
+                .unwrap()
+                .row_count,
+            0
+        );
+    }
+
+    /// Like [`test_context`], but also returns the temporary store, which must be kept alive
+    /// by the test, so the test can manipulate the data files on disk.
+    fn test_context_with_store(
+        pool: sqlx::Pool<db::DatabaseType>,
+    ) -> (Context, store::testing::Store) {
+        // Chunk encoding reads the daemon parameters.
+        mosaicod_config::testing::load();
+
+        let database = db::testing::Database::new(pool);
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
+
+        (
+            Context::new((*store).clone(), (*database).clone(), ts_gw),
+            store,
+        )
+    }
+
+    fn test_schema() -> SchemaRef {
+        Arc::new(arrow::datatypes::Schema::new(vec![
+            arrow::datatypes::Field::new(
+                core::constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                arrow::datatypes::DataType::Int64,
+                false,
+            ),
+            arrow::datatypes::Field::new("value", arrow::datatypes::DataType::Float64, false),
+        ]))
+    }
+
+    fn test_batch(timestamps: &[i64]) -> arrow::array::RecordBatch {
+        let values: Vec<f64> = timestamps.iter().map(|t| *t as f64).collect();
+        arrow::array::RecordBatch::try_new(
+            test_schema(),
+            vec![
+                Arc::new(arrow::array::Int64Array::from(timestamps.to_vec())),
+                Arc::new(arrow::array::Float64Array::from(values)),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// Creates sequence, session and topic, and returns a writer for the topic.
+    async fn create_topic_writer(
+        context: &Context,
+    ) -> (types::TopicLocator, types::Uuid, HandleWriter) {
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
+        sequence::try_create(context, &seq_locator, None)
+            .await
+            .unwrap();
+        let (_, session_uuid) = session::try_create(context, seq_locator).await.unwrap();
+
+        let topic_locator = "test_sequence/test_topic"
+            .parse::<types::TopicLocator>()
+            .unwrap();
+        let topic_uuid = try_create(
+            context,
+            &topic_locator,
+            &session_uuid,
+            dummy_ontology_metadata(),
+        )
+        .await
+        .unwrap();
+
+        let writer = writer(
+            context.clone(),
+            topic_locator.clone(),
+            &topic_uuid,
+            test_schema(),
+        )
+        .await
+        .unwrap();
+
+        (topic_locator, topic_uuid, writer)
+    }
+
+    /// Writes a chunk to the store and records it in the database, as `do_put` does.
+    /// Returns the path of the chunk file in the store.
+    async fn write_chunk(
+        context: &Context,
+        writer: &mut HandleWriter,
+        topic_uuid: &types::Uuid,
+        timestamps: &[i64],
+    ) -> path::PathBuf {
+        let chunk = writer.write(test_batch(timestamps)).await.unwrap();
+        let ontology_tag = writer.ontology_tag().to_owned();
+
+        let mut tx = context.db.transaction().await.unwrap();
+        crate::update_chunk_stats(
+            &mut tx,
+            topic_uuid,
+            &chunk.path,
+            chunk.metadata,
+            &ontology_tag,
+            chunk.ontology_stats,
+        )
+        .await
+        .unwrap();
+        tx.commit().await.unwrap();
+
+        chunk.path
+    }
+
+    /// Finalizes the topic, checks that it is completed and returns its stored timestamp range.
+    async fn finalize_and_get_range(
+        context: &Context,
+        locator: &types::TopicLocator,
+        writer: HandleWriter,
+    ) -> types::TimestampRange {
+        writer.finalize().await.unwrap();
+
+        let record = db::topic_find_by_locator(&mut context.db.connection(), locator)
+            .await
+            .unwrap();
+        assert!(record.completion_timestamp().is_some());
+        record.timestamp_range().unwrap()
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_finalize_stores_range_of_written_data(pool: sqlx::Pool<db::DatabaseType>) {
+        let (context, _store) = test_context_with_store(pool);
+        let (locator, uuid, mut writer) = create_topic_writer(&context).await;
+        // Samples are not sorted within a chunk: the range is min..max, not first..last row.
+        write_chunk(&context, &mut writer, &uuid, &[20, 10, 30]).await;
+        write_chunk(&context, &mut writer, &uuid, &[50, 40]).await;
+
+        let range = finalize_and_get_range(&context, &locator, writer).await;
+        assert_eq!(range.start.as_i64(), 10);
+        assert_eq!(range.end.as_i64(), 50);
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_finalize_without_chunks_stores_unbounded_range(
+        pool: sqlx::Pool<db::DatabaseType>,
+    ) {
+        let (context, _store) = test_context_with_store(pool);
+        let (locator, _, writer) = create_topic_writer(&context).await;
+
+        // Only empty batches sent: no chunk is written nor recorded.
+        let range = finalize_and_get_range(&context, &locator, writer).await;
+        assert!(range.is_unbounded());
+    }
+
+    /// Regression test for #1103: the store listing missed the newest chunk file, and the
+    /// range computed from the store covered only the older chunks.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_finalize_range_covers_chunk_missing_in_store(
+        pool: sqlx::Pool<db::DatabaseType>,
+    ) {
+        let (context, store) = test_context_with_store(pool);
+        let (locator, uuid, mut writer) = create_topic_writer(&context).await;
+        write_chunk(&context, &mut writer, &uuid, &[10, 20, 30]).await;
+        let newest = write_chunk(&context, &mut writer, &uuid, &[40, 50]).await;
+
+        // The newest chunk is recorded in the database but its file is not visible in the store.
+        std::fs::remove_file(store.root.join(&newest)).unwrap();
+
+        let range = finalize_and_get_range(&context, &locator, writer).await;
+        assert_eq!(range.start.as_i64(), 10);
+        assert_eq!(range.end.as_i64(), 50);
+    }
+
+    /// Finalization does not read the store: a topic whose data files can not be read is
+    /// finalized with the range of its recorded chunks, not with an unbounded range.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_finalize_does_not_read_store(pool: sqlx::Pool<db::DatabaseType>) {
+        let (context, store) = test_context_with_store(pool);
+        let (locator, uuid, mut writer) = create_topic_writer(&context).await;
+        let missing = write_chunk(&context, &mut writer, &uuid, &[10, 20, 30]).await;
+        let unreadable = write_chunk(&context, &mut writer, &uuid, &[40, 50]).await;
+
+        std::fs::remove_file(store.root.join(&missing)).unwrap();
+        std::fs::write(store.root.join(&unreadable), b"not a parquet file").unwrap();
+
+        let range = finalize_and_get_range(&context, &locator, writer).await;
+        assert_eq!(range.start.as_i64(), 10);
+        assert_eq!(range.end.as_i64(), 50);
     }
 }

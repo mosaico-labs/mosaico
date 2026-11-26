@@ -94,6 +94,9 @@ retention_duration = 86400
 [logging]
 level = "warning"
 format = "pretty"
+
+[usage_reporting]
+enabled = true
 ```
 
 The table below maps each config key to the [environment variable](env.md) it corresponds to, for cross-reference.
@@ -135,6 +138,7 @@ The table below maps each config key to the [environment variable](env.md) it co
 | `cleanup.retention_duration` | [`MOSAICOD_CLEANUP_RETENTION_DURATION`](env.md#mosaicod-cleanup-retention-duration) |
 | `logging.level` | [`MOSAICOD_LOG_LEVEL`](env.md#mosaicod-log-level) |
 | `logging.format` | [`MOSAICOD_LOG_FORMAT`](env.md#mosaicod-log-format) |
+| `usage_reporting.enabled` | [`MOSAICOD_USAGE_REPORTING_ENABLED`](env.md#mosaicod-usage-reporting-enabled) |
 
 </div>
 
