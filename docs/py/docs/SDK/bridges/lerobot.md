@@ -47,7 +47,7 @@ Iterating over the loader yields one `LeRobotEpisodeLoader` per episode, in epis
 
 #### Reading Back the Sequences (`MosaicoToLeRobotLoader`)
 
-**`MosaicoToLeRobotLoader`** reads the `_lerobot_` metadata of each sequence in `sequence_names`, in that order: the `info`, the episode `length` and the episode `tasks`. The `info` of the first accepted sequence becomes the `info` of the exported dataset. Each next sequence only has its `info` checked against it, and its episode is appended after the previous ones.
+**`MosaicoToLeRobotLoader`** reads the `_lerobot_` metadata of each sequence in `sequence_names`, in that order: the `info` and the episode `tasks`. The episode `length` is not read from `_lerobot_`: it is the number of rows of the sequence in Mosaico. The `info` of the first accepted sequence becomes the `info` of the exported dataset. Each next sequence only has its `info` checked against it, and its episode is appended after the previous ones.
 
 A sequence is **dropped** with a warning, and the export goes on without it, if:
 
@@ -243,7 +243,7 @@ The Mosaico server rejects metadata keys containing `.` and non-finite numbers, 
 On export, `LeRobotSchemaMetadata.restore` reverses these transformations, and the [export loader](#reading-back-the-sequences-mosaicotolerobotloader) builds the new `meta/` folder from them:
 
 * `info` becomes the new `info.json`. Its totals (`total_episodes`, `total_frames`, `total_tasks`) and its `splits` (a single `train` split over every episode) are computed for the exported episodes, and the video features are left out.
-* `episode.length` and `episode.tasks` give the length and the tasks of each exported episode.
+* `episode.tasks` gives the tasks of each exported episode.
 * `episode.stats` is not reused, because it describes the source dataset. The statistics of each exported episode are computed from the data file written, as LeRobot computes them (images are decoded and downsampled), and `meta/stats.json` is combined from them. They can therefore differ slightly from those of the source dataset.
 
 !!! tip "Querying these keys"
