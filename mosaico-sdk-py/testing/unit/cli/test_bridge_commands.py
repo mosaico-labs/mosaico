@@ -466,6 +466,18 @@ class TestLeRobotExtract:
         assert fake.configs == []
 
     @pytest.mark.parametrize(
+        "status, exit_code",
+        [
+            (lerobot_bridge.ExtractionStatus.COMPLETED, 0),
+            (lerobot_bridge.ExtractionStatus.PARTIAL, 1),
+        ],
+    )
+    def test_status_exit_codes(self, profile_env, fake, status, exit_code):
+        fake.outcome = status
+        result = runner.invoke(app, ["extract", "lerobot", "ep_0", "ep_1"])
+        assert result.exit_code == exit_code, result.output
+
+    @pytest.mark.parametrize(
         "error",
         [
             FileExistsError("already exists"),

@@ -211,7 +211,7 @@ class MosaicoToLeRobotLoader(BaseLoader):
         except RuntimeError:  # Case where no sequences are accepted
             resolved_sequences = []
 
-        return [s_hanlder.name for s_hanlder in resolved_sequences]
+        return [s_handler.name for s_handler in resolved_sequences]
 
     @property
     def dropped_sequences(self) -> List[str]:

@@ -1,6 +1,5 @@
 """
-Helpers of the LeRobot reader and writer: the conversion of the LeRobot timestamps and the
-measure of the batches sent to the server.
+Helpers of the LeRobot reader and writer: the conversion of the LeRobot timestamps.
 """
 
 import pyarrow as pa

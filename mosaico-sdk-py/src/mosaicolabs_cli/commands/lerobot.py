@@ -110,11 +110,13 @@ def extract(
     Extract sequences from Mosaico and write them as a LeRobot v3.0 dataset.
 
     Each sequence becomes one episode, in the order given. The dataset is written
-    under <SAVING_PATH>/<NAME>.
+    under <SAVING_PATH>/<NAME>. A sequence that cannot be exported is skipped with a
+    warning, and the command then exits with code 1.
     """
     profile = require_profile(ctx)
 
     from mosaicolabs.bridges.lerobot import (
+        ExtractionStatus,
         LeRobotExtractorConfig,
         LeRobotSequencesExtractor,
     )
@@ -127,4 +129,9 @@ def extract(
         log_level=log_level.value,
         **connection_kwargs(profile),
     )
-    run_extractor(LeRobotSequencesExtractor(config))
+    status = run_extractor(LeRobotSequencesExtractor(config))
+
+    # Some sequences were dropped (already logged by the extractor): exit non-zero, so that
+    # scripts and CI detect that the dataset holds fewer episodes than requested
+    if status is ExtractionStatus.PARTIAL:
+        raise typer.Exit(code=1)

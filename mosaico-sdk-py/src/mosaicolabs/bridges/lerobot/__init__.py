@@ -4,6 +4,7 @@ from .injector import (
 )
 from .schema_metadata import LeRobotSchemaMetadata as LeRobotSchemaMetadata
 from .sequences_extractor import (
+    ExtractionStatus as ExtractionStatus,
     LeRobotExtractorConfig as LeRobotExtractorConfig,
     LeRobotSequencesExtractor as LeRobotSequencesExtractor,
 )
