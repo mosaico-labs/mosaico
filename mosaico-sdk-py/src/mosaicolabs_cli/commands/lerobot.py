@@ -11,7 +11,6 @@ from mosaicolabs_cli.utils.bridge import (
     LogLevel,
     LogLevelOpt,
     MetadataOpt,
-    OverwriteOpt,
     SequenceNamesArg,
     TopicMetadataOpt,
     connection_kwargs,
@@ -103,7 +102,16 @@ def extract(
             help="Name of the dataset folder created under the saving path.",
         ),
     ] = "LeRobotDataset",
-    overwrite: OverwriteOpt = False,
+    overwrite: Annotated[
+        bool,
+        typer.Option(
+            "--overwrite",
+            help=(
+                "Replace the dataset folder if it already exists. It must be empty or a "
+                "LeRobot dataset, and is replaced only once the new dataset is complete."
+            ),
+        ),
+    ] = False,
     log_level: LogLevelOpt = LogLevel.INFO,
 ) -> None:
     """

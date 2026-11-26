@@ -287,8 +287,10 @@ mosaico extract lerobot [OPTIONS] SEQUENCE_NAME...
 | :--- | --- | :--- |
 | `--saving-path <PATH>` | `.` | Directory where to save the dataset. |
 | `-n`, `--name <NAME>` | `LeRobotDataset` | Name of the dataset folder created under the saving path. |
-| `--overwrite` | | Delete and recreate the dataset folder if it already exists. |
+| `--overwrite` | | Replace the dataset folder if it already exists. The folder must be empty or hold a LeRobot dataset, and is replaced only once the new dataset is complete: a failed extraction leaves it untouched. |
 | `-l`, `--log <LEVEL>` | `INFO` | Logging verbosity. |
+
+A sequence that does not exist, was not ingested with `inject lerobot`, or cannot be merged with the previous ones is skipped with a warning, and the dataset is written with the remaining episodes. The command exits with code `1` if any sequence is skipped or the extraction fails.
 
 Video features are not supported yet.
 
