@@ -205,7 +205,8 @@ A run can also be started again from the tag with `workflow_dispatch`.
    docs and the latest GitHub release.
 2. **Phase 1: build.** Every artifact is built in parallel, and nothing is
    public yet:
-   - `binaries`: the `mosaicod` binaries for amd64 and arm64, as tarballs with
+   - `binaries`: the `mosaicod` binaries for amd64 and arm64, each built on a
+     runner of its architecture, as tarballs with
      their checksums;
    - `python-sdk`: the wheel and the sdist, built once by `py-wheel.yml`. The
      wheel runs the unit, full-stack and CLI smoke tests on Python 3.10 to

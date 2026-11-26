@@ -114,14 +114,17 @@ jobs:
   binaries:
     name: Build mosaicod (${{ matrix.target }})
     needs: verify
-    runs-on: ubuntu-latest
+    # Each binary is built natively on a runner of its architecture, so no cross-compiler is needed.
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
             arch: linux-amd64
+            runner: ubuntu-24.04
           - target: aarch64-unknown-linux-musl
             arch: linux-arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
 
@@ -130,16 +133,9 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache Cross Binary
-        id: cache-cross
-        uses: actions/cache@v6
-        with:
-          path: ~/.cargo/bin/cross
-          key: ${{ runner.os }}-cross-v1
-
-      - name: Install Cross
-        if: steps.cache-cross.outputs.cache-hit != 'true'
-        run: cargo install cross --git https://github.com/cross-rs/cross.git
+      # musl-gcc compiles the C code of the dependencies (ring, zstd, SQLite, mimalloc) for musl.
+      - name: Install musl tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -147,15 +143,14 @@ jobs:
           workspaces: "mosaicod -> target"
           key: ${{ matrix.target }}
 
-      # `cross` builds in a container with only the `mosaicod` workspace: the commit and the tag come
-      # from the environment, and the repo-root `proto/` folder is mounted (see mosaicod/Cross.toml).
+      # The tag comes from the environment because it does not exist yet in a dry run.
       - name: Build binary
         env:
           GIT_HASH: ${{ github.sha }}
           GIT_TAG: ${{ needs.verify.outputs.tag }}
-          MOSAICO_PROTO_DIR: ${{ github.workspace }}/proto
+          TARGET_CC: musl-gcc
         working-directory: mosaicod
-        run: ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
+        run: cargo build --release --bin mosaicod --target ${{ matrix.target }}
 
       # Tarball and its checksum.
       - name: Package binary
