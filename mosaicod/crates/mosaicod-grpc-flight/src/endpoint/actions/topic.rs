@@ -348,7 +348,7 @@ async fn intersect_cluster_streams(
                 current_cluster.push(c);
                 active_streams.push(stream);
             }
-            Ok(None) => {} // stream immediately empty, skip it
+            Ok(None) => return Ok(()), // a topic without clusters cannot intersect the others
             Err(e) => {
                 out.send(Err(e))
                     .await
