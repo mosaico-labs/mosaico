@@ -115,6 +115,9 @@ jobs:
     name: Build mosaicod (${{ matrix.target }})
     needs: verify
     runs-on: ubuntu-latest
+    env:
+      # cross's last release (v0.2.5, 2023) is too old, so a commit of its main branch is pinned
+      CROSS_REV: a9301e91f72bba3850460512685f6b16062015ff
     strategy:
       matrix:
         include:
@@ -135,11 +138,12 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cross
-          key: ${{ runner.os }}-cross-v1
+          # The key holds the cross commit, so a new pin installs a new binary
+          key: ${{ runner.os }}-cross-${{ env.CROSS_REV }}
 
       - name: Install Cross
         if: steps.cache-cross.outputs.cache-hit != 'true'
-        run: cargo install cross --git https://github.com/cross-rs/cross.git
+        run: cargo install cross --git https://github.com/cross-rs/cross.git --rev "$CROSS_REV"
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -187,7 +191,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: docs/main/package-lock.json
 
