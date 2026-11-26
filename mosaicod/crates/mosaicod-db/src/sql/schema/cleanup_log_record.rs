@@ -10,6 +10,7 @@ pub struct CleanupLogRecord {
     pub(crate) end_unix_tstamp_secs: Option<i64>,
 
     pub(crate) marked_folders: serde_json::Value,
+    pub(crate) unmarked_folders: serde_json::Value,
     pub(crate) deleted_folders: serde_json::Value,
     pub(crate) failed_folders: serde_json::Value,
 
@@ -43,6 +44,15 @@ impl CleanupLogRecord {
         serde_json::from_value(self.marked_folders.clone()).unwrap_or_else(|e| {
             panic!(
                 "Error deserializing marked folders in cleanup log {}: {}",
+                self.cleanup_id, e
+            )
+        })
+    }
+
+    pub fn unmarked_folders(&self) -> Vec<String> {
+        serde_json::from_value(self.unmarked_folders.clone()).unwrap_or_else(|e| {
+            panic!(
+                "Error deserializing unmarked folders in cleanup log {}: {}",
                 self.cleanup_id, e
             )
         })

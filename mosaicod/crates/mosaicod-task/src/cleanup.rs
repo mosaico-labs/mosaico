@@ -19,6 +19,7 @@ pub struct CleanupStats {
     executed: bool,
     marked_folders: Vec<String>,
     deleted_folders: Vec<String>,
+    unmarked_folders: Vec<String>,
     // First string is the folder, second is the error.
     failed_folders: Vec<(String, String)>,
 }
@@ -28,6 +29,7 @@ enum ActionPerformed {
     None,
     Marked,
     Deleted,
+    Unmarked,
 }
 
 /// This is the entry point to create, configure and run a cleanup routine.
@@ -108,9 +110,10 @@ impl Cleanup {
                 Ok(stats) => {
                     if stats.executed {
                         info!(
-                            "Cleanup completed. {} items marked as ready to be deleted. {} items deleted. {} items failed",
+                            "Cleanup completed. {} items marked as ready to be deleted. {} items deleted. {} items unmarked. {} items failed",
                             stats.marked_folders.len(),
                             stats.deleted_folders.len(),
+                            stats.unmarked_folders.len(),
                             stats.failed_folders.len()
                         );
                     } else {
@@ -206,6 +209,9 @@ impl Cleanup {
                     ActionPerformed::Marked => {
                         stats.marked_folders.push(folder);
                     }
+                    ActionPerformed::Unmarked => {
+                        stats.unmarked_folders.push(folder);
+                    }
                     ActionPerformed::None => {
                         // Do nothing.
                     }
@@ -221,6 +227,7 @@ impl Cleanup {
             cleanup_log.cleanup_id,
             chrono::Utc::now().timestamp(),
             &stats.marked_folders,
+            &stats.unmarked_folders,
             &stats.deleted_folders,
             &stats.failed_folders,
         )
@@ -236,12 +243,22 @@ impl Cleanup {
         folder: &str,
         now: chrono::DateTime<chrono::Utc>,
     ) -> Result<ActionPerformed> {
+        // Store paths always use '/' as the separator.
         let to_delete_marker_file_path =
-            std::path::PathBuf::from(folder.to_owned()).join(TO_DELETE_MARKER_FILE_NAME);
+            std::path::PathBuf::from(format!("{folder}/{TO_DELETE_MARKER_FILE_NAME}"));
 
         let file_meta = self.store.meta(&to_delete_marker_file_path).await?;
 
         if let Some(meta) = file_meta {
+            // The first pass can mark a folder before its record is loaded.
+            // Drop the marker if a record is there now: keeping it would
+            // delete the folder as soon as the record goes away, without a
+            // fresh retention period.
+            if self.find_db_reference(folder).await? {
+                self.store.delete(&to_delete_marker_file_path).await?;
+                return Ok(ActionPerformed::Unmarked);
+            }
+
             // Marker exists. Check if it's expired.
             if meta.last_modified + *self.retention_duration <= now {
                 self.store.delete_recursive(folder).await?;
@@ -751,6 +768,228 @@ mod tests {
             x.failed_folders().is_empty()
                 && x.deleted_folders().is_empty()
                 && x.marked_folders().is_empty()
+                && x.unmarked_folders().is_empty()
         }));
+    }
+
+    /// Joins a store folder and a file name with '/'.
+    fn store_path(folder: impl AsRef<std::path::Path>, file_name: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(format!("{}/{file_name}", folder.as_ref().to_string_lossy()))
+    }
+
+    /// Writes a sequence folder in the store with a `TO_DELETE` marker whose last
+    /// modified time is `marker_age_seconds` seconds in the past.
+    ///
+    /// Returns the sequence path in store and the marker's disk location, which
+    /// is needed to touch its last modified time (the store does not offer a way
+    /// to set it).
+    async fn write_marked_sequence(
+        context: &TestContext,
+        marker_age_seconds: i64,
+    ) -> (types::SequencePathInStore, std::path::PathBuf) {
+        let pis = types::SequencePathInStore::new();
+        let sample = r#"{"meta": "test"}"#;
+        context
+            .store
+            .write_bytes(store_path(pis.root(), "metadata.json"), sample.as_bytes())
+            .await
+            .unwrap();
+
+        let marker_path = store_path(pis.root(), TO_DELETE_MARKER_FILE_NAME);
+        context
+            .store
+            .write_bytes(&marker_path, vec![])
+            .await
+            .unwrap();
+
+        let marker_disk_path = context
+            .store
+            .root
+            .join(pis.root())
+            .join(TO_DELETE_MARKER_FILE_NAME);
+        filetime::set_file_mtime(
+            &marker_disk_path,
+            filetime::FileTime::from_unix_time(
+                filetime::FileTime::now().unix_seconds() - marker_age_seconds,
+                0,
+            ),
+        )
+        .unwrap();
+
+        (pis, marker_disk_path)
+    }
+
+    /// A folder marked before its record loaded survives once the record is
+    /// there again, even with an expired marker. The marker is dropped.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn test_marked_folder_with_record_again_is_not_deleted(
+        pool: sqlx::Pool<db::DatabaseType>,
+    ) {
+        let context = test_context(pool);
+
+        let retention_duration = types::Duration::seconds(3600);
+        let (pis, _marker_path) =
+            write_marked_sequence(&context, retention_duration.num_seconds() + 60).await;
+
+        // The folder is in use again: a sequence record points at it.
+        let locator: types::SequenceLocator = "seq_test".parse().unwrap();
+        let mut tx = context.db.transaction().await.unwrap();
+        db::sequence_create(&mut tx, &locator, &pis, None)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+
+        let mut cleanup = Cleanup::new((*context.db).clone(), (*context.store).clone())
+            .with_retention_duration(retention_duration)
+            .with_time_interval(types::Duration::seconds(0));
+
+        let stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
+
+        assert!(stats.marked_folders.is_empty());
+        assert!(stats.deleted_folders.is_empty());
+        assert_eq!(stats.unmarked_folders.len(), 1);
+        assert!(stats.failed_folders.is_empty());
+        assert!(
+            context
+                .store
+                .exists(store_path(pis.root(), "metadata.json"))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !context
+                .store
+                .exists(store_path(pis.root(), TO_DELETE_MARKER_FILE_NAME))
+                .await
+                .unwrap()
+        );
+    }
+
+    /// Once a marked folder's record is removed, it gets a full retention
+    /// period again instead of being deleted on the expired marker.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn test_record_removal_restarts_retention(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let retention_duration = types::Duration::seconds(3600);
+        let (pis, marker_disk_path) =
+            write_marked_sequence(&context, retention_duration.num_seconds() + 60).await;
+
+        // The folder is in use again: a sequence record points at it.
+        let locator: types::SequenceLocator = "seq_test".parse().unwrap();
+        let mut tx = context.db.transaction().await.unwrap();
+        db::sequence_create(&mut tx, &locator, &pis, None)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+
+        let mut cleanup = Cleanup::new((*context.db).clone(), (*context.store).clone())
+            .with_retention_duration(retention_duration)
+            .with_time_interval(types::Duration::seconds(0));
+
+        // The stale marker is dropped and the folder is left alone.
+        let stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(stats.deleted_folders.is_empty());
+        assert_eq!(stats.unmarked_folders.len(), 1);
+        assert!(
+            context
+                .store
+                .exists(store_path(pis.root(), "metadata.json"))
+                .await
+                .unwrap()
+        );
+
+        // The record goes away.
+        let mut cx = context.db.connection();
+        db::sequence_delete_by_locator(&mut cx, &locator, types::allow_data_loss())
+            .await
+            .unwrap();
+
+        // The folder is marked again with a fresh marker instead of being
+        // deleted because the old one had expired.
+        let stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(stats.marked_folders.len(), 1);
+        assert!(stats.deleted_folders.is_empty());
+        assert!(
+            context
+                .store
+                .exists(store_path(pis.root(), "metadata.json"))
+                .await
+                .unwrap()
+        );
+
+        let marker_meta = context
+            .store
+            .meta(store_path(pis.root(), TO_DELETE_MARKER_FILE_NAME))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            marker_meta.last_modified + *retention_duration > chrono::Utc::now(),
+            "the new marker must grant a full retention period, not carry the expired one"
+        );
+
+        // Once the fresh marker expires, the folder is deleted as usual.
+        filetime::set_file_mtime(
+            &marker_disk_path,
+            filetime::FileTime::from_unix_time(
+                filetime::FileTime::now().unix_seconds() - retention_duration.num_seconds() - 60,
+                0,
+            ),
+        )
+        .unwrap();
+
+        let stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(stats.deleted_folders.len(), 1);
+        assert!(
+            !context
+                .store
+                .exists(store_path(pis.root(), "metadata.json"))
+                .await
+                .unwrap()
+        );
+    }
+
+    /// A marked folder with no record is still deleted when its marker expires.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn test_expired_marker_without_record_is_deleted(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let retention_duration = types::Duration::seconds(3600);
+        let (pis, _marker_path) =
+            write_marked_sequence(&context, retention_duration.num_seconds() + 60).await;
+
+        let mut cleanup = Cleanup::new((*context.db).clone(), (*context.store).clone())
+            .with_retention_duration(retention_duration)
+            .with_time_interval(types::Duration::seconds(0));
+
+        let stats = cleanup
+            .try_cleanup(&CancellationToken::new())
+            .await
+            .unwrap();
+
+        assert_eq!(stats.deleted_folders.len(), 1);
+        assert!(stats.marked_folders.is_empty());
+        assert!(stats.unmarked_folders.is_empty());
+        assert!(stats.failed_folders.is_empty());
+        assert!(
+            !context
+                .store
+                .exists(store_path(pis.root(), "metadata.json"))
+                .await
+                .unwrap()
+        );
     }
 }
