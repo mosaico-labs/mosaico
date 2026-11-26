@@ -112,6 +112,9 @@ TopicMetadataOpt = Annotated[
 SequenceNameArg = Annotated[
     str, typer.Argument(help="Name of the Mosaico sequence to extract.")
 ]
+SequenceNamesArg = Annotated[
+    List[str], typer.Argument(help="Name of the Mosaico sequences to extract.")
+]
 StartTimestampOpt = Annotated[
     Optional[int],
     typer.Option(
@@ -217,10 +220,21 @@ def run_injector(injector) -> None:
         raise typer.Exit(code=EXIT_INTERRUPTED)
 
 
-def run_extractor(extractor) -> None:
-    """Runs an extractor, turning expected failures into a clean CLI error."""
+def run_extractor(extractor) -> Any:
+    """
+    Runs an extractor, turning expected failures into a clean CLI error.
+
+    Returns the outcome of its `run()`, for the caller to map onto the exit code (e.g. the
+    `ExtractionStatus` of the LeRobot extractor), `None` for the extractors without one.
+    """
     try:
-        extractor.run()
-    except (FileExistsError, ValueError) as e:
+        return extractor.run()
+    except (
+        FileExistsError,
+        ValueError,
+        KeyError,
+        RuntimeError,
+        FileNotFoundError,
+    ) as e:
         error_console.print(f"[bold red]Error:[/bold red] {e}")
         raise typer.Exit(code=1)

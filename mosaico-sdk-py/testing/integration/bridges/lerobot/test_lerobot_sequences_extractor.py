@@ -194,7 +194,7 @@ def failing_stats(monkeypatch) -> List[Path]:
 def test_extraction_recreates_the_dataset(extractor_config, lerobot_dataset):
     """Tests that exporting all the sequences recreates the ingested dataset: its metadata,
     and its rows in a single data file"""
-    saving_path = extractor_config.saving_path
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
 
     extractor = LeRobotSequencesExtractor(extractor_config)
 
@@ -219,7 +219,7 @@ def test_extraction_of_a_filtered_ingestion_recreates_the_filtered_dataset(
     """Tests that exporting the sequences ingested without a column recreates the ingested
     dataset without that column: in its metadata (features and episode stats) and in its rows"""
     config = replace(extractor_config, sequence_names=ingested_filtered_sequences)
-    saving_path = config.saving_path
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
 
     extractor = LeRobotSequencesExtractor(config)
 
@@ -253,7 +253,10 @@ def test_extraction_drops_the_missing_sequences(extractor_config):
     meta = extractor.meta
 
     assert [e.length for e in meta.episodes_map.values()] == [EPISODE_LENGTHS[0]]
-    exported = pq.read_table(config.saving_path / EXPORTED_DATA_FILE)
+
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
+
+    exported = pq.read_table(saving_path / EXPORTED_DATA_FILE)
     assert exported.num_rows == EPISODE_LENGTHS[0]
 
 
@@ -264,12 +267,15 @@ def test_extraction_without_any_sequence_raises(extractor_config):
     with pytest.raises(RuntimeError, match="No episode to export"):
         LeRobotSequencesExtractor(config).run()
 
-    assert not config.saving_path.exists()
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
+
+    assert not saving_path.exists()
 
 
 def test_extraction_refuses_an_existing_folder(extractor_config):
     """Tests that an existing folder is not replaced without `overwrite`"""
-    extractor_config.saving_path.mkdir()
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
+    saving_path.mkdir(parents=True)
 
     with pytest.raises(FileExistsError, match="already exists"):
         LeRobotSequencesExtractor(extractor_config).run()
@@ -277,10 +283,10 @@ def test_extraction_refuses_an_existing_folder(extractor_config):
 
 def test_extraction_overwrites_an_existing_dataset(extractor_config):
     """Tests that an existing LeRobot dataset is replaced with `overwrite`"""
-    saving_path = extractor_config.saving_path
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
     (saving_path / "meta" / "episodes").mkdir(parents=True)
     (saving_path / "meta" / "info.json").write_text("{}")
-    (saving_path / "data").mkdir()
+    (saving_path / "data").mkdir(parents=True)
     stale_file = saving_path / "stale.txt"
     stale_file.write_text("A previous extraction")
 
@@ -294,8 +300,8 @@ def test_extraction_overwrites_an_existing_dataset(extractor_config):
 def test_extraction_overwrites_an_empty_folder(extractor_config):
     """Tests that an existing empty folder is replaced with `overwrite`: it is not a LeRobot
     dataset, but replacing it loses nothing"""
-    saving_path = extractor_config.saving_path
-    saving_path.mkdir()
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
+    saving_path.mkdir(parents=True)
 
     status = LeRobotSequencesExtractor(replace(extractor_config, overwrite=True)).run()
 
@@ -309,7 +315,7 @@ def test_failed_extraction_leaves_the_existing_dataset_untouched(
 ):
     """Tests that an extraction failing with `overwrite` discards its partial files and leaves
     the dataset it would have replaced untouched"""
-    saving_path = extractor_config.saving_path
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
     shutil.copytree(lerobot_dataset, saving_path)
     original = _files(saving_path)
 
@@ -323,7 +329,7 @@ def test_failed_extraction_leaves_the_existing_dataset_untouched(
 def test_failed_extraction_writes_nothing(extractor_config, failing_stats):
     """Tests that an extraction failing to a new folder discards its partial files, without
     creating the folder"""
-    saving_path = extractor_config.saving_path
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
 
     with pytest.raises(RuntimeError, match="Injected failure"):
         LeRobotSequencesExtractor(extractor_config).run()
@@ -338,8 +344,8 @@ def test_extraction_refuses_to_overwrite_a_folder_that_is_not_a_dataset(
 ):
     """Tests that a non-empty folder that is not a LeRobot dataset is not replaced, even
     with `overwrite`"""
-    saving_path = extractor_config.saving_path
-    saving_path.mkdir()
+    saving_path = extractor_config.saving_path / extractor_config.dataset_name
+    saving_path.mkdir(parents=True)
     other_file = saving_path / "other.txt"
     other_file.write_text("Not a LeRobot dataset")
 
