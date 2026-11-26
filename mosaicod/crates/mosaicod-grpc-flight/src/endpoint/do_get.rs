@@ -25,12 +25,19 @@ pub async fn do_get(
 
     trace!("{:?}", doget_params.metadata);
 
+    // A topic without data has no data files to read
+    let Some(optimal_batch_size) = doget_params.optimal_batch_size else {
+        return Ok(FlightDataEncoderBuilder::new()
+            .with_schema(mosaicod_ext::arrow::empty_schema_ref())
+            .build(futures::stream::empty()));
+    };
+
     let mut query_result = ctx
         .timeseries_querier
         .read(
             &doget_params.data_folder_path,
             doget_params.metadata.ontology_metadata.serialization_format,
-            Some(doget_params.optimal_batch_size),
+            Some(optimal_batch_size),
         )
         .await?;
 
@@ -77,7 +84,7 @@ pub async fn do_get(
     debug!(
         target = "streaming topic",
         cols = schema.fields().len(),
-        optimal_batch_size = doget_params.optimal_batch_size,
+        optimal_batch_size,
         max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );
 

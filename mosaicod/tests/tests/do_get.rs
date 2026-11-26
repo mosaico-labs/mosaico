@@ -371,3 +371,38 @@ async fn test_do_get_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_do_get_topic_without_data(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/no_data", sequence_name);
+
+    actions::sequence_create(&mut client, sequence_name, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
+        .await
+        .unwrap();
+
+    // Only empty batches: the topic is finalized without data
+    let batches = vec![ext::arrow::testing::dummy_empty_batch()];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    let batches = actions::do_get(&mut client, topic_name).await.unwrap();
+    assert!(batches.is_empty(), "expected no batches, got: {batches:?}");
+
+    server.shutdown().await;
+}
