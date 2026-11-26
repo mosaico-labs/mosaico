@@ -126,15 +126,17 @@ mosaico extract mcap my_test_run --mcap-path ./exports
 
 ### Interactive Examples
 
-We provide pre-built examples to help you explore the SDK capabilities. You can run them using the `mosaicolabs.examples` command:
+We provide pre-built examples to help you explore the SDK capabilities. You can run them with the `mosaico examples` command, which connects through your active connection profile:
 
 ```bash
-# List all available examples and help
-mosaicolabs.examples --help
+# List all available examples
+mosaico examples ls
 
 # Run a specific example
-mosaicolabs.examples ros_injection
+mosaico examples ros_injection
 ```
+
+The older `mosaicolabs.examples` script still works but is deprecated.
 
 **Available Examples:**
 
