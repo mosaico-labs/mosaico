@@ -565,10 +565,7 @@ class Image(
         if channels > 1 and arr.dtype == np.uint16:
             arr = (arr // 256).astype(np.uint8)
 
-        # Let Pillow infer the mode from the array's dtype and shape: it equals
-        # the mode in _IMG_ENCODING_MAP for every convertible encoding, and
-        # Pillow 13 rejects a `mode` argument that changes the data type
-        # (uint16 -> "I;16", int16 -> "I")
+        # Pillow infers the mode; an explicit one that changes the dtype raises
         return PILImage.fromarray(arr)
 
     @classmethod
