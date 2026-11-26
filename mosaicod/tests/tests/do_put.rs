@@ -216,6 +216,54 @@ async fn test_do_put_schema_with_empty_batches(pool: sqlx::Pool<db::DatabaseType
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_do_put_null_timestamps(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    actions::sequence_create(&mut client, sequence_name, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    // Some and all timestamps null. The field is nullable, as pyarrow makes it by default.
+    let cases = [
+        ("some_null", vec![Some(10), None, Some(30)]),
+        ("all_null", vec![None, None]),
+    ];
+
+    for (suffix, timestamps) in cases {
+        let topic_name = &format!("{sequence_name}/{suffix}");
+        let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
+            .await
+            .unwrap();
+
+        let values = vec![1; timestamps.len()];
+        let batch = RecordBatch::try_from_iter([
+            (
+                "timestamp_ns",
+                Arc::new(Int64Array::from(timestamps)) as ArrayRef,
+            ),
+            ("value", Arc::new(Int64Array::from(values)) as ArrayRef),
+        ])
+        .unwrap();
+
+        let res = actions::do_put(&mut client, &topic_uuid, topic_name, vec![batch], false).await;
+        assert_eq!(
+            res.unwrap_err().code(),
+            tonic::Code::InvalidArgument,
+            "{suffix}"
+        );
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put_duplicate_field(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
