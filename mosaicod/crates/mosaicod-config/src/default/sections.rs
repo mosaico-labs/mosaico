@@ -27,6 +27,7 @@ pub struct ConfigFile {
     pub store_optimizer: StoreOptimizerConfig,
     pub cleanup: CleanupConfig,
     pub logging: LoggingConfig,
+    pub usage_reporting: UsageReportingConfig,
 }
 
 #[derive(Debug, Default, Deserialize, PartialEq, Eq)]
@@ -118,6 +119,12 @@ pub struct LoggingConfig {
     pub level: Option<LogLevel>,
     #[serde(deserialize_with = "deserialize_from_str")]
     pub format: Option<LogFormat>,
+}
+
+#[derive(Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields, default)]
+pub struct UsageReportingConfig {
+    pub enabled: Option<bool>,
 }
 
 /// Deserializes a TOML string into any `T: FromStr`, via an intermediate `String` —
@@ -229,6 +236,9 @@ mod tests {
             [logging]
             level = "debug"
             format = "json"
+
+            [usage_reporting]
+            enabled = false
         "#;
         let path = write_temp_file("mosaicod_test_load_full.toml", toml);
 
@@ -251,6 +261,7 @@ mod tests {
         assert_eq!(cfg.database.max_connections, NonZero::new(25));
         assert_eq!(cfg.logging.level, Some(LogLevel::Debug));
         assert_eq!(cfg.logging.format, Some(LogFormat::Json));
+        assert_eq!(cfg.usage_reporting.enabled, Some(false));
     }
 
     #[test]

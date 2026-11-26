@@ -48,6 +48,13 @@ fn build_params(env: &Env, cfg: &ConfigFile, skip_db_config: bool) -> error::Pub
             .or_else(|| std::thread::available_parallelism().ok()),
     )?;
 
+    let usage_reporting_enabled = Param::optional(
+        "MOSAICOD_USAGE_REPORTING_ENABLED",
+        env,
+        cfg.usage_reporting.enabled,
+        DEFAULT_USAGE_REPORTING_ENABLED,
+    )?;
+
     let grpc_max_decode_message_size = Param::optional(
         "MOSAICOD_GRPC_MAX_DECODE_MESSAGE_SIZE",
         env,
@@ -256,6 +263,9 @@ fn build_params(env: &Env, cfg: &ConfigFile, skip_db_config: bool) -> error::Pub
             cfg.cleanup.retention_duration,
             DEFAULT_CLEANUP_RETENTION_DURATION,
         )?,
+
+        // usage reporting
+        usage_reporting_enabled,
     };
 
     params.validate()?;
@@ -378,6 +388,9 @@ mod tests {
                 level: Some(LogLevel::Debug),
                 format: Some(LogFormat::Json),
             },
+            usage_reporting: UsageReportingConfig {
+                enabled: Some(false),
+            },
         };
 
         let p = build_params(&Env::ignored(), &config_file, false);
@@ -433,5 +446,14 @@ mod tests {
 
         assert_eq!(p.log_level.value, LogLevel::Debug);
         assert_eq!(p.log_format.value, LogFormat::Json);
+
+        assert!(!p.usage_reporting_enabled.value);
+    }
+
+    #[test]
+    fn usage_reporting_is_on_by_default() {
+        let p = params_from(ConfigFile::default());
+
+        assert!(p.usage_reporting_enabled.value);
     }
 }
