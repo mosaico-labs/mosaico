@@ -602,12 +602,6 @@ def lerobot_injector():
             "connecting to the Mosaico server or writing any data."
         ),
     )
-    parser.add_argument(
-        "--update-if-exists",
-        action="store_true",
-        help="Not used by the LeRobot bridge: ignored.",
-    )
-
     # Connection Arguments
     parser.add_argument("--host", default="localhost", help="Mosaico Server Host")
     parser.add_argument(
@@ -691,7 +685,6 @@ def lerobot_injector():
         sequence_name=args.name,
         metadata=user_metadata,
         topic_metadata=user_topic_metadata or None,
-        update_if_exists=args.update_if_exists,
         column_names=args.column_names,
         dry_run=args.dry_run,
         host=args.host,
