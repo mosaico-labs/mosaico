@@ -10,71 +10,100 @@
 <br/>
 
 <p align="center">
+  <a href="https://github.com/mosaico-labs/mosaico/pkgs/container/mosaicod"><img src="https://img.shields.io/github/v/tag/mosaico-labs/mosaico?color=orange&sort=semver&label=mosaicod&filter=v*.*.*" alt="mosaicod release" /></a>
+  <a href="https://pypi.org/project/mosaicolabs"><img src="https://img.shields.io/pypi/v/mosaicolabs?color=blue" alt="PyPI" /></a>
+  <a href="https://docs.mosaico.dev"><img src="https://img.shields.io/badge/-%20Documentation-%23bd38b4?style=flat&logo=readthedocs&logoColor=white&labelColor=gray" alt="documentation" /></a>
   <a href="https://discord.gg/mwQtFnsckE"><img src="https://shields.io/discord/1413199575442784266?color=%235865f2" alt="discord" /></a>
-  <a href="https://github.com/mosaico-labs/mosaico/pkgs/container/mosaicod"><img src="https://img.shields.io/github/v/tag/mosaico-labs/mosaico?color=orange&sort=semver&label=mosaicod&filter=v*.*.*" /></a>
-  <a href="https://docs.mosaico.dev"><img src="https://img.shields.io/badge/-%20Documentation-%23bd38b4?style=flat&logo=readthedocs&logoColor=white&labelColor=gray" alt="documentation"></a>
 </p>
+
+# Robot data, on demand.
+
+Mosaico is an open-source data platform for robotics and Physical AI.
+You ingest a recording once. From then on, you just ask for the signals and time windows you need.
+Storage format, indexing and synchronization are Mosaico's job, not yours.
 
 <p align="center">
-  <a href="https://pypi.org/project/mosaicolabs"><img src="https://img.shields.io/pypi/v/mosaicolabs?color=blue" /></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="python version"/></a>
-  <a href="https://docs.mosaico.dev/python-sdk"><img src="https://img.shields.io/badge/API_Reference-blue?style=flat&logo=readthedocs&logoColor=white&labelColor=gray" alt="documentation"></a>
+  <img alt="Terminal: an NVIDIA recording is downloaded, ingested with the mosaico CLI and listed in the catalog" src="https://mosaico.dev/ext/github/terminal.webp" width="800">
 </p>
+
+## Streamlining data for Physical AI
+
+If you work with robot data, this is probably familiar: you need ten seconds of IMU from a two-hour drive, and you end up parsing the whole `.bag` or `.mcap`.
+Then, to train on it, you write another sync script and export another large CSV.
+We ran into this often enough that we decided to fix it.
+
+Mosaico stores the data differently.
+Every topic is indexed and typed against an ontology, which means you can ask for one signal, one time window, or every moment the acceleration went above 5 m/s², and you get back exactly that.
 
 <p align="center">
-  <a target="_blank" href="https://discord.gg/mwQtFnsckE"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord" alt="Discord" /></a>
+  <img src="https://mosaico.dev/ext/github/stack.webp" width="360" />
 </p>
 
-# The Data Platform for Robotics and Physical AI
+Sensors rarely share a clock: lidar at 10 Hz, IMU at 100 Hz, camera at 30 Hz.
+Mosaico can line them up into fixed-rate tables that drop straight into a training loop.
+There's no query language to learn: you work from native SDKs. Today Python, others are on the way.
 
-**Mosaico** is a *blazing-fast* data platform designed to close the loop between physical world data and scalable, production-grade systems.
-Mosaico it does one thing exceptionally well: transforms monolithic sensor logs into a structured, queryable archive built for multi-modal data.
+## Data grows in layers, never overwritten
 
-Retrieval is highly efficient thanks to a modern data lake approach. 
-Leveraging **zero-copy architecture** eliminates serialization overhead, surpassing the limitations of `.bag` or `.mcap` storage by enabling direct, random access to specific signals without parsing entire files.
-Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
+With files, adding data to a recording means producing a new file, and the old one and the new one can silently disagree.
+In Mosaico a recording is a sequence, and every upload is a session: an immutable layer of topics added to that sequence.
 
 <p align="center">
-  <img src="https://mosaico.dev/stack.webp" width="400px" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://mosaico.dev/ext/github/sessions-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="https://mosaico.dev/ext/github/sessions-light.webp">
+    <img alt="A sequence grows in sessions: each upload is an immutable layer of topics, and a failed update rolls back only its own session" src="https://mosaico.dev/ext/github/sessions-light.webp" width="800">
+  </picture>
 </p>
 
-At its foundation is a strictly-typed **data ontology**. 
-Instead of treating data as generic byte arrays, Mosaico enforces a semantic understanding of every object. 
-This guarantees data is validatable, optimized for transport, and deeply queryable by physical values.
+New labels, a recomputed odometry or a sensor added later go into a new session of the same sequence.
+Earlier sessions are never touched, so every query on them returns the same result over time.
+If an update goes wrong, only that session is rolled back.
 
-Targeting durable **long-term storage** and strict **data lineage**, Mosaico rejects traditional versioning, which introduces query ambiguity. 
-Instead, it uses immutable data layers. 
-This horizontal growth ensures query history remains deterministic and absolutely immutable.
+There are no versions to pick between: the sequence simply grows.
+See [updating a sequence](https://docs.mosaico.dev/learn/updating_sequences) for details.
 
-## What you'll find
-This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
+## Quickstart
 
-Mosaico takes a strictly code-first approach. 
-We didn't want to force you to learn yet another SQL-like sublanguage just to move data around. 
-Instead, we provide native SDKs (starting with [Python](https://docs.mosaico.dev/python-sdk/) so you can query and upload data using the programming language you are already comfortable with.
+```bash
+# Install the daemon (Linux and macOS; on Windows use WSL2)
+curl -fsSL https://get.mosaico.dev | sh
 
-Under the hood, the system operates on a standard client-server model. 
-The server daemon, [`mosaicod`](https://docs.mosaico.dev/daemon/), acts as the central hub that takes care of the heavy lifting, like data conversion, compression, and organized storage. 
-On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
+# Install the SDK and the CLI, then connect
+pip install "mosaicolabs[cli]"
+mosaico profile add dev --no-interactive --host localhost
+
+# Ingest your first recording: here r2b_galileo (about 470 MB) from the NVIDIA R2B Dataset 2024
+curl -L -o r2b_galileo.mcap "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files?redirect=true&path=r2b_galileo/r2b_galileo_0.mcap"
+mosaico inject ros r2b_galileo.mcap --name r2b_galileo --log warning
+
+# Stream the IMU topic and keep only the moments of hard acceleration
+mosaico topic ls --locator '*/chassis/imu' | mosaico topic mcat | jq -c 'select(.acceleration.x > 1) | {t: ._timestamp, ax: .acceleration.x}'
+```
+
+The CLI works the same for you and for your coding agent: plain commands, tables in the terminal, CSV and JSON Lines when piped, so either of you can explore and work on the data without writing code.
+
+To try it without your own data, run `mosaicolabs.examples --help`.
+
+## How it works
+
+A Rust daemon, `mosaicod`, handles conversion, compression and storage.
+The client SDKs (Python today, others in development) are what you import in your code.
+Under the hood, a columnar, zero-copy format gives you direct access to any signal.
+The full story is in the [architecture docs](https://docs.mosaico.dev/daemon).
 
 <p align="center">
-  <img src="docs/main/static/img/stack.svg" width="400px" />
+  <img src="https://mosaico.dev/ext/github/stack.svg" width="320" />
 </p>
 
-## Streamlining Data for Physical AI
-The transition from classical robotics to Physical AI represents a fundamental shift in data requirements.
+## Where to go next
 
-**Classical Robotics** operates in an event-driven world. Data is asynchronous, sparse, and stored in monolithic sequential files (like ROS bags). A Lidar might fire at 10Hz, an IMU at 100Hz, and a camera at 30Hz, all drifting relative to one another.
+The [docs](https://docs.mosaico.dev) cover everything this page skips.
+If you work with a coding agent, point it at the [agent-ready version](https://docs.mosaico.dev/llms-full.txt).
 
+We're a small team and we read everything, so come say hi on [Discord](https://discord.gg/mwQtFnsckE) or open a thread in [GitHub Discussions](https://github.com/mosaico-labs/mosaico/discussions).
 
-**Physical AI** requires synchronous, dense, and tabular data. Models expect fixed-size tensors arriving at a constant frequency (e.g., a batch of state vectors at exactly 50Hz).
-
-Mosaico’s [ML module](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/) automates this tedious *data plumbing*. It ingests raw, unsynchronized data and transforms it on the fly into the aligned, flattened formats ready for model training, eliminating the need for massive intermediate CSV files.
-
-## Documentation
-For a comprehensive description, please visit our [documentation](https://docs.mosaico.dev). If you are building with AI, you can find specialized technical guides in the [Agent-ready](https://docs.mosaico.dev/llms-full.txt) section.
-
-### Cite Us
+## Cite us
 
 If you use Mosaico for a publication, please cite it as:
 
