@@ -177,7 +177,7 @@ The `timestamp` column gives the time of every message: LeRobot stores it in sec
 
 #### Rebuilding the Data Columns
 
-On export, `LeRobotWriter` applies the same mapping in reverse. Each slice streamed by the loaderare buffered up to 64 MB and written as one row group, so an episode is never held in memory as a whole but up to a maximum of 64 MB.
+On export, `LeRobotWriter` applies the same mapping in reverse. Each slice streamed by the loader is buffered up to 64 MB and written as one row group, so an episode is never held in memory as a whole but up to a maximum of 64 MB.
 
 | Data column | Rebuilt from |
 | :--- | :--- |
