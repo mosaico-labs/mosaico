@@ -30,6 +30,7 @@ from .stats import LeRobotStats
 
 _META_DIR = "meta"
 _EPISODES_DIR = "episodes"
+_DATA_DIR = "data"
 _EPISODES_FILE = "chunk-{chunk_index:03d}/file-{file_index:03d}.parquet"
 _INFO_FILE = "info.json"
 _STATS_FILE = "stats.json"
@@ -231,6 +232,25 @@ class LeRobotDatasetMeta:
                 for index, episode in self.episodes_map.items()
             },
         )
+
+    @staticmethod
+    def is_dataset(path: Path) -> bool:
+        """
+        Returns whether `path` is the root folder of a LeRobot dataset: it holds
+        `meta/info.json`, `meta/episodes/` and `data/`. Only the layout is checked,
+        not the content.
+
+        Args:
+            path (Path): The folder to check.
+
+        Returns:
+            bool: `True` if `path` has the layout of a LeRobot dataset, `False` otherwise.
+        """
+        meta = path / _META_DIR
+        info = meta / _INFO_FILE
+        episodes = meta / _EPISODES_DIR
+        data = path / _DATA_DIR
+        return info.is_file() and episodes.is_dir() and data.is_dir()
 
     @classmethod
     def load(cls, root: Path) -> "LeRobotDatasetMeta":

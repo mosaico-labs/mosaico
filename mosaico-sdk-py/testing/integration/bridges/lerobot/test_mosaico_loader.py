@@ -115,5 +115,5 @@ def test_loader_drops_the_sequences_that_cannot_be_exported(
 def test_loader_raises_with_no_episode(mosaico_client):
     loader = MosaicoToLeRobotLoader(mosaico_client, [MISSING_SEQUENCE_NAME])
 
-    with pytest.raises(ValueError, match="No episode to export"):
+    with pytest.raises(RuntimeError, match="No episode to export"):
         _ = loader.info

@@ -1,5 +1,6 @@
 import json
 import math
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List
@@ -340,6 +341,29 @@ def test_info_incompatible(lerobot_dataset, change, error):
 
     with pytest.raises(ValueError, match=error):
         info.check_compatible(replace(info, **change(info)))
+
+
+# --- LeRobotDatasetMeta.is_dataset ---
+
+
+def test_is_dataset_with_the_full_layout(lerobot_dataset):
+    assert LeRobotDatasetMeta.is_dataset(lerobot_dataset)
+
+
+@pytest.mark.parametrize(
+    "removed",
+    ["meta/info.json", "meta/episodes", "data"],
+    ids=["no-info-json", "no-episodes-folder", "no-data-folder"],
+)
+def test_is_dataset_without_part_of_the_layout(lerobot_dataset_factory, removed):
+    root = lerobot_dataset_factory()
+    path = root / removed
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+    assert not LeRobotDatasetMeta.is_dataset(root)
 
 
 # --- LeRobotDatasetMeta.load ---

@@ -90,6 +90,21 @@ class LeRobotLoader(BaseLoader):
         self._meta: Optional[LeRobotDatasetMeta] = None
         """The dataset metadata, lazily loaded (see `_resolve_metadata`)."""
 
+    @staticmethod
+    def is_dataset(path: Path) -> bool:
+        """
+        Returns whether `path` is the root folder of a LeRobot dataset: it holds
+        `meta/info.json`, `meta/episodes/` and `data/`. Only the layout is checked,
+        not the content.
+
+        Args:
+            path (Path): The folder to check.
+
+        Returns:
+            bool: `True` if `path` has the layout of a LeRobot dataset, `False` otherwise.
+        """
+        return LeRobotDatasetMeta.is_dataset(path)
+
     def _validate_folder(self):
         """Raises `FileNotFoundError` if the dataset folder does not exist."""
         if not self._file_path.exists():
@@ -169,7 +184,9 @@ class LeRobotLoader(BaseLoader):
             LeRobotDatasetMeta: The dataset metadata.
 
         Raises:
-            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be loaded.
+            IOError: If the dataset folder does not exist, or its `meta/` folder cannot be
+                loaded: it is missing, or `meta/info.json`, `meta/tasks.parquet` or the
+                episodes parquet files are missing or invalid.
         """
         if self._meta is None:
             try:
