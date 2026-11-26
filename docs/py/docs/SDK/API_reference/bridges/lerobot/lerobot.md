@@ -16,3 +16,6 @@ description: API Reference for LeRobot Bridge
         - "!^serialization_formats$"
 ::: mosaicolabs.bridges.lerobot.LeRobotInjector
 ::: mosaicolabs.bridges.lerobot.LeRobotSchemaMetadata
+::: mosaicolabs.bridges.lerobot.LeRobotExtractorConfig
+::: mosaicolabs.bridges.lerobot.LeRobotSequencesExtractor
+::: mosaicolabs.bridges.lerobot.ExtractionStatus
