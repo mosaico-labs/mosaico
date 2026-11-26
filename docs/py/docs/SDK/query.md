@@ -9,7 +9,7 @@ The **Query Workflow** in Mosaico provides a high-performance, **fluent** interf
     When the connection is established via the authorization middleware (i.e. using an [API-Key](./client.md#2-authentication-api-key)), the query workflow requires the `read` permission.
 
 !!! example "Try-It Out"
-    You can experiment yourself the Query module via the **[Querying Catalogs](https://docs.mosaico.dev/examples/querying_catalogs) Example**.
+    You can try out the Query module yourself via the **[Querying Catalogs](https://docs.mosaico.dev/examples/querying_catalogs) Example**.
 
 A typical query workflow involves chaining methods within specialized builders to create a unified request that the server executes atomically. In the example below, the code orchestrates a multi-domain search to isolate high-interest data segments. Specifically, it queries for:
 
@@ -18,7 +18,7 @@ A typical query workflow involves chaining methods within specialized builders t
 * **Ontology Analysis**: Performs a deep inspection of IMU sensor payloads to identify specific time segments where the **X-axis acceleration exceeds a certain threshold** while simultaneously the **Y-axis acceleration exceeds a certain threshold**.
 
 ```python
-from mosaicolabs import QueryOntologyCatalog, QuerySequence, QueryTopic, IMU, MosaicoClient
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, QuerySequence, QueryTopic, String
 
 # Establish a connection to the Mosaico Data Platform
 with MosaicoClient.connect("localhost", 6726) as client:
@@ -189,7 +189,7 @@ In the next example, we first find all topics of a specific channel from a speci
 from mosaicolabs import MosaicoClient, QueryTopic
 
 with MosaicoClient.connect("localhost", 6726) as client:
-    # Broad Search: Find sequences with high-precision GPS
+    # Broad Search: find the log topic in sequences matching a name pattern
     initial_response = client.query(
             QueryTopic().with_name("/localization/log_string"), # Target a specific log topic
             QuerySequence().with_name_match("test_winter_2025_")  # Filter by sequence name pattern
@@ -203,7 +203,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         )
 ```
 
-### Wildcards patterns Queries
+### Wildcard Pattern Queries
 
 Mosaico exposes a `match` operator that can perform lightweight, glob-style pattern matching instead of requiring an exact value. This `match` operator applies to:
 

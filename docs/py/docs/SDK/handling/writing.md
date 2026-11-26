@@ -193,7 +193,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 !!! info "Error Handling and API-Key"
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy is successfully executed by the server only if the API-Key has the `delete` permission. If this is not the case, the server will raise an error and the current writing Session will remain in an unlocked state.
 
-Once obtained, the `SequenceUpdater` can be used to create new topics and push data to them, in the very same way as a explained in the [`TopicWriter` section](#topicwriter).
+Once obtained, the `SequenceUpdater` can be used to create new topics and push data to them, in the very same way as explained in the [`TopicWriter` section](#topicwriter).
 
 ```python
 # Continues from the code above...

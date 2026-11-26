@@ -9,7 +9,7 @@ The **Reading Workflow** in Mosaico is architected to separate resource discover
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the reading workflow requires the `read` permission.
 
 !!! example "Try-It Out"
-    You can experiment yourself the Handlers module via the **[Data Discovery and Inspection](https://docs.mosaico.dev/examples/data_inspection) Example**.
+   You can try out the Handlers module yourself via the **[Data Discovery and Inspection](https://docs.mosaico.dev/examples/data_inspection) Example**.
 
 ### Handlers: The Catalog Layer
 
@@ -64,7 +64,7 @@ from mosaicolabs import MosaicoClient
 with MosaicoClient.connect("localhost", 6726) as client:
     # Use a Handler to inspect the catalog
     top_handler = client.topic_handler("mission_alpha", "/front/imu")
-    # Note that the same handler can be retrieve via the SequenceHandler of the parent sequence:
+    # Note that the same handler can be retrieved via the SequenceHandler of the parent sequence:
     # seq_handler = client.sequence_handler("mission_alpha")
     # top_handler = seq_handler.get_topic_handler("/front/imu")
     if top_handler:
