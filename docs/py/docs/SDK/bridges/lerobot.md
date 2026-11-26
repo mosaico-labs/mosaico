@@ -3,7 +3,7 @@ title: LeRobot
 description: LeRobot-Mosaico Bridge
 ---
 
-The **LeRobot Bridge** module is the bidirectional gateway between [LeRobot](https://github.com/huggingface/lerobot) datasets and the Mosaico Data Platform: **ingesting** a LeRobot v3.0 dataset folder into Mosaico, one sequence per episode (via `LeRobotInjector`), and **exporting** Mosaico sequences back out as a LeRobot v3.0 dataset folder, one episode per sequence (via `LeRobotSequencesExtractor`). The dataset is read and written directly with `pyarrow`: the `lerobot` package is not needed.
+The **LeRobot Bridge** module maps [LeRobot](https://github.com/huggingface/lerobot) episodes to Mosaico sequences and back. `LeRobotInjector` **ingests** a LeRobot v3.0 dataset folder into the Mosaico Data Platform, one episode to one sequence. `LeRobotSequencesExtractor` **exports** sequences to a LeRobot v3.0 dataset folder, one sequence to one episode. The dataset files are read and written with `pyarrow`, and the `lerobot` package is optional.
 
 !!! info "API-Keys"
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the LeRobot Ingestion employs the mosaico [Writing Workflow](../handling/writing.md), which is allowed only if the key has the `write` permission. The LeRobot Export only reads sequences, and needs at least the `read` permission.
