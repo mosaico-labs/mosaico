@@ -715,6 +715,67 @@ async fn test_ontology_in_single_value_acts_like_eq(pool: sqlx::Pool<db::Databas
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_eq_with_many_chunks_per_topic(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    // Every batch is stored as its own chunk. All the chunks contain 5 in their
+    // [min, max] range, so they all survive the pruning and are read.
+    let seq = "seq_many_chunks";
+    let topics = [
+        // 5 in every chunk
+        (
+            "topic_a",
+            vec![int_batch(0, &[5, 6]), int_batch(100, &[4, 5])],
+        ),
+        // 5 only in the last chunk
+        ("topic_b", vec![int_batch(0, &[1, 9]), int_batch(100, &[5])]),
+        // 5 in no chunk
+        (
+            "topic_c",
+            vec![int_batch(0, &[1, 9]), int_batch(100, &[3, 7])],
+        ),
+    ];
+
+    actions::sequence_create(&mut client, seq, "")
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(&mut client, seq).await.unwrap();
+    for (suffix, batches) in topics {
+        let topic_name = format!("{seq}/{suffix}");
+        let uuid = actions::topic_create(&mut client, &session_uuid, &topic_name, "")
+            .await
+            .unwrap();
+        actions::do_put(&mut client, &uuid, &topic_name, batches, false)
+            .await
+            .unwrap();
+    }
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    let items = actions::query(
+        &mut client,
+        proto_query::Filter {
+            ontology: Some(filter::ontology_filter([("mock.value", filter::eq(5))])),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+    let mut locators = topic_locators(&items);
+    locators.sort();
+    assert_eq!(
+        locators,
+        vec![format!("{seq}/topic_a"), format!("{seq}/topic_b")]
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_ontology_match_filters_by_regex(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())

@@ -156,6 +156,11 @@ impl Query {
                     let mut topics_with_data: HashSet<i32> = HashSet::new();
 
                     for chunk in chunks {
+                        // The other chunks of a matching topic can't change the result
+                        if topics_with_data.contains(&chunk.topic_id) {
+                            continue;
+                        }
+
                         let topic = topics_map.get(&chunk.topic_id);
                         if topic.is_none() {
                             debug!(
