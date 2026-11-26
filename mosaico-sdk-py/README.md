@@ -126,9 +126,12 @@ mosaico extract mcap my_test_run --mcap-path ./exports
 
 ### Interactive Examples
 
-We provide pre-built examples to help you explore the SDK capabilities. You can run them with the `mosaico examples` command, which connects through your active connection profile:
+We provide pre-built examples to help you explore the SDK capabilities. They run through the `mosaico` CLI and connect to the server of your active connection profile, so install the CLI and create a profile first (see [Command Line](#command-line)):
 
 ```bash
+pip install "mosaicolabs[cli]"
+mosaico profile add dev
+
 # List all available examples
 mosaico examples ls
 
@@ -140,11 +143,15 @@ The older `mosaicolabs.examples` script still works but is deprecated.
 
 **Available Examples:**
 
-  * `ros_injection`: Demonstrates downloading a sample dataset and ingesting it. **Run this first** — the other examples query the data it ingests.
-  * `reconstruct_rosbags`: Reconstructs the ingested rosbag.
-  * `data_inspection`: Shows how to list sequences and inspect topic metadata.
+  * `ros_injection`: Downloads a sample ROS bag and ingests it. **Run this first**: the ROS and query examples read the data it ingests.
+  * `reconstruct_rosbags`: Rebuilds ROS bags from the sequences written by `ros_injection`.
+  * `mcap_injection`: Downloads a sample MCAP file and ingests it.
+  * `reconstruct_mcaps`: Rebuilds MCAP files from the sequences written by `mcap_injection`.
+  * `data_inspection`: Lists the sequences in the catalog and inspects their topics.
   * `query_catalogs`: Advanced querying based on ontology tags and sensor values.
-  * `mujoco_vis`: Advanced querying and result visualization.
+  * `mujoco_vis`: Retrieves a UR robot sequence, plots its joints and replays it in MuJoCo (requires `pip install mujoco`).
+
+> The `mosaicolabs.examples` script, with its `--host`/`--port`/`--tls`/`--api-key` options, is deprecated and will be removed in a future release.
 
 ## Documentation
 
