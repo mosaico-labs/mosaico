@@ -13,6 +13,8 @@ The **LeRobot Bridge** module is the bidirectional gateway between [LeRobot](htt
 
     Camera data is ingested only when it is recorded as images (`dtype: image`, embedded in the data files). Video features (`dtype: video`, stored under `videos/`) are not supported yet: they are skipped with a warning, so a dataset recorded with video loses its camera data, and only its other features are ingested. LeRobot records cameras as video by default: to ingest them, record the dataset as images (`--dataset.video=false` with `lerobot-record`, or `use_videos=False` in `LeRobotDataset.create()`).
 
+    The export only reads sequences ingested by the LeRobot Bridge, because it rebuilds the dataset from their `_lerobot_` metadata: any other sequence is dropped with a warning (see [Reading Back the Sequences](#reading-back-the-sequences-mosaicotolerobotloader)). A sequence ingested from a dataset recorded with video holds no camera data, so its exported episode has none either.
+
 ## Architecture
 
 The module is composed of collaborating components that handle both directions of the pipeline, LeRobot dataset → Mosaico (ingestion) and Mosaico → LeRobot dataset (export), from dataset and server access down to the shared adaptation layer.
@@ -50,7 +52,9 @@ Iterating over the loader yields one `LeRobotEpisodeLoader` per episode, in epis
 A sequence is **dropped** with a warning, and the export goes on without it, if:
 
 * it does not exist;
+* it has no topics;
 * its `_lerobot_` metadata is missing or malformed (e.g. a sequence not ingested by the LeRobot Bridge);
+* it is missing a topic its episode is rebuilt from: `/timeseries`, or the topic of an image feature of its `info`;
 * it was already given earlier in the list;
 * its `info` is not compatible with the reference one: the features differ (key, `dtype`, `shape` or `names`), or the `fps` or the `robot_type` differ.
 
@@ -202,9 +206,18 @@ For example, with this `meta/tasks.parquet`:
 
 a frame with `task_index=1` is pushed to `/timeseries` with `task="Place it in the cup"`.
 
+Because `task` is the name the bridge writes, a dataset that has a `task_index` column and also a feature named `task` (or nested under it, such as `task.id`) cannot be opened. Exclude one of them with `column_names`: `"!task_index"` keeps your `task` feature (the episode tasks stay in the [sequence metadata](#metadata-reserved-keys-custom-fields)), while `"!task"` or `"!task.*"` keeps `task_index`. A dataset with a `task` feature and no `task_index` is ingested as is.
+
 On export, the tasks of the exported dataset are the distinct `tasks` of its episodes, in the order they first appear: this order is their task index in the new `meta/tasks.parquet`. The `task` of each frame is turned back into its index in that list. A task index of the source dataset is never reused, so episodes from different datasets get consistent task indexes.
 
-Because `task` is the name the bridge writes, a dataset that has a `task_index` column and also a feature named `task` (or nested under it, such as `task.id`) cannot be opened. Exclude one of them with `column_names`: `"!task_index"` keeps your `task` feature (the episode tasks stay in the [sequence metadata](#metadata-reserved-keys-custom-fields)), while `"!task"` or `"!task.*"` keeps `task_index`. A dataset with a `task` feature and no `task_index` is ingested as is.
+For example, exporting the sequences `sharpie_episode_000003` (episode `tasks`: `Place it in the cup`) and `apple_episode_000000` (episode `tasks`: `Grasp an apple`, `Place it in the cup`), in this order, writes this `meta/tasks.parquet`:
+
+| task | task_index |
+| :--- | --- |
+| `Place it in the cup` | `0` |
+| `Grasp an apple` | `1` |
+
+`Place it in the cup` had task index `1` in its source dataset (see the ingestion example above) and gets `0`, the same index for the frames of both episodes.
 
 #### Metadata: Reserved Keys & Custom Fields
 
@@ -227,7 +240,11 @@ The Mosaico server rejects metadata keys containing `.` and non-finite numbers, 
 
 `_lerobot_` is fully reserved: the user `metadata` is applied first, then the `_lerobot_` block on top, so a `_lerobot_` key in `metadata` is overwritten. Every other key is user-owned. `topic_metadata` goes only to its topics.
 
-On export, `LeRobotSchemaMetadata.restore` reverses these transformations, and the [export loader](#reading-back-the-sequences-mosaicotolerobotloader) uses `info`, `episode.length` and `episode.tasks` to build the new `meta/` folder. `episode.stats` is not reused, because it describes the source dataset. The statistics of each exported episode are computed from the data file written, as LeRobot computes them (images are decoded and downsampled), and `meta/stats.json` is combined from them. They can therefore differ slightly from those of the source dataset. In the new `info.json`, the totals (`total_episodes`, `total_frames`, `total_tasks`) and the `splits` (a single `train` split over every episode) are computed for the exported episodes, and the video features are left out.
+On export, `LeRobotSchemaMetadata.restore` reverses these transformations, and the [export loader](#reading-back-the-sequences-mosaicotolerobotloader) builds the new `meta/` folder from them:
+
+* `info` becomes the new `info.json`. Its totals (`total_episodes`, `total_frames`, `total_tasks`) and its `splits` (a single `train` split over every episode) are computed for the exported episodes, and the video features are left out.
+* `episode.length` and `episode.tasks` give the length and the tasks of each exported episode.
+* `episode.stats` is not reused, because it describes the source dataset. The statistics of each exported episode are computed from the data file written, as LeRobot computes them (images are decoded and downsampled), and `meta/stats.json` is combined from them. They can therefore differ slightly from those of the source dataset.
 
 !!! tip "Querying these keys"
     The fields of `_lerobot_` are ordinary metadata for the query engine: they can be queried with `QuerySequence().with_user_metadata()` like any other field (e.g. `QuerySequence().with_user_metadata("_lerobot_.episode.length", gt=100)`). See the [Query Workflow](../query.md) guide for the full API.
@@ -263,16 +280,16 @@ The CLI always uses the default `on_error` policy (`Delete`) and the default `to
 
 #### Core Workflow Execution: `run()`
 
-1. **Output Check**: before connecting, checks `saving_path`. If it exists and `overwrite` is `False`, `run()` raises a `FileExistsError`. If it exists, is not empty and is not a LeRobot dataset (a folder holding `meta/info.json`, `meta/episodes/` and `data/`), `run()` raises a `ValueError` even with `overwrite`.
+1. **Output Check**: before connecting, checks the dataset folder, `saving_path / dataset_name`. If it exists and `overwrite` is `False`, `run()` raises a `FileExistsError`. If it exists, is not empty and is not a LeRobot dataset (a folder holding `meta/info.json`, `meta/episodes/` and `data/`), `run()` raises a `ValueError` even with `overwrite`.
 2. **Handshake**: connects to the Mosaico server and resolves the sequences (see [Reading Back the Sequences](#reading-back-the-sequences-mosaicotolerobotloader)). If no sequence can be exported, `run()` raises a `ValueError`.
 3. **Data**: streams each episode from its sequence and writes it to the data file, in episode order.
 4. **Statistics**: computes the statistics of each episode from the data file written, then the dataset-wide statistics from those of the episodes.
 5. **Metadata**: writes the `meta/` folder.
 
-The dataset is written to a hidden temporary folder next to `saving_path`, and moved to `saving_path` only once complete. A failure, or an interruption with `Ctrl+C`, deletes the temporary folder and leaves an existing `saving_path` untouched.
+The dataset is written to a hidden temporary folder in `saving_path`, and moved to the dataset folder only once complete. A failure, or an interruption with `Ctrl+C`, deletes the temporary folder and leaves an existing dataset folder untouched.
 
 !!! warning "Killed runs leave a temporary folder"
-    A process killed before it can clean up (e.g. with `kill -9`, or by the system when it runs out of memory) leaves the temporary folder behind, next to `saving_path`. It is hidden: list it with `ls -a` and delete it by hand.
+    A process killed before it can clean up (e.g. with `kill -9`, or by the system when it runs out of memory) leaves the temporary folder behind, in `saving_path`. It is hidden: list it with `ls -a` and delete it by hand.
 
 Unlike the ingestion, an episode that fails to be written stops the whole export. This happens when the topics of its sequence do not hold the same timestamps, when their number of rows differs from the episode `length`, or when a frame holds a task that is not among the `tasks` of the exported episodes. Only the sequences dropped by the loader are skipped.
 
@@ -289,9 +306,10 @@ Errors are not a status: `run()` raises them.
 
 | Field | Default | Description |
 | :--- | :--- | :--- |
-| `saving_path` | required | Root folder of the LeRobot dataset to write. The dataset is written directly in it. |
+| `saving_path` | required | Folder where the dataset folder is created. |
 | `sequence_names` | required | The sequences to export, one episode each, in episode order. |
-| `overwrite` | `False` | Replace `saving_path` if it already exists. Only an empty folder or a LeRobot dataset is replaced. |
+| `dataset_name` | `"LeRobotDataset"` | Name of the dataset folder, created under `saving_path`. |
+| `overwrite` | `False` | Replace the dataset folder if it already exists. Only an empty folder or a LeRobot dataset is replaced. |
 
 #### Practical Example: Programmatic Usage
 
@@ -307,7 +325,9 @@ from mosaicolabs.bridges.lerobot.sequences_extractor import (
 
 def run_extraction():
     config = LeRobotExtractorConfig(
-        saving_path=Path("exports/pusht"),
+        # The dataset is written to exports/pusht
+        saving_path=Path("exports"),
+        dataset_name="pusht",
         # Episode 0 and episode 1 of the exported dataset, in this order
         sequence_names=["pusht_episode_000000", "pusht_episode_000001"],
         # Replace a previous export of the same dataset
@@ -354,7 +374,7 @@ mosaico extract lerobot \
 If any sequence is dropped, the command still exports every other sequence, then exits with code `1`.
 
 !!! note "Development script"
-    The SDK also installs the `mosaicolabs.lerobot_extractor` script, mainly meant for development. It takes the sequence names and `--lerobot-path`, the dataset folder itself (no `--name`), and the connection is given with explicit flags (`--host`, `--port`, `--api-key`, `--tls-cert`, `--enable-tls`) instead of a profile. Run `mosaicolabs.lerobot_extractor -h` for details.
+    The SDK also installs the `mosaicolabs.lerobot_extractor` script, mainly meant for development. It takes the same options, except that the parent folder is given with `--lerobot-path`, which is required, instead of `--saving-path`. The connection is given with explicit flags (`--host`, `--port`, `--api-key`, `--tls-cert`, `--enable-tls`) instead of a profile. Run `mosaicolabs.lerobot_extractor -h` for details.
 
 ### Known Issues & Limitations
 
