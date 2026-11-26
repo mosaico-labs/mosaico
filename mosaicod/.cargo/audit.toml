@@ -1,0 +1,16 @@
+# cargo audit configuration, used by `.github/workflows/dependencies.yml`:
+#   cd mosaicod && cargo audit
+#
+# Every ignore needs a reason that says what it waits for. Remove it once that is done.
+[advisories]
+ignore = [
+    # quick-xml comes in through object_store 0.13 (datafusion and the S3 store).
+    # Fixed by updating to object_store 0.14 (#1096).
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+    # rsa and libsqlite3-sys are in Cargo.lock only as optional dependencies of
+    # sqlx-macros-core (MySQL and SQLite drivers). Cargo locks them although only the
+    # `postgres` feature is enabled, so they are never compiled (`cargo tree -i rsa` is empty).
+    "RUSTSEC-2023-0071",
+    "RUSTSEC-2026-0459",
+]

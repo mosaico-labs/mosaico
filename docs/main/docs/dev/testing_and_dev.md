@@ -104,6 +104,24 @@ cd mosaicod
 cargo lint
 ```
 
+### Dependency Checks
+
+The `dependencies` workflow checks the whole dependency tree, including the crates that other crates pull in, on every pull request and on `main`:
+
+- [`cargo audit`](https://github.com/rustsec/rustsec/tree/main/cargo-audit) checks `Cargo.lock` against the [RustSec advisory database](https://rustsec.org/). GitHub's Dependabot alerts don't include these advisories.
+- [`cargo deny`](https://embarkstudios.github.io/cargo-deny/) checks for banned and duplicate crates, licenses that `mosaicod/deny.toml` doesn't allow, and crates from sources other than crates.io.
+
+To run the same checks locally:
+
+```bash
+cargo install --locked cargo-audit cargo-deny
+cd mosaicod
+cargo audit
+cargo deny check bans licenses sources
+```
+
+If an advisory can't be fixed yet, add its ID to `ignore` in `mosaicod/.cargo/audit.toml`, with a comment that says what the fix is waiting for. Internal crates in `[workspace.dependencies]` carry the workspace version, because `cargo deny` rejects path dependencies without a version. The release workflow bumps them together with the workspace version.
+
 ## Developing the Python SDK
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.13.1 or newer, then set up the SDK with Python 3.10 or newer:

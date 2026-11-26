@@ -1,0 +1,43 @@
+name: dependencies
+
+# Checks mosaicod's whole dependency tree, including the crates other crates pull in:
+# `cargo audit` for RustSec advisories (GitHub's Dependabot alerts don't include them),
+# `cargo deny` for banned or duplicate crates, licenses and sources.
+# It runs on every PR, not only on Cargo changes, because new advisories are
+# published against an unchanged Cargo.lock.
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    name: "Rust dependencies"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # On main, the audit action opens or updates an issue for each advisory it finds
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Ignored advisories, with their reasons, are in mosaicod/.cargo/audit.toml
+      - name: Audit Rust dependencies
+        uses: actions-rust-lang/audit@v1
+        with:
+          workingDirectory: mosaicod
+
+      - name: Check bans, licenses and sources
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: mosaicod/Cargo.toml
+          command: check bans licenses sources
