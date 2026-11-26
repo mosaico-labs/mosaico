@@ -8,11 +8,11 @@ rust-version.workspace = true
 name = "mosaicod"
 
 [dependencies]
-mosaicod-commands = { workspace = true }
 mosaicod-build = { workspace = true }
+mosaicod-commands = { workspace = true }
 mosaicod-config = { workspace = true }
 mosaicod-core = { workspace = true }
 
 clap = { workspace = true }
+
 mimalloc = { workspace = true }
-tracing = { workspace = true }

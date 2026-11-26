@@ -48,6 +48,32 @@ fn topic_locator_and_ontology(items: &[responses::ResponseQueryItem]) -> Vec<(St
         .collect()
 }
 
+/// Runs a topic query with a single user metadata condition and returns the
+/// matching topic locators.
+async fn query_topic_locators(
+    client: &mut common::Client,
+    key: &str,
+    cond: proto_query::Condition,
+) -> Vec<String> {
+    let items = actions::query(
+        client,
+        proto_query::Filter {
+            topic: Some(proto_query::TopicFilter {
+                user_metadata: filter::metadata([(key, cond)]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    topic_locator_and_ontology(&items)
+        .into_iter()
+        .map(|(locator, _)| locator)
+        .collect()
+}
+
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_query_user_metadata_in_integer(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
@@ -804,6 +830,71 @@ async fn test_query_user_metadata_outside_integer(pool: sqlx::Pool<db::DatabaseT
     assert!(
         !locators.contains(&(format!("{seq}/topic_6"), "mock".to_owned())),
         "topic_6 (x=6 inside [5,50]) excluded"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_user_metadata_key_with_dash_and_space(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_umeta_key_chars";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[
+            ("topic_dash", json!({"task-1": {"my status": "ok"}})),
+            ("topic_other", json!({"task": {"my status": "ok"}})),
+        ],
+    )
+    .await;
+
+    // `-` and spaces must be treated as part of the key, not as JSONPath syntax.
+    let locators = query_topic_locators(&mut client, "task-1.my status", filter::eq("ok")).await;
+    assert_eq!(locators, vec![format!("{seq}/topic_dash")]);
+
+    let locators = query_topic_locators(&mut client, "task-1", filter::ex()).await;
+    assert_eq!(locators, vec![format!("{seq}/topic_dash")]);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_user_metadata_wildcard_key(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_umeta_wildcard_key";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[
+            ("topic_match", json!({"task_a": {"status": "ok"}})),
+            ("topic_wrong_value", json!({"task_b": {"status": "ko"}})),
+            ("topic_wrong_key", json!({"job_a": {"status": "ok"}})),
+            // `task_c` is a scalar: it must be skipped, not make the query fail.
+            ("topic_scalar", json!({"task_c": 3})),
+            ("topic_str_ok", json!({"task_ok": "ok"})),
+            ("topic_str_ko", json!({"task_ko": "ko"})),
+        ],
+    )
+    .await;
+
+    let locators = query_topic_locators(&mut client, "task_*.status", filter::eq("ok")).await;
+    assert_eq!(locators, vec![format!("{seq}/topic_match")]);
+
+    let mut locators = query_topic_locators(&mut client, "task_*", filter::matches("*o*")).await;
+    // the order of the results is not guaranteed
+    locators.sort();
+    assert_eq!(
+        locators,
+        vec![format!("{seq}/topic_str_ko"), format!("{seq}/topic_str_ok")]
     );
 
     server.shutdown().await;

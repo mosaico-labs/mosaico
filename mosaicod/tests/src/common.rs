@@ -1,5 +1,11 @@
+use std::convert::Into;
+use std::fs;
+use std::net::{IpAddr, Ipv4Addr, TcpListener};
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use arrow_flight::flight_service_client::FlightServiceClient;
-use mosaicod_config::params;
+use mosaicod_config::default;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
@@ -8,11 +14,6 @@ use mosaicod_grpc_common as grpc_common;
 use mosaicod_hook as hook;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use std::convert::Into;
-use std::fs;
-use std::net::{IpAddr, Ipv4Addr, TcpListener};
-use std::sync::Arc;
-use std::sync::Mutex;
 use tonic::service::interceptor;
 
 /// This lock prevents a race condition between releasing the TCP listener (used to find a
@@ -86,12 +87,12 @@ impl ServerBuilder {
 
     pub async fn build_with_store(self, store: store::testing::Store) -> Server {
         // Ensure that params are loaded
-        params::load_params(params::ParamsLoadOptions::testing()).unwrap();
+        mosaicod_config::testing::load();
 
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
                 (*store).clone(),
-                params::params().query_engine_memory_pool_size.value,
+                default::params().query_engine_memory_pool_size.value,
             )
             .unwrap(),
         );

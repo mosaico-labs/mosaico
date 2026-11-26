@@ -1,10 +1,11 @@
+use mosaicod_core::types;
+use tracing::{trace, warn};
+
 use crate::{
     Error,
     core::{AsExec, RowLocking},
     sql::schema,
 };
-use mosaicod_core::types;
-use tracing::{trace, warn};
 
 fn rowlock2str(rl: RowLocking) -> &'static str {
     match rl {
@@ -177,13 +178,14 @@ pub async fn session_finalize(
 
 #[cfg(test)]
 mod tests {
+    use sqlx::Pool;
+
     use super::*;
     use crate::{
         UNREGISTERED,
         core::{DatabaseType, testing},
         sequence_create,
     };
-    use sqlx::Pool;
 
     #[sqlx::test]
     async fn test_session_create(pool: Pool<DatabaseType>) {
