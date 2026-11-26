@@ -35,4 +35,5 @@ list. Usernames are case-insensitive.
 - @Pirat83
 - @ValerioJiang
 - @nabeelbaghoor
+- @diorwave
 
