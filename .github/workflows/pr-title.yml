@@ -1,17 +1,20 @@
 name: PR Title
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, edited, reopened, synchronize, ready_for_review]
 
 permissions:
-  pull-requests: read # to fetch the current PR title
+  pull-requests: write # to fetch the current PR title and add labels
 
 jobs:
   validate-title:
     name: "Validate PR title"
-    # Drafts cannot be merged, so the title is checked once the PR is ready for review
-    if: ${{ !github.event.pull_request.draft }}
+    # Drafts cannot be merged, so the title is checked once the PR is ready for
+    # review. Bots set their own titles and labels, so they are skipped
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - id: lint
@@ -20,21 +23,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           types: |
-            feat
-            fix
-            docs
-            refactor
-            perf
-            test
+            build
             chore
             ci
-            build
+            docs
+            feat
+            fix
+            perf
+            refactor
+            test
           # Each entry is a regex. Multiple scopes are comma separated: `feat(mosaicod, sdk-py):`
           scopes: |
+            cli
+            deps
+            docker
+            docs
             mosaicod
             sdk-.+
-            docs
-            cli
           requireScope: false
           subjectPattern: ^(?![A-Z]).+(?<!\.)$
           subjectPatternError: |
@@ -50,7 +55,58 @@ jobs:
           types: |
             feat
             fix
-            refactor
             perf
+            refactor
             test
           requireScope: true
+
+      - name: Add labels from the title
+        uses: actions/github-script@v9
+        with:
+          script: |
+            // Labels for each type. `feat`, `fix` and `build` have no matching label
+            const typeLabels = {
+              docs: ['documentation'],
+              refactor: ['refactoring'],
+              perf: ['performance'],
+              test: ['tests'],
+              chore: ['chore'],
+              ci: ['ci'],
+            }
+
+            // Labels for each scope, with the component and its language
+            const scopeLabels = {
+              'mosaicod': ['mosaicod', 'rust'],
+              'sdk-py': ['sdk', 'python'],
+              'sdk-rust': ['sdk', 'rust'],
+              // The CLI is part of the Python SDK
+              'cli': ['sdk', 'python'],
+              'deps': ['dependencies'],
+              'docs': ['documentation'],
+            }
+
+            // The previous steps validated the title, so the match cannot fail.
+            // E.g. `feat(mosaicod, sdk-py)!: add x` gives
+            // `feat`, `mosaicod, sdk-py` and `!`
+            const titlePattern = /^(?<type>\w+)(?:\((?<scopes>[^)]*)\))?(?<breaking>!)?:/
+            const { type, scopes = '', breaking } = context.payload.pull_request.title
+              .match(titlePattern).groups
+
+            // Multiple scopes are comma separated
+            const labelsFromScopes = scopes.split(',')
+              .flatMap(scope => scopeLabels[scope.trim()] ?? [])
+
+            // A set, so labels shared by several scopes are added once
+            const labels = new Set([...(typeLabels[type] ?? []), ...labelsFromScopes])
+
+            // `!` marks a breaking change
+            if (breaking) labels.add('breaking')
+
+            // Add the labels to the ones already on the PR, without removing any
+            if (labels.size > 0) {
+              await github.rest.issues.addLabels({
+                ...context.repo,
+                issue_number: context.issue.number,
+                labels: [...labels],
+              })
+            }
