@@ -22,12 +22,13 @@ pub async fn instance_heartbeat_loop(
     instance_id: i32,
     shutdown: CancellationToken,
 ) {
-    let interval = std::time::Duration::from_secs(types::INSTANCE_HEARTBEAT_INTERVAL_SECS as u64);
+    let interval =
+        std::time::Duration::from_secs(u64::from(types::INSTANCE_HEARTBEAT_INTERVAL_SECS));
 
     loop {
         tokio::select! {
-            _ = tokio::time::sleep(interval) => {}
-            _ = shutdown.cancelled() => break,
+            () = tokio::time::sleep(interval) => {}
+            () = shutdown.cancelled() => break,
         }
 
         let now = chrono::Utc::now().timestamp();
@@ -38,7 +39,7 @@ pub async fn instance_heartbeat_loop(
                 warn!(
                     "failed to send heartbeat for instance {}: {}",
                     instance_id, e
-                )
+                );
             })
             .unwrap_or(true);
 
@@ -49,7 +50,7 @@ pub async fn instance_heartbeat_loop(
             );
         }
 
-        let expiry_threshold = now - types::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS as i64;
+        let expiry_threshold = now - i64::from(types::INSTANCE_REGISTRY_EXPIRY_THRESHOLD_SECS);
 
         if let Err(e) = db::instance_registry_delete_expired(
             &mut db.connection(),
