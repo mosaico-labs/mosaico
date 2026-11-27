@@ -2,19 +2,16 @@ name: PR Title
 
 on:
   pull_request_target:
-    types: [opened, edited, reopened, synchronize, ready_for_review]
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
-  pull-requests: write # to fetch the current PR title and add labels
+  pull-requests: read # to fetch the current PR title
 
 jobs:
   validate-title:
     name: "Validate PR title"
-    # Drafts cannot be merged, so the title is checked once the PR is ready for
-    # review. Bots set their own titles and labels, so they are skipped
-    if: >-
-      !github.event.pull_request.draft &&
-      github.event.pull_request.user.type != 'Bot'
+    # Bots set their own titles and labels, so they are skipped
+    if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - id: lint
@@ -60,8 +57,16 @@ jobs:
             test
           requireScope: true
 
-      - name: Add labels from the title
-        uses: actions/github-script@v9
+  update-labels:
+    name: "Update labels from the title"
+    # Runs only once `validate-title` succeeds, so it is skipped for invalid
+    # titles and for bots
+    needs: validate-title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # to add and remove labels
+    steps:
+      - uses: actions/github-script@v9
         with:
           script: |
             // Labels for each type. `feat`, `fix` and `build` have no matching label
@@ -85,24 +90,54 @@ jobs:
               'docs': ['documentation'],
             }
 
-            // The previous steps validated the title, so the match cannot fail.
-            // E.g. `feat(mosaicod, sdk-py)!: add x` gives
-            // `feat`, `mosaicod, sdk-py` and `!`
-            const titlePattern = /^(?<type>\w+)(?:\((?<scopes>[^)]*)\))?(?<breaking>!)?:/
-            const { type, scopes = '', breaking } = context.payload.pull_request.title
-              .match(titlePattern).groups
+            // Labels of a title, e.g. `feat(mosaicod, sdk-py)!: add x` gives
+            // `mosaicod`, `rust`, `sdk`, `python` and `breaking`. The new title is
+            // always valid, but the old one might be invalid, so it can give none
+            function labelsFrom(title) {
+              // Matches the prefix before the subject, e.g. `feat(mosaicod, sdk-py)!:`,
+              // where the scopes and `!` are optional
+              const titlePattern = /^(?<type>\w+)(?:\((?<scopes>[^)]*)\))?(?<breaking>!)?:/
+              const match = title.match(titlePattern)
 
-            // Multiple scopes are comma separated
-            const labelsFromScopes = scopes.split(',')
-              .flatMap(scope => scopeLabels[scope.trim()] ?? [])
+              if (!match) return new Set()
 
-            // A set, so labels shared by several scopes are added once
-            const labels = new Set([...(typeLabels[type] ?? []), ...labelsFromScopes])
+              // From `feat(mosaicod, sdk-py)!:`, `type` is `feat`, `scopes` is
+              // `mosaicod, sdk-py` and `breaking` is `!`. A title without scopes
+              // gets an empty `scopes`, so it adds no scope labels below
+              const { type, scopes = '', breaking } = match.groups
 
-            // `!` marks a breaking change
-            if (breaking) labels.add('breaking')
+              // Multiple scopes are comma separated
+              const labelsFromScopes = scopes.split(',')
+                .flatMap(scope => scopeLabels[scope.trim()] ?? [])
 
-            // Add the labels to the ones already on the PR, without removing any
+              // A set, so labels shared by several scopes are added once
+              const labels = new Set([...(typeLabels[type] ?? []), ...labelsFromScopes])
+
+              // `!` marks a breaking change
+              if (breaking) labels.add('breaking')
+
+              return labels
+            }
+
+            const pr = context.payload.pull_request
+            const labels = labelsFrom(pr.title)
+
+            // When the title is edited, remove the labels that only the old title
+            // gave, e.g. `mosaicod` and `rust` when `ci(mosaicod):` becomes `ci:`.
+            // Every other label is kept
+            const oldTitle = context.payload.changes?.title?.from ?? ''
+            const current = new Set(pr.labels.map(label => label.name))
+            for (const label of labelsFrom(oldTitle)) {
+              if (!labels.has(label) && current.has(label)) {
+                await github.rest.issues.removeLabel({
+                  ...context.repo,
+                  issue_number: context.issue.number,
+                  name: label,
+                })
+              }
+            }
+
+            // Add the labels to the ones already on the PR
             if (labels.size > 0) {
               await github.rest.issues.addLabels({
                 ...context.repo,
