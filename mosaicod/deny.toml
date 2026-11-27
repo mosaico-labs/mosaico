@@ -1,0 +1,47 @@
+# cargo-deny configuration: https://embarkstudios.github.io/cargo-deny/
+
+# Security advisories from the RustSec database.
+# This section applies to local runs of `cargo deny check`.
+[advisories]
+# Fail when a dependency version has been yanked from crates.io
+yanked = "deny"
+
+# Crates that are banned or appear more than once in the dependency tree.
+[bans]
+# Report crates that appear in several versions without failing the check,
+# because most dependency trees have a few duplicates
+multiple-versions = "warn"
+# Reject `*` version requirements, which accept any version of a crate.
+wildcards = "deny"
+# Internal path dependencies have no version: allowed because no crate is published
+# (`publish = false` in `[workspace.package]`).
+allow-wildcard-paths = true
+
+# Licenses that dependencies, direct and transitive, are allowed to use.
+# A dependency whose license is not in this list fails the check.
+[licenses]
+allow = [
+    "Apache-2.0 WITH LLVM-exception",
+    "Apache-2.0",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+# How closely a license file must match a known license text to be accepted
+confidence-threshold = 0.8
+
+# Where crates are allowed to come from.
+[sources]
+# Reject crates from registries other than the ones listed below
+unknown-registry = "deny"
+# Reject git dependencies, list trusted repositories in `allow-git` if needed
+unknown-git = "deny"
+# Only crates.io is trusted
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

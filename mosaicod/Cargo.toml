@@ -10,6 +10,8 @@ repository = "https://github.com/mosaico-labs/mosaico"
 license = "Apache-2.0"
 edition = "2024"
 rust-version = "1.94"
+# The crates are not published: mosaicod is released as a single binary.
+publish = false
 
 [workspace.dependencies]
 # Internal crates
