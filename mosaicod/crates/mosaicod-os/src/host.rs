@@ -5,11 +5,13 @@
 use tracing::warn;
 
 /// Reads the local hostname, falling back to `"unknown"` if it can't be determined.
+#[must_use]
 pub fn local_hostname() -> String {
-    hostname::get()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_else(|e| {
+    hostname::get().map_or_else(
+        |e| {
             warn!("unable to determine local hostname: {}", e);
             "unknown".to_owned()
-        })
+        },
+        |h| h.to_string_lossy().into_owned(),
+    )
 }
