@@ -3,8 +3,13 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from mosaicolabs.profiles import normalize_host_port
-from mosaicolabs_cli.utils.config import console, get_config_path, load_config
+from mosaicolabs.profiles import (
+    ProfileError,
+    ProfileNotFoundError,
+    ProfileStore,
+    normalize_host_port,
+)
+from mosaicolabs_cli.utils.config import console, error_console
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT, MosaicoEnv
 
 
@@ -49,47 +54,41 @@ class MosaicoProfile:
         env_tls = os.getenv(MosaicoEnv.TLS)
         env_cert_path = os.getenv(MosaicoEnv.CERT_PATH)
 
-        config_path = get_config_path()
-        config_data = load_config(config_path)
-
-        profile_dict: Dict[str, Any] = {}
-        resolved_name = ""
-
-        if profile_name:
-            content = config_data.get(profile_name)
-            if content is None or not isinstance(content, dict):
-                console.print(
-                    f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
-                )
-                raise SystemExit(1)
-            profile_dict = content
-            resolved_name = profile_name
-        else:
-            for _name, content in config_data.items():
-                if isinstance(content, dict) and content.get("default", False):
-                    profile_dict = content
-                    resolved_name = _name
-                    break
+        store = ProfileStore()
+        try:
+            if profile_name:
+                profile = store.get(profile_name)
+            else:
+                profile = store.get_default()
+        except ProfileNotFoundError:
+            console.print(
+                f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
+            )
+            raise SystemExit(1)
+        except ProfileError as e:
+            error_console.print(f"[bold red]Error:[/bold red] {e}")
+            raise SystemExit(1)
 
         if env_tls is not None:
             tls = env_tls.lower() in ("1", "true", "yes")
         else:
-            tls = bool(profile_dict.get("tls", False))
+            tls = profile.tls if profile else False
 
         if env_host:
             resolved_host, resolved_port = cls._normalize_host_port(env_host)
+        elif profile:
+            resolved_host, resolved_port = profile.host, profile.port
         else:
-            resolved_host = profile_dict.get("host", "")
-            resolved_port = int(profile_dict.get("port", DEFAULT_MOSAICO_PORT))
+            resolved_host, resolved_port = "", DEFAULT_MOSAICO_PORT
 
         return cls(
             host=resolved_host,
             port=resolved_port,
-            api_key=env_api_key or profile_dict.get("api_key", ""),
+            api_key=env_api_key or (profile.api_key if profile else ""),
             tls=tls,
-            cert_path=env_cert_path or profile_dict.get("cert_path", ""),
-            name=resolved_name,
-            is_default=bool(profile_dict.get("default", False)),
+            cert_path=env_cert_path or (profile.cert_path if profile else ""),
+            name=profile.name if profile else "",
+            is_default=profile.default if profile else False,
         )
 
     @classmethod
