@@ -4,6 +4,10 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"
+      - "github actions"
     commit-message:
       prefix: "ci"
 
@@ -11,6 +15,10 @@ updates:
     directory: "/mosaicod"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "mosaicod"
+      - "rust"
     commit-message:
       prefix: "chore(mosaicod)"
 
@@ -18,6 +26,10 @@ updates:
     directory: "/mosaico-sdk-py"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "sdk"
+      - "python"
     commit-message:
       prefix: "chore(sdk-py)"
 
@@ -25,6 +37,10 @@ updates:
     directory: "/docs/py"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+      - "documentation"
+      - "python"
     commit-message:
       prefix: "chore(docs)"
 
@@ -34,5 +50,9 @@ updates:
       interval: "weekly"
     # Security updates only: the entry exists to set the commit prefix.
     open-pull-requests-limit: 0
+    labels:
+      - "dependencies"
+      - "documentation"
+      - "javascript"
     commit-message:
       prefix: "chore(docs)"
