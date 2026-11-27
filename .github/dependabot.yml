@@ -36,3 +36,19 @@ updates:
     open-pull-requests-limit: 0
     commit-message:
       prefix: "chore(docs)"
+
+  - package-ecosystem: "docker"
+    directory: "/docker/dockerfiles"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(mosaicod)"
+
+  - package-ecosystem: "docker-compose"
+    directories:
+      - "/docker/devel"
+      - "/docker/testing"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"

@@ -19,7 +19,7 @@ services:
       start_period: 60s
 
   store:
-    image: ghcr.io/versity/versitygw:latest
+    image: ghcr.io/versity/versitygw:v1.11.0
     container_name: store
     ports:
       - "127.0.0.1:7090:7090"  # S3 API
