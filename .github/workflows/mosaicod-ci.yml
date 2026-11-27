@@ -41,6 +41,7 @@ jobs:
           rustup toolchain install nightly --profile minimal -c rustfmt
           cargo +nightly fmt -- --check
           cargo clippy -- -D warnings
+          cargo clippy -p mosaicod-build --all-targets -- -D warnings -W clippy::pedantic
           RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items
 
   unit-tests:

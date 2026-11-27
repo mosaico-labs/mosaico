@@ -27,15 +27,11 @@ pub fn version_description() -> &'static str {
         };
 
         format!(
-            r#"{version}
+            r"{version}
 
-Profile:  {profile}-opt{opt_level}
-Arch:     {arch} 
-Built:    {time}"#,
-            profile = BUILD_PROFILE,
-            time = BUILD_TIME,
-            arch = BUILD_ARCH,
-            opt_level = BUILD_OPT_LEVEL,
+Profile:  {BUILD_PROFILE}-opt{BUILD_OPT_LEVEL}
+Arch:     {BUILD_ARCH} 
+Built:    {BUILD_TIME}"
         )
     })
 }
