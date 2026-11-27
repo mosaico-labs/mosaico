@@ -73,11 +73,10 @@ class Profile:
 
 class ProfileStore:
     """
-    The profiles in a Mosaico configuration file, by default the one used by
-    the `mosaico` CLI (`$MOSAICO_CONFIG_PATH` or `~/.mosaico/config.toml`).
+    The profiles in a Mosaico configuration file, found by default in
+    `$MOSAICO_CONFIG_PATH` or `~/.mosaico/config.toml`.
 
-    Every call reads the file again. Writes replace it atomically with mode
-    0600; concurrent writers are not locked against each other. At most one
+    Concurrent writers are not locked against each other. At most one
     profile is the default: the first profile added becomes the default, and
     removing the default promotes the first remaining profile.
     """
@@ -98,8 +97,15 @@ class ProfileStore:
 
     def add(self, profile: Profile, *, overwrite: bool = False) -> Profile:
         """
-        Save `profile` and return it as saved. It becomes the default if asked
-        to, if it is the first profile, or if it replaces the current default.
+        Save `profile` and return it with its final `default` flag.
+
+        `overwrite` decides what happens when a profile with the same name
+        already exists: False raises `ProfileExistsError`, True replaces it.
+
+        `profile.default` asks to make it the default. It also becomes the
+        default when it is the first profile, or when it overwrites the current
+        default, so editing the default never leaves the file without one.
+        The other profiles then lose the flag.
         """
         data = self._load()
         existing = data.get(profile.name)
