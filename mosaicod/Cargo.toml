@@ -9,7 +9,7 @@ homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
 license = "Apache-2.0"
 edition = "2024"
-rust-version = "1.94"
+rust-version = "1.95"
 
 [workspace.dependencies]
 # Internal crates
@@ -34,14 +34,15 @@ mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
 
 # Arrow stack dependencies
-arrow = { version = "59.3.3", default-features = false, features = ["prettyprint", "ipc_compression"] }
-arrow-cast = { version = "59.3.3", default-features = false }
-arrow-flight = { version = "59.3.3", default-features = false }
-arrow-schema = { version = "59.3.3", default-features = false }
-parquet = { version = "59.3.3", default-features = false, features = ["arrow", "async", "object_store", "zstd", "simdutf8"] }
-datafusion = { version = "55.3.0", default-features = false, features = ["parquet", "recursive_protection", "nested_expressions"] }
+arrow = { version = "60.2.0", default-features = false, features = ["prettyprint", "ipc_compression"] }
+arrow-cast = { version = "60.2.0", default-features = false }
+arrow-flight = { version = "60.2.0", default-features = false }
+arrow-schema = { version = "60.2.0", default-features = false }
+parquet = { version = "60.2.0", default-features = false, features = ["arrow", "async", "object_store", "zstd", "simdutf8"] }
+datafusion = { version = "56.0.0", default-features = false, features = ["parquet", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.9", default-features = false, features = ["router", "transport", "codegen", "tls-ring", "gzip"] }
-object_store = { version = "0.13.2", default-features = false, features = ["aws", "fs"] }
+object_store = { version = "0.14.2", default-features = false, features = ["aws-base", "reqwest", "ring", "fs"] }
+rustls = { version = "0.23.46", default-features = false, features = ["std", "ring"] }
 
 base64 = { version = "0.23.1", default-features = false }
 bincode = { version = "2.0.1", default-features = false, features = ["alloc", "derive", "serde"] }
@@ -83,7 +84,9 @@ semver = { version = "1.0.28", default-features = false }
 tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "ansi", "tracing-log", "json", "env-filter"] }
 regex = { version = "1.12.4", default-features = false, features = ["perf", "unicode"] }
-reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
+# The same reqwest as `object_store`'s HTTP client. `rustls-no-provider` enables TLS there too, without
+# pulling in aws-lc-rs: whoever builds a client installs ring as the rustls provider first.
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
 
 # Protobuf schema codegen (mosaicod-proto)
 prost = "0.14"

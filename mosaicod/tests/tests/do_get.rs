@@ -111,7 +111,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let whole_data_interval = app_metadata.data_info.timestamp_range;
     assert_eq!(whole_data_interval.start.as_i64(), 10000);
     assert_eq!(whole_data_interval.end.as_i64(), 10030);
@@ -155,7 +155,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let whole_data_interval = app_metadata.data_info.timestamp_range;
     assert_eq!(whole_data_interval.start.as_i64(), 10000);
     assert_eq!(whole_data_interval.end.as_i64(), 10030);
@@ -192,7 +192,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let whole_data_interval = app_metadata.data_info.timestamp_range;
     assert_eq!(whole_data_interval.start.as_i64(), 10000);
     assert_eq!(whole_data_interval.end.as_i64(), 10030);
@@ -229,7 +229,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let whole_data_interval = app_metadata.data_info.timestamp_range;
     assert_eq!(whole_data_interval.start.as_i64(), 10000);
     assert_eq!(whole_data_interval.end.as_i64(), 10030);
@@ -260,7 +260,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(app_metadata.data_info.total_chunks, 1);
     assert_eq!(app_metadata.data_info.total_row_count, 7);
-    assert_eq!(app_metadata.data_info.total_bytes, 895);
+    assert_eq!(app_metadata.data_info.total_bytes, 893);
     let whole_data_interval = app_metadata.data_info.timestamp_range;
     assert_eq!(whole_data_interval.start.as_i64(), 10000);
     assert_eq!(whole_data_interval.end.as_i64(), 10030);

@@ -19,6 +19,8 @@ futures = { workspace = true }
 datafusion = { workspace = true }
 tracing = { workspace = true }
 object_store = { workspace = true }
+reqwest = { workspace = true }
+rustls = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }
 bytes = { workspace = true }
