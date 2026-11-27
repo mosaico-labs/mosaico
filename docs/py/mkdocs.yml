@@ -28,6 +28,11 @@ hooks:
 plugins:
   - search
   - typeset
+  - social:
+      enabled: !ENV [CI, false]
+      cards_layout_options:
+        background_color: "#111111"
+        color: "#ffffff"
   - mkdocstrings:
       handlers:
         python:
