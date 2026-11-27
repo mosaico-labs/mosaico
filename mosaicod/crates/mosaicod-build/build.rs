@@ -4,31 +4,28 @@ use chrono::Utc;
 
 fn main() {
     let opt_level = env::var("OPT_LEVEL").unwrap();
-    println!("cargo:rustc-env=MOSAICOD_BUILD_OPT_LEVEL={}", opt_level);
+    println!("cargo:rustc-env=MOSAICOD_BUILD_OPT_LEVEL={opt_level}");
 
     let debug = env::var("DEBUG").unwrap();
-    println!("cargo:rustc-env=MOSAICOD_BUILD_DEBUG={}", debug);
+    println!("cargo:rustc-env=MOSAICOD_BUILD_DEBUG={debug}");
 
     let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
     let os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_else(|_| "unknown".to_string());
-    println!(
-        "cargo:rustc-env=MOSAICOD_BUILD_ARCH={}-{}-{}",
-        os, arch, target_env
-    );
+    println!("cargo:rustc-env=MOSAICOD_BUILD_ARCH={os}-{arch}-{target_env}");
 
     let profile = env::var("PROFILE").unwrap();
-    println!("cargo:rustc-env=MOSAICOD_BUILD_PROFILE={}", profile);
+    println!("cargo:rustc-env=MOSAICOD_BUILD_PROFILE={profile}");
 
     let build_time = Utc::now().to_rfc2822();
-    println!("cargo:rustc-env=MOSAICOD_BUILD_TIME={}", build_time);
+    println!("cargo:rustc-env=MOSAICOD_BUILD_TIME={build_time}");
 
     // Builds without the git history (e.g. containers) get the commit and the tags from the
     // environment.
     println!("cargo::rerun-if-env-changed=GIT_HASH");
     println!("cargo::rerun-if-env-changed=GIT_TAG");
     let git_hash = env_or_git("GIT_HASH", &["rev-parse", "HEAD"]).unwrap_or("undefined".into());
-    println!("cargo:rustc-env=MOSAICOD_GIT_HASH={}", git_hash);
+    println!("cargo:rustc-env=MOSAICOD_GIT_HASH={git_hash}");
 
     // A release is a commit with the `v<version>` tag: it sets the `mosaicod_release` cfg.
     let release_tag = format!("v{}", env::var("CARGO_PKG_VERSION").unwrap());
