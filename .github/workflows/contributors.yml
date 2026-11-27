@@ -10,12 +10,10 @@ permissions:
 jobs:
   check-contributor:
     name: "Check contributor"
-    # Authors who already have a commit in the repository have signed the CLA,
-    # and bots do not need to sign it. Private organization members are
-    # reported as CONTRIBUTOR, so they are skipped too.
+    # Organization members and bots do not need to sign the CLA
     if: >-
       ${{
-        !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"]'), github.event.pull_request.author_association) &&
+        !contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association) &&
         github.event.pull_request.user.type != 'Bot'
       }}
     runs-on: ubuntu-latest
@@ -34,9 +32,17 @@ jobs:
         with:
           script: |
             const fs = require('fs')
+            const pr = context.payload.pull_request
+
+            // Collaborators and authors who already have a commit in the
+            // repository have signed the CLA
+            if (['COLLABORATOR', 'CONTRIBUTOR'].includes(pr.author_association)) {
+              core.info(`@${pr.user.login} is already a ${pr.author_association.toLowerCase()}, nothing to check`)
+              return
+            }
 
             // GitHub usernames are case-insensitive, so we compare them in lowercase
-            const author = context.payload.pull_request.user.login.toLowerCase()
+            const author = pr.user.login.toLowerCase()
 
             // Each contributor is a line like `- @username`
             const contributors = fs.readFileSync('CONTRIBUTORS.md', 'utf8')
