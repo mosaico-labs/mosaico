@@ -2,7 +2,7 @@ name: Contributors
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: read # to read CONTRIBUTORS.md from the target branch
@@ -10,12 +10,12 @@ permissions:
 jobs:
   check-contributor:
     name: "Check contributor"
-    # Organization members and bots do not need to sign the CLA
+    # Drafts cannot be merged, so the author is checked once the PR is ready
+    # for review. Organization members and bots do not need to sign the CLA
     if: >-
-      ${{
-        !contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association) &&
-        github.event.pull_request.user.type != 'Bot'
-      }}
+      !github.event.pull_request.draft &&
+      !contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association) &&
+      github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       # Check out CONTRIBUTORS.md from the target branch, not from the PR,
