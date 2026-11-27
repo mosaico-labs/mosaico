@@ -2,7 +2,7 @@ name: PR Title
 
 on:
   pull_request_target:
-    types: [opened, edited, reopened, synchronize, ready_for_review]
+    types: [opened, edited, reopened, synchronize]
 
 permissions:
   pull-requests: read # to fetch the current PR title
@@ -10,11 +10,8 @@ permissions:
 jobs:
   validate-title:
     name: "Validate PR title"
-    # Bots set their own titles and labels, so they are skipped. Drafts cannot
-    # be merged, so the title is checked once the PR is ready for review
-    if: >-
-      github.event.pull_request.user.type != 'Bot' &&
-      !github.event.pull_request.draft
+    # Bots set their own titles and labels, so they are skipped
+    if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - id: lint
@@ -63,7 +60,7 @@ jobs:
   add-labels:
     name: "Add labels from the title"
     # Labels are added only to valid titles. The job is also skipped when
-    # `validate-title` is skipped, e.g. for drafts and bots
+    # `validate-title` is skipped, e.g. for bots
     needs: validate-title
     runs-on: ubuntu-latest
     permissions:
