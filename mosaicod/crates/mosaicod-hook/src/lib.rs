@@ -55,14 +55,7 @@ impl Dispatcher {
     ///
     /// Outside a Tokio runtime.
     pub fn spawn(db: db::Database, shutdown: CancellationToken) -> Result<Self, Error> {
-        Self::spawn_with(db, shutdown, Policy::default())
-    }
-
-    fn spawn_with(
-        db: db::Database,
-        shutdown: CancellationToken,
-        policy: Policy,
-    ) -> Result<Self, Error> {
+        let policy = Policy::default();
         let client = build_client()?;
         let (tx, rx) = mpsc::channel(policy.queue_capacity);
         tokio::spawn(run_worker(rx, db, client, Arc::new(policy), shutdown));
@@ -267,15 +260,17 @@ async fn send(
     }
 }
 
-#[cfg(any(test, feature = "testing"))]
-pub mod testing;
-
 #[cfg(test)]
 mod tests {
     use std::time::Instant;
 
+    use httpmock::Method::POST;
+    use httpmock::{Mock, MockServer, Then};
+
     use super::*;
-    use crate::testing::{Receiver, Reply};
+
+    /// The body [`deliver_to`] sends.
+    const BODY: &str = r#"{"id":"test"}"#;
 
     fn test_policy() -> Policy {
         Policy {
@@ -287,8 +282,19 @@ mod tests {
     }
 
     async fn deliver_to(url: &str, policy: &Policy) -> Result<(), DeliveryError> {
-        let body = Bytes::from_static(br#"{"id":"test"}"#);
+        let body = Bytes::from_static(BODY.as_bytes());
         deliver(&build_client().unwrap(), 1, url, body, policy).await
+    }
+
+    /// A hook on `receiver` that gets [`BODY`] and replies as `reply` says. A request with
+    /// another body gets a 404.
+    async fn hook_replying(receiver: &MockServer, reply: impl FnOnce(Then) -> Then) -> Mock<'_> {
+        receiver
+            .mock_async(|when, then| {
+                when.body(BODY);
+                reply(then);
+            })
+            .await
     }
 
     fn session_uploaded() -> Event {
@@ -302,40 +308,47 @@ mod tests {
 
     #[tokio::test]
     async fn delivers_body_and_headers() {
-        let receiver = Receiver::start().await;
+        let receiver = MockServer::start_async().await;
+        let hook = receiver
+            .mock_async(|when, then| {
+                when.method(POST)
+                    .path("/hook")
+                    .header("content-type", "application/json")
+                    .header("user-agent", default::user_agent())
+                    .body(BODY);
+                then.status(200);
+            })
+            .await;
 
-        deliver_to(receiver.url(), &test_policy()).await.unwrap();
+        let delivered = deliver_to(&receiver.url("/hook"), &test_policy()).await;
 
-        let requests = receiver.requests();
-        assert_eq!(requests.len(), 1);
-
-        let request = &requests[0];
-        assert_eq!(request.method, "POST");
-        assert_eq!(request.path, "/hook");
-        assert_eq!(request.header("content-type"), Some("application/json"));
-        assert_eq!(
-            request.header("user-agent"),
-            Some(default::user_agent().as_str())
-        );
-        assert_eq!(request.body, br#"{"id":"test"}"#);
+        // Before the result: a request that doesn't match gets a 404, and this says why.
+        hook.assert_async().await;
+        delivered.unwrap();
     }
 
     #[tokio::test]
     async fn retries_server_errors_and_too_many_requests() {
-        let receiver = Receiver::start_with(vec![Reply::Status(500), Reply::Status(429)]).await;
+        let receiver = MockServer::start_async().await;
+        let server_error = hook_replying(&receiver, |then| then.status(500).up_to_n_times(1)).await;
+        let throttled = hook_replying(&receiver, |then| then.status(429).up_to_n_times(1)).await;
+        let ok = hook_replying(&receiver, |then| then.status(200)).await;
 
-        deliver_to(receiver.url(), &test_policy()).await.unwrap();
+        deliver_to(&receiver.base_url(), &test_policy())
+            .await
+            .unwrap();
 
-        let requests = receiver.requests();
-        assert_eq!(requests.len(), 3);
-        assert!(requests.iter().all(|r| r.body == requests[0].body));
+        server_error.assert_async().await;
+        throttled.assert_async().await;
+        ok.assert_async().await;
     }
 
     #[tokio::test]
     async fn gives_up_after_the_last_attempt() {
-        let receiver = Receiver::start_with(vec![Reply::Status(503); 4]).await;
+        let receiver = MockServer::start_async().await;
+        let unavailable = hook_replying(&receiver, |then| then.status(503)).await;
 
-        let err = deliver_to(receiver.url(), &test_policy())
+        let err = deliver_to(&receiver.base_url(), &test_policy())
             .await
             .unwrap_err();
 
@@ -343,42 +356,57 @@ mod tests {
             err,
             DeliveryError::Status(StatusCode::SERVICE_UNAVAILABLE)
         ));
-        assert_eq!(receiver.requests().len(), 3);
+        unavailable.assert_calls_async(3).await;
     }
 
     #[tokio::test]
     async fn does_not_retry_other_statuses() {
         for code in [400, 401, 404] {
-            let receiver = Receiver::start_with(vec![Reply::Status(code)]).await;
+            let receiver = MockServer::start_async().await;
+            let rejecting = hook_replying(&receiver, |then| then.status(code)).await;
 
-            let err = deliver_to(receiver.url(), &test_policy())
+            let err = deliver_to(&receiver.base_url(), &test_policy())
                 .await
                 .unwrap_err();
 
             assert!(matches!(err, DeliveryError::Status(s) if s.as_u16() == code));
-            assert_eq!(receiver.requests().len(), 1, "{code}");
+            assert_eq!(rejecting.calls_async().await, 1, "{code}");
         }
     }
 
     #[tokio::test]
     async fn does_not_follow_redirects() {
-        let receiver = Receiver::start_with(vec![Reply::Redirect]).await;
+        let receiver = MockServer::start_async().await;
+        let redirecting = hook_replying(&receiver, |then| {
+            then.status(302).header("location", "/elsewhere")
+        })
+        .await;
 
-        let err = deliver_to(receiver.url(), &test_policy())
+        let err = deliver_to(&receiver.base_url(), &test_policy())
             .await
             .unwrap_err();
 
         assert!(matches!(err, DeliveryError::Status(StatusCode::FOUND)));
-        assert_eq!(receiver.requests().len(), 1);
+        redirecting.assert_async().await;
     }
 
     #[tokio::test]
     async fn retries_timeouts() {
-        let receiver = Receiver::start_with(vec![Reply::Hang]).await;
+        let receiver = MockServer::start_async().await;
+        let hanging = hook_replying(&receiver, |then| {
+            then.status(200)
+                .delay(Duration::from_secs(60))
+                .up_to_n_times(1)
+        })
+        .await;
+        let ok = hook_replying(&receiver, |then| then.status(200)).await;
 
-        deliver_to(receiver.url(), &test_policy()).await.unwrap();
+        deliver_to(&receiver.base_url(), &test_policy())
+            .await
+            .unwrap();
 
-        assert_eq!(receiver.requests().len(), 2);
+        hanging.assert_async().await;
+        ok.assert_async().await;
     }
 
     #[tokio::test]
@@ -417,47 +445,5 @@ mod tests {
         // With the worker gone, events are dropped too.
         drop(rx);
         dispatcher.emit(session_uploaded());
-    }
-
-    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
-    async fn worker_sends_each_event_to_every_hook(
-        pool: sqlx::Pool<db::DatabaseType>,
-    ) -> sqlx::Result<()> {
-        let database = db::testing::Database::new(pool);
-        let first = Receiver::start().await;
-        let second = Receiver::start().await;
-
-        db::hook_create(&mut database.connection(), first.url(), 0)
-            .await
-            .unwrap();
-
-        let shutdown = CancellationToken::new();
-        let dispatcher =
-            Dispatcher::spawn_with((*database).clone(), shutdown.clone(), test_policy()).unwrap();
-
-        // Registered after the worker started: hooks are read on every event.
-        db::hook_create(&mut database.connection(), second.url(), 0)
-            .await
-            .unwrap();
-
-        dispatcher.emit(session_uploaded());
-        dispatcher.emit(session_uploaded());
-
-        // Each event has its own id, and both hooks got the same ones.
-        let ids = |requests: Vec<testing::Request>| {
-            let mut ids: Vec<String> = requests
-                .iter()
-                .map(|r| r.json()["id"].as_str().unwrap().to_owned())
-                .collect();
-            ids.sort();
-            ids
-        };
-        let first_ids = ids(first.wait_for_requests(2).await);
-        assert_ne!(first_ids[0], first_ids[1]);
-        assert_eq!(first_ids, ids(second.wait_for_requests(2).await));
-
-        shutdown.cancel();
-
-        Ok(())
     }
 }

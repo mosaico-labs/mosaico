@@ -92,6 +92,7 @@ protox = "0.10"
 
 # Used for testing
 filetime = { version = "0.2.27", default-features = false }
+httpmock = { version = "0.9.0", default-features = false }
 
 # Used to implement middlewares in mosaicod-server crate
 tower = { version = "0.5.3", default-features = false }
