@@ -87,7 +87,7 @@ The Rust SDK is currently in development.
 </TabItem>
 </Tabs>
 
-`client.query()` returns `None` on error, or a **QueryResponse**, a list of **QueryResponseItem** objects, one per matched Sequence. Each item carries two things: `item.sequence`, which holds the metadata of the matched session (its name, time boundary, and any stored metadata), and `item.topics`, which is the list of Topics that belong to that session. Because this is a Sequence-level query with no Topic filter applied, `item.topics` contains every Topic recorded under that Sequence, giving you a complete picture of what sensor streams are available before you decide which ones to open.
+`client.query()` returns `None` on no-response from the server, or a **QueryResponse**, a list of **QueryResponseItem** objects, one per matched Sequence or raises on error. Each item carries two things: `item.sequence`, which holds the metadata of the matched session (its name, time boundary, and any stored metadata), and `item.topics`, which is the list of Topics that belong to that session. Because this is a Sequence-level query with no Topic filter applied, `item.topics` contains every Topic recorded under that Sequence, giving you a complete picture of what sensor streams are available before you decide which ones to open.
 
 :::info[Result Normalization]
 `topic.name` returns the relative path (e.g. `/front/camera/image`), directly usable with other SDK methods like `topic_handler()` and streamers.
