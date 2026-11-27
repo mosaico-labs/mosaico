@@ -42,7 +42,7 @@ from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .loader import LeRobotLoader
-from .metadata import LeRobotDatasetMeta, LeRobotEpisode
+from .metadata import LeRobotDatasetMeta, LeRobotEpisode, LeRobotInfo
 from .metadata.stats import compute_episode_stats
 from .mosaico_loader import MosaicoToLeRobotLoader
 from .ui_lerobot import LeRobotProgressManager
@@ -223,9 +223,9 @@ class LeRobotSequencesExtractor:
         """
         Writes the dataset under `saving_path`, in three steps:
 
-        1. the data of the episodes, streamed from their sequences (see `LeRobotWriter`), each
-           to the data file given by its `data/chunk_index` and `data/file_index` (see
-           `LeRobotInfo.get_path_to_data`);
+        1. the data of the episodes, streamed from their sequences (see `LeRobotWriter`), which
+           sets the `data/chunk_index` and `data/file_index` of each one to the data file it
+           was written to;
         2. the stats of each episode, computed from the data files written (see
            `_compute_episodes_stats`);
         3. the `meta/` folder (see `LeRobotDatasetMeta.dump`), with `meta/stats.json`
@@ -247,21 +247,20 @@ class LeRobotSequencesExtractor:
         """
         info = loader.info
         tasks = loader.tasks
-        with LeRobotWriter(info.features, tasks) as writer:
+        # The episodes as written: with the data file of each one
+        written_episodes: List[LeRobotEpisode] = []
+        with LeRobotWriter(info, saving_path, tasks) as writer:
             for streamer in loader:
                 episode = streamer.episode_metadata
                 logger.info(
                     f"Writing episode {episode.episode_index} (sequence "
                     f"'{streamer.sequence_name}')..."
                 )
-                data_path = info.get_path_to_data(
-                    saving_path, episode.data_chunk_index, episode.data_file_index
-                )
 
                 ui.start_episode(episode.episode_index, episode.length)
 
                 try:
-                    writer.write_episode(streamer, data_path, ui)
+                    written_episodes.append(writer.write_episode(streamer, ui))
 
                 except Exception:
                     ui.finish_episode(succeeded=False)
@@ -269,8 +268,8 @@ class LeRobotSequencesExtractor:
 
                 ui.finish_episode(succeeded=True)
 
-        # Only now it is possible to compute the per episode stats (now that the parquet file is closed)
-        episodes = self._compute_episodes_stats(loader, saving_path, ui)
+        # Only now it is possible to compute the per episode stats (now that the parquet files are closed)
+        episodes = self._compute_episodes_stats(info, written_episodes, saving_path, ui)
 
         # Every episode has its stats: `dump` reads no data file, it only combines them into
         # `meta/stats.json` and writes the `meta/` folder
@@ -281,7 +280,8 @@ class LeRobotSequencesExtractor:
 
     def _compute_episodes_stats(
         self,
-        loader: MosaicoToLeRobotLoader,
+        info: LeRobotInfo,
+        episodes: List[LeRobotEpisode],
         saving_path: Path,
         ui: LeRobotProgressManager,
     ) -> List[LeRobotEpisode]:
@@ -290,15 +290,16 @@ class LeRobotSequencesExtractor:
         `compute_episode_stats`), advancing the episode stats bar once per episode.
 
         Args:
-            loader (MosaicoToLeRobotLoader): The resolved loader of the sequences: the `info`
-                and the episodes of the dataset.
+            info (LeRobotInfo): The `info` of the dataset.
+            episodes (List[LeRobotEpisode]): The episodes of the dataset, as written (see
+                `LeRobotWriter.write_episode`).
             saving_path (Path): The root folder of the dataset, holding the data files.
             ui (LeRobotProgressManager): The progress UI, whose episode stats bar is created
                 here.
 
         Returns:
             List[LeRobotEpisode]: The episodes of the dataset, in episode order, with their
-                stats. The episodes of the loader are left unchanged.
+                stats. The episodes given are left unchanged.
 
         Raises:
             RuntimeError: If the data file of an episode holds no row of it.
@@ -306,23 +307,21 @@ class LeRobotSequencesExtractor:
             pa.ArrowInvalid: If the data file of an episode is not a readable parquet file
                 (e.g. still being written).
         """
-        info = loader.info
         logger.info("Computing the stats of the episodes...")
         ui.setup_episode_stats()
 
-        episodes: List[LeRobotEpisode] = []
-        for episode in loader.episodes:
+        episodes_with_stats: List[LeRobotEpisode] = []
+        for episode in episodes:
             data_path = info.get_path_to_data(
                 saving_path, episode.data_chunk_index, episode.data_file_index
             )
             stats = compute_episode_stats(
                 data_path, episode.episode_index, info.features
             )
-            # A new episode: the one of the loader is shared with its streamers
-            episodes.append(replace(episode, stats=stats))
+            episodes_with_stats.append(replace(episode, stats=stats))
             ui.advance_episode_stats()
 
-        return episodes
+        return episodes_with_stats
 
     def run(self) -> ExtractionStatus:
         """

@@ -65,22 +65,28 @@ def episode_streamer(
     batches_by_topic: Dict[str, List[pa.RecordBatch]],
     length: int,
     dataset_to_index: Optional[int] = None,
+    episode_index: int = 0,
+    dataset_from_index: int = 0,
 ) -> LeRobotEpisodeStreamer:
     """
-    The episode 0 of a dataset, starting at row 0, streamed from `batches_by_topic` (each
-    batch with its `timestamp_ns` column).
+    The episode `episode_index` of a dataset, starting at row `dataset_from_index`, streamed
+    from `batches_by_topic` (each batch with its `timestamp_ns` column).
 
-    `dataset_to_index` is `length` by default: give another one for an episode whose
-    metadata do not match its rows.
+    `dataset_to_index` is `dataset_from_index + length` by default: give another one for an
+    episode whose metadata do not match its rows.
     """
     episode = LeRobotEpisode(
-        episode_index=0,
+        episode_index=episode_index,
         tasks=["task"],
         length=length,
         data_chunk_index=0,
         data_file_index=0,
-        dataset_from_index=0,
-        dataset_to_index=length if dataset_to_index is None else dataset_to_index,
+        dataset_from_index=dataset_from_index,
+        dataset_to_index=(
+            dataset_from_index + length
+            if dataset_to_index is None
+            else dataset_to_index
+        ),
     )
     return LeRobotEpisodeStreamer(
         FakeSequenceHandler(SEQUENCE_NAME, FakeSequenceStreamer(batches_by_topic)),

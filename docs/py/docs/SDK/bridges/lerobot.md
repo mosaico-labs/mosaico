@@ -187,7 +187,7 @@ On export, `LeRobotWriter` applies the same mapping in reverse. Each slice strea
 | Each image feature | Its own topic: `data` becomes the image bytes, and the path is rebuilt as LeRobot names embedded images, `frame-<frame index>.<format>` (e.g. `frame-000012.png`). A frame ingested with empty `data` is null. |
 | Every other feature | Its field in `/timeseries`, un-nested: the field `state` of the struct `observation` becomes `observation.state`. |
 
-The episodes are written to a single data file and their metadata to a single episodes file (chunk `0`, file `0`), at the paths given by the `data_path` template of the reference `info`.
+The episodes are written one after the other to the data files, at the paths given by the `data_path` template of the reference `info`. As in LeRobot, a new data file is started before an episode that would make the current one exceed `data_files_size_in_mb`, and a new chunk once a chunk holds `chunks_size` files (LeRobot's defaults, 100 MB and 1000 files, if the `info` has none). An episode is never split across two data files. The metadata of the episodes are written to a single episodes file (chunk `0`, file `0`).
 
 #### Columns That Are Not Ingested
 
@@ -383,5 +383,5 @@ If any sequence is dropped, the command still exports every other sequence, then
 * **Feature shapes**: a non-image feature must be a scalar `(1,)`, a vector `(n,)` or an array of 2 to 5 dimensions; any other shape stops the dataset from being opened.
 * **Frame position**: `index`, `frame_index` and `episode_index` are not stored as data (see [Columns That Are Not Ingested](#columns-that-are-not-ingested)).
 * **Row size**: a single frame (e.g. one image) larger than the maximum batch size accepted by the server fails its episode.
-* **Export output**: every episode goes to a single data file and a single episodes file, and the original image file names are not kept (they are rebuilt as `frame-<frame index>.<format>`).
+* **Export output**: the metadata of every episode go to a single episodes file, and the original image file names are not kept (they are rebuilt as `frame-<frame index>.<format>`).
 * **Interrupted export**: a killed export leaves a hidden temporary folder next to the output folder (see [Core Workflow Execution](#core-workflow-execution-run_1)).

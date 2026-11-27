@@ -1,15 +1,22 @@
 from pathlib import Path
-from typing import List, Sequence, cast
+from typing import List, Optional, Sequence, cast
 
 import pyarrow as pa
+import pyarrow.parquet as pq
 import pytest
 from PIL import Image
 
 from mosaicolabs import CompressedImage
-from mosaicolabs.bridges.lerobot.metadata import LeRobotEpisode, LeRobotFeature
+from mosaicolabs.bridges.lerobot.metadata import (
+    LeRobotEpisode,
+    LeRobotFeature,
+    LeRobotInfo,
+)
 from mosaicolabs.bridges.lerobot.mosaico_loader import LeRobotEpisodeStreamer
 from mosaicolabs.bridges.lerobot.writer import (
+    _TMP_SUFFIX,
     LeRobotWriter,
+    _next_file_index,
     _tmp_path,
     _to_image_column,
     _to_task_index_column,
@@ -166,6 +173,24 @@ timeseries."""
 
 TIMESERIES_TOPIC = "/timeseries"
 
+DATA_PATH = "data/chunk-{chunk_index:03d}/file-{file_index:03d}.parquet"
+"""The `data_path` template of LeRobot v3.0."""
+
+
+def _info(
+    chunks_size: Optional[int] = None, data_files_size_in_mb: Optional[int] = None
+) -> LeRobotInfo:
+    """The `info` of the exported dataset, with `FEATURES`."""
+    return LeRobotInfo(
+        codebase_version="v3.0",
+        fps=30,
+        features=FEATURES,
+        total_episodes=1,
+        data_path=DATA_PATH,
+        chunks_size=chunks_size,
+        data_files_size_in_mb=data_files_size_in_mb,
+    )
+
 
 def _episode(
     episode_index: int, dataset_from_index: int, length: int
@@ -220,7 +245,7 @@ def _convert(
 def test_lerobot_rb_generates_the_indexes_of_the_exported_dataset():
     """`index` follows the rows of the dataset, `frame_index` restarts at each episode, and
     `episode_index` is the one of the episode, renumbered."""
-    writer = LeRobotWriter(FEATURES, TASKS)
+    writer = LeRobotWriter(_info(), Path("unused"), TASKS)
     first, second = _episode(0, 0, 3), _episode(1, 3, 2)
 
     slices = [
@@ -245,7 +270,7 @@ def test_lerobot_rb_generates_the_indexes_of_the_exported_dataset():
     ids=["past-the-end", "out-of-order"],
 )
 def test_lerobot_rb_rejects_rows_outside_the_episode(episode, rows):
-    writer = LeRobotWriter(FEATURES, TASKS)
+    writer = LeRobotWriter(_info(), Path("unused"), TASKS)
 
     with pytest.raises(
         ValueError, match=f"do not fall within episode {episode.episode_index}"
@@ -262,8 +287,8 @@ def test_write_episode_rejects_an_episode_ending_before_its_dataset_to_index(tmp
     )
 
     with pytest.raises(ValueError, match="ends at row 5, while it should end at row 6"):
-        with LeRobotWriter(FEATURES, TASKS) as writer:
-            writer.write_episode(streamer, data_path, None)
+        with LeRobotWriter(_info(), tmp_path, TASKS) as writer:
+            writer.write_episode(streamer, None)
 
     assert not data_path.exists()
     assert not _tmp_path(data_path).exists()
@@ -301,12 +326,117 @@ def test_write_episode_failing_leaves_no_data_file(tmp_path, monkeypatch):
     )
 
     with pytest.raises(RuntimeError, match="Injected failure"):
-        with LeRobotWriter(FEATURES, TASKS) as writer:
+        with LeRobotWriter(_info(), tmp_path, TASKS) as writer:
             # Duck-typed: `write_episode` only uses what `_FailingStreamer` exposes
-            writer.write_episode(
-                cast(LeRobotEpisodeStreamer, streamer), data_path, None
-            )
+            writer.write_episode(cast(LeRobotEpisodeStreamer, streamer), None)
 
     assert streamer.tmp_file_written
     assert not data_path.exists()
     assert not _tmp_path(data_path).exists()
+
+
+# --- Data files ---
+
+
+@pytest.mark.parametrize(
+    "chunk_index, file_index, chunks_size, expected",
+    [
+        (0, 0, 1000, (0, 1)),  # The next file of the chunk
+        (0, 999, 1000, (1, 0)),  # The chunk is full: the first file of the next chunk
+        (3, 1, 2, (4, 0)),
+    ],
+)
+def test_next_file_index(chunk_index, file_index, chunks_size, expected):
+    assert _next_file_index(chunk_index, file_index, chunks_size) == expected
+
+
+def _streamers(lengths: List[int]) -> List[LeRobotEpisodeStreamer]:
+    """The episodes of a dataset, of `lengths` rows, each one starting where the previous one
+    ends."""
+    streamers, start = [], 0
+    for episode_index, length in enumerate(lengths):
+        slices = _timeseries_slices(length, [length])
+        streamers.append(
+            episode_streamer(
+                {TIMESERIES_TOPIC: slices},
+                length=length,
+                episode_index=episode_index,
+                dataset_from_index=start,
+            )
+        )
+        start += length
+    return streamers
+
+
+def _data_file(root: Path, chunk_index: int, file_index: int) -> Path:
+    return root / DATA_PATH.format(chunk_index=chunk_index, file_index=file_index)
+
+
+def _episode_indexes(data_path: Path) -> List[int]:
+    """The `episode_index` of the rows of a data file."""
+    return pq.read_table(data_path).column("episode_index").to_pylist()
+
+
+def test_write_episode_keeps_the_episodes_in_one_file_below_the_size_limit(tmp_path):
+    """With LeRobot's default limits, small episodes all go to `file-000.parquet`."""
+    with LeRobotWriter(_info(), tmp_path, TASKS) as writer:
+        episodes = [writer.write_episode(s, None) for s in _streamers([3, 2, 4])]
+
+    assert [(e.data_chunk_index, e.data_file_index) for e in episodes] == [(0, 0)] * 3
+    assert _episode_indexes(_data_file(tmp_path, 0, 0)) == [0] * 3 + [1] * 2 + [2] * 4
+    assert not _data_file(tmp_path, 0, 1).exists()
+
+
+def test_write_episode_starts_a_new_file_at_the_size_limit(tmp_path):
+    """With a limit of 0 MB, every episode after the first one reaches it and starts a new
+    data file, and a new chunk once the chunk holds `chunks_size` files. Each data file is
+    renamed as soon as the next episode goes to another one."""
+    with LeRobotWriter(
+        _info(chunks_size=2, data_files_size_in_mb=0), tmp_path, TASKS
+    ) as writer:
+        first, *others = _streamers([3, 2, 4])
+        episodes = [writer.write_episode(first, None)]
+        assert _tmp_path(_data_file(tmp_path, 0, 0)).is_file()
+
+        for streamer in others:
+            episodes.append(writer.write_episode(streamer, None))
+            # The previous data file is complete
+            assert _data_file(tmp_path, 0, 0).is_file()
+
+    assert [(e.data_chunk_index, e.data_file_index) for e in episodes] == [
+        (0, 0),
+        (0, 1),
+        (1, 0),
+    ]
+    # Each episode is in the data file of its metadata, whole
+    assert _episode_indexes(_data_file(tmp_path, 0, 0)) == [0] * 3
+    assert _episode_indexes(_data_file(tmp_path, 0, 1)) == [1] * 2
+    assert _episode_indexes(_data_file(tmp_path, 1, 0)) == [2] * 4
+    assert not list(tmp_path.rglob(f"*{_TMP_SUFFIX}"))
+
+
+def test_write_episode_returns_the_episode_with_its_data_file(tmp_path):
+    """The episode of the streamer, shared with the loader, is left unchanged."""
+    first, second = _streamers([3, 2])
+
+    with LeRobotWriter(_info(data_files_size_in_mb=0), tmp_path, TASKS) as writer:
+        writer.write_episode(first, None)
+        episode = writer.write_episode(second, None)
+
+    assert (episode.data_chunk_index, episode.data_file_index) == (0, 1)
+    assert episode.episode_index == second.episode_metadata.episode_index
+    assert second.episode_metadata.data_file_index == 0
+
+
+def test_write_episode_failing_deletes_the_complete_data_files_too(tmp_path):
+    """An episode failing after a new data file was started: the complete data file of the
+    previous episodes is deleted too, and no data file is left."""
+    first, second = _streamers([3, 2])
+    failing = _FailingStreamer(second, _data_file(tmp_path, 0, 1))
+
+    with pytest.raises(RuntimeError, match="Injected failure"):
+        with LeRobotWriter(_info(data_files_size_in_mb=0), tmp_path, TASKS) as writer:
+            writer.write_episode(first, None)
+            writer.write_episode(cast(LeRobotEpisodeStreamer, failing), None)
+
+    assert not list(tmp_path.rglob("*.parquet*"))
