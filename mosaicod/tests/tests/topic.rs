@@ -1546,6 +1546,54 @@ async fn test_topic_filter_intersect_no_intersection(pool: sqlx::Pool<db::Databa
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_intersect_topic_without_matches(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_intersect_no_match";
+
+    // Topic 1: clusters [100, 110] and [500, 510], all values > 5
+    let t1 = &format!("{seq}/topic_1");
+    setup_topic_with_batches(
+        &mut client,
+        seq,
+        t1,
+        vec![clustering_test_batch(&[100, 110, 500, 510], &[6, 7, 8, 9])],
+    )
+    .await;
+
+    // Topic 2: same timestamps, no value > 5
+    let t2 = &format!("{seq}/topic_2");
+    setup_topic_with_batches_in_existing_seq(
+        &mut client,
+        seq,
+        t2,
+        vec![clustering_test_batch(&[100, 110, 500, 510], &[1, 1, 1, 1])],
+    )
+    .await;
+
+    let topics = [t1, t2]
+        .into_iter()
+        .map(|t| mosaicod_marshal::requests::TopicClusterizeParams {
+            locator: t.to_owned(),
+            clustering_dt_ns: 50,
+            ontology: Some(ontology_value_gt_5()),
+            timestamp_range: None,
+        })
+        .collect();
+
+    let items = actions::topic_filter_intersect(&mut client, topics, 0)
+        .await
+        .unwrap();
+
+    assert_eq!(items.len(), 0, "got: {items:?}");
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
