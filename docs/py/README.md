@@ -4,7 +4,7 @@ This repository contains the source code and Markdown files for the official Mos
 
 ## Setup and Installation
 
-This project uses uv for dependency management and MkDocs to generate the static site. Ensure you have Python 3.11 or higher and [uv](https://docs.astral.sh/uv/getting-started/installation/) (0.13.1 or newer) installed on your system.
+This project uses uv for dependency management and MkDocs to generate the static site. Ensure you have Python 3.11.5 or higher and [uv](https://docs.astral.sh/uv/getting-started/installation/) (0.13.1 or newer) installed on your system.
 
 To set up the environment, clone the repository and run:
 
