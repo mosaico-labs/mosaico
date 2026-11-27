@@ -55,7 +55,7 @@ cd ..
 ./scripts/tests --sdk-python
 ```
 
-The SDK supports Python 3.10 or newer. uv creates the local `.venv`, installs the SDK in editable mode, and includes development tools. Keep `--extra cli` on SDK runs so the optional CLI dependencies remain installed. Commit changes to `pyproject.toml` and `uv.lock` together. See the [development guide](docs/main/docs/dev/testing_and_dev.md) for dependency updates and documentation builds.
+The SDK supports Python 3.11 or newer. uv creates the local `.venv`, installs the SDK in editable mode, and includes development tools. Keep `--extra cli` on SDK runs so the optional CLI dependencies remain installed. Commit changes to `pyproject.toml` and `uv.lock` together. See the [development guide](docs/main/docs/dev/testing_and_dev.md) for dependency updates and documentation builds.
 
 ## Commit messages (Conventional Commits)
 

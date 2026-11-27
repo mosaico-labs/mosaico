@@ -14,11 +14,11 @@ keywords = [
     "ros",
 ]
 
-requires-python = ">=3.10,<4"
+requires-python = ">=3.11,<4"
 dependencies = [
     "pyarrow>=22.0.0",
     "numpy>=2.0.0,<2.5.0",
-    "pillow>=11.3.0,<13.0.0",
+    "pillow>=13.0.0,<14.0.0",
     "pandas>=2.3.3,<4.0.0",
     "pydantic>=2.12.5,<3.0.0",
     "rich>=14.3.3,<16.0.0",
@@ -38,7 +38,6 @@ dependencies = [
 [project.optional-dependencies]
 cli = [
     "typer>=0.25.1,<0.30.0",
-    "tomli>=2.0.0,<3.0.0; python_version < '3.11'",
 ]
 
 [dependency-groups]

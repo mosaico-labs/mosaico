@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://pypi.org/project/mosaicolabs"><img src="https://img.shields.io/pypi/v/mosaicolabs?color=blue" /></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="python version"/></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="python version"/></a>
   <a href="https://docs.mosaico.dev/python-sdk"><img src="https://img.shields.io/badge/API_Reference-blue?style=flat&logo=readthedocs&logoColor=white&labelColor=gray" alt="documentation"></a>
 </p>
 

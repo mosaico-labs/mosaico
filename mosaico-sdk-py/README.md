@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://pypi.org/project/mosaicolabs/"><img src="https://img.shields.io/pypi/v/mosaicolabs.svg" alt="PyPI version"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+"></a>
   <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License"></a>
 </p>
 
@@ -33,7 +33,7 @@ Install the SDK via `pip`:
 pip install mosaicolabs
 ```
 
-*Requires Python 3.10 or higher.*
+*Requires Python 3.11 or higher.*
 
 ### Infrastructure Prerequisite
 

@@ -143,7 +143,7 @@ flowchart TD
 
     subgraph build["#emsp;#emsp;#emsp;#emsp;#emsp;#emsp;Phase 1: build"]
         binaries["binaries<br/>amd64, arm64<br/>tar.gz + sha256"]
-        pythonSdk["python-sdk<br/>wheel + sdist,<br/>tested on Py 3.10-3.14"]
+        pythonSdk["python-sdk<br/>wheel + sdist,<br/>tested on Py 3.11-3.14"]
         docsMain["docs-main<br/>Docusaurus"]
         docsPy["docs-py<br/>MkDocs"]
         container["container<br/>amd64, arm64,<br/>pushed by digest<br/>(only built in dry run)"]
@@ -208,7 +208,7 @@ A run can also be started again from the tag with `workflow_dispatch`.
    - `binaries`: the `mosaicod` binaries for amd64 and arm64, as tarballs with
      their checksums;
    - `python-sdk`: the wheel and the sdist, built once by `py-wheel.yml`. The
-     wheel runs the unit, full-stack and CLI smoke tests on Python 3.10 to
+     wheel runs the unit, full-stack and CLI smoke tests on Python 3.11 to
      3.14, so the files that get published are the files that were tested;
    - `docs-main` and `docs-py`: the Docusaurus docs and the MkDocs docs of the
      Python SDK;

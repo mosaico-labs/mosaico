@@ -274,6 +274,38 @@ def test_to_pillow_channel_order(
     assert pil_img.getpixel((0, 0)) == expected_pixel
 
 
+@pytest.mark.parametrize("format", [ImageFormat.PNG, ImageFormat.RAW])
+@pytest.mark.parametrize(
+    "encoding",
+    [enc for enc, (_, _, mode) in _IMG_ENCODING_MAP.items() if mode is not None],
+)
+def test_to_pillow_mode_and_values(format, encoding):
+    """
+    Every encoding with a PIL mode converts to that mode, and single-channel
+    images keep their values (16-bit included).
+    """
+    _, channels, expected_mode = _IMG_ENCODING_MAP[encoding]
+    width, height = 4, 3
+    data, stride, arr = generate_test_data(width, height, encoding)
+
+    img = Image.from_linear_pixels(
+        data=data,
+        stride=stride,
+        height=height,
+        width=width,
+        encoding=encoding,
+        format=format,
+    )
+    pil_img = img.to_pillow()
+
+    assert pil_img.mode == expected_mode
+    assert pil_img.size == (width, height)
+    if channels == 1:
+        np.testing.assert_array_equal(
+            np.array(pil_img).astype(np.float64), arr[..., 0].astype(np.float64)
+        )
+
+
 @pytest.mark.parametrize("encoding", ["bgra8", "bgra16"])
 def test_to_pillow_preserves_alpha(encoding):
     """

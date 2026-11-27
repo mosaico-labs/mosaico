@@ -4,7 +4,7 @@ If you plan to contribute to the codebase, you need to set up the pre-commit hoo
 
 ## Prerequisites
 
-* **Python:** Version **3.10** or newer is required.
+* **Python:** Version **3.11** or newer is required.
 * **uv:** Version **0.13.1** or newer for package management ([installation guide](https://docs.astral.sh/uv/getting-started/installation/)).
 
 ## Development Setup

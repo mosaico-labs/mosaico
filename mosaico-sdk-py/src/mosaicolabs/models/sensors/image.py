@@ -565,7 +565,8 @@ class Image(
         if channels > 1 and arr.dtype == np.uint16:
             arr = (arr // 256).astype(np.uint8)
 
-        return PILImage.fromarray(arr, mode=mode)
+        # Pillow infers the mode; an explicit one that changes the dtype raises
+        return PILImage.fromarray(arr)
 
     @classmethod
     def from_pillow(
