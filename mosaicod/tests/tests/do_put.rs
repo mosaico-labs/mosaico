@@ -2,6 +2,7 @@
 use std::sync::Arc;
 
 use arrow::array::{ArrayRef, Int64Array, RecordBatch};
+use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_core::types::Uuid;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
@@ -216,49 +217,50 @@ async fn test_do_put_schema_with_empty_batches(pool: sqlx::Pool<db::DatabaseType
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_do_put_null_timestamps(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_do_put_nullable_timestamp(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
     let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/nullable_timestamp", sequence_name);
+
     actions::sequence_create(&mut client, sequence_name, "")
         .await
         .unwrap();
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
+        .await
+        .unwrap();
 
-    // Some and all timestamps null. The field is nullable, as pyarrow makes it by default.
-    let cases = [
-        ("some_null", vec![Some(10), None, Some(30)]),
-        ("all_null", vec![None, None]),
-    ];
-
-    for (suffix, timestamps) in cases {
-        let topic_name = &format!("{sequence_name}/{suffix}");
-        let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, "")
-            .await
-            .unwrap();
-
+    // A nullable `timestamp_ns`, as pyarrow makes it by default, with and without null values
+    for timestamps in [vec![Some(10), Some(20)], vec![Some(10), None]] {
+        let schema = Schema::new(vec![
+            Field::new("timestamp_ns", DataType::Int64, true),
+            Field::new("value", DataType::Int64, false),
+        ]);
         let values = vec![1; timestamps.len()];
-        let batch = RecordBatch::try_from_iter([
-            (
-                "timestamp_ns",
-                Arc::new(Int64Array::from(timestamps)) as ArrayRef,
-            ),
-            ("value", Arc::new(Int64Array::from(values)) as ArrayRef),
-        ])
+        let batch = RecordBatch::try_new(
+            Arc::new(schema),
+            vec![
+                Arc::new(Int64Array::from(timestamps)),
+                Arc::new(Int64Array::from(values)),
+            ],
+        )
         .unwrap();
 
         let res = actions::do_put(&mut client, &topic_uuid, topic_name, vec![batch], false).await;
-        assert_eq!(
-            res.unwrap_err().code(),
-            tonic::Code::InvalidArgument,
-            "{suffix}"
-        );
+        assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
     }
+
+    // The schema is rejected before anything is written, so the topic still accepts a valid upload.
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
 
     server.shutdown().await;
 }

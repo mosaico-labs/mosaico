@@ -123,8 +123,6 @@ async fn do_put_topic_data(
                     continue;
                 }
 
-                mosaicod_ext::arrow::check_batch(&batch)?;
-
                 // Trying to acquire a semaphore to limit the total amount of concurrent writes
                 // run by this instance. This is done in order to bound memory consumption and
                 // to limit CPU-bound operations.

@@ -14,9 +14,9 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
-    /// Returned when some samples of a batch have no timestamp.
-    #[error("null values in timestamp field")]
-    NullTimestamp,
+    /// Returned when the `timestamp` field is nullable: every sample needs a timestamp.
+    #[error("nullable timestamp field, expected non-nullable")]
+    NullableTimestamp,
     /// Returned when two sibling fields share a name.
     #[error("duplicate field `{0}`")]
     DuplicateField(String),
@@ -89,6 +89,9 @@ fn timestamp_shape_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
     if DataType::Int64 != *field.data_type() {
         return Err(SchemaError::WrongTimestampType);
     }
+    if field.is_nullable() {
+        return Err(SchemaError::NullableTimestamp);
+    }
     Ok(())
 }
 
@@ -139,21 +142,6 @@ fn valid_field_names_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
 
 fn is_valid_field_name(name: &str) -> bool {
     !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
-}
-
-/// Validates the data of a [`RecordBatch`] whose schema already passed [`check_schema`].
-///
-/// # Errors
-///
-/// Returns [`SchemaError::NullTimestamp`] if a sample has no timestamp.
-pub fn check_batch(batch: &RecordBatch) -> Result<(), SchemaError> {
-    let timestamps = batch
-        .column_by_name(constants::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
-        .ok_or(SchemaError::MissingTimestampInSchema)?;
-    if timestamps.null_count() > 0 {
-        return Err(SchemaError::NullTimestamp);
-    }
-    Ok(())
 }
 
 /// Return a arrow empty schema.
@@ -1254,26 +1242,17 @@ mod tests {
         assert_eq!(n.null_count, 1);
     }
 
-    fn timestamp_batch(timestamps: Vec<Option<i64>>) -> RecordBatch {
-        let schema = create_schema(vec![Field::new("timestamp_ns", DataType::Int64, true)]);
-        let timestamps: ArrayRef = Arc::new(arrow::array::Int64Array::from(timestamps));
-        RecordBatch::try_new(schema, vec![timestamps]).unwrap()
-    }
-
     #[test]
-    fn valid_batch_with_nullable_timestamp_field() {
-        let batch = timestamp_batch(vec![Some(10), Some(20)]);
-
-        assert!(check_batch(&batch).is_ok());
-    }
-
-    #[test]
-    fn invalid_batch_with_null_timestamp() {
-        let batch = timestamp_batch(vec![Some(10), None, Some(30)]);
+    fn invalid_schema_nullable_timestamp() {
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, true),
+            Field::new("value", DataType::Float64, true),
+        ];
+        let schema = create_schema(fields);
 
         assert!(matches!(
-            check_batch(&batch),
-            Err(SchemaError::NullTimestamp)
+            check_schema(&schema),
+            Err(SchemaError::NullableTimestamp)
         ));
     }
 }
