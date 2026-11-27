@@ -42,3 +42,6 @@ pub use instance_registry_record::*;
 
 mod hook_record;
 pub use hook_record::*;
+
+mod installation;
+pub use installation::*;

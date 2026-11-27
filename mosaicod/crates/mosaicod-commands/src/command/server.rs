@@ -4,11 +4,12 @@ use std::thread;
 
 use clap::Args;
 use mosaicod_config::default;
-use mosaicod_core::{self as core, error::PublicResult as Result};
+use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_grpc as grpc;
+use mosaicod_os::local_hostname;
 use signal_hook::{consts::SIGINT, consts::SIGTERM, iterator::Signals};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{Context, Execute, common, print};
 
@@ -71,7 +72,7 @@ fn server(args: Server, json_format: bool) -> Result<()> {
     let host = args.host.unwrap_or(params.host.value);
     let port = args.port.unwrap_or(params.port.value).get();
 
-    let mut server = grpc::Server::new(host, port, store, db);
+    let mut server = grpc::Server::new(host, port, store, db.clone());
 
     if params.api_key_enabled.value {
         server.options.enable_api_key_management();
@@ -98,7 +99,24 @@ fn server(args: Server, json_format: bool) -> Result<()> {
         }
     });
 
-    server.start_and_wait(rt, || {
+    // Registered before usage reporting starts, since every report carries the instance ID.
+    let instance_id = rt
+        .block_on(db::instance_registry_create(
+            &mut db.connection(),
+            types::InstanceKind::Server,
+            &local_hostname(),
+            std::process::id() as i32,
+            chrono::Utc::now().timestamp(),
+            // The server has no one-shot mode: it always runs until shut down.
+            false,
+        ))?
+        .instance_id;
+
+    // Kept until the server stops: dropping it sends what is still queued, on `rt`, so `rt`
+    // must outlive it (don't move it into `start_and_wait`).
+    let _usage = common::init_usage_reporting(&rt, &db, instance_id);
+
+    let result = server.start_and_wait(&rt, instance_id, || {
         if !json_format {
             print::startup_info(
                 &host,
@@ -109,7 +127,15 @@ fn server(args: Server, json_format: bool) -> Result<()> {
                 common::startup_time(),
             );
         }
-    })?;
+    });
 
-    Ok(())
+    // Deregistered even when the server failed, rather than left to be reaped later as stale.
+    if let Err(e) = rt.block_on(db::instance_registry_delete(
+        &mut db.connection(),
+        instance_id,
+    )) {
+        warn!("failed to deregister instance {instance_id}: {e}");
+    }
+
+    result
 }

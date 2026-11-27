@@ -7,6 +7,7 @@ use mosaicod_config::{self as config, default};
 use mosaicod_core::{self as core, error::PublicResult as Result};
 use mosaicod_db as db;
 use mosaicod_store as store;
+use mosaicod_usage as usage;
 
 /// Stores startup time.
 static STARTUP_TIME: OnceLock<std::time::Instant> = OnceLock::new();
@@ -78,6 +79,39 @@ pub fn check_store_connectivity(
     );
     rt.block_on(store.check_connectivity(timeout))?;
     Ok(())
+}
+
+/// Starts usage reporting and records this process's identity, unless it's turned off.
+///
+/// `instance_id` is this process's entry in the instance registry.
+///
+/// Usage reporting never stops a command from starting: when it can't start, the command
+/// runs without it.
+pub fn init_usage_reporting(
+    rt: &tokio::runtime::Runtime,
+    db: &db::Database,
+    instance_id: i32,
+) -> Option<usage::UsageReporter> {
+    let params = default::params();
+
+    if !params.usage_reporting_enabled.value {
+        return None;
+    }
+
+    // Reporting goes on without it: the reports then carry an unknown installation ID.
+    let installation_id = rt
+        .block_on(db::installation_get_or_create(&mut db.connection()))
+        .ok();
+
+    let reporter = usage::UsageReporter::new(
+        rt.handle(),
+        usage::Config::new(installation_id, instance_id),
+    )
+    .ok()?;
+
+    reporter.emit_identity_event();
+
+    Some(reporter)
 }
 
 /// Builds the configuration from the sources of `builder` and sets it for the process.

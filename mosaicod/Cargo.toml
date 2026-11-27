@@ -32,6 +32,7 @@ mosaicod-os = { path = "crates/mosaicod-os" }
 mosaicod-proto = { path = "crates/mosaicod-proto" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
+mosaicod-usage = { path = "crates/mosaicod-usage" }
 
 # Arrow stack dependencies
 arrow = { version = "59.3.3", default-features = false, features = ["prettyprint", "ipc_compression"] }
@@ -84,6 +85,14 @@ tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "ansi", "tracing-log", "json", "env-filter"] }
 regex = { version = "1.12.4", default-features = false, features = ["perf", "unicode"] }
 reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
+
+# Usage reporting (mosaicod-usage)
+opentelemetry = { version = "0.33.1", default-features = false, features = ["logs"] }
+opentelemetry_sdk = { version = "0.33.1", default-features = false, features = ["logs"] }
+opentelemetry-proto = { version = "0.33.1", default-features = false, features = ["gen-tonic-messages", "logs"] }
+opentelemetry-otlp = { version = "0.33.1", default-features = false, features = ["http-proto", "logs"] }
+opentelemetry-http = { version = "0.33.1", default-features = false }
+async-trait = { version = "0.1.92", default-features = false }
 
 # Protobuf schema codegen (mosaicod-proto)
 prost = "0.14"
