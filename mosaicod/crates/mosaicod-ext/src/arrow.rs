@@ -14,6 +14,9 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
+    /// Returned when the `timestamp` field is nullable: every sample needs a timestamp.
+    #[error("nullable timestamp field, expected non-nullable")]
+    NullableTimestamp,
     /// Returned when two sibling fields share a name.
     #[error("duplicate field `{0}`")]
     DuplicateField(String),
@@ -85,6 +88,9 @@ fn timestamp_shape_rule(schema: &SchemaRef) -> Result<(), SchemaError> {
     };
     if DataType::Int64 != *field.data_type() {
         return Err(SchemaError::WrongTimestampType);
+    }
+    if field.is_nullable() {
+        return Err(SchemaError::NullableTimestamp);
     }
     Ok(())
 }
@@ -1234,5 +1240,19 @@ mod tests {
         assert_eq!(n.min, 1.0);
         assert_eq!(n.max, 9.0);
         assert_eq!(n.null_count, 1);
+    }
+
+    #[test]
+    fn invalid_schema_nullable_timestamp() {
+        let fields = vec![
+            Field::new("timestamp_ns", DataType::Int64, true),
+            Field::new("value", DataType::Float64, true),
+        ];
+        let schema = create_schema(fields);
+
+        assert!(matches!(
+            check_schema(&schema),
+            Err(SchemaError::NullableTimestamp)
+        ));
     }
 }
