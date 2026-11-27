@@ -36,4 +36,5 @@ list. Usernames are case-insensitive.
 - @ValerioJiang
 - @nabeelbaghoor
 - @diorwave
+- @lorenzoTonetta
 
