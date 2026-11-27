@@ -10,12 +10,13 @@ permissions:
 jobs:
   check-contributor:
     name: "Check contributor"
-    # Bots and organization members do not need to sign the CLA. Drafts cannot
-    # be merged, so the author is checked once the PR is ready for review
+    # Bots do not need to sign the CLA. Drafts cannot be merged, so the author
+    # is checked once the PR is ready for review. Organization members do not
+    # need to sign the CLA either
     if: >-
       github.event.pull_request.user.type != 'Bot' &&
-      !contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association) &&
-      !github.event.pull_request.draft
+      !github.event.pull_request.draft &&
+      !contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     steps:
       # Check out CONTRIBUTORS.md from the target branch, not from the PR,
