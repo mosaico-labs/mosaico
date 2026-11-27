@@ -1,10 +1,11 @@
-# Eval: mosaico-onboarding
+# Eval: mosaico-docs-guide
 
-Fifteen questions a new Mosaico user might ask: twelve conceptual ones across the data model, sessions,
-architecture, ontology, reading, query, security, the ML, ROS and MCAP bridges, the watchdog, the CLI and
-the ecosystem, and three asking which page or skill to use. The skill passes when an agent that knows
-only the skill and this repository's documentation answers every question with the expected facts, a
-citation to an acceptable page for each claim, and none of the wrong claims.
+Seventeen questions a new Mosaico user might ask: fourteen conceptual ones across the data model,
+sessions, architecture, ontology, reading, query, security, the ML, ROS, MCAP and LeRobot bridges, the
+watchdog, hooks, the CLI (`mosaico inject` / `extract`) and the ecosystem, and three asking which page or
+skill to use (q13-q15). The skill passes when an agent that knows only the skill and this repository's
+documentation answers every question with the expected facts, a citation to an acceptable page for each
+claim, and none of the wrong claims.
 
 Every expected fact in `expected.json` carries the documentation line it comes from (`path:line`). If a
 page changes, re-check those lines before trusting the eval.
@@ -16,7 +17,9 @@ page changes, re-check those lines before trusting the eval.
   `acceptable_citations` (pages a correct answer may cite) and `wrong_claims` (statements that fail it).
 - `check_paths.py`: maps every published URL the skill cites (`https://docs.mosaico.dev/...`) back to its
   page in this repository and verifies that it, every repository path in the skill and every path in
-  `expected.json` exists. Run it after any change to the skill or the docs: `python check_paths.py`.
+  `expected.json` exists. With `--live` it also requests every published URL, following redirects, and
+  fails on any answer other than 200: the site can move a page that the repository still has. Run both
+  after any change to the skill or the docs: `python check_paths.py` and `python check_paths.py --live`.
 
 ## Running it
 
@@ -27,6 +30,7 @@ questions are answered from the documentation. Keep each answer, then grade it a
   page from `acceptable_citations` (for routing questions, also names the expected skill), and contains
   none of the `wrong_claims`. A citation by published URL counts as the page it is built from
   (`https://docs.mosaico.dev/daemon` is `docs/main/docs/daemon/index.md`; the mapping is in `check_paths.py`).
+  An answer that found a moved page through `llms.txt` and cites the page it read passes.
 - **Fail** it on a missing fact, a claim with no citation, a citation to a page that does not exist, or
   any wrong claim.
 
@@ -35,8 +39,8 @@ Grading is by a reviewer or a second agent holding `expected.json`; it is not au
 ## Limits
 
 The skill's concept map states some expected facts almost verbatim (q2 SequenceUpdater, q9 ROS 2 `.mcap`
-to the ROS bridge, q10 the 30 s `--min-file-age`): on those questions a pass shows the map is right, not
-that an agent read the cited page. The other questions need the docs the skill points to.
+to the ROS bridge, q10 the 30 s `--min-file-age`, q16 `mosaicod hook create` and `HookServer`): on those
+questions a pass shows the map is right, not that an agent read the cited page. The other questions need the docs the skill points to.
 
 ## Corrections
 

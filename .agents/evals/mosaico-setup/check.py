@@ -5,7 +5,8 @@ Usage: python check.py <run-dir>
 <run-dir> holds one transcript per scenario, s01.log .. s10.log (or .out): the commands run, their
 output and the agent's final answer. This script checks what a regex or a number can decide: the
 error patterns of scenarios 5-8, the sequence lines of scenarios 3 and 6, the numbers of scenario 4,
-the profile lines of scenario 2, and that no daemon write appears in any transcript. The diagnosis,
+the profile lines of scenario 2, that the SDK of scenario 1 and the daemon of scenario 3 share the
+same 0.X, and that no daemon write appears in any transcript. The diagnosis,
 must_say and must_not_say fields still need a human (or model) reader; they are listed as MANUAL.
 It also checks that every documentation page the skill cites (published URL or repo path) exists
 in this checkout.
@@ -16,14 +17,19 @@ import re
 import sys
 from pathlib import Path
 
-# Daemon writes through the SDK (client methods and injector modules) and container lifecycle commands.
-# The CLI has no write subcommand (sequence/topic offer only ls, stat, mcat).
+# Daemon writes through the SDK (client methods and injector modules), the CLI (`inject`, and
+# `examples <name>`, since some examples ingest; `--help` is allowed), `mosaicod hook create|rm`
+# and container lifecycle commands.
 WRITES = re.compile(
     r"\b(sequence_delete|session_delete|sequence_create|sequence_update"
     r"|clear_sequence_notifications|clear_topic_notifications)\s*\("
-    r"|mosaicolabs\.(ros_injector|mcap_injector|bridges\.(ros|mcap)\.injector)"
+    r"|mosaicolabs\.(ros|mcap|lerobot|ulog)_injector"
+    r"|mosaicolabs\.bridges\.(ros|mcap|lerobot|ulog)\.injector"
+    r"|\bmosaico\s+(--profile\s+\S+\s+)?inject\s+(?![^\n]*(--help|\s-h\b))(?!-)\S"
+    r"|\bmosaico\s+(--profile\s+\S+\s+)?examples\s+(?!ls\b|-)\S"
     r"|docker[\s-]+compose\b[^\n]*\b(down|up|restart|stop|kill|rm)\b"
     r"|mosaicod\s+api-key\s+(create|revoke|delete)\b"
+    r"|mosaicod\s+hook\s+(create|rm|remove)\b"
     r"|Action\(\s*[\"'](sequence|topic|session)_(create|delete|update|finalize)"
     r"|_notification_(create|purge)"
     r"|mosaicolabs\.(testing|examples|watchdog)\b"
@@ -39,6 +45,8 @@ def missing_doc_pages() -> list[str]:
     missing = []
     for url in set(re.findall(r"https://docs\.mosaico\.dev/([\w/.-]*)", skill)):
         url = url.rstrip("/.")
+        if url.endswith((".txt", ".xml")):  # site indexes (llms.txt, sitemap), not doc pages
+            continue
         if url.startswith("python-sdk"):
             sdk = url[len("python-sdk/") :]
             pages = [f"docs/py/docs/{sdk}.md" if sdk else "docs/py/docs/index.md"]
@@ -70,7 +78,12 @@ def main() -> int:
     checks: dict[int, list[tuple[str, bool]]] = {n: [] for n in range(1, 11)}
     text = {n: transcript(run, n) for n in range(1, 11)}
 
-    checks[1].append(("pip show 0.8.0.dev0", "Version: 0.8.0.dev0" in text[1]))
+    # Versions: the SDK (pip show, scenario 1) and the daemon (scenario 3) must share 0.X; a debug
+    # build of the daemon reports 0.X.Y-devel.
+    sdk = re.search(r"^Version:\s+(0\.\d+)\.\d+", text[1], re.MULTILINE)
+    server_lines = "\n".join(re.findall(r"(?i)server.*", text[3]))
+    server = re.search(r"(?<![\d.])(0\.\d+)\.\d+(?:-devel)?(?![\d.])", server_lines)
+    checks[1].append(("pip show prints Version: 0.X.Y", sdk is not None))
     for line in (
         "sandbox,localhost,6726,true",
         "staging,localhost,7777,false",
@@ -82,7 +95,10 @@ def main() -> int:
     for line in seq_lines:
         checks[3].append((line, line in text[3]))
     checks[3].append(
-        ("server 0.8.0-dev", exp["3"]["must_show"]["server_version"] in text[3])
+        (
+            "server 0.X matches the SDK of scenario 1",
+            bool(sdk and server and sdk.group(1) == server.group(1)),
+        )
     )
     for t in s4["race_1_topics"]:
         checks[4].append((t, t in text[4]))

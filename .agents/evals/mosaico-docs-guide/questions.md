@@ -24,3 +24,7 @@ documentation page (path from the repository root) for every claim.
     skill should I use?
 14. I have not installed anything yet. Where do I start, and which skill helps me get connected?
 15. I need PyTorch training batches out of my sequences. Which page or skill should I use?
+16. A quality check should run on every new recording as soon as it is uploaded. Do I have to poll
+    Mosaico for new sequences?
+17. I have a LeRobot dataset on disk. Is there a command to put it into Mosaico, and to get it back as a
+    LeRobot dataset later?

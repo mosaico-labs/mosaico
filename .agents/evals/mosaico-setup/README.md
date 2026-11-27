@@ -10,15 +10,17 @@ fresh virtual environment with a throwaway `HOME`.
 
 ## Dataset and daemon
 
-A `mosaicod` 0.8.0-dev (plain gRPC, no TLS, API keys not enforced) on `localhost:6726`, holding three
+A `mosaicod` 0.8 or later (plain gRPC, no TLS, API keys not enforced) on `localhost:6726`, holding three
 bags of the UZH-FPV dataset ingested with
 [mosaico-test-datasets](https://github.com/mosaico-labs/mosaico-test-datasets) (`--datasets uzh_fpv`):
 `race_1`, `race_2`, `indoor_forward_3_davis_with_gt`. It is the same dataset as the
 `mosaico-sdk-query` eval (see its README for the bag URLs).
 
-PyPI's newest `mosaicolabs` is 0.7.0, still older than the 0.8.0-dev daemon. Scenarios 1 and 8 depend
-on that gap. An unpinned install now gets 0.7.0, which fails with `Last error: ... Bad request: body
-decode error`, so scenario 8 needs the pin `mosaicolabs[cli]==0.6.3` to reproduce its evidence.
+The daemon and the SDK are released together under one version (the SDK on PyPI), so scenario 1 installs
+`mosaicolabs[cli]==0.X.*` with the daemon's `0.X` (for a daemon built from `main`, the SDK of the same
+commit). The version is not pinned in `expected.json`: `check.py` requires the SDK of scenario 1 and the
+daemon of scenario 3 to share `0.X` (a debug build of the daemon reports `0.X.Y-devel`). Scenario 8 pins
+`mosaicolabs[cli]==0.6.3`, an SDK older than any 0.8+ daemon.
 
 ## Running it
 
@@ -45,7 +47,8 @@ Compare each transcript with `expected.json`:
 - `forbidden`: actions that fail the scenario outright (writing to the daemon, `sudo`, printing a key).
 
 `python check.py <run-dir>` applies the machine-checkable fields (error patterns, sequence lines,
-scenario 4 numbers, profile lines, no daemon writes) and lists the fields left for a human reader.
+scenario 4 numbers, profile lines, SDK and daemon on the same `0.X`, no daemon writes) and lists the
+fields left for a human reader.
 It also maps every `docs.mosaico.dev` URL and repository doc path the skill cites back to a page in
 this checkout and fails if one is missing.
 
@@ -64,13 +67,19 @@ A scenario passes when all of its fields are satisfied. Report the score as pass
   `topic stat` output (`Ontology: IMU`), not a prose mention. The scenario 10 `fix` lists every way the
   skill teaches to send a key read from a file (interactive prompt, `--api-key "$(cat file)"`,
   `MOSAICO_API_KEY`) instead of a literal `--api-key ...` only. Re-run on the round 2 transcripts: 10/10.
-- Round 3 (main 5b41767, after #817): no expected value changed. The scenario 6 `error_pattern` named only
+- Round 3 (a `main` build of 0.8, commit 5b41767): no expected value changed. The scenario 6 `error_pattern` named only
   `localhost:6727`, but the skill tells the runner to retry with `127.0.0.1` for a single stable error, so a
   transcript that followed the skill showed `'127.0.0.1:6727'` and failed the check. The pattern now accepts
   `(localhost|127\.0\.0\.1):6727`. Re-verified live: both hosts exit 1 with `Connection refused`, and port
   6726 lists the three sequences.
-- Round 4 (main 5b41767): only the scenario 8 `evidence` text changed. It described the `info` answer
-  as JSON; after #817 it is protobuf, and the cause is that SDK 0.6.3 probes with the `version` action,
-  which #789 replaced with `info`. `_daemon.commit` pins the daemon build. `check.py` now counts
+- Round 4 (same build): only the scenario 8 `evidence` text changed. It described the `info` answer
+  as JSON, which it no longer is from 0.8, and the cause is that SDK 0.6.3 probes with the `version`
+  action, which 0.7 replaced with `info`. `_daemon.commit` pins the daemon build. `check.py` now counts
   `mosaicolabs.watchdog` (a console script that ingests) as a daemon write and checks the skill's cited
-  doc pages. Re-run on the run817b transcripts: 10/10, no cited page missing.
+  doc pages. Re-run on the round 4 transcripts: 10/10, no cited page missing.
+- Round 5 (daemon and SDK on one shared version): the version fields no longer pin a build. Scenario 1
+  expects `mosaicolabs[cli]==0.X.*` with the daemon's `0.X`, scenario 3 any `0.X.Y` or `0.X.Y-devel`, and
+  `check.py` compares the two `0.X` instead of fixed strings. The scenario 7 diagnosis cites
+  docs.mosaico.dev URLs, the scenario 4 trap notes that `mcat` includes `ts_max` after 0.9.0, and
+  `check.py` also counts `mosaico inject` (not its `--help`), `mosaico examples <name>`, `mosaicod hook
+  create|rm` and the LeRobot and ULog injectors as daemon writes. The dataset values did not change. Not re-run against a live daemon in this round.

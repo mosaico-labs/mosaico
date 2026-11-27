@@ -2,19 +2,18 @@
   "_daemon": {
     "host": "localhost",
     "port": 6726,
-    "version": "0.8.0-dev",
+    "version": "any 0.8+ release (0.X.Y) or a debug build (0.X.Y-devel); the dataset values below do not depend on it",
     "tls": false,
-    "api_key_enforced": false,
-    "commit": "5b41767"
+    "api_key_enforced": false
   },
   "1": {
     "title": "Fresh install",
     "must_show": [
-      "pip show mosaicolabs -> Version: 0.8.0.dev0",
-      "mosaico --help prints the command list (profile, sequence, topic, extension)"
+      "pip show mosaicolabs -> Version: 0.X.Y, with the daemon's 0.X",
+      "mosaico --help prints the command list (profile, sequence, topic, inject, extract, extension)"
     ],
     "must_say": [
-      "the SDK version must match the daemon (0.8.0-dev); PyPI's newest (0.7.0) is older, so it is installed from the repository (git+https://github.com/mosaico-labs/mosaico...#subdirectory=mosaico-sdk-py or ./mosaico-sdk-py)"
+      "the SDK must have the daemon's 0.X: pip install \"mosaicolabs[cli]==0.X.*\" (for a daemon built from main, the SDK from the same commit: ./mosaico-sdk-py of that checkout or git+https://github.com/mosaico-labs/mosaico@<commit>#subdirectory=mosaico-sdk-py)"
     ],
     "must_not_say": [
       "installation done with mosaicolabs 0.6.3 and no version warning"
@@ -49,7 +48,7 @@
     "title": "Connection check",
     "must_show": {
       "sequences": ["race_1", "race_2", "indoor_forward_3_davis_with_gt"],
-      "server_version": "0.8.0-dev",
+      "server_version": "the daemon's 0.X.Y (0.X.Y-devel for a debug build), with the same 0.X as the SDK of scenario 1",
       "cli_output_lines": [
         "race_1,1654544051367208004,1654544079859084368",
         "race_2,1654836213366211176,1654836242349473953",
@@ -75,7 +74,7 @@
     },
     "traps": [
       "`topic ls --locator \"race_1/*\"` prints 'No topics found': the locator matches the topic name only; filter with grep '^race_1/'",
-      "`mcat <handler from ls> | wc -l` gives 5678: mcat treats ts_max as exclusive; the right count (ts_max + 1, or the SDK) is 5679"
+      "up to 0.9.0, `mcat <handler from ls> | wc -l` gives 5678: mcat treats ts_max as exclusive; the right count (ts_max + 1, or the SDK) is 5679. Later CLIs include ts_max and give 5679 directly"
     ],
     "forbidden": ["Python scripts (the user asked for the CLI only)"]
   },
@@ -104,7 +103,7 @@
     "reproduce": "MOSAICO_TLS=1 mosaico sequence ls (or a profile created with --tls)",
     "exit_code": 1,
     "error_pattern": "(?i)ssl[\\s\\S]*wrong\\s+version\\s+number",
-    "diagnosis": "the client speaks TLS and the daemon serves plain gRPC; turn TLS off on the client (profile --no-tls, unset MOSAICO_TLS), or have the admin enable TLS on mosaicod with MOSAICOD_TLS_ENABLED=true plus MOSAICOD_TLS_CERT_FILE / MOSAICOD_TLS_PRIVATE_KEY_FILE (docs/main/docs/daemon/env.md; the --tls flag was removed in 0.7, docs/main/docs/daemon/migration.md)",
+    "diagnosis": "the client speaks TLS and the daemon serves plain gRPC; turn TLS off on the client (profile --no-tls, unset MOSAICO_TLS), or have the admin enable TLS on mosaicod with MOSAICOD_TLS_ENABLED=true plus MOSAICOD_TLS_CERT_FILE / MOSAICOD_TLS_PRIVATE_KEY_FILE (https://docs.mosaico.dev/daemon/env; the --tls flag was removed in 0.7, https://docs.mosaico.dev/daemon/migration)",
     "must_not_say": ["the daemon is down", "wrong port"],
     "trap": "with host `localhost`, gRPC tries ::1 and 127.0.0.1; in about half the runs the final `Last error` is the ::1 `Connection refused` (the daemon is published on 127.0.0.1 only), while the SSL `wrong version number` lines appear earlier on stderr. An agent that reads only the last line concludes 'wrong port / daemon down'. With host 127.0.0.1 the last line is the SSL error every time."
   },
@@ -112,9 +111,9 @@
     "title": "SDK older than the daemon",
     "reproduce": "new venv + pip install \"mosaicolabs[cli]==0.6.3\"; MosaicoClient.connect(\"localhost\", 6726)",
     "error_pattern": "Inner err: 'Server did not become available within 5s'$",
-    "evidence": "the Flight 'info' action (pyarrow.flight) with an empty body answers a protobuf message whose bytes contain 0.8.0-dev, while pip show reports 0.6.3; the cause is that SDK 0.6.3 probes with the 'version' action, which #789 replaced with 'info' (the daemon answers it with: no available action for string `version`)",
-    "diagnosis": "the daemon is up; the SDK 0.6.3 is older than the daemon 0.8.0-dev and cannot talk to it",
-    "fix": "install the matching SDK from the repository (0.8.0.dev0); the same script then lists the three sequences",
+    "evidence": "the Flight 'info' action (pyarrow.flight) with an empty body answers with the daemon's version (0.X.Y), while pip show reports 0.6.3; the cause is that SDK 0.6.3 probes with the 'version' action, which the daemon replaced with 'info' in 0.7 (the daemon answers it with: no available action for string `version`)",
+    "diagnosis": "the daemon is up; the SDK 0.6.3 is older than the daemon (0.X.Y) and cannot talk to it",
+    "fix": "install the SDK with the daemon's 0.X (pip install \"mosaicolabs[cli]==0.X.*\"); the same script then lists the three sequences",
     "must_not_say": ["the daemon is down", "firewall"]
   },
   "9": {

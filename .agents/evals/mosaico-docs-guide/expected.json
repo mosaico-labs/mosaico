@@ -337,7 +337,8 @@
       "docs/py/docs/SDK/query.md",
       "docs/main/docs/examples/querying_catalogs.mdx",
       "docs/main/docs/learn/multi_domain_query.mdx",
-      "docs/main/docs/learn/temporal_windows.mdx"
+      "docs/main/docs/learn/temporal_windows.mdx",
+      "docs/main/docs/learn/aggregators.mdx"
     ],
     "wrong_claims": [
       "routes to mosaico-ml-dataset or mosaico-setup",
@@ -388,6 +389,74 @@
     ],
     "wrong_claims": [
       "routes to mosaico-sdk-query as the main answer"
+    ]
+  },
+  "16": {
+    "area": "hooks",
+    "must_contain": [
+      {
+        "fact": "No polling needed: register a hook, an HTTP endpoint mosaicod sends an event to as soon as data lands",
+        "source": "docs/main/docs/learn/hooks.mdx:10; docs/main/docs/daemon/hooks.md:7"
+      },
+      {
+        "fact": "Events fire when a topic finishes uploading and when a session is finalized; every hook receives every event as an HTTP POST with a JSON body",
+        "source": "docs/main/docs/daemon/hooks.md:7, 26"
+      },
+      {
+        "fact": "Hooks are registered on the daemon with mosaicod hook create <URL> (listed with hook ls, removed with hook rm)",
+        "source": "docs/main/docs/daemon/hooks.md:11-19; docs/main/docs/learn/hooks.mdx:26"
+      },
+      {
+        "fact": "In Python, HookServer receives the events and passes each one to the functions it decorates",
+        "source": "docs/main/docs/learn/hooks.mdx:10, 28"
+      },
+      {
+        "fact": "Delivery is best effort (an event can be lost or arrive twice) and requests to hooks are not authenticated",
+        "source": "docs/main/docs/daemon/hooks.md:100, 112-113, 119"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/learn/hooks.mdx",
+      "docs/main/docs/daemon/hooks.md",
+      "docs/py/docs/SDK/hook.md",
+      "docs/main/docs/daemon/cli.md"
+    ],
+    "wrong_claims": [
+      "Mosaico cannot notify, so the recordings have to be polled",
+      "HookServer registers the hook with mosaicod",
+      "every event is delivered exactly once",
+      "the agent runs mosaicod hook create or mosaicod hook rm itself"
+    ]
+  },
+  "17": {
+    "area": "mosaico inject / extract, LeRobot bridge",
+    "must_contain": [
+      {
+        "fact": "mosaico inject lerobot DATASET_PATH ingests a LeRobot dataset, one new sequence per episode",
+        "source": "docs/main/docs/cli/commands.md:151, 203-206"
+      },
+      {
+        "fact": "Only the LeRobot v3.0 format is supported; other versions are refused",
+        "source": "docs/py/docs/SDK/bridges/lerobot.md:6, 12"
+      },
+      {
+        "fact": "--dry-run reports what would be ingested without connecting to the server",
+        "source": "docs/main/docs/cli/commands.md:151, 215"
+      },
+      {
+        "fact": "mosaico extract lerobot (LeRobotSequencesExtractor) writes sequences ingested with inject lerobot back as a LeRobot v3.0 dataset, one episode per sequence",
+        "source": "docs/main/docs/cli/commands.md:293-296; docs/py/docs/SDK/bridges/lerobot.md:6, 279"
+      }
+    ],
+    "acceptable_citations": [
+      "docs/main/docs/cli/commands.md",
+      "docs/py/docs/SDK/bridges/lerobot.md"
+    ],
+    "wrong_claims": [
+      "a LeRobot dataset becomes a single sequence",
+      "LeRobot datasets are ingested through the ML bridge",
+      "any LeRobot dataset version can be ingested",
+      "the agent runs mosaico inject or mosaico extract itself"
     ]
   }
 }

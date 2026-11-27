@@ -8,24 +8,26 @@ description: Write and run read-only Python code that turns Mosaico recordings i
 Turn a dataset request into a short Python script that uses `mosaicolabs.ml`, run it against the user's
 daemon, and report what came out (rows, columns, the grid and policy used). Everything here only reads:
 never write, delete or re-ingest data to build a dataset. The guide is
-https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/ (inside a checkout of mosaico-labs/mosaico it is
-`docs/py/docs/SDK/bridges/ml.md`); the installed `mosaicolabs.ml` code is the authority where the two
-disagree (section 6).
+https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/; the installed `mosaicolabs.ml` code is the
+authority where the two disagree (section 6). If a cited page has moved, find it in
+https://docs.mosaico.dev/python-sdk/sitemap.xml (SDK pages are not in `llms.txt`) or under `docs/py/docs/`
+of a checkout, cite the page you actually read and mention the stale link.
 
-Covers the 0.7 release (SDK 0.7.0 from PyPI with a `release/v0.7` daemon) and Mosaico main (SDK
-0.8.0-dev, after the protobuf wire switch). `mosaicolabs.ml` is the same in both and in SDK 0.6.3, so
-sections 2–6 hold on each; what differs is connecting. The SDK and the daemon
-must share `X.Y` (patch numbers are independent) and, on `-dev` builds, the same side of #817 (`python -c "import importlib.metadata as m; print(m.version('mosaicolabs'))"`):
-SDK 0.6.3 against a 0.7 or newer daemon fails in `connect()` with "Server did not become available
-within 5s" (it probes the `version` action, replaced by `info` in 0.7), and a 0.7 SDK or daemon cannot
-talk to a main one (JSON vs protobuf payloads). That is a mosaico-setup problem, not a dataset one.
+Covers daemons 0.8+ and main. Use the SDK with the daemon's 0.X (`pip install "mosaicolabs[cli]==0.X.*"`,
+or the SDK from the same commit for a daemon built from main); `mosaicolabs.ml` has not changed since
+0.6.3, so sections 2–6 hold on every version. A successful connect does not prove the versions match
+(the SDK does not compare them); a mismatch is a mosaico-setup problem, not a dataset one. Older daemons
+(0.6, 0.7): install the SDK of the same 0.X (0.6.3 or 0.7.0); SDK 0.6.3 against a newer daemon fails in
+`connect()` with "Server did not become available within 5s".
 
 ## 1. Discover first, then extract only what you need
 
 Find the sequence and topic names, the ontology tags and the field paths exactly as the
 **mosaico-sdk-query** skill says in its section 1: the same discovery script, the same rules for
 connection, TLS and API key. If the user wants only the windows where a condition held, run that query
-with mosaico-sdk-query first and extract those windows here. A wrong sequence name gives
+with mosaico-sdk-query first and extract those windows here. Without that skill, the minimum is
+`client.info().version` (its 0.X must match the SDK's), `client.list_sequences()`, then per sequence
+`client.sequence_handler(seq).topics` and `client.topic_handler(seq, t).ontology_tag`. A wrong sequence name gives
 `client.sequence_handler()` → `None`; a wrong topic name makes the extractor raise `ValueError` listing
 the available topics.
 
@@ -68,9 +70,9 @@ generator of time windows. What the frames look like:
 - **Sparse, one row per sample.** Topics are stacked, not joined: each row carries one topic's values
   and NaN in the other topics' columns, so `len(df)` is the sum of the samples of all topics. Use
   `df[col].notna().sum()` for one topic's count, and a sync step (section 3) to get one row per instant.
-- **Time window**: `timestamp_ns_start` is inclusive, `timestamp_ns_end` exclusive, as in the streamers
-  (mosaico-sdk-query, section 4): for "from A to B included" pass `timestamp_ns_end=B + 1`. An end beyond
-  the last sample extracts to the end of the sequence.
+- **Time window**: `timestamp_ns_start` is inclusive, `timestamp_ns_end` exclusive, as in the streamers:
+  for "from A to B included" pass `timestamp_ns_end=B + 1`. An end beyond the last sample extracts to the
+  end of the sequence.
 - Rows are sorted by `timestamp_ns`, but the index is not reset: use `ignore_index=True` or `.iloc`.
 
 **Chunks** are where scripts break silently:
@@ -82,6 +84,8 @@ generator of time windows. What the frames look like:
   `chunk.reindex(columns=COLS)` keeps every chunk on the same columns.
 
 ## 3. Align on a fixed-rate grid
+
+Import these names from `mosaicolabs.ml` itself, not from a submodule such as `mosaicolabs.ml.sync_policies`.
 
 ```python
 from mosaicolabs.ml import SyncTransformer, SyncHold, SyncAsOf, SyncDrop
@@ -148,20 +152,22 @@ X = pipe.fit_transform(df)   # df: the concatenated frame of section 2
 ## 5. Memory
 
 - Memory per chunk grows with `window_sec`. If `window_sec` covers the whole range, the extractor loads
-  it all at once and logs a warning: fine for minutes of IMU, not for hours of images.
+  it all at once and logs a warning: fine for minutes of IMU, not for hours of images. The warning goes
+  to the `mosaicolabs` logger, which has only a `NullHandler`: you see it only after
+  `logging.basicConfig()` or `mosaicolabs.setup_sdk_logging()`.
 - Dense rows per chunk are `window_sec × target_fps`; the guide suggests staying under 100 000.
 - Select columns before `transform()`: syncing every flattened column (about eighty for one odometry
   topic) is slow, and past a hundred columns pandas floods `PerformanceWarning`s.
 - Image topics: decode with `VideoDecodingTransformer(topics=[…])` before syncing, never after (see
   "Video Decoding for ML Pipelines" in the guide). `Message.from_dataframe_row(row, topic_name)` rebuilds a
   typed message from a row.
+- A LeRobot v3.0 dataset is a different output (0.9+, only for sequences ingested from LeRobot):
+  `LeRobotSequencesExtractor` (https://docs.mosaico.dev/python-sdk/SDK/bridges/lerobot/). Explain it
+  with the mosaico-docs-guide skill; do not run it.
 
-## 6. Where the docs are stale (checked against the installed source)
+## 6. When the code and the guide disagree
 
-- `from mosaicolabs.ml.sync_policies import SyncHold` fails: import everything from `mosaicolabs.ml`.
-- `to_pandas_chunks()` has no `batch_size` argument: windows are set by `window_sec` only.
-
-When something else does not behave as written, read the installed source before working around it:
+When something does not behave as written, read the installed source before working around it:
 `python -c "import inspect, mosaicolabs.ml as m; print(inspect.getsourcefile(m.SyncTransformer))"`
 gives the file (likewise for `DataFrameExtractor`, `SyncHold`…), or `help(...)` the function.
 

@@ -17,8 +17,8 @@ What each request exercises:
 | 7   | chunked extraction of a long recording     | chunks without a finished topic's columns (770 empty rows, not 581) |
 
 The expected values were computed without `mosaicolabs.ml`: every IMU, odometry and pose sample was
-streamed with the plain topic handlers (`docs/py/docs/SDK/handling/reading.md`), and the grid, the
-windows and each policy were rebuilt in numpy following the semantics in
+streamed with the plain topic handlers (https://docs.mosaico.dev/python-sdk/SDK/handling/reading/), and
+the grid, the windows and each policy were rebuilt in numpy following the semantics in
 `mosaico-sdk-py/src/mosaicolabs/ml/sync_transformer.py` and `sync_policies/hold.py` (stated in
 `questions.md`, so no answer depends on an unstated convention). The same requests written with
 `mosaicolabs.ml` agree with them on every key.
@@ -26,8 +26,7 @@ windows and each policy were rebuilt in numpy following the semantics in
 ## Dataset
 
 The three UZH-FPV sequences of the `mosaico-sdk-query` eval (see its README for the bags and the
-ingestion): `race_1`, `race_2`, `indoor_forward_3_davis_with_gt`. The daemon and the SDK must be the
-same version.
+ingestion): `race_1`, `race_2`, `indoor_forward_3_davis_with_gt`. The SDK must be on the daemon's 0.X.
 
 ## Running it
 
@@ -44,11 +43,11 @@ python check.py <run-dir> [host] [port]
 `check.py` connects with host and port only (no TLS, no API key): run it against a plain local daemon.
 It prints `client.info()` (SDK 0.7 and later) or `client.version()` (SDK 0.6).
 
-The skill cites one doc page by its published URL and, for a checkout, by its path; from the repository
-root, check that the path still exists:
+The skill cites doc pages by their published URL; check that each still answers 200:
 
 ```bash
-grep -o 'docs/py/docs/[^`]*\.md' .agents/skills/mosaico-ml-dataset/SKILL.md | xargs ls
+grep -o 'https://docs\.mosaico\.dev[^ `);,]*' .agents/skills/mosaico-ml-dataset/SKILL.md | sed 's/\.$//' | sort -u |
+  while read -r u; do echo "$(curl -sL -o /dev/null -w '%{http_code}' "$u") $u"; done
 ```
 
 It prints the daemon version, PASS or FAIL per question with the keys that differ, and the total.

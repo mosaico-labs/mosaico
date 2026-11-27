@@ -20,7 +20,13 @@ into an empty daemon:
 | `indoor_forward_3_davis_with_gt` | http://rpg.ifi.uzh.ch/datasets/uzh-fpv-newer-versions/v3/indoor_forward_3_davis_with_gt.bag |
 
 Put the three files in one folder, set `PATH_TO_BAGS` in `src/Datasets/UZH_FPV/configs.py` to it, and
-run the ingestion. The daemon and the SDK must be the same version.
+run the ingestion. Use a 0.8+ daemon and an SDK with the daemon's 0.X. On a daemon upgraded from 0.7,
+wait until the store optimizer has rewritten every topic: until then ontology queries miss them.
+
+Q9 is the NaN case: on a 0.8+ daemon a plain value condition on the odometry should find `race_2`; on
+0.7 it needed the streaming fallback of the skill's section 6. Not yet run on these bags: the 0.8+
+behavior was checked only on synthetic data (a topic with some NaN still matches, an all-NaN one does
+not) against a 0.10 daemon.
 
 ## Running it
 
@@ -35,20 +41,15 @@ Each `qNN.out` must end with a line `ANSWER:` followed by one item per line: a s
 python check.py <run-dir> [host] [port]
 ```
 
-It prints the daemon version, PASS or FAIL per question, and the total. It reads the version with
-`client.info()`, so it needs SDK 0.7 or later (0.6.x has `client.version()` instead).
+It prints the daemon version (`client.info()`), PASS or FAIL per question, and the total.
 
 ## Cited pages
 
-The skill cites published URLs. From the repository root, check that each one maps to a page that
-exists here (`/python-sdk/<p>/` is `docs/py/docs/<p>.md`, any other `/<p>` is `docs/main/docs/<p>.md(x)`);
-it prints nothing when all are present:
+The skill cites published URLs. From the repository root, check that each one answers 200 on the live
+site (redirects followed); it prints nothing when all do:
 
 ```bash
 grep -oE 'https://docs\.mosaico\.dev/[^ )`,:]+' .agents/skills/mosaico-sdk-query/SKILL.md | sort -u | while read -r u; do
-  p=${u#https://docs.mosaico.dev/}; p=${p%/}
-  case $p in python-sdk/*) b=docs/py/docs/${p#python-sdk/} ;; *) b=docs/main/docs/$p ;; esac
-  for f in $b.md $b.mdx $b/index.md; do [ -f "$f" ] && continue 2; done
-  echo "MISSING $u"
+  u=${u%.}; c=$(curl -sL -o /dev/null -w '%{http_code}' "$u"); [ "$c" = 200 ] || echo "$c $u"
 done
 ```
