@@ -3,7 +3,8 @@ name: Publish release
 # Publishes a release when its signed tag `vX.Y.Z` is pushed (by the Release workflow, or by hand
 # for a security update). It runs in two phases, so a release is published only if every artifact
 # could be built:
-#   1. build: mosaicod binaries, Python SDK wheel and sdist (tested), docs, container images;
+#   1. build: mosaicod binaries (Linux and macOS), Python SDK wheel and sdist (tested), docs,
+#      container images;
 #   2. publish: container tags on GHCR, Python SDK on PyPI, docs on the object store and, last, the
 #      GitHub release with the notes, the wheel, the sdist and the binaries. These jobs only upload
 #      what phase 1 built.
@@ -114,14 +115,26 @@ jobs:
   binaries:
     name: Build mosaicod (${{ matrix.target }})
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
         include:
           - target: x86_64-unknown-linux-musl
             arch: linux-amd64
+            runner: ubuntu-latest
+            builder: cross
           - target: aarch64-unknown-linux-musl
             arch: linux-arm64
+            runner: ubuntu-latest
+            builder: cross
+          - target: x86_64-apple-darwin
+            arch: macos-amd64
+            runner: macos-latest
+            builder: cargo
+          - target: aarch64-apple-darwin
+            arch: macos-arm64
+            runner: macos-latest
+            builder: cargo
     steps:
       - uses: actions/checkout@v7
 
@@ -131,6 +144,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Cache Cross Binary
+        if: matrix.builder == 'cross'
         id: cache-cross
         uses: actions/cache@v6
         with:
@@ -138,7 +152,7 @@ jobs:
           key: ${{ runner.os }}-cross-v1
 
       - name: Install Cross
-        if: steps.cache-cross.outputs.cache-hit != 'true'
+        if: matrix.builder == 'cross' && steps.cache-cross.outputs.cache-hit != 'true'
         run: cargo install cross --git https://github.com/cross-rs/cross.git
 
       - name: Rust Cache
@@ -155,13 +169,13 @@ jobs:
           GIT_TAG: ${{ needs.verify.outputs.tag }}
           MOSAICO_PROTO_DIR: ${{ github.workspace }}/proto
         working-directory: mosaicod
-        run: ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
+        run: ${{ matrix.builder }} build --release --bin mosaicod --target ${{ matrix.target }}
 
-      # Tarball and its checksum.
+      # Tarball and its checksum. `shasum` is available on both Linux and macOS runners.
       - name: Package binary
         run: |
           tar -czvf mosaicod-${{ matrix.arch }}.tar.gz -C mosaicod/target/${{ matrix.target }}/release mosaicod
-          sha256sum mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
+          shasum -a 256 mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
 
       - name: Upload binary
         uses: actions/upload-artifact@v7
