@@ -80,9 +80,7 @@ class MosaicoProfile:
         if env_host:
             # A port embedded in the env URL wins; otherwise keep the profile's port.
             resolved_host, embedded_port = cls._split_host_port(env_host)
-            resolved_port = (
-                embedded_port if embedded_port is not None else profile_port
-            )
+            resolved_port = embedded_port if embedded_port is not None else profile_port
         else:
             resolved_host = profile_dict.get("host", "")
             resolved_port = profile_port
