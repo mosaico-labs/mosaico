@@ -10,11 +10,11 @@ permissions:
 jobs:
   validate-title:
     name: "Validate PR title"
-    # Drafts cannot be merged, so the title is checked once the PR is ready for
-    # review. Bots set their own titles and labels, so they are skipped
+    # Bots set their own titles and labels, so they are skipped. Drafts cannot
+    # be merged, so the title is checked once the PR is ready for review
     if: >-
-      !github.event.pull_request.draft &&
-      github.event.pull_request.user.type != 'Bot'
+      github.event.pull_request.user.type != 'Bot' &&
+      !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - id: lint
