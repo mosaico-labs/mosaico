@@ -33,8 +33,9 @@ dependencies = [
     # protobuf < 5.27 fails to import on Python 3.14
     "protobuf>=4.25.0; python_version < '3.14'",
     "protobuf>=5.27.0; python_version >= '3.14'",
-    # mosaicolabs.profiles reads TOML; tomllib is in the stdlib from 3.11
+    # mosaicolabs.profiles reads and writes TOML; tomllib (read-only) is in the stdlib from 3.11
     "tomli>=2.0.0,<3.0.0; python_version < '3.11'",
+    "tomli-w>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]

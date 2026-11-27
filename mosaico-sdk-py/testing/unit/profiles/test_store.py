@@ -1,5 +1,8 @@
+import datetime
+import math
 import os
 import stat
+import sys
 
 import pytest
 
@@ -10,6 +13,11 @@ from mosaicolabs.profiles import (
     ProfileNotFoundError,
     ProfileStore,
 )
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 
 @pytest.fixture
@@ -49,6 +57,35 @@ def test_reads_legacy_file_and_escapes_strings(store):
     store.add(Profile(name="new profile", host="h", api_key='a"b\\c'))
     assert store.get("new profile").api_key == 'a"b\\c'
     assert 'extra = "kept"' in store.path.read_text()
+
+
+def test_keeps_other_toml_values(store):
+    store.path.parent.mkdir()
+    store.path.write_text(
+        '[old]\nhost = "h"\ncreated = 2024-01-02\ntags = ["a", "b"]\n'
+        "low = -inf\nhigh = inf\nmissing = nan\n"
+    )
+    store.add(Profile(name="new", host="n"))
+
+    old = tomllib.loads(store.path.read_text())["old"]
+    assert old["created"] == datetime.date(2024, 1, 2)
+    assert old["tags"] == ["a", "b"]
+    assert (old["low"], old["high"]) == (-math.inf, math.inf)
+    assert math.isnan(old["missing"])
+
+
+def test_symlinked_config_stays_a_symlink(store, tmp_path):
+    target = tmp_path / "dotfiles" / "config.toml"
+    target.parent.mkdir()
+    target.write_text("")
+    store.path.parent.mkdir()
+    store.path.symlink_to(target)
+
+    store.add(Profile(name="dev", host="h"))
+
+    assert store.path.is_symlink()
+    assert store.get("dev").host == "h"
+    assert "[dev]" in target.read_text()
 
 
 @pytest.mark.parametrize(

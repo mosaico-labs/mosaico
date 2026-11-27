@@ -1,11 +1,11 @@
-import json
 import os
-import re
 import sys
 import tempfile
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+import tomli_w
 
 from .errors import ProfileConfigError, ProfileExistsError, ProfileNotFoundError
 
@@ -174,33 +174,19 @@ class ProfileStore:
         return data
 
     def _save(self, data: Dict[str, Dict[str, Any]]) -> None:
+        content = tomli_w.dumps(data)
+        # Write next to the real file, so a symlinked config stays a symlink.
+        path = self.path.resolve()
         tmp = None
         try:
-            self.path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            fd, tmp = tempfile.mkstemp(dir=self.path.parent)  # mode 0600
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=path.parent)  # mode 0600
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(_dump(data))
+                f.write(content)
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(tmp, self.path)
+            os.replace(tmp, path)
         except OSError as e:
             if tmp and os.path.exists(tmp):
                 os.unlink(tmp)
             raise ProfileConfigError(f"Cannot write {self.path}: {e}") from e
-
-
-def _dump(data: Dict[str, Dict[str, Any]]) -> str:
-    """Write profile tables as TOML. Strings use JSON escaping, valid in TOML."""
-    lines = []
-    for name, table in data.items():
-        lines.append(f"[{_key(name)}]")
-        for key, value in table.items():
-            if isinstance(value, dict):
-                raise ProfileConfigError(f"Nested table '{name}.{key}' not supported")
-            lines.append(f"{_key(key)} = {json.dumps(value, ensure_ascii=False)}")
-        lines.append("")
-    return "\n".join(lines)
-
-
-def _key(key: str) -> str:
-    return key if re.fullmatch(r"[A-Za-z0-9_-]+", key) else json.dumps(key)
