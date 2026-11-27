@@ -1228,6 +1228,33 @@ async fn test_topic_filter_clusterize_empty_result(pool: sqlx::Pool<db::Database
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_topic_without_data(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_no_data";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    // Only empty batches: the topic is finalized without data
+    let batches = vec![ext::arrow::testing::dummy_empty_batch()];
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, batches).await;
+
+    let clusters =
+        actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology_value_gt_5(), None)
+            .await
+            .unwrap();
+
+    assert!(
+        clusters.is_empty(),
+        "expected 0 clusters, got: {clusters:?}"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())

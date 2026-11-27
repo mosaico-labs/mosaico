@@ -22,7 +22,8 @@ pub type TopicInfo = types::TopicInfo<marshal::JsonMetadataBlob>;
 
 pub struct TopicStreamingReadParams {
     pub metadata: TopicMetadata,
-    pub optimal_batch_size: usize,
+    /// `None` if the topic has no data.
+    pub optimal_batch_size: Option<usize>,
     pub data_folder_path: path::PathBuf,
 }
 
@@ -199,7 +200,7 @@ pub(super) mod internal {
     pub async fn compute_optimal_batch_size(
         exe: &mut impl db::AsExec,
         topic_record: &db::TopicRecord,
-    ) -> Result<usize> {
+    ) -> Result<Option<usize>> {
         let stats = db::topic_get_stats(exe, topic_record.topic_id)
             .await
             .map_err(|e| match e {
@@ -208,9 +209,7 @@ pub(super) mod internal {
             })?;
 
         if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
-            Err(Error::MissingDbData(
-                "unable to compute optimal batch size".to_owned(),
-            ))?;
+            return Ok(None);
         }
 
         let params = default::params();
@@ -219,7 +218,7 @@ pub(super) mod internal {
         let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
         let batch_size = params.grpc_target_encode_message_size.value / avg_bytes_per_row;
 
-        Ok(batch_size.clamp(1, params.max_batch_size.value.get()))
+        Ok(Some(batch_size.clamp(1, params.max_batch_size.value.get())))
     }
 }
 

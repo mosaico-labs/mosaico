@@ -1,7 +1,7 @@
 //! Topic-related actions.
 
 use arrow::error::ArrowError;
-use datafusion::physical_plan::SendableRecordBatchStream;
+use datafusion::physical_plan::{EmptyRecordBatchStream, SendableRecordBatchStream};
 use futures::StreamExt;
 use mosaicod_core::{
     self as core,
@@ -144,13 +144,16 @@ pub async fn query_by_timestamp(
         }
     }
 
+    // A topic without data has no data files to read
+    let Some(optimal_batch_size) = params.optimal_batch_size else {
+        return Ok(Box::pin(EmptyRecordBatchStream::new(
+            ext::arrow::empty_schema_ref(),
+        )));
+    };
+
     let mut result = context
         .timeseries_querier
-        .read(
-            params.data_folder_path,
-            format,
-            Some(params.optimal_batch_size),
-        )
+        .read(params.data_folder_path, format, Some(optimal_batch_size))
         .await?;
 
     if let Some(ts_range) = ts {
