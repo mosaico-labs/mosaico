@@ -1,0 +1,29 @@
+[package]
+name = "mosaicod-usage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_usage"
+
+[dependencies]
+mosaicod-config = { workspace = true }
+mosaicod-core = { workspace = true }
+
+async-trait = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true, features = ["experimental_logs_batch_log_processor_with_async_runtime", "rt-tokio"] }
+opentelemetry-http = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+reqwest = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+httpmock = { workspace = true }
+opentelemetry-proto = { workspace = true }
+prost = { workspace = true }

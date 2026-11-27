@@ -236,6 +236,13 @@ pub fn params() -> &'static Params {
     crate::get::<Params>()
 }
 
+/// The name mosaicod reports itself with: the product in its `User-Agent`, and the
+/// `service.name` of its usage reports.
+///
+/// Spelled out because only the binary's package has this name: every other crate's
+/// `CARGO_PKG_NAME` is its own, and a workspace can't share a package name.
+pub const NAME: &str = "mosaicod";
+
 /// Returns mosaicod version.
 pub fn version() -> String {
     let mut version = env!("CARGO_PKG_VERSION").to_owned();
@@ -247,7 +254,7 @@ pub fn version() -> String {
 
 /// The `User-Agent` mosaicod sends with its HTTP requests: `mosaicod/<version>`.
 pub fn user_agent() -> String {
-    format!("mosaicod/{}", version())
+    format!("{NAME}/{}", version())
 }
 
 #[cfg(test)]

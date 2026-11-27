@@ -46,6 +46,14 @@ services:
       retries: 3
       start_period: 30s
 
+  otel-collector:
+    image: otel/opentelemetry-collector:0.165.0
+    container_name: otel-collector
+    ports:
+      - "127.0.0.1:4318:4318"
+    volumes:
+      - ./otel-collector.yml:/etc/otelcol/config.yaml:ro
+
 volumes:
   postgres_data:
 

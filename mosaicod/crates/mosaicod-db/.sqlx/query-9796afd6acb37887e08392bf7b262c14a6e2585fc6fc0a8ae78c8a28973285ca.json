@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO installation_t (installation_uuid, creation_unix_tstamp)\n            VALUES ($1, $2)\n            ON CONFLICT (singleton) DO NOTHING\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9796afd6acb37887e08392bf7b262c14a6e2585fc6fc0a8ae78c8a28973285ca"
+}
