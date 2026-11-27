@@ -5,7 +5,7 @@ on:
     types: [opened, edited, reopened, synchronize, ready_for_review]
 
 permissions:
-  pull-requests: write # to fetch the current PR title and add labels
+  pull-requests: read # to fetch the current PR title
 
 jobs:
   validate-title:
@@ -60,8 +60,16 @@ jobs:
             test
           requireScope: true
 
-      - name: Add labels from the title
-        uses: actions/github-script@v9
+  add-labels:
+    name: "Add labels from the title"
+    # Labels are added only to valid titles. The job is also skipped when
+    # `validate-title` is skipped, e.g. for drafts and bots
+    needs: validate-title
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # to add labels
+    steps:
+      - uses: actions/github-script@v9
         with:
           script: |
             // Labels for each type. `feat`, `fix` and `build` have no matching label
@@ -85,7 +93,7 @@ jobs:
               'docs': ['documentation'],
             }
 
-            // The previous steps validated the title, so the match cannot fail.
+            // `validate-title` checked the title, so the match cannot fail.
             // E.g. `feat(mosaicod, sdk-py)!: add x` gives
             // `feat`, `mosaicod, sdk-py` and `!`
             const titlePattern = /^(?<type>\w+)(?:\((?<scopes>[^)]*)\))?(?<breaking>!)?:/
