@@ -46,7 +46,11 @@ from .metadata import LeRobotDatasetMeta, LeRobotEpisode, LeRobotInfo
 from .metadata.stats import compute_episode_stats
 from .mosaico_loader import MosaicoToLeRobotLoader
 from .ui_lerobot import LeRobotProgressManager
-from .writer import LeRobotWriter
+from .writer import (
+    _DEFAULT_CHUNKS_SIZE,
+    _DEFAULT_DATA_FILES_SIZE_IN_MB,
+    LeRobotWriter,
+)
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -74,6 +78,12 @@ class LeRobotExtractorConfig:
             `tls_cert_path` is provided. Defaults to False.
         overwrite (bool): If True, replace the dataset folder if it already exists. Defaults to
             False.
+        chunks_size (Optional[int]): The maximum number of data files of each `chunk-XXX`
+            folder. Defaults to None: the one of the source dataset, or LeRobot's default
+            (1000) if it has none.
+        data_files_size_in_mb (Optional[int]): The size, in MB, beyond which a new data file
+            is started. Defaults to None: the one of the source dataset, or LeRobot's default
+            (100) if it has none.
     """
 
     saving_path: Path
@@ -106,6 +116,24 @@ class LeRobotExtractorConfig:
     overwrite: bool = False
     """If True, replace the dataset folder if it already exists."""
 
+    chunks_size: Optional[int] = None
+    """The maximum number of data files of each `chunk-XXX` folder, or None for the one of the
+    source dataset (LeRobot's default if it has none)."""
+
+    data_files_size_in_mb: Optional[int] = None
+    """The size, in MB, beyond which a new data file is started, or None for the one of the
+    source dataset (LeRobot's default if it has none)."""
+
+    def __post_init__(self):
+        """
+        Raises:
+            ValueError: If `chunks_size` or `data_files_size_in_mb` is not a positive integer.
+        """
+        for name in ("chunks_size", "data_files_size_in_mb"):
+            value = getattr(self, name)
+            if value is not None and value <= 0:
+                raise ValueError(f"`{name}` must be greater than 0, got {value}.")
+
 
 # --- Main Extractor Class ---
 
@@ -124,6 +152,11 @@ class ExtractionStatus(Enum):
     PARTIAL = "partial"
     """Only part of the sequences was exported: the others were dropped (see
     `LeRobotSequencesExtractor.dropped_sequences`)."""
+
+
+def _first_set(*values: Optional[int]) -> int:
+    """Returns the first of `values` that is not None: the last one must be set."""
+    return next(value for value in values if value is not None)
 
 
 def _close_tmp_folder(tmp_path: Path, saving_path: Path, save: bool) -> None:
@@ -245,7 +278,19 @@ class LeRobotSequencesExtractor:
             ValueError: If an episode cannot be written (see `LeRobotWriter.write_episode`).
             KeyError: If a topic of an episode is missing (see `LeRobotWriter.write_episode`).
         """
-        info = loader.info
+        # The limits of the data files: from the config, else from the source dataset, else
+        # LeRobot's defaults. They are also written to `meta/info.json`.
+        info = replace(
+            loader.info,
+            chunks_size=_first_set(
+                self._cfg.chunks_size, loader.info.chunks_size, _DEFAULT_CHUNKS_SIZE
+            ),
+            data_files_size_in_mb=_first_set(
+                self._cfg.data_files_size_in_mb,
+                loader.info.data_files_size_in_mb,
+                _DEFAULT_DATA_FILES_SIZE_IN_MB,
+            ),
+        )
         tasks = loader.tasks
         # The episodes as written: with the data file of each one
         written_episodes: List[LeRobotEpisode] = []

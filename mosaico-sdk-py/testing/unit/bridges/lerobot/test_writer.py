@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List, Optional, Sequence, cast
 
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
@@ -440,3 +441,38 @@ def test_write_episode_failing_deletes_the_complete_data_files_too(tmp_path):
             writer.write_episode(cast(LeRobotEpisodeStreamer, failing), None)
 
     assert not list(tmp_path.rglob("*.parquet*"))
+
+
+def test_write_episode_measures_the_data_file_while_it_is_written(tmp_path):
+    """With a limit of 1 MB and episodes of about 0.3 MB (random values, so not compressible),
+    the size of the open data file is read from disk: several episodes share each data file,
+    and no data file reaches the limit."""
+    rng = np.random.default_rng(0)
+    length, streamers = 10_000, []
+    for episode_index in range(8):
+        batch = pa.record_batch(
+            {
+                "timestamp_ns": pa.array(np.arange(length, dtype=np.int64)),
+                "action": pa.array(list(rng.random((length, 2), dtype=np.float32))),
+                "task": pa.array([TASKS[0]] * length),
+            }
+        )
+        streamers.append(
+            episode_streamer(
+                {TIMESERIES_TOPIC: [batch]},
+                length=length,
+                episode_index=episode_index,
+                dataset_from_index=episode_index * length,
+            )
+        )
+
+    with LeRobotWriter(_info(data_files_size_in_mb=1), tmp_path, TASKS) as writer:
+        for streamer in streamers:
+            writer.write_episode(streamer, None)
+
+    data_files = sorted(tmp_path.rglob("*.parquet"))
+    assert len(data_files) > 1
+    for data_path in data_files[:-1]:
+        assert len(set(_episode_indexes(data_path))) > 1
+    for data_path in data_files:
+        assert data_path.stat().st_size < 1024**2

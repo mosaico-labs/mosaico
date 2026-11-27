@@ -91,3 +91,42 @@ def test_write_dataset_stores_the_data_file_of_each_episode(tmp_path):
             tmp_path, episode.data_chunk_index, episode.data_file_index
         )
         assert set(_episode_indexes(data_path)) == {episode.episode_index}
+
+
+@pytest.mark.parametrize(
+    "source, config, expected",
+    [
+        ((None, None), (None, None), (1000, 100)),  # LeRobot's defaults
+        ((2, 50), (None, None), (2, 50)),  # From the source dataset
+        ((2, 50), (5, 70), (5, 70)),  # From the config
+    ],
+    ids=["defaults", "source", "config"],
+)
+def test_write_dataset_limits_of_the_data_files(tmp_path, source, config, expected):
+    """`chunks_size` and `data_files_size_in_mb` come from the config, else from the source
+    dataset, else from LeRobot's defaults, and are written to `meta/info.json`."""
+    info = _info(chunks_size=source[0], data_files_size_in_mb=source[1])
+    loader = _FakeLoader(info, _streamers([3, 2]))
+    extractor = LeRobotSequencesExtractor(
+        LeRobotExtractorConfig(
+            saving_path=tmp_path,
+            sequence_names=[],
+            chunks_size=config[0],
+            data_files_size_in_mb=config[1],
+        )
+    )
+
+    extractor._write_dataset(
+        cast(MosaicoToLeRobotLoader, loader),
+        tmp_path,
+        cast(LeRobotProgressManager, _NoUi()),
+    )
+
+    meta = LeRobotDatasetMeta.load(tmp_path)
+    assert (meta.info.chunks_size, meta.info.data_files_size_in_mb) == expected
+
+
+@pytest.mark.parametrize("name", ["chunks_size", "data_files_size_in_mb"])
+def test_config_rejects_a_limit_that_is_not_positive(tmp_path, name):
+    with pytest.raises(ValueError, match=f"`{name}` must be greater than 0"):
+        LeRobotExtractorConfig(saving_path=tmp_path, sequence_names=[], **{name: 0})

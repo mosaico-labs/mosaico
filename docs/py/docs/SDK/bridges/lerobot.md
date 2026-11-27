@@ -187,7 +187,7 @@ On export, `LeRobotWriter` applies the same mapping in reverse. Each slice strea
 | Each image feature | Its own topic: `data` becomes the image bytes, and the path is rebuilt as LeRobot names embedded images, `frame-<frame index>.<format>` (e.g. `frame-000012.png`). A frame ingested with empty `data` is null. |
 | Every other feature | Its field in `/timeseries`, un-nested: the field `state` of the struct `observation` becomes `observation.state`. |
 
-The episodes are written one after the other to the data files, at the paths given by the `data_path` template of the reference `info`. As in LeRobot, a new data file is started before an episode that would make the current one exceed `data_files_size_in_mb`, and a new chunk once a chunk holds `chunks_size` files (LeRobot's defaults, 100 MB and 1000 files, if the `info` has none). An episode is never split across two data files. The metadata of the episodes are written to a single episodes file (chunk `0`, file `0`).
+The episodes are written one after the other to the data files, at the paths given by the `data_path` template of the reference `info`. As in LeRobot, a new data file is started before an episode that would make the current one exceed `data_files_size_in_mb`, and a new chunk once a chunk holds `chunks_size` files. Both limits can be set in `LeRobotExtractorConfig`; otherwise those of the source dataset are used, or LeRobot's defaults (100 MB and 1000 files) if it has none. The limits used are written to `meta/info.json`. An episode is never split across two data files. The metadata of the episodes are written to a single episodes file (chunk `0`, file `0`).
 
 #### Columns That Are Not Ingested
 
@@ -310,6 +310,8 @@ Errors are not a status: `run()` raises them.
 | `sequence_names` | required | The sequences to export, one episode each, in episode order. |
 | `dataset_name` | `"LeRobotDataset"` | Name of the dataset folder, created under `saving_path`. |
 | `overwrite` | `False` | Replace the dataset folder if it already exists. Only an empty folder or a LeRobot dataset is replaced. |
+| `chunks_size` | `None` | Maximum number of data files of each `chunk-XXX` folder. If `None`, the one of the source dataset, or LeRobot's default (1000). |
+| `data_files_size_in_mb` | `None` | Size, in MB, beyond which a new data file is started. If `None`, the one of the source dataset, or LeRobot's default (100). |
 
 #### Practical Example: Programmatic Usage
 
