@@ -3,7 +3,13 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from mosaicolabs_cli.utils.config import console, get_config_path, load_config
+from mosaicolabs.profiles import (
+    ProfileError,
+    ProfileNotFoundError,
+    ProfileStore,
+    normalize_host_port,
+)
+from mosaicolabs_cli.utils.config import console, error_console
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT, MosaicoEnv
 
 
@@ -48,47 +54,41 @@ class MosaicoProfile:
         env_tls = os.getenv(MosaicoEnv.TLS)
         env_cert_path = os.getenv(MosaicoEnv.CERT_PATH)
 
-        config_path = get_config_path()
-        config_data = load_config(config_path)
-
-        profile_dict: Dict[str, Any] = {}
-        resolved_name = ""
-
-        if profile_name:
-            content = config_data.get(profile_name)
-            if content is None or not isinstance(content, dict):
-                console.print(
-                    f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
-                )
-                raise SystemExit(1)
-            profile_dict = content
-            resolved_name = profile_name
-        else:
-            for _name, content in config_data.items():
-                if isinstance(content, dict) and content.get("default", False):
-                    profile_dict = content
-                    resolved_name = _name
-                    break
+        store = ProfileStore()
+        try:
+            if profile_name:
+                profile = store.get(profile_name)
+            else:
+                profile = store.get_default()
+        except ProfileNotFoundError:
+            console.print(
+                f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
+            )
+            raise SystemExit(1)
+        except ProfileError as e:
+            error_console.print(f"[bold red]Error:[/bold red] {e}")
+            raise SystemExit(1)
 
         if env_tls is not None:
             tls = env_tls.lower() in ("1", "true", "yes")
         else:
-            tls = bool(profile_dict.get("tls", False))
+            tls = profile.tls if profile else False
 
         if env_host:
             resolved_host, resolved_port = cls._normalize_host_port(env_host)
+        elif profile:
+            resolved_host, resolved_port = profile.host, profile.port
         else:
-            resolved_host = profile_dict.get("host", "")
-            resolved_port = int(profile_dict.get("port", DEFAULT_MOSAICO_PORT))
+            resolved_host, resolved_port = "", DEFAULT_MOSAICO_PORT
 
         return cls(
             host=resolved_host,
             port=resolved_port,
-            api_key=env_api_key or profile_dict.get("api_key", ""),
+            api_key=env_api_key or (profile.api_key if profile else ""),
             tls=tls,
-            cert_path=env_cert_path or profile_dict.get("cert_path", ""),
-            name=resolved_name,
-            is_default=bool(profile_dict.get("default", False)),
+            cert_path=env_cert_path or (profile.cert_path if profile else ""),
+            name=profile.name if profile else "",
+            is_default=profile.default if profile else False,
         )
 
     @classmethod
@@ -148,24 +148,7 @@ class MosaicoProfile:
             ValueError: If port is specified both as argument and embedded in host,
                 or if embedded port is not a valid integer.
         """
-        h = host.strip().rstrip("/")
-        h = h.replace("http://", "").replace("https://", "")
-
-        embedded_port: Optional[int] = None
-        if ":" in h:
-            host_part, port_str = h.rsplit(":", 1)
-            if not port_str.isdigit():
-                raise ValueError(f"Malformed input host '{h}'")
-            embedded_port = int(port_str)
-            h = host_part
-
-        if embedded_port is not None and port is not None:
-            raise ValueError(
-                f"Port given twice: embedded={embedded_port}, argument={port}"
-            )
-
-        final_port = embedded_port if embedded_port is not None else port
-        return h, final_port if final_port is not None else DEFAULT_MOSAICO_PORT
+        return normalize_host_port(host, port)
 
     def to_csv(self) -> str:
         """Format profile as a CSV row: name,host,port,is_default."""

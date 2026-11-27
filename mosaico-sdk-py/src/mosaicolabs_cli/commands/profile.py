@@ -1,21 +1,24 @@
 import sys
-from typing import Optional
+from typing import NoReturn, Optional
 
 import typer
 from rich.table import Table
 
-from mosaicolabs_cli.utils.config import (
-    OutputFormat,
-    console,
-    error_console,
-    get_config_path,
-    load_config,
-    serialize_to_toml,
+from mosaicolabs.profiles import (
+    Profile,
+    ProfileError,
+    ProfileNotFoundError,
+    ProfileStore,
 )
+from mosaicolabs_cli.utils.config import OutputFormat, console, error_console
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT
-from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 app = typer.Typer(no_args_is_help=True)
+
+
+def _fail(error: Exception) -> NoReturn:
+    error_console.print(f"[bold red]Error:[/bold red] {error}")
+    raise typer.Exit(code=1)
 
 
 @app.command(name="add")
@@ -55,8 +58,11 @@ def add_profile(
     Add or update a connection profile inside the configuration file.
     """
 
-    config_path = get_config_path()
-    config_data = load_config(config_path)
+    store = ProfileStore()
+    try:
+        exists = any(p.name == name for p in store.list())
+    except ProfileError as e:
+        _fail(e)
 
     if interactive:
         if not host:
@@ -85,7 +91,7 @@ def add_profile(
             )
             raise typer.Exit(code=1)
 
-    if name in config_data and isinstance(config_data[name], dict):
+    if exists:
         if interactive:
             overwrite = typer.confirm(f"Profile '{name}' already exists. Overwrite?")
             if not overwrite:
@@ -98,52 +104,27 @@ def add_profile(
             )
             raise typer.Exit(code=1)
 
-    was_already_default = False
-    if name in config_data and isinstance(config_data[name], dict):
-        was_already_default = config_data[name].get("default", False)
-
-    should_be_default = is_default or was_already_default or not config_data
-
-    if should_be_default:
-        for profile_name, profile_content in config_data.items():
-            if profile_name != name and isinstance(profile_content, dict):
-                profile_content["default"] = False
-
-    if host:
-        try:
-            host, port = MosaicoProfile._normalize_host_port(host, port)
-        except ValueError as e:
-            error_console.print(f"[bold red]Error:[/bold red] {e}")
-            raise typer.Exit(code=1)
-
-    config_data[name] = {
-        "host": host,
-        "port": port,
-        "api_key": api_key.strip() if api_key else "",
-        "tls": tls,
-        "cert_path": cert_path.strip() if cert_path else "",
-        "default": should_be_default,
-    }
-
     try:
-        config_path.parent.mkdir(parents=True, exist_ok=True)
+        profile = Profile(
+            name=name,
+            host=host or "",
+            port=port,
+            api_key=api_key or "",
+            tls=tls,
+            cert_path=cert_path or "",
+            default=is_default,
+        )
+        saved = store.add(profile, overwrite=True)
+    except (ProfileError, ValueError) as e:
+        _fail(e)
 
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
-
+    console.print(
+        f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {store.path}"
+    )
+    if saved.default:
         console.print(
-            f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}"
+            f"Profile [yellow]'{name}'[/yellow] has been configured as your active default."
         )
-        if should_be_default:
-            console.print(
-                f"Profile [yellow]'{name}'[/yellow] has been configured as your active default."
-            )
-
-    except Exception as e:
-        error_console.print(
-            f"[bold red]Error:[/bold red] Could not write configuration file: {e}"
-        )
-        raise typer.Exit(code=1)
 
 
 @app.command(name="remove")
@@ -156,15 +137,17 @@ def remove_profile(
     """
     Remove a connection profile from the configuration file.
     """
-    config_path = get_config_path()
-    config_data = load_config(config_path)
-
-    if name not in config_data:
+    store = ProfileStore()
+    try:
+        store.get(name)
+    except ProfileNotFoundError:
         error_console.print(
             f"[bold red]Error:[/bold red] Profile [yellow]'{name}'[/yellow] does not exist. "
             f"Use `mosaico profile ls` to see available profiles."
         )
         raise typer.Exit(code=1)
+    except ProfileError as e:
+        _fail(e)
 
     if not force:
         confirm = typer.confirm(f"Are you sure you want to delete profile '{name}'?")
@@ -172,38 +155,19 @@ def remove_profile(
             console.print("[yellow]Operation aborted.[/yellow]")
             return
 
-    was_default = False
-    if isinstance(config_data[name], dict):
-        was_default = config_data[name].get("default", False)
-
-    del config_data[name]
-
-    auto_promoted_profile = None
-    if was_default and config_data:
-        first_remaining_name = next(iter(config_data))
-        if isinstance(config_data[first_remaining_name], dict):
-            config_data[first_remaining_name]["default"] = True
-            auto_promoted_profile = first_remaining_name
-
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        promoted = store.remove(name)
+    except ProfileError as e:
+        _fail(e)
 
+    console.print(
+        f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
+    )
+    if promoted:
         console.print(
-            f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
+            f"[info]Notice:[/info] Deleted profile was the default. "
+            f"Profile [yellow]'{promoted.name}'[/yellow] has been automatically set as the new default."
         )
-
-        if auto_promoted_profile:
-            console.print(
-                f"[info]Notice:[/info] Deleted profile was the default. "
-                f"Profile [yellow]'{auto_promoted_profile}'[/yellow] has been automatically set as the new default."
-            )
-
-    except Exception as e:
-        error_console.print(
-            f"[bold red]Error:[/bold red] Could not update configuration file: {e}"
-        )
-        raise typer.Exit(code=1)
 
 
 @app.command(name="ls")
@@ -215,10 +179,12 @@ def list_profiles(
     """
     List all configured Mosaico platform profiles from the config file.
     """
-    config_path = get_config_path()
-    config_data = load_config(config_path)
+    try:
+        profiles = ProfileStore().list()
+    except ProfileError as e:
+        _fail(e)
 
-    if not config_data:
+    if not profiles:
         console.print(
             "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
         )
@@ -241,23 +207,15 @@ def list_profiles(
         table.add_column("Port", style="green", width=10)
         table.add_column("Default", justify="center", width=10)
 
-        for name, content in config_data.items():
-            if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(
-                    content, name=name, is_default=content.get("default", False)
-                )
-                default_marker = "[bold green]✓[/bold green]" if p.is_default else ""
-                table.add_row(p.name, p.host, str(p.port), default_marker)
+        for p in profiles:
+            default_marker = "[bold green]✓[/bold green]" if p.default else ""
+            table.add_row(p.name, p.host, str(p.port), default_marker)
 
         console.print(table)
 
     elif output == OutputFormat.CSV:
-        for name, content in config_data.items():
-            if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(
-                    content, name=name, is_default=content.get("default", False)
-                )
-                console.print(p.to_csv())
+        for p in profiles:
+            console.print(f"{p.name},{p.host},{p.port},{str(p.default).lower()}")
 
     else:
         error_console.print(
@@ -275,38 +233,29 @@ def set_default_profile(
     """
     Switch the active default profile to the one specified.
     """
-    config_path = get_config_path()
-    config_data = load_config(config_path)
-
-    if name not in config_data or not isinstance(config_data[name], dict):
+    store = ProfileStore()
+    try:
+        is_default = store.get(name).default
+    except ProfileNotFoundError:
         error_console.print(
             f"[bold red]Error:[/bold red] Profile [yellow]'{name}'[/yellow] does not exist. "
             f"Use `mosaico profile ls` to see available profiles."
         )
         raise typer.Exit(code=1)
+    except ProfileError as e:
+        _fail(e)
 
-    if config_data[name].get("default", False):
+    if is_default:
         console.print(
             f"Profile [yellow]'{name}'[/yellow] is already set as the default."
         )
         return
 
-    for profile_name, profile_content in config_data.items():
-        if isinstance(profile_content, dict):
-            if profile_name == name:
-                profile_content["default"] = True
-            else:
-                profile_content["default"] = False
-
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
-        console.print(
-            f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
-        )
+        store.set_default(name)
+    except ProfileError as e:
+        _fail(e)
 
-    except Exception as e:
-        error_console.print(
-            f"[bold red]Error:[/bold red] Could not update configuration file: {e}"
-        )
-        raise typer.Exit(code=1)
+    console.print(
+        f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
+    )
