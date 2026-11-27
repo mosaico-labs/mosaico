@@ -307,6 +307,18 @@ mod tests {
 
     use super::*;
 
+    /// Sets the modification time of the file at `path` to `unix_seconds`.
+    fn set_mtime(path: &std::path::Path, unix_seconds: i64) {
+        let mtime = std::time::UNIX_EPOCH
+            + std::time::Duration::from_secs(unix_seconds.try_into().unwrap());
+        std::fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_modified(mtime)
+            .unwrap();
+    }
+
     struct TestContext {
         db: db::testing::Database,
         store: store::testing::Store,
@@ -382,14 +394,11 @@ mod tests {
 
                 std::fs::File::create(&to_delete_marker_file_path).unwrap();
 
-                let now = filetime::FileTime::now().unix_seconds();
-                let rnd_time = filetime::FileTime::from_unix_time(
-                    rand::random_range(now - retention_duration.num_seconds() * 2..=now),
-                    0,
-                );
-                filetime::set_file_mtime(&to_delete_marker_file_path, rnd_time).unwrap();
+                let now = chrono::Utc::now().timestamp();
+                let rnd_time = rand::random_range(now - retention_duration.num_seconds() * 2..=now);
+                set_mtime(&to_delete_marker_file_path, rnd_time);
 
-                seqs_info.push((pis, None, Some(rnd_time.seconds())));
+                seqs_info.push((pis, None, Some(rnd_time)));
             } else {
                 seqs_info.push((pis, None, None));
             }
@@ -458,11 +467,7 @@ mod tests {
 
                     std::fs::File::create(&to_delete_marker_file_path).unwrap();
 
-                    filetime::set_file_mtime(
-                        &to_delete_marker_file_path,
-                        filetime::FileTime::from_unix_time(seq_to_delete_created_at, 0),
-                    )
-                    .unwrap();
+                    set_mtime(&to_delete_marker_file_path, seq_to_delete_created_at);
 
                     topics_info.push((pis, None, parent_seq.2));
                 } else {
@@ -498,7 +503,7 @@ mod tests {
         cleanup = cleanup.with_retention_duration(retention_duration);
 
         // This should simulate the internal time used by do_cleanup() to check against retention_duration.
-        let now_unix_ts = filetime::FileTime::now().unix_seconds();
+        let now_unix_ts = chrono::Utc::now().timestamp();
 
         let cleanup_stats = cleanup
             .try_cleanup(&CancellationToken::new())
@@ -645,7 +650,7 @@ mod tests {
         let store_clone = (*context.store).clone();
 
         // This should simulate the internal time used by the first do_cleanup() to check against retention_duration.
-        let now_unix_ts = filetime::FileTime::now().unix_seconds();
+        let now_unix_ts = chrono::Utc::now().timestamp();
 
         let handle_cleanup_task = tokio::spawn(async move {
             let cleanup = Cleanup::new(db_clone, store_clone)
@@ -807,14 +812,10 @@ mod tests {
             .root
             .join(pis.root())
             .join(TO_DELETE_MARKER_FILE_NAME);
-        filetime::set_file_mtime(
+        set_mtime(
             &marker_disk_path,
-            filetime::FileTime::from_unix_time(
-                filetime::FileTime::now().unix_seconds() - marker_age_seconds,
-                0,
-            ),
-        )
-        .unwrap();
+            chrono::Utc::now().timestamp() - marker_age_seconds,
+        );
 
         (pis, marker_disk_path)
     }
@@ -939,14 +940,10 @@ mod tests {
         );
 
         // Once the fresh marker expires, the folder is deleted as usual.
-        filetime::set_file_mtime(
+        set_mtime(
             &marker_disk_path,
-            filetime::FileTime::from_unix_time(
-                filetime::FileTime::now().unix_seconds() - retention_duration.num_seconds() - 60,
-                0,
-            ),
-        )
-        .unwrap();
+            chrono::Utc::now().timestamp() - retention_duration.num_seconds() - 60,
+        );
 
         let stats = cleanup
             .try_cleanup(&CancellationToken::new())

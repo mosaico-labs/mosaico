@@ -30,4 +30,3 @@ mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 sqlx = { workspace = true }
 rand = { workspace = true }
-filetime = { workspace = true }
