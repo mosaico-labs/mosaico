@@ -4,48 +4,7 @@ from mosaicolabs_cli.utils.config import (
     _flatten_metadata,
     get_config_path,
     load_config,
-    serialize_to_toml,
 )
-
-
-class TestSerializeToToml:
-    def test_simple_section(self):
-        data = {"profile1": {"host": "localhost", "port": "6276"}}
-        result = serialize_to_toml(data)
-        assert "[profile1]" in result
-        assert 'host = "localhost"' in result
-        assert 'port = "6276"' in result
-
-    def test_boolean_values(self):
-        data = {"sec": {"tls": True, "debug": False}}
-        result = serialize_to_toml(data)
-        assert "tls = true" in result
-        assert "debug = false" in result
-
-    def test_none_values_skipped(self):
-        data = {"sec": {"host": "x", "cert_path": None}}
-        result = serialize_to_toml(data)
-        assert "cert_path" not in result
-
-    def test_multiple_sections(self):
-        data = {
-            "dev": {"host": "dev.local"},
-            "prod": {"host": "prod.remote"},
-        }
-        result = serialize_to_toml(data)
-        assert "[dev]" in result
-        assert "[prod]" in result
-        assert 'host = "dev.local"' in result
-        assert 'host = "prod.remote"' in result
-
-    def test_special_chars_escaped(self):
-        data = {"sec": {"val": 'has "quotes" inside'}}
-        result = serialize_to_toml(data)
-        assert '\\"quotes\\"' in result
-
-    def test_empty_dict(self):
-        result = serialize_to_toml({})
-        assert result == ""
 
 
 class TestLoadConfig:

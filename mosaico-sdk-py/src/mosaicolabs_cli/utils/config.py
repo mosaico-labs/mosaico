@@ -56,24 +56,6 @@ def load_config(path: Optional[Path] = None) -> dict:
         raise typer.Exit(code=1)
 
 
-def serialize_to_toml(data: dict) -> str:
-    """Helper to convert a flat nested dict into a clean TOML string injection-free."""
-    lines = []
-    for section, parameters in data.items():
-        lines.append(f"[{section}]")
-        for key, value in parameters.items():
-            if isinstance(value, bool):
-                val_str = "true" if value else "false"
-            elif value is None:
-                continue
-            else:
-                escaped_val = str(value).replace('"', '\\"')
-                val_str = f'"{escaped_val}"'
-            lines.append(f"{key} = {val_str}")
-        lines.append("")
-    return "\n".join(lines)
-
-
 def _flatten_metadata(data: Dict[str, Any], prefix: str = "") -> List[str]:
     """Flatten nested metadata dict to dot-notation key=value pairs."""
     parts = []

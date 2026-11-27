@@ -499,12 +499,12 @@ dependencies = [
     { name = "pyulog" },
     { name = "rich" },
     { name = "rosbags" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
 cli = [
-    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -532,7 +532,7 @@ requires-dist = [
     { name = "pyulog", specifier = ">=1.2.4,<1.4" },
     { name = "rich", specifier = ">=14.3.3,<16.0.0" },
     { name = "rosbags", specifier = ">=0.11.2,<0.12.0" },
-    { name = "tomli", marker = "python_full_version < '3.11' and extra == 'cli'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0,<3.0.0" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.25.1,<0.30.0" },
     { name = "typing-extensions", specifier = ">=4.15.0,<5.0.0" },
 ]

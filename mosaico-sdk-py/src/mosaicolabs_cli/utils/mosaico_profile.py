@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
+from mosaicolabs.profiles import normalize_host_port
 from mosaicolabs_cli.utils.config import console, get_config_path, load_config
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT, MosaicoEnv
 
@@ -148,24 +149,7 @@ class MosaicoProfile:
             ValueError: If port is specified both as argument and embedded in host,
                 or if embedded port is not a valid integer.
         """
-        h = host.strip().rstrip("/")
-        h = h.replace("http://", "").replace("https://", "")
-
-        embedded_port: Optional[int] = None
-        if ":" in h:
-            host_part, port_str = h.rsplit(":", 1)
-            if not port_str.isdigit():
-                raise ValueError(f"Malformed input host '{h}'")
-            embedded_port = int(port_str)
-            h = host_part
-
-        if embedded_port is not None and port is not None:
-            raise ValueError(
-                f"Port given twice: embedded={embedded_port}, argument={port}"
-            )
-
-        final_port = embedded_port if embedded_port is not None else port
-        return h, final_port if final_port is not None else DEFAULT_MOSAICO_PORT
+        return normalize_host_port(host, port)
 
     def to_csv(self) -> str:
         """Format profile as a CSV row: name,host,port,is_default."""
