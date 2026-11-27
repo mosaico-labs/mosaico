@@ -14,6 +14,14 @@ use crate::error::{PublicErrorGrpcExt, Result};
 
 const MOSAICO_API_KEY_TOKEN: &str = "mosaico-api-key-token";
 
+/// Methods served without an API key: the gRPC health checking protocol, since orchestrator
+/// probes (e.g. Kubernetes `grpc:` probes) can't send credentials. Matched against the exact
+/// request path, so every other method still goes through the API key check.
+const PUBLIC_METHODS: [&str; 2] = [
+    "/grpc.health.v1.Health/Check",
+    "/grpc.health.v1.Health/Watch",
+];
+
 /// Context used to pass auth data.
 #[derive(Clone)]
 pub struct AuthContext {
@@ -93,6 +101,12 @@ where
         // See: https://docs.rs/tower/latest/tower/trait.Service.html#be-careful-when-cloning-inner-services
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
+
+        // No `AuthContext` is injected: these methods don't need one, and any handler asking
+        // for it gets an unauthenticated error.
+        if PUBLIC_METHODS.contains(&req.uri().path()) {
+            return Box::pin(inner.call(req));
+        }
 
         if let Some(permissions) = self.permissions_passthrough {
             // Inject permissions to bypass api key management
