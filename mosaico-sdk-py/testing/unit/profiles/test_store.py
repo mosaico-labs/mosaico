@@ -51,9 +51,17 @@ def test_reads_legacy_file_and_escapes_strings(store):
     assert 'extra = "kept"' in store.path.read_text()
 
 
-def test_invalid_file_raises(store):
+@pytest.mark.parametrize(
+    "content",
+    [
+        "not [[ valid",
+        '[a]\nhost = "a"\ndefault = true\n[b]\nhost = "b"\ndefault = true\n',
+    ],
+    ids=["invalid-toml", "two-defaults"],
+)
+def test_invalid_file_raises(store, content):
     store.path.parent.mkdir()
-    store.path.write_text("not [[ valid")
+    store.path.write_text(content)
     with pytest.raises(ProfileConfigError):
         store.list()
 

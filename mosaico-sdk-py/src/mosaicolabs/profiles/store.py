@@ -78,7 +78,8 @@ class ProfileStore:
 
     Concurrent writers are not locked against each other. At most one
     profile is the default: the first profile added becomes the default, and
-    removing the default promotes the first remaining profile.
+    removing the default promotes the first remaining profile. A file with more
+    than one default raises `ProfileConfigError`.
     """
 
     def __init__(self, path: "str | os.PathLike[str] | None" = None):
@@ -165,6 +166,11 @@ class ProfileStore:
             raise ProfileConfigError(f"Cannot read {self.path}: {e}") from e
         if not all(isinstance(table, dict) for table in data.values()):
             raise ProfileConfigError(f"{self.path}: only profile tables are allowed")
+        defaults = [name for name, table in data.items() if table.get("default")]
+        if len(defaults) > 1:
+            raise ProfileConfigError(
+                f"{self.path}: more than one default profile ({', '.join(defaults)})"
+            )
         return data
 
     def _save(self, data: Dict[str, Dict[str, Any]]) -> None:
