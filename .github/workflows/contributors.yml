@@ -30,7 +30,7 @@ jobs:
           persist-credentials: false
 
       - name: Check that the author is in CONTRIBUTORS.md
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs')
